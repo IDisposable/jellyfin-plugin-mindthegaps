@@ -141,7 +141,8 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             sourceItemName: series.Name,
             sourceItemType: "Series",
             releaseDate: episode.ReleaseDate,
-            overview: episode.Overview);
+            overview: episode.Overview,
+            season: episode.Season);
     }
 
     private HashSet<(int Season, int Number)> GetOwnedEpisodeNumbers(Guid seriesId)

@@ -57,6 +57,11 @@ public class GapItem
     public int? Year { get; set; }
 
     /// <summary>
+    /// Gets or sets the season number for episode gaps (0 is specials), used to group episodes by season.
+    /// </summary>
+    public int? Season { get; set; }
+
+    /// <summary>
     /// Gets or sets the release date, if known.
     /// </summary>
     public DateTime? ReleaseDate { get; set; }

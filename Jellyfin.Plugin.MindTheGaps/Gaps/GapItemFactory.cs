@@ -27,6 +27,7 @@ public static class GapItemFactory
     /// <param name="releaseDate">The release date, if known.</param>
     /// <param name="imageUrl">A poster/image URL.</param>
     /// <param name="overview">A short overview / role description.</param>
+    /// <param name="season">The season number for episode gaps (0 is specials).</param>
     /// <param name="extraLinks">Links to append beyond those derived from <paramref name="providerIds"/>.</param>
     /// <returns>The constructed gap item.</returns>
     public static GapItem Create(
@@ -42,6 +43,7 @@ public static class GapItemFactory
         DateTime? releaseDate = null,
         string? imageUrl = null,
         string? overview = null,
+        int? season = null,
         IEnumerable<ExternalLink>? extraLinks = null)
     {
         var links = ProviderLinks.Build(targetKind, providerIds);
@@ -60,6 +62,7 @@ public static class GapItemFactory
             TargetKind = targetKind,
             Name = name,
             Year = releaseDate?.Year,
+            Season = season,
             ReleaseDate = releaseDate,
             IsUpcoming = releaseDate.HasValue && releaseDate.Value.Date > DateTime.UtcNow.Date,
             ImageUrl = imageUrl,

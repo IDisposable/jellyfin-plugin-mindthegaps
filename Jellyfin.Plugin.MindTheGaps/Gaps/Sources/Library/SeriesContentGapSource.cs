@@ -136,6 +136,7 @@ public sealed class SeriesContentGapSource : IGapSource
             sourceItemName: episode.SeriesName,
             sourceItemType: "Series",
             releaseDate: episode.PremiereDate,
-            overview: episode.Overview);
+            overview: episode.Overview,
+            season: season);
     }
 }

@@ -3,30 +3,34 @@
 <head>
     <meta charset="utf-8">
     <title>Mind the Gaps</title>
-    <style>
-        .cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
-        .cgHdr1 { font-size: 1.15em; border-bottom: 1px solid #444; margin-top: .6em; }
-        .cgHdr2 { font-size: 1em; padding-left: 1.3em; }
-        .cgHdr3 { font-size: .95em; padding-left: 2.6em; font-weight: 500; opacity: .85; }
-        .cgGroup.cgCollapsed > .cgBody { display: none; }
-        .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
-        .cgCaret {
-            display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
-            border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
-            transition: transform .12s;
-        }
-        .cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
-        .cgL3 .listItem { padding-left: 2.8em; }
-        .cgLink {
-            display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
-            font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
-            cursor: pointer; white-space: nowrap;
-        }
-        .cgLink:hover { background: rgba(255,255,255,.14); }
-    </style>
 </head>
 <body>
     <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select">
+        <style>
+            .cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
+            .cgHdr1 { font-size: 1.1em; border-bottom: 1px solid #444; margin-top: .6em; }
+            .cgHdr2 { font-size: 1em; padding-left: 1.3em; font-weight: 500; }
+            .cgHdr3 { font-size: .92em; padding-left: 2.6em; font-weight: 400; opacity: .8; }
+            .cgGroup.cgCollapsed > .cgBody { display: none; }
+            .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
+            .cgCaret {
+                display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
+                border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+                transition: transform .12s;
+            }
+            .cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
+            .cgL2 .listItem { padding-left: 2.6em; }
+            .cgL3 .listItem { padding-left: 3.9em; }
+            .cgRow { cursor: pointer; }
+            .cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; }
+            .cgTab.cgActive { background: #00a4dc; color: #fff; }
+            .cgLink {
+                display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
+                font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
+                cursor: pointer; white-space: nowrap;
+            }
+            .cgLink:hover { background: rgba(255,255,255,.14); }
+        </style>
         <div data-role="content">
             <div class="content-primary">
                 <div class="verticalSection verticalSection-extrabottompadding">
@@ -53,6 +57,7 @@
                             <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" />
                         </label>
                     </div>
+                    <div id="cgTabs" style="margin:.7em 0 .2em 0;"></div>
                 </div>
 
                 <div id="cgList" class="itemsContainer vertical-list"></div>
@@ -61,12 +66,12 @@
 
         <script type="text/javascript">
             (function () {
+                var PATTERNS = ['SetCompletion', 'CreatorWorks', 'Recommendation'];
                 var PATTERN_LABELS = {
                     SetCompletion: 'Set completion',
                     CreatorWorks: 'Creator works',
                     Recommendation: 'Recommendations'
                 };
-                var PATTERN_ORDER = { SetCompletion: 0, CreatorWorks: 1, Recommendation: 2 };
                 var CATEGORY_ORDER = { Movies: 0, Shows: 1, Music: 2, Books: 3 };
 
                 function esc(s) {
@@ -76,9 +81,7 @@
                 }
 
                 // The gap's media domain (Movies/Shows/Music/Books) straight from the model.
-                function categoryOf(item) {
-                    return item.DomainName || 'Other';
-                }
+                function categoryOf(item) { return item.DomainName || 'Other'; }
 
                 function ci(a, b) { a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
 
@@ -116,15 +119,20 @@
                         avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(item.Availability) + '</div>';
                     }
 
+                    var details = item.Overview
+                        ? '<div class="cgDetails" style="display:none;">' + esc(item.Overview) + '</div>'
+                        : '';
+
                     var poster = item.ImageUrl
                         ? '<img src="' + esc(item.ImageUrl) + '" loading="lazy" style="width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;" />'
                         : '<div style="width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;"></div>';
 
-                    return '<div class="listItem" style="display:flex;align-items:center;padding:.35em .25em;">'
+                    return '<div class="listItem cgRow" data-gapid="' + esc(item.Id) + '" style="display:flex;align-items:center;padding:.35em .25em;">'
                         + poster
                         + '<div style="flex:1;min-width:0;">'
                         + '<div class="listItemBodyText">' + esc(item.Name) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
+                        + details
                         + avail
                         + '</div>'
                         + '<div style="text-align:right;">' + links.join(' ') + '</div>'
@@ -148,35 +156,65 @@
                         + '<div class="cgBody">' + inner + '</div></div>';
                 }
 
-                // Three collapsible levels: Pattern > Movies/Shows > source item (the series, collection or person).
-                function buildTree(items) {
-                    var byPattern = groupBy(items, function (it) { return it.PatternName; });
-                    byPattern.order.sort(function (a, b) { return (PATTERN_ORDER[a] != null ? PATTERN_ORDER[a] : 9) - (PATTERN_ORDER[b] != null ? PATTERN_ORDER[b] : 9); });
+                // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
+                // Specials); everything else lists rows directly.
+                function sourceBody(items) {
+                    var hasSeason = items.some(function (it) { return it.Season != null; });
+                    if (!hasSeason) { return items.map(renderRow).join(''); }
 
-                    return byPattern.order.map(function (pat) {
-                        var patItems = byPattern.map[pat];
-                        var byCat = groupBy(patItems, function (it) { return categoryOf(it); });
-                        byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
-
-                        var catHtml = byCat.order.map(function (cat) {
-                            var catItems = byCat.map[cat];
-                            var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
-                            bySrc.order.sort(ci);
-                            var srcHtml = bySrc.order.map(function (src) {
-                                var srcItems = bySrc.map[src];
-                                return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''));
-                            }).join('');
-                            return groupHtml(2, cat, catItems.length, false, srcHtml);
-                        }).join('');
-
-                        return groupHtml(1, PATTERN_LABELS[pat] || pat, patItems.length, false, catHtml);
+                    var bySeason = groupBy(items, function (it) { return it.Season == null ? 'na' : String(it.Season); });
+                    bySeason.order.sort(function (a, b) {
+                        var na = a === 'na' ? 1e9 : Number(a);
+                        var nb = b === 'na' ? 1e9 : Number(b);
+                        if (na <= 0) { na = 1e9 + na; }   // specials (0) and unknown sort after numbered seasons
+                        if (nb <= 0) { nb = 1e9 + nb; }
+                        return na - nb;
+                    });
+                    return bySeason.order.map(function (key) {
+                        var n = Number(key);
+                        var label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
+                        var seasonItems = bySeason.map[key];
+                        return groupHtml(3, label, seasonItems.length, true, seasonItems.map(renderRow).join(''));
                     }).join('');
                 }
 
-                function applyAndRender(page, report) {
+                // One axis (pattern) at a time: Movies/Shows > source item > (Season for episodes) > rows.
+                function buildTree(items) {
+                    var byCat = groupBy(items, categoryOf);
+                    byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+
+                    return byCat.order.map(function (cat) {
+                        var catItems = byCat.map[cat];
+                        var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
+                        bySrc.order.sort(ci);
+                        var srcHtml = bySrc.order.map(function (src) {
+                            var srcItems = bySrc.map[src];
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems));
+                        }).join('');
+                        return groupHtml(1, cat, catItems.length, false, srcHtml);
+                    }).join('');
+                }
+
+                function renderTabs(page) {
+                    var items = (page._report && page._report.Items) || [];
+                    var counts = {};
+                    items.forEach(function (it) { counts[it.PatternName] = (counts[it.PatternName] || 0) + 1; });
+                    if (!page._pattern || !counts[page._pattern]) {
+                        page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
+                    }
+                    page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
+                        var active = p === page._pattern ? ' cgActive' : '';
+                        return '<button type="button" is="emby-button" class="raised cgTab' + active + '" data-pattern="' + p + '" style="margin-right:.4em;">'
+                            + esc(PATTERN_LABELS[p]) + ' (' + (counts[p] || 0) + ')</button>';
+                    }).join('');
+                }
+
+                function applyAndRender(page) {
+                    var report = page._report || { Items: [] };
                     var type = page.querySelector('#cgTypeFilter').value;
                     var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
                     var items = (report.Items || []).filter(function (it) {
+                        if (it.PatternName !== page._pattern) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
                         if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
                         return true;
@@ -184,7 +222,7 @@
 
                     page.querySelector('#cgList').innerHTML = items.length
                         ? buildTree(items)
-                        : '<p class="fieldDescription">No gaps match. Run a scan, or adjust filters.</p>';
+                        : '<p class="fieldDescription">No gaps in this view. Pick another axis, adjust filters, or rescan.</p>';
                 }
 
                 function load(page) {
@@ -197,15 +235,17 @@
                                 : 'never';
                             page.querySelector('#cgSummary').textContent =
                                 (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
-                            applyAndRender(page, report);
+                            renderTabs(page);
+                            applyAndRender(page);
                             Dashboard.hideLoadingMsg();
                         });
                 }
 
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
+                    page._pattern = null;
+
                     page.querySelector('#cgRefresh').addEventListener('click', function () {
-                        // Just reload the saved report; no scan.
                         load(page);
                     });
                     page.querySelector('#cgRescan').addEventListener('click', function () {
@@ -241,11 +281,18 @@
                             .then(function () { setTimeout(poll, 1000); })
                             .catch(function () { finish('Could not start the scan. Check the server logs.'); });
                     });
+                    page.querySelector('#cgTabs').addEventListener('click', function (e) {
+                        var tab = e.target.closest ? e.target.closest('.cgTab') : null;
+                        if (!tab) { return; }
+                        page._pattern = tab.getAttribute('data-pattern');
+                        renderTabs(page);
+                        applyAndRender(page);
+                    });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
-                        if (page._report) { applyAndRender(page, page._report); }
+                        if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgSearch').addEventListener('input', function () {
-                        if (page._report) { applyAndRender(page, page._report); }
+                        if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
@@ -304,6 +351,14 @@
                         var hdr = e.target.closest('.cgHdr');
                         if (hdr && hdr.parentElement) {
                             hdr.parentElement.classList.toggle('cgCollapsed');
+                            return;
+                        }
+
+                        // Click a row (but not one of its links) to reveal its overview.
+                        var row = e.target.closest('.cgRow');
+                        if (row && !e.target.closest('a')) {
+                            var d = row.querySelector('.cgDetails');
+                            if (d) { d.style.display = d.style.display === 'none' ? 'block' : 'none'; }
                         }
                     });
                     load(page);
