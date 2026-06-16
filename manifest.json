@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.1",
+                "changelog": "10.11.0.1 - Fix mint patterns not persisting (minting did nothing) and the report page being unreachable (page-name case collision). Add a per-row Mint button, dry-run previews, elapsed-time logging, and clickable key-signup links on the settings page.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.1/mind-the-gaps_10.11.0.1.zip",
+                "checksum": "17e8caa1aaa8ab34d759f70c5392fdd7",
+                "timestamp": "2026-06-16T21:55:37Z"
+            },
+            {
                 "version": "10.11.0.0",
                 "changelog": "10.11.0.0 - Initial release: gap scanning across collections, filmographies, series content, and recommendations, with a dashboard todo list and experimental virtual placeholders.\n",
                 "targetAbi": "10.11.0.0",
