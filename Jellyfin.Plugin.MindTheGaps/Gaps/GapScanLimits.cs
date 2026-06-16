@@ -16,10 +16,4 @@ internal static class GapScanLimits
     /// Maximum owned titles used as recommendation seeds (per media type).
     /// </summary>
     public const int MaxRecommendationSeeds = 200;
-
-    /// <summary>
-    /// Maximum missing episodes emitted per show (grouped by series id). Keeps a single prolific
-    /// show from flooding the list. Named "PerShow" to avoid confusion with the Series media kind.
-    /// </summary>
-    public const int MaxMissingEpisodesPerShow = 200;
 }

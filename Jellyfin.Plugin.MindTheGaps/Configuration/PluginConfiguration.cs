@@ -21,6 +21,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanRecommendations = false;
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
+        MaxMissingEpisodesPerShow = 200;
         MetadataCountryCode = "US";
         MetadataLanguage = "en";
         TraktEnabled = false;
@@ -60,6 +61,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the maximum number of related titles to surface per source item.
     /// </summary>
     public int MaxRelatedPerItem { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of missing episodes listed per show. 0 means no limit (list
+    /// them all). Keeps a single prolific show from flooding the todo list.
+    /// </summary>
+    public int MaxMissingEpisodesPerShow { get; set; }
 
     /// <summary>
     /// Gets or sets the metadata country code (ISO 3166-1 alpha-2) used for releases and availability.

@@ -61,6 +61,13 @@ public sealed class SeriesContentGapSource : IGapSource
             Recursive = true
         });
 
+        // 0 in config means "no limit".
+        var cap = context.Config.MaxMissingEpisodesPerShow;
+        if (cap <= 0)
+        {
+            cap = int.MaxValue;
+        }
+
         var perSeriesCount = new Dictionary<Guid, int>();
         var cappedSeries = new HashSet<Guid>();
 
@@ -75,14 +82,14 @@ public sealed class SeriesContentGapSource : IGapSource
 
             var seriesId = episode.SeriesId;
             perSeriesCount.TryGetValue(seriesId, out var count);
-            if (count >= GapScanLimits.MaxMissingEpisodesPerShow)
+            if (count >= cap)
             {
                 if (cappedSeries.Add(seriesId))
                 {
                     _logger.LogInformation(
                         "Series content: {Series} has more than {Cap} missing episodes; truncated",
                         episode.SeriesName,
-                        GapScanLimits.MaxMissingEpisodesPerShow);
+                        cap);
                 }
 
                 continue;

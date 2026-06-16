@@ -100,14 +100,17 @@ public sealed class GapEngine
         // The kinds to index are declared by the sources themselves; the engine just unions them.
         var kinds = enabledSources.SelectMany(s => s.OwnedKinds).Distinct().ToArray();
         var byKey = new Dictionary<string, BaseItem>();
+        var itemCount = 0;
 
         if (kinds.Length > 0)
         {
-            foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+            var owned = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 IncludeItemTypes = kinds,
                 Recursive = true
-            }))
+            });
+            itemCount = owned.Count;
+            foreach (var item in owned)
             {
                 var kind = item.GetBaseItemKind();
                 foreach (var providerId in item.ProviderIds)
@@ -122,7 +125,8 @@ public sealed class GapEngine
 
         var ownership = new OwnershipIndex(byKey);
         _logger.LogInformation(
-            "Library snapshot: {Count} owned provider-id keys across kinds [{Kinds}]",
+            "Ownership index: {Items} owned items, {Keys} provider-id keys (an item has several ids), across kinds [{Kinds}]. Series content (missing episodes) is scanned separately and is not in this index",
+            itemCount,
             ownership.Count,
             string.Join(", ", kinds));
 

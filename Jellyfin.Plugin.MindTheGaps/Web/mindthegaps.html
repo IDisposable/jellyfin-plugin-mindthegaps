@@ -136,16 +136,37 @@
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
                     page.querySelector('#cgRescan').addEventListener('click', function () {
-                        Dashboard.showLoadingMsg();
+                        // The scan runs in the background (large libraries would otherwise time out the
+                        // request), so kick it off and poll for completion instead of awaiting it.
+                        var btn = this;
+                        var span = btn.querySelector('span');
+                        var orig = span.textContent;
+                        btn.disabled = true;
+                        span.textContent = 'Scanning…';
+
+                        function finish(msg) {
+                            btn.disabled = false;
+                            span.textContent = orig;
+                            if (msg) { Dashboard.alert(msg); }
+                        }
+
+                        function poll() {
+                            ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/ScanStatus'), dataType: 'json' })
+                                .then(function (s) {
+                                    if (s && s.Running) {
+                                        span.textContent = s.Progress ? ('Scanning… ' + Math.round(s.Progress) + '%') : 'Scanning…';
+                                        setTimeout(poll, 2000);
+                                    } else {
+                                        finish();
+                                        load(page);
+                                    }
+                                })
+                                .catch(function () { finish('Lost contact while scanning. Refresh to see results.'); });
+                        }
+
                         ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Scan'), dataType: 'json' })
-                            .then(function () {
-                                Dashboard.hideLoadingMsg();
-                                load(page);
-                            })
-                            .catch(function () {
-                                Dashboard.hideLoadingMsg();
-                                Dashboard.alert('Scan failed. Check the server logs.');
-                            });
+                            .then(function () { setTimeout(poll, 1000); })
+                            .catch(function () { finish('Could not start the scan. Check the server logs.'); });
                     });
                     ['#cgPatternFilter', '#cgDomainFilter'].forEach(function (sel) {
                         page.querySelector(sel).addEventListener('change', function () {

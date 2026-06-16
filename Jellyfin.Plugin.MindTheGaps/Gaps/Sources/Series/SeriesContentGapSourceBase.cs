@@ -62,6 +62,13 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             Recursive = true
         });
 
+        // 0 in config means "no limit".
+        var episodeCap = context.Config.MaxMissingEpisodesPerShow;
+        if (episodeCap <= 0)
+        {
+            episodeCap = int.MaxValue;
+        }
+
         var processed = 0;
         foreach (var series in allSeries)
         {
@@ -88,7 +95,7 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             }
 
             var owned = GetOwnedEpisodeNumbers(series.Id);
-            foreach (var episode in SeriesContentDiff.Missing(canonical, owned, GapScanLimits.MaxMissingEpisodesPerShow))
+            foreach (var episode in SeriesContentDiff.Missing(canonical, owned, episodeCap))
             {
                 yield return BuildGap(series, episode);
             }

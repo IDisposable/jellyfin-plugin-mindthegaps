@@ -25,6 +25,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<GapStore>();
         serviceCollection.AddSingleton<GapEngine>();
+        serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<TraktClient>();
         serviceCollection.AddSingleton<TvMazeClient>();

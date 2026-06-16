@@ -98,6 +98,11 @@
                         <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
                         <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" />
                     </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
+                        <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" />
+                        <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
+                    </div>
 
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Experimental: virtual items</h2>
@@ -182,6 +187,7 @@
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
+                    page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
                     var patterns = config.MintPatterns || [];
                     page.querySelector('#MintSetCompletion').checked = patterns.indexOf('SetCompletion') !== -1;
                     page.querySelector('#MintCreatorWorks').checked = patterns.indexOf('CreatorWorks') !== -1;
@@ -268,6 +274,7 @@
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
+                        config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
                         var mintPatterns = [];
                         if (form.querySelector('#MintSetCompletion').checked) { mintPatterns.push('SetCompletion'); }
                         if (form.querySelector('#MintCreatorWorks').checked) { mintPatterns.push('CreatorWorks'); }

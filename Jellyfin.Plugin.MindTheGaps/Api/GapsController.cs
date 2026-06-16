@@ -25,7 +25,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 public class GapsController : ControllerBase
 {
     private readonly GapStore _store;
-    private readonly GapEngine _engine;
+    private readonly GapScanRunner _scanRunner;
     private readonly AvailabilityService _availabilityService;
     private readonly VirtualMovieMinter _minter;
 
@@ -33,13 +33,13 @@ public class GapsController : ControllerBase
     /// Initializes a new instance of the <see cref="GapsController"/> class.
     /// </summary>
     /// <param name="store">The gap store.</param>
-    /// <param name="engine">The gap engine.</param>
+    /// <param name="scanRunner">The background scan runner.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="minter">The experimental virtual-movie minter.</param>
-    public GapsController(GapStore store, GapEngine engine, AvailabilityService availabilityService, VirtualMovieMinter minter)
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, VirtualMovieMinter minter)
     {
         _store = store;
-        _engine = engine;
+        _scanRunner = scanRunner;
         _availabilityService = availabilityService;
         _minter = minter;
     }
@@ -53,14 +53,27 @@ public class GapsController : ControllerBase
     public ActionResult<GapReport> GetGaps() => _store.Load();
 
     /// <summary>
-    /// Runs a fresh scan and returns the resulting report.
+    /// Starts a scan in the background and returns immediately. Poll <see cref="GetScanStatus"/> for
+    /// completion, then reload the report. Runs in the background so a large library cannot time out
+    /// the request.
     /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The freshly generated report.</returns>
+    /// <returns>The scan status, with Started indicating whether this call kicked off a new scan.</returns>
     [HttpPost("Scan")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<GapReport>> Scan(CancellationToken cancellationToken)
-        => await _engine.RunAsync(null, cancellationToken).ConfigureAwait(false);
+    public ActionResult<ScanStatus> Scan()
+    {
+        var started = _scanRunner.TryStart();
+        return new ScanStatus { Running = true, Started = started, Progress = _scanRunner.Progress };
+    }
+
+    /// <summary>
+    /// Gets whether a background scan is currently running, and its progress.
+    /// </summary>
+    /// <returns>The scan status.</returns>
+    [HttpGet("ScanStatus")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<ScanStatus> GetScanStatus()
+        => new ScanStatus { Running = _scanRunner.IsRunning, Progress = _scanRunner.Progress };
 
     /// <summary>
     /// EXPERIMENTAL. Mints pathless virtual movies into BoxSets for missing collection parts. Requires
