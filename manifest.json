@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.2",
+                "changelog": "10.11.0.2 - Run scans in the background so large libraries no longer time out the request; the dashboard polls for progress. Make the per-show missing-episode cap configurable (0 lists them all). Clearer ownership-index logging.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.2/mind-the-gaps_10.11.0.2.zip",
+                "checksum": "8d4699e20ed1a4bb7f9c409b05bfb46f",
+                "timestamp": "2026-06-16T22:31:57Z"
+            },
+            {
                 "version": "10.11.0.1",
                 "changelog": "10.11.0.1 - Fix mint patterns not persisting (minting did nothing) and the report page being unreachable (page-name case collision). Add a per-row Mint button, dry-run previews, elapsed-time logging, and clickable key-signup links on the settings page.\n",
                 "targetAbi": "10.11.0.0",
