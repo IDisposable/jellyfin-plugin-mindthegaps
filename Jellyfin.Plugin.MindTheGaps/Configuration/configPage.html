@@ -56,7 +56,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TraktClientId">Trakt client id</label>
                         <input id="TraktClientId" name="TraktClientId" type="text" is="emby-input" />
-                        <div class="fieldDescription">Create a free API app at trakt.tv/oauth/applications and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
+                        <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
                     </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -76,7 +76,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
                         <input id="TvdbApiKey" name="TvdbApiKey" type="text" is="emby-input" />
-                        <div class="fieldDescription">Your v4 API key from thetvdb.com/dashboard/account/apikey. Required for the TheTVDB cross-check.</div>
+                        <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
                     </div>
 
                     <div class="inputContainer">
@@ -92,7 +92,7 @@
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key (optional)</label>
                         <input id="TmdbApiKey" name="TmdbApiKey" type="text" is="emby-input" />
-                        <div class="fieldDescription">Leave blank to use the built-in default key. Set your own v3 key to use your own request budget.</div>
+                        <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
@@ -209,6 +209,10 @@
                 document.querySelector('#MindTheGapsConfigPage').addEventListener('pageshow', function () {
                     Dashboard.showLoadingMsg();
                     var page = this;
+                    page.querySelector('#lnkTodoList').addEventListener('click', function (e) {
+                        e.preventDefault();
+                        Dashboard.navigate('configurationpage?name=MindTheGapsReport');
+                    });
                     page.querySelector('#TraktEnabled').addEventListener('change', function () {
                         bindToggle(page, 'TraktEnabled', 'TraktClientId');
                     });

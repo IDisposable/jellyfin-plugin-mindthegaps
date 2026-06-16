@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.0"
+version: "10.11.0.1"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -16,5 +16,6 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.0 - Initial release: gap scanning across collections, filmographies, series content, and
-  recommendations, with a dashboard todo list and experimental virtual placeholders.
+  10.11.0.1 - Fix mint patterns not persisting (minting did nothing) and the report page being
+  unreachable (page-name case collision). Add a per-row Mint button, dry-run previews, elapsed-time
+  logging, and clickable key-signup links on the settings page.

@@ -53,10 +53,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns)
         };
 
-        // The todo-list dashboard page, surfaced in the main menu.
+        // The todo-list dashboard page, surfaced in the main menu. The name must NOT collide
+        // case-insensitively with the config page above: the host resolves pages by name with
+        // OrdinalIgnoreCase (DashboardController.GetDashboardConfigurationPage), so "mindthegaps"
+        // would be shadowed by "MindTheGaps" and never load.
         yield return new PluginPageInfo
         {
-            Name = "mindthegaps",
+            Name = "MindTheGapsReport",
             DisplayName = "Mind the Gaps",
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
             EnableInMainMenu = true,

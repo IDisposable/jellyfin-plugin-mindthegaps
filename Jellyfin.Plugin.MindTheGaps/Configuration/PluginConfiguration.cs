@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Model.Plugins;
 
@@ -101,12 +102,16 @@ public class PluginConfiguration : BasePluginConfiguration
     public string TmdbApiKey { get; set; }
 
     /// <summary>
-    /// Gets the gap patterns to mint as pathless virtual items (the same three patterns the engine
-    /// models: <see cref="GapPattern.SetCompletion"/>, <see cref="GapPattern.CreatorWorks"/>,
+    /// Gets or sets the gap patterns to mint as pathless virtual items (the same three patterns the
+    /// engine models: <see cref="GapPattern.SetCompletion"/>, <see cref="GapPattern.CreatorWorks"/>,
     /// <see cref="GapPattern.Recommendation"/>). Empty means mint nothing. Today only SetCompletion is
-    /// materializable (missing collection movies into a BoxSet); the others have no container to
-    /// render into yet. Experimental and temporary (this belongs in core); everything minted is tagged
-    /// and fully removable.
+    /// materializable in bulk (missing collection movies into a BoxSet). Experimental and temporary
+    /// (this belongs in core); everything minted is tagged and fully removable.
     /// </summary>
-    public Collection<GapPattern> MintPatterns { get; } = new();
+    /// <remarks>
+    /// Must have a setter: System.Text.Json (the plugin-config API deserializer) silently skips
+    /// get-only collection properties, so a get-only collection here never receives the saved selection.
+    /// </remarks>
+    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Settable so the plugin-config API (System.Text.Json) can deserialize the saved selection; a get-only collection is silently skipped.")]
+    public Collection<GapPattern> MintPatterns { get; set; } = new();
 }
