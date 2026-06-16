@@ -45,7 +45,7 @@ public static class CollectionGapMapper
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"collection:{collectionId}:{part.Id}"),
                 pattern: GapPattern.SetCompletion,
-                domain: MediaDomain.Video,
+                domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,
                 name: part.Title ?? string.Empty,
                 providerIds: providerIds,

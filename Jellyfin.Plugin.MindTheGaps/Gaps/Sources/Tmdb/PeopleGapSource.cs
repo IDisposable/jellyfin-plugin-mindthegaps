@@ -68,9 +68,11 @@ public sealed class PeopleGapSource : IGapSource
         });
 
         var processed = 0;
+        var index = 0;
         foreach (var person in people)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)index++ / Math.Max(1, people.Count));
 
             if (processed >= MaxPeople)
             {

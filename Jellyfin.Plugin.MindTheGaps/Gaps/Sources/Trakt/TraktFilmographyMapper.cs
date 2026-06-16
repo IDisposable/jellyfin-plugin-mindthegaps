@@ -119,7 +119,7 @@ public static class TraktFilmographyMapper
         return GapItemFactory.Create(
             id: id,
             pattern: GapPattern.CreatorWorks,
-            domain: MediaDomain.Video,
+            domain: MediaDomain.Movies,
             targetKind: BaseItemKind.Movie,
             name: movie.Title,
             providerIds: providerIds,

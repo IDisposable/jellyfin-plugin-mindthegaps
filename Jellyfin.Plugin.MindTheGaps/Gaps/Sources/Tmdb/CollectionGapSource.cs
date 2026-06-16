@@ -71,9 +71,11 @@ public sealed class CollectionGapSource : IGapSource
             Recursive = true
         });
 
+        var index = 0;
         foreach (var boxSet in boxSets)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)index++ / Math.Max(1, boxSets.Count));
 
             if (!boxSet.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))

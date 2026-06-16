@@ -15,7 +15,8 @@ Model every gap as one of three patterns across N media domains:
 
 - Patterns: `SetCompletion` (a known member of an owned container is missing), `CreatorWorks` (a work
   by an owned creator is missing), `Recommendation` (a related title for discovery).
-- Domains: `MediaDomain` of `Video`, `Music`, `Book`.
+- Domains: `MediaDomain` of `Movies`, `Shows`, `Music`, `Books`, `MusicVideos` (library-aligned).
+  The finer Jellyfin item kind lives in `TargetKind`.
 
 `GapItem` is provider-agnostic: a `ProviderIds` map plus `ExternalLink[]`, tagged with its pattern and
 domain. Ownership is a single generic check, `OwnershipIndex.Owns(kind, provider, id)`. Each

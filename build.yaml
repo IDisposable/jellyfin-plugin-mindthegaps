@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.2"
+version: "10.11.0.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -16,6 +16,7 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.2 - Run scans in the background so large libraries no longer time out the request; the
-  dashboard polls for progress. Make the per-show missing-episode cap configurable (0 lists them all).
-  Clearer ownership-index logging.
+  10.11.0.3 - Split media domains into Movies and Shows (was one Video bucket). The dashboard now
+  groups gaps in a collapsible Pattern > Movies/Shows > source tree, with link buttons and clickable
+  JustWatch availability. Add a Refresh button (reload saved results without re-scanning) and
+  finer-grained scan progress.

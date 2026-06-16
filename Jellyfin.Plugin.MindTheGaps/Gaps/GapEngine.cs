@@ -61,6 +61,12 @@ public sealed class GapEngine
 
         foreach (var source in enabled)
         {
+            // Fold this source's own 0..1 progress into its slice of the overall bar so a slow source
+            // (per-item API calls) does not sit at one value for minutes.
+            var sliceBase = completed / (double)total;
+            var slice = 1.0 / total;
+            context.SetProgressSink(f => progress?.Report((sliceBase + (Math.Clamp(f, 0.0, 1.0) * slice)) * 100.0));
+
             try
             {
                 await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
@@ -78,6 +84,10 @@ public sealed class GapEngine
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Gap source {Source} failed", source.Name);
+            }
+            finally
+            {
+                context.SetProgressSink(null);
             }
 
             completed++;

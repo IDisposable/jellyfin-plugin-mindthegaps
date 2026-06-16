@@ -11,3 +11,4 @@ context, the decision, and what it costs, so the reasoning survives the code.
 | [0004](0004-experimental-virtual-item-minting.md) | Virtual-item minting is experimental, opt-in, reversible |
 | [0005](0005-name-and-terminology.md) | Name "Mind the Gaps"; Shows vs Live TV terminology |
 | [0006](0006-captured-data-testing.md) | Test parsers against real captured API responses |
+| [0007](0007-library-aligned-media-domains.md) | Library-aligned media domains (and why not CollectionType) |

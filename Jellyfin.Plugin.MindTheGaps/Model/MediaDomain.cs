@@ -1,22 +1,33 @@
 namespace Jellyfin.Plugin.MindTheGaps.Model;
 
 /// <summary>
-/// The media domain a gap belongs to (maps loosely to Jellyfin's CollectionType).
+/// The media domain a gap belongs to (maps loosely to Jellyfin's library/CollectionType), split by
+/// the way users actually organise libraries rather than the broad "video" bucket.
 /// </summary>
 public enum MediaDomain
 {
     /// <summary>
-    /// Movies and shows.
+    /// Movies.
     /// </summary>
-    Video = 0,
+    Movies = 0,
 
     /// <summary>
-    /// Music: artists, albums, music videos.
+    /// Series, seasons, and episodes.
     /// </summary>
-    Music = 1,
+    Shows = 1,
+
+    /// <summary>
+    /// Music: artists, albums, tracks.
+    /// </summary>
+    Music = 2,
 
     /// <summary>
     /// Books and audiobooks.
     /// </summary>
-    Book = 2
+    Books = 3,
+
+    /// <summary>
+    /// Music videos.
+    /// </summary>
+    MusicVideos = 4
 }

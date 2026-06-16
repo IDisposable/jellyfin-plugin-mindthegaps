@@ -128,7 +128,7 @@ public sealed class SeriesContentGapSource : IGapSource
         return GapItemFactory.Create(
             id: id,
             pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Video,
+            domain: MediaDomain.Shows,
             targetKind: BaseItemKind.Episode,
             name: name,
             providerIds: providerIds,

@@ -53,7 +53,7 @@ are reserved; the mint path only acts on SetCompletion.
 
 | Promise (README / CLAUDE / ADRs) | Status |
 |---|---|
-| Music and Book domains (`MediaDomain.Music`/`Book`; discography, book series, bibliography) | Enum values exist, zero sources. Video only. |
+| Music, Books, MusicVideos domains (`MediaDomain`; discography, book series, bibliography) | Enum values exist, zero sources. Movies and Shows are implemented. |
 | Materialize CreatorWorks or Recommendation gaps | Reserved checkboxes only |
 | Native virtual items in core (the three upstream asks) | PR A filed as jellyfin-web 8049; Discussions B and C are drafts |
 | Per-user display gate for minted items | Not possible from a plugin; minted items show for everyone |

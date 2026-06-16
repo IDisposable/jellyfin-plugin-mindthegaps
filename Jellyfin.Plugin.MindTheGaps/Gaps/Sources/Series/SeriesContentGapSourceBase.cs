@@ -70,9 +70,11 @@ public abstract class SeriesContentGapSourceBase : IGapSource
         }
 
         var processed = 0;
+        var index = 0;
         foreach (var series in allSeries)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)index++ / Math.Max(1, allSeries.Count));
 
             // Series without an id this source can look up cost no API calls and don't use budget.
             if (!HasLookupId(series))
@@ -131,7 +133,7 @@ public abstract class SeriesContentGapSourceBase : IGapSource
         return GapItemFactory.Create(
             id: SeriesGapKey.Episode(series.Id, episode.Season, episode.Number),
             pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Video,
+            domain: MediaDomain.Shows,
             targetKind: BaseItemKind.Episode,
             name: name,
             providerIds: new Dictionary<string, string>(),

@@ -14,7 +14,7 @@ public class GapItemFactoryTests
         => GapItemFactory.Create(
             id: "gap:1",
             pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Video,
+            domain: MediaDomain.Movies,
             targetKind: BaseItemKind.Movie,
             name: "The Matrix",
             providerIds: new Dictionary<string, string> { ["Tmdb"] = "603" },

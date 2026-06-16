@@ -53,7 +53,7 @@ public static class RecommendationGapMapper
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"recommendation:movie:{rec.Id}"),
                 pattern: GapPattern.Recommendation,
-                domain: MediaDomain.Video,
+                domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,
                 name: rec.Title,
                 providerIds: providerIds,
@@ -107,7 +107,7 @@ public static class RecommendationGapMapper
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"recommendation:series:{rec.Id}"),
                 pattern: GapPattern.Recommendation,
-                domain: MediaDomain.Video,
+                domain: MediaDomain.Shows,
                 targetKind: BaseItemKind.Series,
                 name: rec.Name,
                 providerIds: providerIds,

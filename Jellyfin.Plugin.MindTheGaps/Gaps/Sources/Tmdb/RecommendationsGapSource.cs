@@ -57,15 +57,25 @@ public sealed class RecommendationsGapSource : IGapSource
         var language = context.Config.MetadataLanguage;
         var perItem = Math.Max(1, context.Config.MaxRelatedPerItem);
 
-        // Movie recommendations.
-        var seedMovies = 0;
-        foreach (var movie in _libraryManager.GetItemList(new InternalItemsQuery
+        var ownedMovies = _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = new[] { BaseItemKind.Movie },
             Recursive = true
-        }))
+        });
+        var ownedSeries = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Series },
+            Recursive = true
+        });
+        var totalSeeds = Math.Max(1, ownedMovies.Count + ownedSeries.Count);
+        var done = 0;
+
+        // Movie recommendations.
+        var seedMovies = 0;
+        foreach (var movie in ownedMovies)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)done++ / totalSeeds);
             if (seedMovies >= GapScanLimits.MaxRecommendationSeeds)
             {
                 break;
@@ -104,13 +114,10 @@ public sealed class RecommendationsGapSource : IGapSource
 
         // Series recommendations.
         var seedSeries = 0;
-        foreach (var series in _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            IncludeItemTypes = new[] { BaseItemKind.Series },
-            Recursive = true
-        }))
+        foreach (var series in ownedSeries)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)done++ / totalSeeds);
             if (seedSeries >= GapScanLimits.MaxRecommendationSeeds)
             {
                 break;

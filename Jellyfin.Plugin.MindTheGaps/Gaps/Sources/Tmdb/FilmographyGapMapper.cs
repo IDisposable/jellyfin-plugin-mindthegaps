@@ -127,7 +127,7 @@ public static class FilmographyGapMapper
         return GapItemFactory.Create(
             id: string.Create(CultureInfo.InvariantCulture, $"filmography:movie:{tmdbId}"),
             pattern: GapPattern.CreatorWorks,
-            domain: MediaDomain.Video,
+            domain: MediaDomain.Movies,
             targetKind: BaseItemKind.Movie,
             name: title,
             providerIds: providerIds,

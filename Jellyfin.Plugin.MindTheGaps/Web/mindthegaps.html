@@ -3,6 +3,27 @@
 <head>
     <meta charset="utf-8">
     <title>Mind the Gaps</title>
+    <style>
+        .cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
+        .cgHdr1 { font-size: 1.15em; border-bottom: 1px solid #444; margin-top: .6em; }
+        .cgHdr2 { font-size: 1em; padding-left: 1.3em; }
+        .cgHdr3 { font-size: .95em; padding-left: 2.6em; font-weight: 500; opacity: .85; }
+        .cgGroup.cgCollapsed > .cgBody { display: none; }
+        .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
+        .cgCaret {
+            display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
+            border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+            transition: transform .12s;
+        }
+        .cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
+        .cgL3 .listItem { padding-left: 2.8em; }
+        .cgLink {
+            display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
+            font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
+            cursor: pointer; white-space: nowrap;
+        }
+        .cgLink:hover { background: rgba(255,255,255,.14); }
+    </style>
 </head>
 <body>
     <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select">
@@ -10,29 +31,22 @@
             <div class="content-primary">
                 <div class="verticalSection verticalSection-extrabottompadding">
                     <div class="sectionTitleContainer flex align-items-center">
-                        <h2 class="sectionTitle">Mind the Gaps &mdash; ToDo List</h2>
+                        <h2 class="sectionTitle">Mind the Gaps - ToDo List</h2>
                     </div>
                     <p class="fieldDescription" id="cgSummary">Loading&hellip;</p>
                     <div>
-                        <button is="emby-button" type="button" id="cgRescan" class="raised button-submit">
+                        <button is="emby-button" type="button" id="cgRefresh" class="raised" title="Reload the last saved results without re-scanning">
+                            <span>Refresh</span>
+                        </button>
+                        <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
                             <span>Rescan now</span>
                         </button>
                         <label style="margin-left:1.5em;">
-                            <span>Pattern:</span>
-                            <select is="emby-select" id="cgPatternFilter" class="emby-select">
+                            <span>Type:</span>
+                            <select is="emby-select" id="cgTypeFilter" class="emby-select">
                                 <option value="">All</option>
-                                <option value="SetCompletion">Set completion</option>
-                                <option value="CreatorWorks">Creator works</option>
-                                <option value="Recommendation">Recommendations</option>
-                            </select>
-                        </label>
-                        <label style="margin-left:1em;">
-                            <span>Domain:</span>
-                            <select is="emby-select" id="cgDomainFilter" class="emby-select">
-                                <option value="">All</option>
-                                <option value="Video">Video</option>
-                                <option value="Music">Music</option>
-                                <option value="Book">Books</option>
+                                <option value="Movies">Movies</option>
+                                <option value="Shows">Shows</option>
                             </select>
                         </label>
                         <label style="margin-left:1em;">
@@ -50,8 +64,10 @@
                 var PATTERN_LABELS = {
                     SetCompletion: 'Set completion',
                     CreatorWorks: 'Creator works',
-                    Recommendation: 'Recommendation'
+                    Recommendation: 'Recommendations'
                 };
+                var PATTERN_ORDER = { SetCompletion: 0, CreatorWorks: 1, Recommendation: 2 };
+                var CATEGORY_ORDER = { Movies: 0, Shows: 1, Music: 2, Books: 3 };
 
                 function esc(s) {
                     return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
@@ -59,62 +75,115 @@
                     });
                 }
 
+                // The gap's media domain (Movies/Shows/Music/Books) straight from the model.
+                function categoryOf(item) {
+                    return item.DomainName || 'Other';
+                }
+
+                function ci(a, b) { a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
+
+                function availLinks(offers) {
+                    return offers.map(function (o) {
+                        var label = esc(o.Provider) + (o.MonetizationType ? ' (' + esc(o.MonetizationType) + ')' : '');
+                        return o.Url
+                            ? '<a class="cgLink" href="' + esc(o.Url) + '" target="_blank" rel="noopener">' + label + '</a>'
+                            : '<span class="cgLink">' + label + '</span>';
+                    }).join(' ');
+                }
+
                 function renderRow(item) {
                     var meta = [];
                     if (item.Year) { meta.push(item.Year); }
-                    if (item.TargetKindName) { meta.push(esc(item.TargetKindName)); }
-                    meta.push(PATTERN_LABELS[item.PatternName] || esc(item.PatternName));
-                    if (item.SourceItemName) { meta.push('via ' + esc(item.SourceItemName)); }
+                    meta.push(esc(item.TargetKindName));
                     if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
 
                     var links = (item.Links || []).map(function (l) {
-                        return '<a is="emby-linkbutton" class="button-link" href="' + esc(l.Url) + '" target="_blank" rel="noopener">' + esc(l.Name) + '</a>';
+                        return '<a class="cgLink" href="' + esc(l.Url) + '" target="_blank" rel="noopener">' + esc(l.Name) + '</a>';
                     });
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
                     var watchable = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series';
                     if (tmdb && watchable && (!item.Availability || !item.Availability.length)) {
-                        links.push('<button type="button" is="emby-button" class="button-link cgWatch" data-tmdb="' + esc(tmdb) + '" data-type="' + esc(item.TargetKindName) + '">Where to watch</button>');
+                        links.push('<button type="button" class="cgLink cgWatch" data-tmdb="' + esc(tmdb) + '" data-type="' + esc(item.TargetKindName) + '">Where to watch</button>');
                     }
-
-                    // Experimental debug aid: mint this single gap as a virtual movie (Movie gaps only).
+                    // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
-                        links.push('<button type="button" is="emby-button" class="button-link cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this one item">Mint</button>');
+                        links.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item">Mint</button>');
                     }
 
                     var avail = '';
                     if (item.Availability && item.Availability.length) {
-                        avail = '<div class="fieldDescription">On: ' + item.Availability.map(function (o) { return esc(o.Provider); }).join(', ') + '</div>';
+                        avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(item.Availability) + '</div>';
                     }
 
                     var poster = item.ImageUrl
-                        ? '<img src="' + esc(item.ImageUrl) + '" loading="lazy" style="width:48px;height:72px;object-fit:cover;margin-right:1em;border-radius:4px;" />'
-                        : '<div style="width:48px;height:72px;margin-right:1em;background:#222;border-radius:4px;"></div>';
+                        ? '<img src="' + esc(item.ImageUrl) + '" loading="lazy" style="width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;" />'
+                        : '<div style="width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;"></div>';
 
-                    return '<div class="listItem" style="display:flex;align-items:center;padding:.4em 0;">'
+                    return '<div class="listItem" style="display:flex;align-items:center;padding:.35em .25em;">'
                         + poster
-                        + '<div style="flex:1;">'
+                        + '<div style="flex:1;min-width:0;">'
                         + '<div class="listItemBodyText">' + esc(item.Name) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
                         + avail
                         + '</div>'
-                        + '<div>' + links.join(' ') + '</div>'
+                        + '<div style="text-align:right;">' + links.join(' ') + '</div>'
                         + '</div>';
                 }
 
+                function groupBy(items, keyFn) {
+                    var map = {}, order = [];
+                    items.forEach(function (it) {
+                        var k = keyFn(it);
+                        if (!map[k]) { map[k] = []; order.push(k); }
+                        map[k].push(it);
+                    });
+                    return { map: map, order: order };
+                }
+
+                function groupHtml(level, label, count, collapsed, inner) {
+                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '">'
+                        + '<div class="cgHdr cgHdr' + level + '"><span class="cgCaret"></span>' + esc(label)
+                        + ' <span class="cgCount">(' + count + ')</span></div>'
+                        + '<div class="cgBody">' + inner + '</div></div>';
+                }
+
+                // Three collapsible levels: Pattern > Movies/Shows > source item (the series, collection or person).
+                function buildTree(items) {
+                    var byPattern = groupBy(items, function (it) { return it.PatternName; });
+                    byPattern.order.sort(function (a, b) { return (PATTERN_ORDER[a] != null ? PATTERN_ORDER[a] : 9) - (PATTERN_ORDER[b] != null ? PATTERN_ORDER[b] : 9); });
+
+                    return byPattern.order.map(function (pat) {
+                        var patItems = byPattern.map[pat];
+                        var byCat = groupBy(patItems, function (it) { return categoryOf(it); });
+                        byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+
+                        var catHtml = byCat.order.map(function (cat) {
+                            var catItems = byCat.map[cat];
+                            var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
+                            bySrc.order.sort(ci);
+                            var srcHtml = bySrc.order.map(function (src) {
+                                var srcItems = bySrc.map[src];
+                                return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''));
+                            }).join('');
+                            return groupHtml(2, cat, catItems.length, false, srcHtml);
+                        }).join('');
+
+                        return groupHtml(1, PATTERN_LABELS[pat] || pat, patItems.length, false, catHtml);
+                    }).join('');
+                }
+
                 function applyAndRender(page, report) {
-                    var pattern = page.querySelector('#cgPatternFilter').value;
-                    var domain = page.querySelector('#cgDomainFilter').value;
+                    var type = page.querySelector('#cgTypeFilter').value;
                     var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
                     var items = (report.Items || []).filter(function (it) {
-                        if (pattern && it.PatternName !== pattern) { return false; }
-                        if (domain && it.DomainName !== domain) { return false; }
+                        if (type && categoryOf(it) !== type) { return false; }
                         if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
                         return true;
                     });
 
                     page.querySelector('#cgList').innerHTML = items.length
-                        ? items.map(renderRow).join('')
+                        ? buildTree(items)
                         : '<p class="fieldDescription">No gaps match. Run a scan, or adjust filters.</p>';
                 }
 
@@ -135,6 +204,10 @@
 
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
+                    page.querySelector('#cgRefresh').addEventListener('click', function () {
+                        // Just reload the saved report; no scan.
+                        load(page);
+                    });
                     page.querySelector('#cgRescan').addEventListener('click', function () {
                         // The scan runs in the background (large libraries would otherwise time out the
                         // request), so kick it off and poll for completion instead of awaiting it.
@@ -168,16 +241,16 @@
                             .then(function () { setTimeout(poll, 1000); })
                             .catch(function () { finish('Could not start the scan. Check the server logs.'); });
                     });
-                    ['#cgPatternFilter', '#cgDomainFilter'].forEach(function (sel) {
-                        page.querySelector(sel).addEventListener('change', function () {
-                            if (page._report) { applyAndRender(page, page._report); }
-                        });
+                    page.querySelector('#cgTypeFilter').addEventListener('change', function () {
+                        if (page._report) { applyAndRender(page, page._report); }
                     });
                     page.querySelector('#cgSearch').addEventListener('input', function () {
                         if (page._report) { applyAndRender(page, page._report); }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
-                        var mintBtn = e.target.closest ? e.target.closest('.cgMint') : null;
+                        if (!e.target.closest) { return; }
+
+                        var mintBtn = e.target.closest('.cgMint');
                         if (mintBtn) {
                             var gid = mintBtn.getAttribute('data-gapid');
                             var items = (page._report && page._report.Items) || [];
@@ -204,26 +277,34 @@
                             return;
                         }
 
-                        var btn = e.target.closest ? e.target.closest('.cgWatch') : null;
-                        if (!btn) { return; }
-                        btn.textContent = 'Loading…';
-                        btn.disabled = true;
-                        ApiClient.ajax({
-                            type: 'GET',
-                            url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: btn.getAttribute('data-tmdb'), targetKind: btn.getAttribute('data-type') }),
-                            dataType: 'json'
-                        }).then(function (offers) {
-                            var note = document.createElement('div');
-                            note.className = 'fieldDescription';
-                            note.textContent = (offers && offers.length)
-                                ? 'On: ' + offers.map(function (o) { return o.Provider + (o.MonetizationType ? ' (' + o.MonetizationType + ')' : ''); }).join(', ')
-                                : 'No streaming offers found in your region.';
-                            btn.parentNode.appendChild(note);
-                            btn.remove();
-                        }).catch(function () {
-                            btn.textContent = 'Where to watch';
-                            btn.disabled = false;
-                        });
+                        var watchBtn = e.target.closest('.cgWatch');
+                        if (watchBtn) {
+                            watchBtn.textContent = 'Loading…';
+                            watchBtn.disabled = true;
+                            ApiClient.ajax({
+                                type: 'GET',
+                                url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: watchBtn.getAttribute('data-tmdb'), targetKind: watchBtn.getAttribute('data-type') }),
+                                dataType: 'json'
+                            }).then(function (offers) {
+                                var note = document.createElement('div');
+                                note.className = 'fieldDescription';
+                                note.style.marginTop = '.2em';
+                                note.innerHTML = (offers && offers.length)
+                                    ? 'Where to watch: ' + availLinks(offers)
+                                    : 'No streaming offers found in your region.';
+                                watchBtn.parentNode.appendChild(note);
+                                watchBtn.remove();
+                            }).catch(function () {
+                                watchBtn.textContent = 'Where to watch';
+                                watchBtn.disabled = false;
+                            });
+                            return;
+                        }
+
+                        var hdr = e.target.closest('.cgHdr');
+                        if (hdr && hdr.parentElement) {
+                            hdr.parentElement.classList.toggle('cgCollapsed');
+                        }
                     });
                     load(page);
                 });
