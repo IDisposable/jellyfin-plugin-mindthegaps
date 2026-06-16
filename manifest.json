@@ -1,0 +1,12 @@
+[
+    {
+        "guid": "8c2a93cc-6cc5-493a-880a-2e67ae50e454",
+        "name": "Mind the Gaps",
+        "description": "Scans your library for gaps (missing movies in partially-owned collections and franchises, missing series content, and unowned titles from actor and director filmographies) using TMDB, TheTVDB, and TVmaze. Presents an easy todo list for filling out your collection, surfaces where to watch each item, and can optionally mint native virtual placeholders for missing collection movies.\n",
+        "overview": "Find what's missing and related in your library and build a todo list to complete it.",
+        "owner": "idisposable",
+        "category": "General",
+        "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
+        "versions": []
+    }
+]

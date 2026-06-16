@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- Used to deserialize captured TMDB responses into TMDbLib's own types, exactly as the runtime does. -->
+    <PackageReference Include="TMDbLib" />
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real responses captured from each provider, fed through the parsers/mappers in tests. -->
+    <None Include="TestData\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.MindTheGaps\Jellyfin.Plugin.MindTheGaps.csproj" />
+    <!-- Copy-local (no ExcludeAssets, unlike the plugin) so BaseItem / BaseItemKind resolve at test runtime. -->
+    <PackageReference Include="Jellyfin.Controller" />
+    <PackageReference Include="Jellyfin.Model" />
+  </ItemGroup>
+
+</Project>

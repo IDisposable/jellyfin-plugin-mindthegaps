@@ -1,0 +1,14 @@
+{
+    // Minimal dev container for plugin work: just the .NET 10 SDK.
+    // Not the Jellyfin server devcontainer; no ffmpeg, docker-in-docker, or workloads.
+    "name": "jellyfin-plugin-justwatch",
+    "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.csdevkit"
+            ]
+        }
+    }
+}

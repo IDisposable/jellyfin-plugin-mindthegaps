@@ -1,0 +1,23 @@
+# Keep GitHub Actions and NuGet dependencies current.
+# Jellyfin.* is pinned to the target ABI on purpose (see CLAUDE.md multi-ABI versioning) — bump by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: nuget
+    directories:
+      - "/Jellyfin.Plugin.MindTheGaps"
+      - "/Jellyfin.Plugin.MindTheGaps.Tests"
+    schedule:
+      interval: weekly
+    groups:
+      dotnet:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "Jellyfin.*"

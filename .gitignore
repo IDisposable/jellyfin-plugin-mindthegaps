@@ -1,0 +1,7 @@
+bin/
+obj/
+*.user
+
+dotnet/runfile-discovery/jellyfin-plugin-mindthegaps-3c43148c0b06c2beab48eca60f5c007c8c1b1a70dda342d3c89e74e0bf142833/cache.staging.json
+
+temp/

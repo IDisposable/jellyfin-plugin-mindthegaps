@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.MindTheGaps</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <CodeAnalysisRuleSet>jellyfin.ruleset</CodeAnalysisRuleSet>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    Standalone build: reference the published Jellyfin.* NuGet packages instead of the server
+    projects. ExcludeAssets="runtime" keeps them compile-only, so the host's own copies load at
+    runtime and only Jellyfin.Plugin.MindTheGaps.dll ships. Versions resolve from the repo-level
+    Directory.Packages.props (Jellyfin.* tracks $(JellyfinVersion), the target ABI).
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Jellyfin.Controller" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Model" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Common" ExcludeAssets="runtime" />
+    <PackageReference Include="TMDbLib" />
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Configuration\configPage.html" />
+    <EmbeddedResource Include="Configuration\configPage.html" />
+    <None Remove="Web\mindthegaps.html" />
+    <EmbeddedResource Include="Web\mindthegaps.html" />
+  </ItemGroup>
+
+</Project>

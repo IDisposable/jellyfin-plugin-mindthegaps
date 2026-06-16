@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Mind the Gaps</title>
+</head>
+<body>
+    <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="verticalSection verticalSection-extrabottompadding">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Mind the Gaps &mdash; ToDo List</h2>
+                    </div>
+                    <p class="fieldDescription" id="cgSummary">Loading&hellip;</p>
+                    <div>
+                        <button is="emby-button" type="button" id="cgRescan" class="raised button-submit">
+                            <span>Rescan now</span>
+                        </button>
+                        <label style="margin-left:1.5em;">
+                            <span>Pattern:</span>
+                            <select is="emby-select" id="cgPatternFilter" class="emby-select">
+                                <option value="">All</option>
+                                <option value="SetCompletion">Set completion</option>
+                                <option value="CreatorWorks">Creator works</option>
+                                <option value="Recommendation">Recommendations</option>
+                            </select>
+                        </label>
+                        <label style="margin-left:1em;">
+                            <span>Domain:</span>
+                            <select is="emby-select" id="cgDomainFilter" class="emby-select">
+                                <option value="">All</option>
+                                <option value="Video">Video</option>
+                                <option value="Music">Music</option>
+                                <option value="Book">Books</option>
+                            </select>
+                        </label>
+                        <label style="margin-left:1em;">
+                            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" />
+                        </label>
+                    </div>
+                </div>
+
+                <div id="cgList" class="itemsContainer vertical-list"></div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            (function () {
+                var PATTERN_LABELS = {
+                    SetCompletion: 'Set completion',
+                    CreatorWorks: 'Creator works',
+                    Recommendation: 'Recommendation'
+                };
+
+                function esc(s) {
+                    return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+                        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                    });
+                }
+
+                function renderRow(item) {
+                    var meta = [];
+                    if (item.Year) { meta.push(item.Year); }
+                    if (item.TargetKindName) { meta.push(esc(item.TargetKindName)); }
+                    meta.push(PATTERN_LABELS[item.PatternName] || esc(item.PatternName));
+                    if (item.SourceItemName) { meta.push('via ' + esc(item.SourceItemName)); }
+                    if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
+
+                    var links = (item.Links || []).map(function (l) {
+                        return '<a is="emby-linkbutton" class="button-link" href="' + esc(l.Url) + '" target="_blank" rel="noopener">' + esc(l.Name) + '</a>';
+                    });
+
+                    var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
+                    var watchable = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series';
+                    if (tmdb && watchable && (!item.Availability || !item.Availability.length)) {
+                        links.push('<button type="button" is="emby-button" class="button-link cgWatch" data-tmdb="' + esc(tmdb) + '" data-type="' + esc(item.TargetKindName) + '">Where to watch</button>');
+                    }
+
+                    // Experimental debug aid: mint this single gap as a virtual movie (Movie gaps only).
+                    if (tmdb && item.TargetKindName === 'Movie') {
+                        links.push('<button type="button" is="emby-button" class="button-link cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this one item">Mint</button>');
+                    }
+
+                    var avail = '';
+                    if (item.Availability && item.Availability.length) {
+                        avail = '<div class="fieldDescription">On: ' + item.Availability.map(function (o) { return esc(o.Provider); }).join(', ') + '</div>';
+                    }
+
+                    var poster = item.ImageUrl
+                        ? '<img src="' + esc(item.ImageUrl) + '" loading="lazy" style="width:48px;height:72px;object-fit:cover;margin-right:1em;border-radius:4px;" />'
+                        : '<div style="width:48px;height:72px;margin-right:1em;background:#222;border-radius:4px;"></div>';
+
+                    return '<div class="listItem" style="display:flex;align-items:center;padding:.4em 0;">'
+                        + poster
+                        + '<div style="flex:1;">'
+                        + '<div class="listItemBodyText">' + esc(item.Name) + '</div>'
+                        + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
+                        + avail
+                        + '</div>'
+                        + '<div>' + links.join(' ') + '</div>'
+                        + '</div>';
+                }
+
+                function applyAndRender(page, report) {
+                    var pattern = page.querySelector('#cgPatternFilter').value;
+                    var domain = page.querySelector('#cgDomainFilter').value;
+                    var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
+                    var items = (report.Items || []).filter(function (it) {
+                        if (pattern && it.PatternName !== pattern) { return false; }
+                        if (domain && it.DomainName !== domain) { return false; }
+                        if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
+                        return true;
+                    });
+
+                    page.querySelector('#cgList').innerHTML = items.length
+                        ? items.map(renderRow).join('')
+                        : '<p class="fieldDescription">No gaps match. Run a scan, or adjust filters.</p>';
+                }
+
+                function load(page) {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps'), dataType: 'json' })
+                        .then(function (report) {
+                            page._report = report;
+                            var when = report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0
+                                ? new Date(report.GeneratedUtc).toLocaleString()
+                                : 'never';
+                            page.querySelector('#cgSummary').textContent =
+                                (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
+                            applyAndRender(page, report);
+                            Dashboard.hideLoadingMsg();
+                        });
+                }
+
+                document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
+                    var page = this;
+                    page.querySelector('#cgRescan').addEventListener('click', function () {
+                        Dashboard.showLoadingMsg();
+                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Scan'), dataType: 'json' })
+                            .then(function () {
+                                Dashboard.hideLoadingMsg();
+                                load(page);
+                            })
+                            .catch(function () {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Scan failed. Check the server logs.');
+                            });
+                    });
+                    ['#cgPatternFilter', '#cgDomainFilter'].forEach(function (sel) {
+                        page.querySelector(sel).addEventListener('change', function () {
+                            if (page._report) { applyAndRender(page, page._report); }
+                        });
+                    });
+                    page.querySelector('#cgSearch').addEventListener('input', function () {
+                        if (page._report) { applyAndRender(page, page._report); }
+                    });
+                    page.querySelector('#cgList').addEventListener('click', function (e) {
+                        var mintBtn = e.target.closest ? e.target.closest('.cgMint') : null;
+                        if (mintBtn) {
+                            var gid = mintBtn.getAttribute('data-gapid');
+                            var items = (page._report && page._report.Items) || [];
+                            var gap = null;
+                            for (var i = 0; i < items.length; i++) { if (items[i].Id === gid) { gap = items[i]; break; } }
+                            if (!gap) { return; }
+                            mintBtn.textContent = 'Minting…';
+                            mintBtn.disabled = true;
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/MintGap'),
+                                contentType: 'application/json',
+                                data: JSON.stringify(gap),
+                                dataType: 'json'
+                            }).then(function (msg) {
+                                Dashboard.alert(String(msg));
+                                mintBtn.textContent = 'Mint';
+                                mintBtn.disabled = false;
+                            }).catch(function () {
+                                Dashboard.alert('Mint failed. Check the server logs.');
+                                mintBtn.textContent = 'Mint';
+                                mintBtn.disabled = false;
+                            });
+                            return;
+                        }
+
+                        var btn = e.target.closest ? e.target.closest('.cgWatch') : null;
+                        if (!btn) { return; }
+                        btn.textContent = 'Loading…';
+                        btn.disabled = true;
+                        ApiClient.ajax({
+                            type: 'GET',
+                            url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: btn.getAttribute('data-tmdb'), targetKind: btn.getAttribute('data-type') }),
+                            dataType: 'json'
+                        }).then(function (offers) {
+                            var note = document.createElement('div');
+                            note.className = 'fieldDescription';
+                            note.textContent = (offers && offers.length)
+                                ? 'On: ' + offers.map(function (o) { return o.Provider + (o.MonetizationType ? ' (' + o.MonetizationType + ')' : ''); }).join(', ')
+                                : 'No streaming offers found in your region.';
+                            btn.parentNode.appendChild(note);
+                            btn.remove();
+                        }).catch(function () {
+                            btn.textContent = 'Where to watch';
+                            btn.disabled = false;
+                        });
+                    });
+                    load(page);
+                });
+            })();
+        </script>
+    </div>
+</body>
+</html>

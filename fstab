@@ -1,0 +1,7 @@
+//192.168.1.10/audiobooks /media/audiobooks cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/books /media/books cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/music /media/music cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/photos /media/photos cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/tv /media/tv cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/movies /media/movies cifs credentials=/home/vscode/.smbcredentials 0 0
+//192.168.1.10/videos /media/videos cifs credentials=/home/vscode/.smbcredentials 0 0

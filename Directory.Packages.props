@@ -1,0 +1,36 @@
+<Project>
+  <!--
+    Repo-level central package management: the single source of truth for every NuGet version.
+    Jellyfin.* tracks the target ABI through $(JellyfinVersion) (default 10.11.11, overridden per
+    row by the CI matrix). Those are pinned on purpose and bumped by hand (see .github/dependabot.yml).
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">10.11.11</JellyfinVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Host assemblies: compile-only in the plugin, copy-local in the test project. -->
+    <PackageVersion Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <PackageVersion Include="Jellyfin.Model" Version="$(JellyfinVersion)" />
+    <PackageVersion Include="Jellyfin.Common" Version="$(JellyfinVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Plugin runtime dependencies. -->
+    <PackageVersion Include="TMDbLib" Version="3.0.0" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Analyzers. -->
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test-only. -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+</Project>
