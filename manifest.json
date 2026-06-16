@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.3",
+                "changelog": "10.11.0.3 - Split media domains into Movies and Shows (was one Video bucket). The dashboard now groups gaps in a collapsible Pattern > Movies/Shows > source tree, with link buttons and clickable JustWatch availability. Add a Refresh button (reload saved results without re-scanning) and finer-grained scan progress.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.3/mind-the-gaps_10.11.0.3.zip",
+                "checksum": "fd181e2c518be05f55ab2285630b09f0",
+                "timestamp": "2026-06-16T23:32:34Z"
+            },
+            {
                 "version": "10.11.0.2",
                 "changelog": "10.11.0.2 - Run scans in the background so large libraries no longer time out the request; the dashboard polls for progress. Make the per-show missing-episode cap configurable (0 lists them all). Clearer ownership-index logging.\n",
                 "targetAbi": "10.11.0.0",
