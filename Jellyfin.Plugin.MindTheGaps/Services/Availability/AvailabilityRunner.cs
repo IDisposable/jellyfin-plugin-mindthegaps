@@ -120,10 +120,34 @@ public sealed class AvailabilityRunner
         return true;
     }
 
-    private static bool NeedsLookup(GapItem gap)
-        => gap.Availability.Count == 0
-            && gap.TargetKind is BaseItemKind.Movie or BaseItemKind.Series
-            && gap.ProviderIds.ContainsKey(GapScanContext.TmdbProvider);
+    // The (TMDB id, kind) to look up "where to watch" for a gap: a Movie/Series uses its own TMDB id; an
+    // episode uses its owning series' id (looked up as a series). Null when there is nothing to look up.
+    private static (string TmdbId, BaseItemKind Kind)? WatchTarget(GapItem gap)
+    {
+        if (gap.TargetKind is BaseItemKind.Movie or BaseItemKind.Series
+            && gap.ProviderIds.TryGetValue(GapScanContext.TmdbProvider, out var id)
+            && !string.IsNullOrEmpty(id))
+        {
+            return (id, gap.TargetKind);
+        }
+
+        if (gap.TargetKind is BaseItemKind.Episode && !string.IsNullOrEmpty(gap.WatchTmdbId))
+        {
+            return (gap.WatchTmdbId, BaseItemKind.Series);
+        }
+
+        return null;
+    }
+
+    private static bool NeedsLookup(GapItem gap) => !gap.AvailabilityChecked && WatchTarget(gap) is not null;
+
+    // A stable grouping key for a gap's watch target, so gaps that resolve to the same title (every
+    // episode of one series) share a single lookup.
+    private static string WatchKey(GapItem gap)
+    {
+        var target = WatchTarget(gap)!.Value;
+        return string.Create(CultureInfo.InvariantCulture, $"{target.Kind}:{target.TmdbId}");
+    }
 
     private async Task RunAsync()
     {
@@ -132,45 +156,70 @@ public sealed class AvailabilityRunner
             var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
             var report = _store.Load();
             var pending = report.Items.Where(NeedsLookup).ToList();
-            var batch = pending.Take(GapScanLimits.MaxAvailabilityLookups).ToList();
+
+            // Group by the watch target so every episode of a series shares a single lookup, and the
+            // per-pass cap bounds distinct titles rather than rows.
+            var groups = pending.GroupBy(WatchKey).ToList();
+            var batch = groups.Take(GapScanLimits.MaxAvailabilityLookups).ToList();
 
             if (batch.Count == 0)
             {
-                SetMessage("Every watchable gap already has 'where to watch' data.");
+                SetMessage("Every watchable gap has been checked for 'where to watch'.");
                 return;
             }
 
-            _logger.LogInformation("Availability enrichment started: {Batch} to look up ({Pending} pending)", batch.Count, pending.Count);
+            _logger.LogInformation("Availability enrichment started: {Batch} titles to look up ({Pending} gaps pending)", batch.Count, pending.Count);
 
             var enriched = 0;
             for (var i = 0; i < batch.Count; i++)
             {
-                var gap = batch[i];
-                await ResolveExternalIdsAsync(gap).ConfigureAwait(false);
+                var group = batch[i];
+                var first = group.First();
+                var target = WatchTarget(first)!.Value;
 
+                IReadOnlyList<AvailabilityOffer> offers = Array.Empty<AvailabilityOffer>();
+                var looked = false;
                 try
                 {
-                    var offers = await _availabilityService.GetOffersAsync(
+                    offers = await _availabilityService.GetOffersAsync(
                         new AvailabilityQuery
                         {
-                            TargetKind = gap.TargetKind,
-                            ProviderIds = gap.ProviderIds,
-                            Title = gap.Name,
-                            Year = gap.Year,
+                            TargetKind = target.Kind,
+                            ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = target.TmdbId },
+                            Title = first.Name,
+                            Year = first.Year,
                             Country = config.MetadataCountryCode
                         },
                         config,
                         CancellationToken.None).ConfigureAwait(false);
-
-                    if (offers.Count > 0)
-                    {
-                        gap.Availability = offers;
-                        enriched++;
-                    }
+                    looked = true;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Availability lookup failed for '{Name}'", gap.Name);
+                    _logger.LogWarning(ex, "Availability lookup failed for '{Name}'", first.Name);
+                }
+
+                if (looked)
+                {
+                    if (offers.Count > 0)
+                    {
+                        enriched++;
+                    }
+
+                    foreach (var gap in group)
+                    {
+                        // Movie/Series gaps also pick up their IMDb/TheTVDB ids here; episodes already carry theirs.
+                        await ResolveExternalIdsAsync(gap).ConfigureAwait(false);
+
+                        // Marked checked on a successful lookup even with no offers, so the row shows "no
+                        // sources" rather than a look-up button that comes back empty. A failed lookup leaves
+                        // the gap unchecked, so it retries on the next pass.
+                        gap.AvailabilityChecked = true;
+                        if (offers.Count > 0)
+                        {
+                            gap.Availability = offers;
+                        }
+                    }
                 }
 
                 lock (_lock)
@@ -188,10 +237,10 @@ public sealed class AvailabilityRunner
 
             _store.Save(report);
 
-            var remaining = pending.Count - batch.Count;
+            var remaining = groups.Count - batch.Count;
             var message = remaining > 0
-                ? string.Create(CultureInfo.InvariantCulture, $"Looked up {batch.Count} ({enriched} have sources); {remaining} remaining, run again to continue.")
-                : string.Create(CultureInfo.InvariantCulture, $"Looked up {batch.Count} ({enriched} have sources). All caught up.");
+                ? string.Create(CultureInfo.InvariantCulture, $"Looked up {batch.Count} titles ({enriched} have sources); {remaining} remaining, run again to continue.")
+                : string.Create(CultureInfo.InvariantCulture, $"Looked up {batch.Count} titles ({enriched} have sources). All caught up.");
             SetMessage(message);
             _logger.LogInformation("Availability enrichment finished: {Message}", message);
         }
@@ -213,6 +262,14 @@ public sealed class AvailabilityRunner
     // links so the row shows more than the TMDB button. No-op when nothing new is found.
     private async Task ResolveExternalIdsAsync(GapItem gap)
     {
+        // Only a movie/series gap's own TMDB id maps to an external-id lookup. An episode's TMDB id (if it
+        // carries one) is an episode id, not a movie/series id, so resolving it would be wrong; episodes
+        // already carry their TheTVDB/IMDb ids from the library.
+        if (gap.TargetKind is not (BaseItemKind.Movie or BaseItemKind.Series))
+        {
+            return;
+        }
+
         if (!gap.ProviderIds.TryGetValue(GapScanContext.TmdbProvider, out var tmdbStr)
             || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
         {

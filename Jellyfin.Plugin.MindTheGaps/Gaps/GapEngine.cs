@@ -110,6 +110,7 @@ public sealed class GapEngine
         var report = new GapReport
         {
             GeneratedUtc = DateTime.UtcNow,
+            GeneratedVersion = Plugin.Instance?.Version?.ToString() ?? string.Empty,
             TotalGaps = gaps.Count,
             Items = gaps
         };
@@ -156,6 +157,11 @@ public sealed class GapEngine
             {
                 gap.ProviderIds = merged;
                 gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
+            }
+
+            if (before.AvailabilityChecked)
+            {
+                gap.AvailabilityChecked = true;
             }
 
             if (gap.Availability.Count == 0 && before.Availability.Count > 0)

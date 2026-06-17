@@ -10,6 +10,7 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Library;
@@ -70,7 +71,7 @@ public sealed class SeriesContentGapSource : IGapSource
 
         var perSeriesCount = new Dictionary<Guid, int>();
         var cappedSeries = new HashSet<Guid>();
-        var seriesYears = new Dictionary<Guid, int?>();
+        var seriesInfo = new Dictionary<Guid, (int? Year, string? Tmdb)>();
 
         foreach (var item in missing)
         {
@@ -98,18 +99,21 @@ public sealed class SeriesContentGapSource : IGapSource
 
             perSeriesCount[seriesId] = count + 1;
 
-            // The owned series' year, resolved once per series (the episode does not carry it).
-            if (!seriesYears.TryGetValue(seriesId, out var seriesYear))
+            // The owned series' year and TMDB id, resolved once per series (the episode carries neither).
+            // The TMDB id lets the report look up where the show streams.
+            if (!seriesInfo.TryGetValue(seriesId, out var info))
             {
-                seriesYear = _libraryManager.GetItemById(seriesId)?.ProductionYear;
-                seriesYears[seriesId] = seriesYear;
+                var series = _libraryManager.GetItemById(seriesId);
+                var tmdb = series is not null && series.TryGetProviderId(MetadataProvider.Tmdb, out var t) && !string.IsNullOrEmpty(t) ? t : null;
+                info = (series?.ProductionYear, tmdb);
+                seriesInfo[seriesId] = info;
             }
 
-            yield return BuildGap(episode, seriesYear);
+            yield return BuildGap(episode, info.Year, info.Tmdb);
         }
     }
 
-    private static GapItem BuildGap(Episode episode, int? seriesYear)
+    private static GapItem BuildGap(Episode episode, int? seriesYear, string? seriesTmdb)
     {
         var season = episode.ParentIndexNumber;
         var number = episode.IndexNumber;
@@ -156,6 +160,9 @@ public sealed class SeriesContentGapSource : IGapSource
         {
             gap.SeasonItemId = episode.SeasonId.ToString("N", CultureInfo.InvariantCulture);
         }
+
+        // Look up "where to watch" against the owning series (the episode has no streaming page of its own).
+        gap.WatchTmdbId = seriesTmdb;
 
         return gap;
     }

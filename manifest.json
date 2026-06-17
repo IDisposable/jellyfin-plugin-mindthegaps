@@ -17,14 +17,6 @@
                 "timestamp": "2026-06-17T20:22:16Z"
             },
             {
-                "version": "10.11.0.6",
-                "changelog": "10.11.0.6 - External links now open in the system browser on mobile. Report polish: settings gear, tidier header, \"Mind the Gap ToDo List\" title, providers shown as a list with one watch button, minty Mint buttons, a per-provider \"where to watch\" filter, and a Recommendations pivot (grouped by target, recommending source on expand). Minting now lives entirely on the report: per-row and multi-select \"Mint selected\" (checkbox rows), run in the background with live progress; the settings page keeps only \"Remove minted\". Minted placeholders are reconciled automatically at the end of every scan once the library owns the real file. External links are now extensible: each gap's links merge whatever the host's own providers emit (TMDB/IMDb from core, JustWatch if that plugin is installed) with the built-in list, and the report keeps \"Where to watch\" flush right as the link row grows. New opt-in scan-time availability with a \"Hide items with no sources\" filter and a one-click enable. Each minted item now gets a metadata refresh.\n",
-                "targetAbi": "10.11.0.0",
-                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.6/mind-the-gaps_10.11.0.6.zip",
-                "checksum": "ef98a13003d2803f4c52a84d39b11bc7",
-                "timestamp": "2026-06-17T19:04:36Z"
-            },
-            {
                 "version": "10.11.0.5",
                 "changelog": "10.11.0.5 - Add report filters: a \"where to watch\" type filter (subscription, free, ads, rent, buy; flatrate now shows as Subscription) and a \"hide specials\" toggle that also drops shows left with no other gaps. Filter selections are remembered per browser.\n",
                 "targetAbi": "10.11.0.0",

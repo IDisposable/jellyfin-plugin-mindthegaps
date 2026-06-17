@@ -124,7 +124,20 @@ public class GapItem
     public string? SeasonItemId { get; set; }
 
     /// <summary>
+    /// Gets or sets the TMDB id to use for "where to watch" when the gap itself is not directly
+    /// watchable: an episode gap carries its owning series' TMDB id here so the row can link to where
+    /// the show streams. Null for Movie/Series gaps, which use their own TMDB id.
+    /// </summary>
+    public string? WatchTmdbId { get; set; }
+
+    /// <summary>
     /// Gets or sets the streaming-availability offers.
     /// </summary>
     public IReadOnlyList<AvailabilityOffer> Availability { get; set; } = Array.Empty<AvailabilityOffer>();
+
+    /// <summary>
+    /// Gets or sets a value indicating whether "where to watch" has been looked up for this gap (so an
+    /// empty <see cref="Availability"/> means "checked, no sources" rather than "not looked up yet").
+    /// </summary>
+    public bool AvailabilityChecked { get; set; }
 }

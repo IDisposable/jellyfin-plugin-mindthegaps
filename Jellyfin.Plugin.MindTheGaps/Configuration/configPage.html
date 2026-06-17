@@ -12,101 +12,125 @@
                 <form id="MindTheGapsConfigForm">
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Mind the Gaps</h2>
-                        <p class="fieldDescription">Choose what the gap scanner looks for. Results appear on the
-                            <a is="emby-linkbutton" class="button-link" href="#" id="lnkTodoList">Mind the Gap ToDo List</a>.</p>
-                        <button is="emby-button" type="button" id="btnTodoList" class="raised">
-                            <span class="material-icons" style="margin-right:.3em;">checklist</span>
-                            <span>View report</span>
-                        </button>
+                        <div style="display:flex;align-items:center;gap:.8em;flex-wrap:wrap;">
+                            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Results appear on the
+                                <a is="emby-linkbutton" class="button-link" href="#" id="lnkTodoList">Mind the Gaps ToDo List</a>.</p>
+                            <button is="emby-button" type="button" id="btnTodoList" class="raised">
+                                <span class="material-icons" style="margin-right:.3em;">checklist</span>
+                                <span>View report</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="ScanCollections" name="ScanCollections" type="checkbox" is="emby-checkbox" />
-                            <span>Scan collections &amp; franchises for missing movies</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="ScanSeries" name="ScanSeries" type="checkbox" is="emby-checkbox" />
-                            <span>Scan series for missing seasons/episodes</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="ScanPeople" name="ScanPeople" type="checkbox" is="emby-checkbox" />
-                            <span>Scan actor/director filmographies for unowned titles</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
-                            <span>Include recommendations / similar titles (discovery)</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
-                            <span>Enrich with streaming availability (TMDB / JustWatch)</span>
-                        </label>
-                        <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan.</div>
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">What to scan</h2>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanCollections" name="ScanCollections" type="checkbox" is="emby-checkbox" />
+                                <span>Scan collections &amp; franchises for missing movies</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanSeries" name="ScanSeries" type="checkbox" is="emby-checkbox" />
+                                <span>Scan series for missing seasons/episodes</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanPeople" name="ScanPeople" type="checkbox" is="emby-checkbox" />
+                                <span>Scan actor/director filmographies for unowned titles</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
+                                <span>Include recommendations / similar titles (discovery)</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="TraktEnabled" name="TraktEnabled" type="checkbox" is="emby-checkbox" />
-                            <span>Use Trakt as an independent filmography cross-check</span>
-                        </label>
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="TraktClientId">Trakt client id</label>
-                        <input id="TraktClientId" name="TraktClientId" type="text" is="emby-input" />
-                        <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
-                    </div>
-
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="TvMazeEnabled" name="TvMazeEnabled" type="checkbox" is="emby-checkbox" />
-                            <span>Use TVmaze to cross-check series for missing episodes</span>
-                        </label>
-                        <div class="fieldDescription">Keyless. Catches episodes a series' configured metadata provider doesn't list.</div>
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Where to watch</h2>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
+                                <span>Enrich with streaming availability (TMDB / JustWatch)</span>
+                            </label>
+                            <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan.</div>
+                        </div>
                     </div>
 
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="TvdbEnabled" name="TvdbEnabled" type="checkbox" is="emby-checkbox" />
-                            <span>Use TheTVDB to cross-check series for missing episodes</span>
-                        </label>
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
-                        <input id="TvdbApiKey" name="TvdbApiKey" type="text" is="emby-input" />
-                        <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Data sources</h2>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label" title="TMDB powers collections, people, recommendations and availability, so it is always on. The plugin uses the key below if you set one, otherwise a built-in default key.">
+                                <input id="UseTmdb" type="checkbox" is="emby-checkbox" checked disabled />
+                                <span>Use TMDB (always on)</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key (optional)</label>
+                            <input id="TmdbApiKey" name="TmdbApiKey" type="text" is="emby-input" />
+                            <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="TraktEnabled" name="TraktEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Use Trakt as an independent filmography cross-check</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="TraktClientId">Trakt client id</label>
+                            <input id="TraktClientId" name="TraktClientId" type="text" is="emby-input" />
+                            <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="TvMazeEnabled" name="TvMazeEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Use TVmaze to cross-check series for missing episodes</span>
+                            </label>
+                            <div class="fieldDescription">Keyless. Catches episodes a series' configured metadata provider doesn't list.</div>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="TvdbEnabled" name="TvdbEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>Use TheTVDB to cross-check series for missing episodes</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
+                            <input id="TvdbApiKey" name="TvdbApiKey" type="text" is="emby-input" />
+                            <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
+                        </div>
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MetadataCountryCode">Country code</label>
-                        <input id="MetadataCountryCode" name="MetadataCountryCode" type="text" is="emby-input" />
-                        <div class="fieldDescription">ISO 3166-1 alpha-2, e.g. US, GB, DE.</div>
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Region</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MetadataCountryCode">Country code</label>
+                            <input id="MetadataCountryCode" name="MetadataCountryCode" type="text" is="emby-input" />
+                            <div class="fieldDescription">ISO 3166-1 alpha-2, e.g. US, GB, DE.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MetadataLanguage">Language</label>
+                            <input id="MetadataLanguage" name="MetadataLanguage" type="text" is="emby-input" />
+                            <div class="fieldDescription">ISO 639-1, e.g. en, de.</div>
+                        </div>
                     </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MetadataLanguage">Language</label>
-                        <input id="MetadataLanguage" name="MetadataLanguage" type="text" is="emby-input" />
-                        <div class="fieldDescription">ISO 639-1, e.g. en, de.</div>
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key (optional)</label>
-                        <input id="TmdbApiKey" name="TmdbApiKey" type="text" is="emby-input" />
-                        <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
-                        <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" />
-                    </div>
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
-                        <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" />
-                        <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
+
+                    <div class="verticalSection">
+                        <h2 class="sectionTitle">Limits</h2>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
+                            <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">Caps how many similar titles each owned item contributes.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
+                            <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" />
+                            <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
+                        </div>
                     </div>
 
                     <div class="verticalSection">

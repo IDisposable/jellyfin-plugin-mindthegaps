@@ -38,7 +38,7 @@
             <div class="content-primary">
                 <div class="verticalSection verticalSection-extrabottompadding">
                     <div class="sectionTitleContainer flex align-items-center">
-                        <h2 class="sectionTitle">Mind the Gap ToDo List</h2>
+                        <h2 class="sectionTitle">Mind the Gaps ToDo List</h2>
                         <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" style="margin-left:auto;">
                             <span class="material-icons">settings</span>
                         </button>
@@ -48,6 +48,11 @@
                         <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)">
                             <span class="material-icons">refresh</span>
                         </button>
+                    </div>
+                    <div id="cgStale" style="display:none;align-items:center;gap:.6em;margin-bottom:.5em;padding:.5em .7em;border-radius:4px;background:rgba(240,173,78,.15);border:1px solid #f0ad4e;">
+                        <span class="material-icons" style="color:#f0ad4e;">update</span>
+                        <span id="cgStaleMsg" style="flex:1;"></span>
+                        <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
                     </div>
                     <div style="margin-bottom:.5em;">
                         <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
@@ -101,6 +106,11 @@
                 <div id="cgList" class="itemsContainer vertical-list"></div>
             </div>
         </div>
+
+        <button is="paper-icon-button-light" type="button" id="cgScrollTop" title="Back to top"
+            style="position:fixed;right:1.4em;bottom:1.4em;z-index:1000;display:none;background:#00a4dc;color:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.45);">
+            <span class="material-icons">keyboard_arrow_up</span>
+        </button>
 
         <script type="text/javascript">
             (function () {
@@ -175,8 +185,8 @@
                         : (note._offers && note._offers.length ? 'No offers match the selected filters.' : 'No streaming offers found in your region.');
                 }
 
-                // Every offer shares one "where to watch" link (the TMDB/JustWatch page), so list the
-                // providers as text and give a single button rather than one identical link each.
+                // Every offer shares one "where to watch" link (the TMDB/JustWatch page), so lead with a
+                // single "Options" button and list the providers as text rather than one identical link each.
                 function availLinks(offers) {
                     var names = offers.map(function (o) {
                         var mt = o.MonetizationType ? (MONETIZATION_LABELS[o.MonetizationType] || o.MonetizationType) : '';
@@ -185,9 +195,9 @@
                     var url = '';
                     for (var i = 0; i < offers.length; i++) { if (offers[i].Url) { url = offers[i].Url; break; } }
                     var button = url
-                        ? ' <a is="emby-linkbutton" class="cgLink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Watch options</a>'
+                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page">Watch <span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
                         : '';
-                    return names + button;
+                    return button + names;
                 }
 
                 function renderRow(item) {
@@ -201,10 +211,17 @@
                     }).join('');
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
-                    var watchable = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series';
+                    // "Where to watch" looks up the title itself for a movie/series, or the owning series
+                    // for an episode (episodes have no streaming page of their own).
+                    var watchTmdb = item.WatchTmdbId || tmdb;
+                    var watchKind = item.TargetKindName === 'Episode' ? 'Series' : item.TargetKindName;
+                    var watchable = !!watchTmdb && (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode');
+                    var hasAvail = item.Availability && item.Availability.length;
                     var actions = [];
-                    if (tmdb && watchable && (!item.Availability || !item.Availability.length)) {
-                        actions.push('<button type="button" class="cgLink cgWatch" data-tmdb="' + esc(tmdb) + '" data-type="' + esc(item.TargetKindName) + '">Where to watch</button>');
+                    // Offer the on-demand look-up only when we have not looked yet. Once checked, an empty
+                    // result is shown as "no sources" instead (below), not a button that comes back empty.
+                    if (watchable && !hasAvail && !item.AvailabilityChecked) {
+                        actions.push('<button type="button" class="cgLink cgWatch" data-tmdb="' + esc(watchTmdb) + '" data-type="' + esc(watchKind) + '">Where to watch</button>');
                     }
                     // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
@@ -228,6 +245,8 @@
                     var shownOffers = filterOffers(item.Availability);
                     if (shownOffers.length) {
                         avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(shownOffers) + '</div>';
+                    } else if (watchable && item.AvailabilityChecked && !hasAvail) {
+                        avail = '<div class="fieldDescription" style="margin-top:.2em;opacity:.6;">No streaming sources found.</div>';
                     }
 
                     var detailParts = [];
@@ -372,7 +391,7 @@
                             byL.order.sort(letterSort);
                             var recHtml = byL.order.map(function (L) {
                                 var li = byL.map[L].slice().sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
-                                return groupHtml(2, L, li.length, false, li.map(renderRow).join(''));
+                                return groupHtml(2, L, li.length, true, li.map(renderRow).join(''));
                             }).join('');
                             return groupHtml(1, cat, catItems.length, false, recHtml);
                         }
@@ -393,7 +412,7 @@
                                     var srcItems = bySrcC.map[src];
                                     return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''), srcItems[0].SourceItemId);
                                 }).join('');
-                                return groupHtml(2, L, names.length, false, inner);
+                                return groupHtml(2, L, names.length, true, inner);
                             }).join('');
                             return groupHtml(1, cat, catItems.length, false, creatorHtml);
                         }
@@ -518,8 +537,29 @@
                                 (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
                             renderTabs(page);
                             applyAndRender(page);
+                            checkStale(page, report);
                             Dashboard.hideLoadingMsg();
                         });
+                }
+
+                // Nudge for a rescan when the saved report was built by a different plugin version (after
+                // an upgrade the persisted links/fields may be stale until rebuilt).
+                function checkStale(page, report) {
+                    var stale = page.querySelector('#cgStale');
+                    stale.style.display = 'none';
+                    var generated = report && report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0;
+                    if (!generated) { return; }
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
+                        var norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
+                        var me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
+                        var cur = me && me.Version;
+                        if (cur && report.GeneratedVersion !== cur) {
+                            var built = report.GeneratedVersion ? ('version ' + report.GeneratedVersion) : 'an older version';
+                            page.querySelector('#cgStaleMsg').textContent =
+                                'This list was built by ' + built + '. You are on ' + cur + '. Rescan to rebuild it with the current version.';
+                            stale.style.display = 'flex';
+                        }
+                    }).catch(function () { /* version check is best-effort */ });
                 }
 
                 // Kick off the background "where to watch" pass and poll until it finishes, then reload so
@@ -557,10 +597,19 @@
 
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
+                    // Jellyfin keeps this page element and re-fires pageshow on every navigation, so attach
+                    // the listeners once. Without this they stack, and a delegated handler fires N times (an
+                    // even count makes a header toggle a no-op, double-mints, etc.). The data still reloads
+                    // on every show, below.
+                    if (page._cgBound) { load(page); return; }
+                    page._cgBound = true;
                     page._pattern = null;
 
                     page.querySelector('#cgRefresh').addEventListener('click', function () {
                         load(page);
+                    });
+                    page.querySelector('#cgStaleRescan').addEventListener('click', function () {
+                        page.querySelector('#cgRescan').click();
                     });
                     page.querySelector('#cgSettings').addEventListener('click', function () {
                         Dashboard.navigate('configurationpage?name=MindTheGaps');
@@ -766,6 +815,25 @@
                             if (d) { d.style.display = d.style.display === 'none' ? 'block' : 'none'; }
                         }
                     });
+                    // Floating "back to top" button: show it once scrolled down, and scroll the report's
+                    // own scroll container (or the window, whichever actually scrolls) back to the top.
+                    (function () {
+                        var topBtn = page.querySelector('#cgScrollTop');
+                        var scroller = document.scrollingElement || document.documentElement;
+                        for (var n = page.querySelector('#cgList'); n && n !== document.body; n = n.parentElement) {
+                            var oy = getComputedStyle(n).overflowY;
+                            if (oy === 'auto' || oy === 'scroll') { scroller = n; break; }
+                        }
+                        var listenOn = (scroller === document.scrollingElement || scroller === document.documentElement) ? window : scroller;
+                        function onScroll() {
+                            var y = scroller.scrollTop || window.pageYOffset || 0;
+                            topBtn.style.display = y > 300 ? 'inline-flex' : 'none';
+                        }
+                        listenOn.addEventListener('scroll', onScroll, { passive: true });
+                        topBtn.addEventListener('click', function () { scroller.scrollTo({ top: 0, behavior: 'smooth' }); });
+                        onScroll();
+                    })();
+
                     restoreFilters(page);
                     load(page);
                 });

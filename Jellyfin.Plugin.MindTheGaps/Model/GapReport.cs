@@ -14,6 +14,12 @@ public class GapReport
     public DateTime GeneratedUtc { get; set; }
 
     /// <summary>
+    /// Gets or sets the plugin version that generated this report, so the dashboard can nudge for a
+    /// rescan when a newer plugin would build it differently.
+    /// </summary>
+    public string GeneratedVersion { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the total number of gaps.
     /// </summary>
     public int TotalGaps { get; set; }
