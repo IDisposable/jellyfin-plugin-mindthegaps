@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.5",
+                "changelog": "10.11.0.5 - Add report filters: a \"where to watch\" type filter (subscription, free, ads, rent, buy; flatrate now shows as Subscription) and a \"hide specials\" toggle that also drops shows left with no other gaps. Filter selections are remembered per browser.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.5/mind-the-gaps_10.11.0.5.zip",
+                "checksum": "cdbcf0dd8bd0c273e04c10a262c13e65",
+                "timestamp": "2026-06-17T00:30:13Z"
+            },
+            {
                 "version": "10.11.0.4",
                 "changelog": "10.11.0.4 - Fix the report styling (collapsible groups, carets, and buttons were dead because the stylesheet sat in the page head, which Jellyfin drops). Split the report into one tab per axis (Set completion, Creator works, Recommendations). Group show episodes by season (season 0 is Specials). Click a row to reveal its overview.\n",
                 "targetAbi": "10.11.0.0",
