@@ -34,8 +34,9 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<VirtualMovieMinter>();
         serviceCollection.AddSingleton<MintRunner>();
 
-        // Availability sources + aggregator.
+        // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();
+        serviceCollection.AddSingleton<AvailabilityRunner>();
         serviceCollection.AddSingleton<IAvailabilitySource, TmdbAvailabilitySource>();
 
         // Gap sources. Add new IGapSource implementations here.

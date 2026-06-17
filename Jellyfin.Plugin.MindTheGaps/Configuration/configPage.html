@@ -49,12 +49,7 @@
                             <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
                             <span>Enrich with streaming availability (TMDB / JustWatch)</span>
                         </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="FetchAvailabilityDuringScan" name="FetchAvailabilityDuringScan" type="checkbox" is="emby-checkbox" />
-                            <span>Look up "where to watch" during the scan (enables the report's streamable filter; slower scan)</span>
-                        </label>
+                        <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan.</div>
                     </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -164,7 +159,6 @@
                     page.querySelector('#ScanPeople').checked = config.ScanPeople;
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
-                    page.querySelector('#FetchAvailabilityDuringScan').checked = config.FetchAvailabilityDuringScan;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
                     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
                     page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
@@ -259,7 +253,6 @@
                         config.ScanPeople = form.querySelector('#ScanPeople').checked;
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
-                        config.FetchAvailabilityDuringScan = form.querySelector('#FetchAvailabilityDuringScan').checked;
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
                         config.TraktClientId = form.querySelector('#TraktClientId').value;
                         config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;

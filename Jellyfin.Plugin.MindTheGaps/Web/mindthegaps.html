@@ -66,9 +66,12 @@
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
                             <input type="checkbox" id="cgHideSpecials" /> Hide specials
                         </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no where-to-watch matching your filters. Needs 'Look up where to watch during the scan' enabled in settings, then a rescan.">
+                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
                             <input type="checkbox" id="cgStreamable" /> Hide items with no sources
                         </label>
+                        <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
+                            <span>Look up where to watch</span>
+                        </button>
                         <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
                     </div>
                     <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
@@ -208,10 +211,14 @@
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons">eco</span>Mint</button>');
                     }
 
-                    // Provider links can run long now that the host's own providers contribute too, so let them
+                    // An "open in Jellyfin" icon when this gap is already a (virtual) item we hold.
+                    var openLink = openIcon(item.LibraryItemId);
+
+                    // Provider links can run long because the host's own providers contribute too, so let them
                     // wrap on the left and keep the action buttons (Where to watch, Mint) flush right.
-                    var linksRow = (providerLinks || actions.length)
+                    var linksRow = (openLink || providerLinks || actions.length)
                         ? '<div class="cgLinks" style="display:flex;flex-wrap:wrap;align-items:center;gap:.25em;margin-top:.3em;">'
+                            + openLink
                             + providerLinks
                             + (actions.length ? '<span class="cgActions" style="margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:.25em;align-items:center;">' + actions.join('') + '</span>' : '')
                             + '</div>'
@@ -225,7 +232,11 @@
 
                     var detailParts = [];
                     if (item.PatternName === 'Recommendation' && item.SourceItemName) {
-                        detailParts.push('<div style="opacity:.85;">Recommended by: ' + esc(item.SourceItemName) + '</div>');
+                        var srcMeta = [];
+                        if (item.SourceItemYear) { srcMeta.push(item.SourceItemYear); }
+                        if (item.SourceItemType) { srcMeta.push(esc(item.SourceItemType)); }
+                        var srcSuffix = srcMeta.length ? ' (' + srcMeta.join(' &middot; ') + ')' : '';
+                        detailParts.push('<div style="opacity:.85;">Recommended by: ' + esc(item.SourceItemName) + srcSuffix + openIcon(item.SourceItemId) + '</div>');
                     }
                     if (item.Overview) { detailParts.push(esc(item.Overview)); }
                     var details = detailParts.length
@@ -264,10 +275,24 @@
                     return { map: map, order: order };
                 }
 
-                function groupHtml(level, label, count, collapsed, inner) {
+                // Link to an item in this Jellyfin instance, opened in a new tab. Built from the current
+                // page URL so it works whatever the web root is.
+                function itemUrl(id) {
+                    return window.location.href.split('#')[0] + '#/details?id=' + encodeURIComponent(id) + '&serverId=' + encodeURIComponent(ApiClient.serverId());
+                }
+
+                // A small "open in Jellyfin" icon for items we already hold (a series, season, or virtual
+                // episode). Empty string when there is nothing to link to. The cgOpen class lets the group
+                // header click ignore it so it does not toggle the collapse.
+                function openIcon(id) {
+                    if (!id) { return ''; }
+                    return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
+                }
+
+                function groupHtml(level, label, count, collapsed, inner, itemId) {
                     return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '">'
                         + '<div class="cgHdr cgHdr' + level + '"><span class="cgCaret"></span>' + esc(label)
-                        + ' <span class="cgCount">(' + count + ')</span></div>'
+                        + ' <span class="cgCount">(' + count + ')</span>' + openIcon(itemId) + '</div>'
                         + '<div class="cgBody">' + inner + '</div></div>';
                 }
 
@@ -289,30 +314,95 @@
                         var n = Number(key);
                         var label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
                         var seasonItems = bySeason.map[key];
-                        return groupHtml(3, label, seasonItems.length, true, seasonItems.map(renderRow).join(''));
+                        return groupHtml(3, label, seasonItems.length, true, seasonItems.map(renderRow).join(''), seasonItems[0].SeasonItemId);
                     }).join('');
                 }
 
-                // One axis (pattern) at a time: Movies/Shows > source item > (Season for episodes) > rows.
-                // Recommendations pivot on the target instead: Movies/Shows > the recommended titles
-                // directly (the recommending source shows in each row's details), since they are the noise.
+                // The grouping letter of a name: skip leading punctuation/whitespace, fold accents, a digit
+                // (or anything non-alphabetic) becomes '#'.
+                function firstLetter(name) {
+                    // First letter or number in any script (the u flag makes this code-point aware, so
+                    // surrogate-pair letters such as CJK extensions are handled whole).
+                    var m = (name || '').trim().match(/[\p{L}\p{N}]/u);
+                    if (!m) { return '#'; }
+                    var c = m[0];
+                    if (/\p{N}/u.test(c)) { return '#'; }
+                    // Fold Latin diacritics so 'caf\u00e9' files under C, but keep other scripts (Cyrillic, Greek,
+                    // CJK, ...) under their own letter rather than tossing them together.
+                    if (c.normalize) {
+                        var base = c.normalize('NFD').charAt(0);
+                        if ((base >= 'A' && base <= 'Z') || (base >= 'a' && base <= 'z')) { return base.toUpperCase(); }
+                    }
+                    return c.toUpperCase();
+                }
+
+                // A person is filed under both their first and last initial (Teri Hatcher -> T and H).
+                function personLetters(name) {
+                    var parts = (name || '').trim().split(/\s+/).filter(function (p) { return p; });
+                    if (!parts.length) { return ['#']; }
+                    var letters = [firstLetter(parts[0])];
+                    if (parts.length > 1) {
+                        var last = firstLetter(parts[parts.length - 1]);
+                        if (last !== letters[0]) { letters.push(last); }
+                    }
+                    return letters;
+                }
+
+                // A-Z, then '#' last.
+                function letterSort(a, b) {
+                    if (a === b) { return 0; }
+                    if (a === '#') { return 1; }
+                    if (b === '#') { return -1; }
+                    return a < b ? -1 : 1;
+                }
+
+                // One axis (pattern) at a time. SetCompletion: Movies/Shows > source item > (Season) > rows.
+                // CreatorWorks: Movies/Shows > letter (person's first and last initial) > person > rows.
+                // Recommendations pivot on the target: Movies/Shows > letter (of the title) > the rows.
                 function buildTree(items) {
                     var isRec = items.length > 0 && items[0].PatternName === 'Recommendation';
+                    var isCreator = items.length > 0 && items[0].PatternName === 'CreatorWorks';
                     var byCat = groupBy(items, categoryOf);
                     byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
 
                     return byCat.order.map(function (cat) {
                         var catItems = byCat.map[cat];
                         if (isRec) {
-                            var sorted = catItems.slice().sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
-                            return groupHtml(1, cat, catItems.length, false, sorted.map(renderRow).join(''));
+                            var byL = groupBy(catItems, function (it) { return firstLetter(it.Name); });
+                            byL.order.sort(letterSort);
+                            var recHtml = byL.order.map(function (L) {
+                                var li = byL.map[L].slice().sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
+                                return groupHtml(2, L, li.length, false, li.map(renderRow).join(''));
+                            }).join('');
+                            return groupHtml(1, cat, catItems.length, false, recHtml);
+                        }
+
+                        if (isCreator) {
+                            var bySrcC = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
+                            var byLetter = {}, lorder = [];
+                            bySrcC.order.forEach(function (src) {
+                                personLetters(src).forEach(function (L) {
+                                    if (!byLetter[L]) { byLetter[L] = []; lorder.push(L); }
+                                    byLetter[L].push(src);
+                                });
+                            });
+                            lorder.sort(letterSort);
+                            var creatorHtml = lorder.map(function (L) {
+                                var names = byLetter[L].slice().sort(ci);
+                                var inner = names.map(function (src) {
+                                    var srcItems = bySrcC.map[src];
+                                    return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''), srcItems[0].SourceItemId);
+                                }).join('');
+                                return groupHtml(2, L, names.length, false, inner);
+                            }).join('');
+                            return groupHtml(1, cat, catItems.length, false, creatorHtml);
                         }
 
                         var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
                         bySrc.order.sort(ci);
                         var srcHtml = bySrc.order.map(function (src) {
                             var srcItems = bySrc.map[src];
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems));
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId);
                         }).join('');
                         return groupHtml(1, cat, catItems.length, false, srcHtml);
                     }).join('');
@@ -349,9 +439,9 @@
 
                     var empty;
                     if (streamable && !(report.Items || []).some(function (it) { return it.Availability && it.Availability.length; })) {
-                        empty = '<p class="fieldDescription">No "where to watch" data yet, so this filter hides everything.</p>'
+                        empty = '<p class="fieldDescription">No "where to watch" data yet, so this filter hides everything. Look it up in the background, then it fills in here.</p>'
                             + '<button is="emby-button" type="button" id="cgEnableAvail" class="raised button-submit">'
-                            + '<span>Enable scan-time availability and rescan</span></button>';
+                            + '<span>Look up where to watch</span></button>';
                     } else {
                         empty = '<p class="fieldDescription">No gaps in this view. Pick another axis, adjust filters, or rescan.</p>';
                     }
@@ -430,6 +520,39 @@
                             applyAndRender(page);
                             Dashboard.hideLoadingMsg();
                         });
+                }
+
+                // Kick off the background "where to watch" pass and poll until it finishes, then reload so
+                // newly-enriched rows appear. The pass saves incrementally, so a reload mid-run shows partial
+                // results too. Shared by the toolbar button and the empty-state nudge.
+                function startAvailability(page, btn) {
+                    var span = btn ? btn.querySelector('span') : null;
+                    var orig = span ? span.textContent : null;
+                    if (btn) { btn.disabled = true; }
+
+                    function done(msg) {
+                        if (btn) { btn.disabled = false; if (span && orig) { span.textContent = orig; } }
+                        if (msg) { Dashboard.alert(msg); }
+                    }
+
+                    function poll() {
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Availability/Status'), dataType: 'json' })
+                            .then(function (s) {
+                                if (s && s.Running) {
+                                    if (span) { span.textContent = 'Looking up… ' + Math.round(s.Progress || 0) + '%'; }
+                                    setTimeout(poll, 2000);
+                                } else {
+                                    done();
+                                    load(page);
+                                    if (s && s.Message) { Dashboard.alert(s.Message); }
+                                }
+                            })
+                            .catch(function () { done('Lost contact during the look-up. Refresh to see results.'); });
+                    }
+
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Availability/Enrich'), dataType: 'json' })
+                        .then(function () { setTimeout(poll, 1000); })
+                        .catch(function () { done('Could not start the look-up. Check the server logs.'); });
                 }
 
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
@@ -513,7 +636,7 @@
                             ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/ScanStatus'), dataType: 'json' })
                                 .then(function (s) {
                                     if (s && s.Running) {
-                                        span.textContent = s.Progress ? ('Scanning… ' + Math.round(s.Progress) + '%') : 'Scanning…';
+                                        span.textContent = 'Scanning… ' + Math.round(s.Progress || 0) + '%';
                                         setTimeout(poll, 2000);
                                     } else {
                                         finish();
@@ -549,6 +672,9 @@
                         saveFilters(page);
                         if (page._report) { applyAndRender(page); }
                     });
+                    page.querySelector('#cgLookupAvail').addEventListener('click', function () {
+                        startAvailability(page, this);
+                    });
                     page.querySelector('#cgMonFilter').addEventListener('change', function () {
                         saveFilters(page);
                         reapplyAvail(page);
@@ -564,20 +690,14 @@
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
 
-                        // The "Hide items with no sources" nudge: flip the setting and rescan if confirmed.
-                        if (e.target.closest('#cgEnableAvail')) {
-                            if (!window.confirm('Turn on "look up where to watch during the scan" and rescan now? Scans get slower but the filter starts working.')) { return; }
-                            Dashboard.showLoadingMsg();
-                            ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                                config.FetchAvailabilityDuringScan = true;
-                                return ApiClient.updatePluginConfiguration(pluginId, config);
-                            }).then(function () {
-                                Dashboard.hideLoadingMsg();
-                                page.querySelector('#cgRescan').click();
-                            }).catch(function () {
-                                Dashboard.hideLoadingMsg();
-                                Dashboard.alert('Could not update the setting. Check the server logs.');
-                            });
+                        // The "open in Jellyfin" icon is a real link; let it open the new tab and do not
+                        // treat the click as a header toggle or row action.
+                        if (e.target.closest('.cgOpen')) { return; }
+
+                        // The "Hide items with no sources" nudge: look the data up in the background.
+                        var enableAvail = e.target.closest('#cgEnableAvail');
+                        if (enableAvail) {
+                            startAvailability(page, enableAvail);
                             return;
                         }
 

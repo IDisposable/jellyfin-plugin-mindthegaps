@@ -16,9 +16,14 @@ public sealed class GapStore
         WriteIndented = true
     };
 
+    // Coalesce the frequent checkpoint saves the background enrichment makes so a large report is not
+    // fully rewritten every few lookups; the in-memory copy is always current, only the disk flush waits.
+    private static readonly TimeSpan _minWriteInterval = TimeSpan.FromSeconds(5);
+
     private readonly ILogger<GapStore> _logger;
     private readonly object _lock = new();
     private GapReport? _cached;
+    private DateTime _lastWriteUtc = DateTime.MinValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapStore"/> class.
@@ -40,7 +45,7 @@ public sealed class GapStore
     }
 
     /// <summary>
-    /// Saves the report to disk and caches it in memory.
+    /// Saves the report: caches it in memory and flushes it to disk atomically.
     /// </summary>
     /// <param name="report">The report to save.</param>
     public void Save(GapReport report)
@@ -48,14 +53,44 @@ public sealed class GapStore
         lock (_lock)
         {
             _cached = report;
-            try
+            Flush(report);
+        }
+    }
+
+    /// <summary>
+    /// Caches the report in memory and flushes to disk only if enough time has passed since the last
+    /// flush (the in-memory copy is always current). For frequent checkpoint saves during a long pass,
+    /// so a large report is not fully rewritten on every checkpoint. Call <see cref="Save"/> for the
+    /// final write.
+    /// </summary>
+    /// <param name="report">The report to save.</param>
+    public void SaveThrottled(GapReport report)
+    {
+        lock (_lock)
+        {
+            _cached = report;
+            if (DateTime.UtcNow - _lastWriteUtc >= _minWriteInterval)
             {
-                File.WriteAllText(FilePath, JsonSerializer.Serialize(report, _jsonOptions));
+                Flush(report);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to persist gap report");
-            }
+        }
+    }
+
+    // Atomic write: serialize to a temp file then replace, so a crash mid-write cannot truncate or lose
+    // the report. Caller holds _lock.
+    private void Flush(GapReport report)
+    {
+        try
+        {
+            var path = FilePath;
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(report, _jsonOptions));
+            File.Move(tmp, path, overwrite: true);
+            _lastWriteUtc = DateTime.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist gap report");
         }
     }
 

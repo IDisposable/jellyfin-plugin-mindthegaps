@@ -25,10 +25,11 @@ public class TmdbRecommendationsCapturedDataTests
         var similar = Load();
         var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
 
-        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", ownership, Poster, 5).ToList();
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 5).ToList();
 
         Assert.Equal(5, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
+        Assert.All(gaps, g => Assert.Equal(1994, g.SourceItemYear));
     }
 
     [Fact]
@@ -37,7 +38,7 @@ public class TmdbRecommendationsCapturedDataTests
         var similar = Load();
         var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
 
-        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", ownership, Poster, 100).ToList();
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100).ToList();
 
         Assert.Equal(20, gaps.Count);
         Assert.Equal("recommendation:movie:1969", gaps[0].Id);

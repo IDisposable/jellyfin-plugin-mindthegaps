@@ -70,6 +70,7 @@ public sealed class SeriesContentGapSource : IGapSource
 
         var perSeriesCount = new Dictionary<Guid, int>();
         var cappedSeries = new HashSet<Guid>();
+        var seriesYears = new Dictionary<Guid, int?>();
 
         foreach (var item in missing)
         {
@@ -96,11 +97,19 @@ public sealed class SeriesContentGapSource : IGapSource
             }
 
             perSeriesCount[seriesId] = count + 1;
-            yield return BuildGap(episode);
+
+            // The owned series' year, resolved once per series (the episode does not carry it).
+            if (!seriesYears.TryGetValue(seriesId, out var seriesYear))
+            {
+                seriesYear = _libraryManager.GetItemById(seriesId)?.ProductionYear;
+                seriesYears[seriesId] = seriesYear;
+            }
+
+            yield return BuildGap(episode, seriesYear);
         }
     }
 
-    private static GapItem BuildGap(Episode episode)
+    private static GapItem BuildGap(Episode episode, int? seriesYear)
     {
         var season = episode.ParentIndexNumber;
         var number = episode.IndexNumber;
@@ -125,7 +134,7 @@ public sealed class SeriesContentGapSource : IGapSource
             ? SeriesGapKey.Episode(episode.SeriesId, season.Value, number.Value)
             : string.Create(CultureInfo.InvariantCulture, $"seriescontent:{episode.Id:N}");
 
-        return GapItemFactory.Create(
+        var gap = GapItemFactory.Create(
             id: id,
             pattern: GapPattern.SetCompletion,
             domain: MediaDomain.Shows,
@@ -137,6 +146,17 @@ public sealed class SeriesContentGapSource : IGapSource
             sourceItemType: "Series",
             releaseDate: episode.PremiereDate,
             overview: episode.Overview,
-            season: season);
+            season: season,
+            sourceItemYear: seriesYear);
+
+        // This gap is a (virtual) episode the server already tracks, so the report can link to it and
+        // its season directly.
+        gap.LibraryItemId = episode.Id.ToString("N", CultureInfo.InvariantCulture);
+        if (episode.SeasonId != Guid.Empty)
+        {
+            gap.SeasonItemId = episode.SeasonId.ToString("N", CultureInfo.InvariantCulture);
+        }
+
+        return gap;
     }
 }

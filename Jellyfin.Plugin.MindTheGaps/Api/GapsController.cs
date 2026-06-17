@@ -27,6 +27,7 @@ public class GapsController : ControllerBase
     private readonly GapStore _store;
     private readonly GapScanRunner _scanRunner;
     private readonly AvailabilityService _availabilityService;
+    private readonly AvailabilityRunner _availabilityRunner;
     private readonly VirtualMovieMinter _minter;
     private readonly MintRunner _mintRunner;
 
@@ -36,13 +37,15 @@ public class GapsController : ControllerBase
     /// <param name="store">The gap store.</param>
     /// <param name="scanRunner">The background scan runner.</param>
     /// <param name="availabilityService">The availability service.</param>
+    /// <param name="availabilityRunner">The background availability enrichment runner.</param>
     /// <param name="minter">The experimental virtual-movie minter.</param>
     /// <param name="mintRunner">The background mint runner.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, VirtualMovieMinter minter, MintRunner mintRunner)
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner)
     {
         _store = store;
         _scanRunner = scanRunner;
         _availabilityService = availabilityService;
+        _availabilityRunner = availabilityRunner;
         _minter = minter;
         _mintRunner = mintRunner;
     }
@@ -176,4 +179,27 @@ public class GapsController : ControllerBase
         var offers = await _availabilityService.GetOffersAsync(query, config, cancellationToken).ConfigureAwait(false);
         return Ok(offers);
     }
+
+    /// <summary>
+    /// Starts a background pass that looks up "where to watch" for the watchable gaps in the current
+    /// report that do not have it yet, so the "Hide items with no sources" filter gets data without a
+    /// rescan. Returns immediately; poll <see cref="GetAvailabilityStatus"/>.
+    /// </summary>
+    /// <returns>The enrichment status, with Started indicating whether this call kicked off a new pass.</returns>
+    [HttpPost("Availability/Enrich")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<AvailabilityStatus> EnrichAvailability()
+    {
+        var started = _availabilityRunner.TryStart();
+        return new AvailabilityStatus { Running = true, Started = started, Progress = _availabilityRunner.Progress };
+    }
+
+    /// <summary>
+    /// Gets whether the background availability pass is running, its progress, and the last completed message.
+    /// </summary>
+    /// <returns>The enrichment status.</returns>
+    [HttpGet("Availability/Status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<AvailabilityStatus> GetAvailabilityStatus()
+        => new AvailabilityStatus { Running = _availabilityRunner.IsRunning, Progress = _availabilityRunner.Progress, Message = _availabilityRunner.LastMessage ?? string.Empty };
 }

@@ -29,6 +29,7 @@ public static class GapItemFactory
     /// <param name="overview">A short overview / role description.</param>
     /// <param name="season">The season number for episode gaps (0 is specials).</param>
     /// <param name="extraLinks">Links to append beyond those derived from <paramref name="providerIds"/>.</param>
+    /// <param name="sourceItemYear">The release year of the owning item, if known.</param>
     /// <returns>The constructed gap item.</returns>
     public static GapItem Create(
         string id,
@@ -44,7 +45,8 @@ public static class GapItemFactory
         string? imageUrl = null,
         string? overview = null,
         int? season = null,
-        IEnumerable<ExternalLink>? extraLinks = null)
+        IEnumerable<ExternalLink>? extraLinks = null,
+        int? sourceItemYear = null)
     {
         var links = ProviderLinks.Build(targetKind, providerIds);
         if (extraLinks is not null)
@@ -71,7 +73,8 @@ public static class GapItemFactory
             Links = links,
             SourceItemId = sourceItemId,
             SourceItemName = sourceItemName,
-            SourceItemType = sourceItemType
+            SourceItemType = sourceItemType,
+            SourceItemYear = sourceItemYear
         };
     }
 }

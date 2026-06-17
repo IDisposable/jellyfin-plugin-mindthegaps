@@ -17,7 +17,6 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanPeople = true;
         ScanRecommendations = false;
         IncludeAvailability = true;
-        FetchAvailabilityDuringScan = false;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
         MetadataCountryCode = "US";
@@ -51,16 +50,10 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanRecommendations { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data.
+    /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where
+    /// to watch"), both the per-item lookups and the background enrichment pass.
     /// </summary>
     public bool IncludeAvailability { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to look up "where to watch" for every gap during the
-    /// scan (instead of lazily per item). Lets the report filter to streamable gaps, at the cost of a
-    /// slower scan and more API calls. Off by default.
-    /// </summary>
-    public bool FetchAvailabilityDuringScan { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of related titles to surface per source item.

@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.6"
+version: "10.11.0.7"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -16,14 +16,8 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.6 - External links now open in the system browser on mobile. Report polish: settings gear,
-  tidier header, "Mind the Gap ToDo List" title, providers shown as a list with one watch button,
-  minty Mint buttons, a per-provider "where to watch" filter, and a Recommendations pivot (grouped by
-  target, recommending source on expand). Minting now lives entirely on the report: per-row and
-  multi-select "Mint selected" (checkbox rows), run in the background with live progress; the settings
-  page keeps only "Remove minted". Minted placeholders are reconciled automatically at the end of every
-  scan once the library owns the real file. External links are now extensible: each gap's links merge
-  whatever the host's own providers emit (TMDB/IMDb from core, JustWatch if that plugin is installed)
-  with the built-in list, and the report keeps "Where to watch" flush right as the link row grows. New
-  opt-in scan-time availability with a "Hide items with no sources" filter and a one-click enable. Each
-  minted item now gets a metadata refresh.
+  10.11.0.7 - Availability now runs as a background "Look up where to watch" pass instead of slowing the
+  scan. Rows link to IMDb/TheTVDB, not just TMDB; fixed TheTVDB episode/season 404s. New "Open in
+  Jellyfin" icons (show/season/item, new tab). Recommendations show the recommending title's year and
+  kind and link to it. Creator Works and Recommendations now group alphabetically (Unicode-aware). The
+  report is saved atomically.

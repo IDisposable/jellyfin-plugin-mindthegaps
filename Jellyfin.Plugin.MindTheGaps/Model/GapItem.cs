@@ -107,6 +107,23 @@ public class GapItem
     public string? SourceItemType { get; set; }
 
     /// <summary>
+    /// Gets or sets the release year of the owning item, when known.
+    /// </summary>
+    public int? SourceItemYear { get; set; }
+
+    /// <summary>
+    /// Gets or sets the id of this gap's own item in the library, when it exists as a (virtual) item the
+    /// server already tracks (for example a missing episode). Lets the report link straight to it.
+    /// </summary>
+    public string? LibraryItemId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the id of this gap's season in the library, when known (episode gaps from the server's
+    /// own missing-episode list). Lets the report link the season header to it.
+    /// </summary>
+    public string? SeasonItemId { get; set; }
+
+    /// <summary>
     /// Gets or sets the streaming-availability offers.
     /// </summary>
     public IReadOnlyList<AvailabilityOffer> Availability { get; set; } = Array.Empty<AvailabilityOffer>();

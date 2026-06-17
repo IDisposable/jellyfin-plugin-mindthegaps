@@ -104,6 +104,7 @@ public sealed class RecommendationsGapSource : IGapSource
                 similar.Results,
                 movie.Id.ToString("N", CultureInfo.InvariantCulture),
                 movie.Name,
+                movie.ProductionYear,
                 context.Ownership,
                 _tmdb.GetPosterUrl,
                 perItem))
@@ -146,6 +147,7 @@ public sealed class RecommendationsGapSource : IGapSource
                 similar.Results,
                 series.Id.ToString("N", CultureInfo.InvariantCulture),
                 series.Name,
+                series.ProductionYear,
                 context.Ownership,
                 _tmdb.GetPosterUrl,
                 perItem))

@@ -144,6 +144,47 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets a title's external ids (IMDb, and TheTVDB for series) by its TMDB id. TMDB list responses
+    /// only carry the TMDB id, so this fills in the rest so a gap can link to more than TMDB.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="isSeries">Whether the id is a series (otherwise a movie).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The IMDb id and (for series) the TheTVDB id, each null when absent.</returns>
+    public async Task<(string? Imdb, string? Tvdb)> GetExternalIdsAsync(int tmdbId, bool isSeries, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"externalids-{(isSeries ? "tv" : "movie")}-{tmdbId}");
+        if (_cache.TryGetValue(key, out (string? Imdb, string? Tvdb) cached))
+        {
+            return cached;
+        }
+
+        string? imdb = null;
+        string? tvdb = null;
+        if (isSeries)
+        {
+            var ids = await _client.GetTvShowExternalIdsAsync(tmdbId, cancellationToken).ConfigureAwait(false);
+            if (ids is not null)
+            {
+                imdb = ids.ImdbId;
+                tvdb = string.IsNullOrEmpty(ids.TvdbId) ? null : ids.TvdbId;
+            }
+        }
+        else
+        {
+            var ids = await _client.GetMovieExternalIdsAsync(tmdbId, cancellationToken).ConfigureAwait(false);
+            if (ids is not null)
+            {
+                imdb = ids.ImdbId;
+            }
+        }
+
+        var result = (Imdb: string.IsNullOrEmpty(imdb) ? null : imdb, Tvdb: tvdb);
+        _cache.Set(key, result, TimeSpan.FromHours(CacheDurationHours));
+        return result;
+    }
+
+    /// <summary>
     /// Builds an absolute poster URL from a TMDB poster path.
     /// </summary>
     /// <param name="posterPath">The relative poster path.</param>

@@ -18,6 +18,7 @@ public static class RecommendationGapMapper
     /// <param name="results">The similar-movie results.</param>
     /// <param name="sourceItemId">The owned seed movie's id.</param>
     /// <param name="sourceItemName">The owned seed movie's name.</param>
+    /// <param name="sourceItemYear">The owned seed movie's release year, if known.</param>
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
@@ -26,6 +27,7 @@ public static class RecommendationGapMapper
         IEnumerable<SearchMovie> results,
         string sourceItemId,
         string? sourceItemName,
+        int? sourceItemYear,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
         int perItem)
@@ -62,7 +64,8 @@ public static class RecommendationGapMapper
                 sourceItemType: "Movie",
                 releaseDate: rec.ReleaseDate,
                 imageUrl: posterUrl(rec.PosterPath),
-                overview: rec.Overview);
+                overview: rec.Overview,
+                sourceItemYear: sourceItemYear);
         }
     }
 
@@ -72,6 +75,7 @@ public static class RecommendationGapMapper
     /// <param name="results">The similar-series results.</param>
     /// <param name="sourceItemId">The owned seed series' id.</param>
     /// <param name="sourceItemName">The owned seed series' name.</param>
+    /// <param name="sourceItemYear">The owned seed series' release year, if known.</param>
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
@@ -80,6 +84,7 @@ public static class RecommendationGapMapper
         IEnumerable<SearchTv> results,
         string sourceItemId,
         string? sourceItemName,
+        int? sourceItemYear,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
         int perItem)
@@ -116,7 +121,8 @@ public static class RecommendationGapMapper
                 sourceItemType: "Series",
                 releaseDate: rec.FirstAirDate,
                 imageUrl: posterUrl(rec.PosterPath),
-                overview: rec.Overview);
+                overview: rec.Overview,
+                sourceItemYear: sourceItemYear);
         }
     }
 
