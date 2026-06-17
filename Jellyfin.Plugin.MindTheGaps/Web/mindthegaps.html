@@ -56,6 +56,17 @@
                         <label style="margin-left:1em;">
                             <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" />
                         </label>
+                        <label style="margin-left:1em;">
+                            <input type="checkbox" id="cgHideSpecials" /> Hide specials
+                        </label>
+                    </div>
+                    <div id="cgMonFilter" style="margin-top:.5em;font-size:.9em;opacity:.85;">
+                        Where to watch:
+                        <label style="margin-left:.5em;"><input type="checkbox" class="cgMon" data-mon="flatrate" checked /> Subscription</label>
+                        <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="free" checked /> Free</label>
+                        <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="ads" checked /> With ads</label>
+                        <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="rent" checked /> Rent</label>
+                        <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="buy" checked /> Buy</label>
                     </div>
                     <div id="cgTabs" style="margin:.7em 0 .2em 0;"></div>
                 </div>
@@ -73,6 +84,7 @@
                     Recommendation: 'Recommendations'
                 };
                 var CATEGORY_ORDER = { Movies: 0, Shows: 1, Music: 2, Books: 3 };
+                var MONETIZATION_LABELS = { flatrate: 'Subscription', free: 'Free', ads: 'With ads', rent: 'Rent', buy: 'Buy' };
 
                 function esc(s) {
                     return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
@@ -85,9 +97,29 @@
 
                 function ci(a, b) { a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
 
+                // Report-level "where to watch" type filter (the toolbar checkboxes).
+                function monAllowed(type) {
+                    if (!type) { return true; }
+                    var cb = document.querySelector('#MindTheGapsPage .cgMon[data-mon="' + type + '"]');
+                    return !cb || cb.checked;
+                }
+
+                function filterMon(offers) {
+                    return (offers || []).filter(function (o) { return monAllowed(o.MonetizationType); });
+                }
+
+                // Render an availability note from the full offer set it stashed, applying the current filter.
+                function renderAvail(note) {
+                    var shown = filterMon(note._offers);
+                    note.innerHTML = shown.length
+                        ? 'Where to watch: ' + availLinks(shown)
+                        : (note._offers && note._offers.length ? 'No offers match the selected types.' : 'No streaming offers found in your region.');
+                }
+
                 function availLinks(offers) {
                     return offers.map(function (o) {
-                        var label = esc(o.Provider) + (o.MonetizationType ? ' (' + esc(o.MonetizationType) + ')' : '');
+                        var mt = o.MonetizationType ? (MONETIZATION_LABELS[o.MonetizationType] || o.MonetizationType) : '';
+                        var label = esc(o.Provider) + (mt ? ' (' + esc(mt) + ')' : '');
                         return o.Url
                             ? '<a class="cgLink" href="' + esc(o.Url) + '" target="_blank" rel="noopener">' + label + '</a>'
                             : '<span class="cgLink">' + label + '</span>';
@@ -115,8 +147,9 @@
                     }
 
                     var avail = '';
-                    if (item.Availability && item.Availability.length) {
-                        avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(item.Availability) + '</div>';
+                    var shownOffers = filterMon(item.Availability);
+                    if (shownOffers.length) {
+                        avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(shownOffers) + '</div>';
                     }
 
                     var details = item.Overview
@@ -213,9 +246,11 @@
                     var report = page._report || { Items: [] };
                     var type = page.querySelector('#cgTypeFilter').value;
                     var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
+                    var hideSpecials = page.querySelector('#cgHideSpecials').checked;
                     var items = (report.Items || []).filter(function (it) {
                         if (it.PatternName !== page._pattern) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
+                        if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
                         if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
                         return true;
                     });
@@ -223,6 +258,36 @@
                     page.querySelector('#cgList').innerHTML = items.length
                         ? buildTree(items)
                         : '<p class="fieldDescription">No gaps in this view. Pick another axis, adjust filters, or rescan.</p>';
+                }
+
+                // Persist the report filters per browser (not server config; these are personal view prefs).
+                var STORAGE_KEY = 'mindthegaps.filters';
+
+                function saveFilters(page) {
+                    try {
+                        var state = {
+                            type: page.querySelector('#cgTypeFilter').value,
+                            hideSpecials: page.querySelector('#cgHideSpecials').checked,
+                            mon: {}
+                        };
+                        var cbs = page.querySelectorAll('.cgMon');
+                        for (var i = 0; i < cbs.length; i++) { state.mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+                    } catch (e) { /* localStorage unavailable; ignore */ }
+                }
+
+                function restoreFilters(page) {
+                    var state;
+                    try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
+                    if (state.type != null) { page.querySelector('#cgTypeFilter').value = state.type; }
+                    if (state.hideSpecials != null) { page.querySelector('#cgHideSpecials').checked = !!state.hideSpecials; }
+                    if (state.mon) {
+                        var cbs = page.querySelectorAll('.cgMon');
+                        for (var i = 0; i < cbs.length; i++) {
+                            var k = cbs[i].getAttribute('data-mon');
+                            if (state.mon[k] != null) { cbs[i].checked = !!state.mon[k]; }
+                        }
+                    }
                 }
 
                 function load(page) {
@@ -289,10 +354,21 @@
                         applyAndRender(page);
                     });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
+                        saveFilters(page);
                         if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgSearch').addEventListener('input', function () {
                         if (page._report) { applyAndRender(page); }
+                    });
+                    page.querySelector('#cgHideSpecials').addEventListener('change', function () {
+                        saveFilters(page);
+                        if (page._report) { applyAndRender(page); }
+                    });
+                    page.querySelector('#cgMonFilter').addEventListener('change', function () {
+                        saveFilters(page);
+                        // Re-filter already-shown availability notes without re-rendering the tree.
+                        var notes = page.querySelectorAll('.cgAvail');
+                        for (var i = 0; i < notes.length; i++) { renderAvail(notes[i]); }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
@@ -334,11 +410,10 @@
                                 dataType: 'json'
                             }).then(function (offers) {
                                 var note = document.createElement('div');
-                                note.className = 'fieldDescription';
+                                note.className = 'fieldDescription cgAvail';
                                 note.style.marginTop = '.2em';
-                                note.innerHTML = (offers && offers.length)
-                                    ? 'Where to watch: ' + availLinks(offers)
-                                    : 'No streaming offers found in your region.';
+                                note._offers = offers || [];
+                                renderAvail(note);
                                 watchBtn.parentNode.appendChild(note);
                                 watchBtn.remove();
                             }).catch(function () {
@@ -361,6 +436,7 @@
                             if (d) { d.style.display = d.style.display === 'none' ? 'block' : 'none'; }
                         }
                     });
+                    restoreFilters(page);
                     load(page);
                 });
             })();
