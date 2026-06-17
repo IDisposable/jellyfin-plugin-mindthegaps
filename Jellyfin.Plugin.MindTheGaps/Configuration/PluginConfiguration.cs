@@ -1,6 +1,3 @@
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
-using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.MindTheGaps.Configuration;
@@ -20,6 +17,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanPeople = true;
         ScanRecommendations = false;
         IncludeAvailability = true;
+        FetchAvailabilityDuringScan = false;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
         MetadataCountryCode = "US";
@@ -56,6 +54,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data.
     /// </summary>
     public bool IncludeAvailability { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to look up "where to watch" for every gap during the
+    /// scan (instead of lazily per item). Lets the report filter to streamable gaps, at the cost of a
+    /// slower scan and more API calls. Off by default.
+    /// </summary>
+    public bool FetchAvailabilityDuringScan { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of related titles to surface per source item.
@@ -107,18 +112,4 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets an optional TMDB API key. When empty, the public default key is used.
     /// </summary>
     public string TmdbApiKey { get; set; }
-
-    /// <summary>
-    /// Gets or sets the gap patterns to mint as pathless virtual items (the same three patterns the
-    /// engine models: <see cref="GapPattern.SetCompletion"/>, <see cref="GapPattern.CreatorWorks"/>,
-    /// <see cref="GapPattern.Recommendation"/>). Empty means mint nothing. Today only SetCompletion is
-    /// materializable in bulk (missing collection movies into a BoxSet). Experimental and temporary
-    /// (this belongs in core); everything minted is tagged and fully removable.
-    /// </summary>
-    /// <remarks>
-    /// Must have a setter: System.Text.Json (the plugin-config API deserializer) silently skips
-    /// get-only collection properties, so a get-only collection here never receives the saved selection.
-    /// </remarks>
-    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Settable so the plugin-config API (System.Text.Json) can deserialize the saved selection; a get-only collection is silently skipped.")]
-    public Collection<GapPattern> MintPatterns { get; set; } = new();
 }

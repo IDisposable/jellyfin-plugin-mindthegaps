@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -14,16 +15,19 @@ namespace Jellyfin.Plugin.MindTheGaps.ScheduledTasks;
 public sealed class GapScanTask : IScheduledTask
 {
     private readonly GapEngine _engine;
+    private readonly VirtualMovieMinter _minter;
     private readonly ILogger<GapScanTask> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapScanTask"/> class.
     /// </summary>
     /// <param name="engine">The gap engine.</param>
+    /// <param name="minter">The minter (reconciles minted placeholders now owned for real).</param>
     /// <param name="logger">The logger.</param>
-    public GapScanTask(GapEngine engine, ILogger<GapScanTask> logger)
+    public GapScanTask(GapEngine engine, VirtualMovieMinter minter, ILogger<GapScanTask> logger)
     {
         _engine = engine;
+        _minter = minter;
         _logger = logger;
     }
 
@@ -43,6 +47,7 @@ public sealed class GapScanTask : IScheduledTask
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var report = await _engine.RunAsync(progress, cancellationToken).ConfigureAwait(false);
+        _minter.ReconcileMinted();
         _logger.LogInformation("Collection gap scan complete: {Count} gaps", report.TotalGaps);
     }
 

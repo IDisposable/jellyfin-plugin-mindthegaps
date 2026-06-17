@@ -60,7 +60,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         yield return new PluginPageInfo
         {
             Name = "MindTheGapsReport",
-            DisplayName = "Mind the Gaps",
+            // Distinct from the plugin name ("Mind the Gaps") on purpose: when a plugin's DisplayName
+            // collides with the plugin name, the host's plugin-details "Settings" button can resolve to
+            // this page instead of the config page above.
+            DisplayName = "Mind the Gap ToDo List",
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
             EnableInMainMenu = true,
             MenuIcon = "playlist_add_check"

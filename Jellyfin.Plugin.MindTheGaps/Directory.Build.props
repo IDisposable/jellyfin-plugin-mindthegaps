@@ -1,10 +1,13 @@
 <Project>
   <!--
     Self-contained props for the MindTheGaps plugin. Its presence halts MSBuild's upward walk, so no
-    parent Directory.Build.props is inherited. Version defaults to the 10.11 line and is overridden
-    per build by the CI matrix (-p:Version=...); see build.yaml and .github/workflows/build.yaml.
+    parent Directory.Build.props is inherited.
+
+    Version is single-sourced from the repo-root build.yaml: a release bumps build.yaml only. CI
+    overrides per build with -p:Version= (the matrix's "Resolve version" step also reads build.yaml);
+    this fallback reads build.yaml directly so a plain local build stamps the same version.
   -->
-  <PropertyGroup>
-    <Version Condition="'$(Version)' == ''">10.11.0.5</Version>
+  <PropertyGroup Condition="'$(Version)' == ''">
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../build.yaml')), 'version:\s*"([^"]+)"').Groups.get_Item(1).Value)</Version>
   </PropertyGroup>
 </Project>

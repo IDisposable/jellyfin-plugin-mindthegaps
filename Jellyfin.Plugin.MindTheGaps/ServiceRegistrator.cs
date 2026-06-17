@@ -24,6 +24,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<GapStore>();
+        serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
@@ -31,6 +32,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TvMazeClient>();
         serviceCollection.AddSingleton<TvdbClient>();
         serviceCollection.AddSingleton<VirtualMovieMinter>();
+        serviceCollection.AddSingleton<MintRunner>();
 
         // Availability sources + aggregator.
         serviceCollection.AddSingleton<AvailabilityService>();

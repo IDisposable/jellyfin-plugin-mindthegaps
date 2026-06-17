@@ -13,7 +13,11 @@
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Mind the Gaps</h2>
                         <p class="fieldDescription">Choose what the gap scanner looks for. Results appear on the
-                            <a is="emby-linkbutton" class="button-link" href="#" id="lnkTodoList">Gaps todo list</a>.</p>
+                            <a is="emby-linkbutton" class="button-link" href="#" id="lnkTodoList">Mind the Gap ToDo List</a>.</p>
+                        <button is="emby-button" type="button" id="btnTodoList" class="raised">
+                            <span class="material-icons" style="margin-right:.3em;">checklist</span>
+                            <span>View report</span>
+                        </button>
                     </div>
 
                     <div class="checkboxContainer checkboxContainer-withDescription">
@@ -44,6 +48,12 @@
                         <label class="emby-checkbox-label">
                             <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
                             <span>Enrich with streaming availability (TMDB / JustWatch)</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="FetchAvailabilityDuringScan" name="FetchAvailabilityDuringScan" type="checkbox" is="emby-checkbox" />
+                            <span>Look up "where to watch" during the scan (enables the report's streamable filter; slower scan)</span>
                         </label>
                     </div>
 
@@ -107,44 +117,20 @@
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Experimental: virtual items</h2>
                         <p class="fieldDescription" style="color:#e08000;">
-                            This writes pathless "virtual" placeholder items into your library so missing entries
-                            render greyed-out, the way missing episodes do. It is a temporary stand-in for proper
-                            server support; the server will not reconcile or garbage-collect these for you. Use
-                            <strong>Remove minted movies</strong> below to undo it completely. Pick the gap patterns
-                            to mint, Save, then use the buttons.
+                            The plugin can write pathless "virtual" placeholder items into your library so missing
+                            entries render greyed-out, the way missing episodes do. It is a temporary stand-in for
+                            proper server support; the server will not reconcile or garbage-collect these for you.
+                            Mint individual gaps, or a multi-select batch, from the <strong>Mint</strong> buttons on
+                            the report page. Use <strong>Remove minted movies</strong> here to undo everything at once.
                         </p>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="MintSetCompletion" name="MintSetCompletion" type="checkbox" is="emby-checkbox" />
-                            <span>Set completion (missing collection movies)</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="MintCreatorWorks" name="MintCreatorWorks" type="checkbox" is="emby-checkbox" />
-                            <span>Creator works (filmographies) (reserved; no container to render into yet)</span>
-                        </label>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
-                            <input id="MintRecommendation" name="MintRecommendation" type="checkbox" is="emby-checkbox" />
-                            <span>Recommendations (reserved; no container to render into yet)</span>
-                        </label>
-                    </div>
-                    <div style="margin: 0.5em 0 1.5em 0;">
-                        <button id="MintPreview" is="emby-button" type="button" class="raised emby-button">
-                            <span>Preview mint (dry run)</span>
-                        </button>
-                        <button id="MintNow" is="emby-button" type="button" class="raised emby-button">
-                            <span>Mint now</span>
-                        </button>
-                        <button id="RemovePreview" is="emby-button" type="button" class="raised emby-button">
-                            <span>Preview removal (dry run)</span>
-                        </button>
-                        <button id="RemoveMinted" is="emby-button" type="button" class="raised emby-button">
-                            <span>Remove minted movies</span>
-                        </button>
+                        <div style="margin: 0.5em 0 1.5em 0;">
+                            <button id="RemovePreview" is="emby-button" type="button" class="raised emby-button">
+                                <span>Preview removal (dry run)</span>
+                            </button>
+                            <button id="RemoveMinted" is="emby-button" type="button" class="raised emby-button">
+                                <span>Remove minted movies</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div>
@@ -178,6 +164,7 @@
                     page.querySelector('#ScanPeople').checked = config.ScanPeople;
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
+                    page.querySelector('#FetchAvailabilityDuringScan').checked = config.FetchAvailabilityDuringScan;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
                     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
                     page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
@@ -188,24 +175,34 @@
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
-                    var patterns = config.MintPatterns || [];
-                    page.querySelector('#MintSetCompletion').checked = patterns.indexOf('SetCompletion') !== -1;
-                    page.querySelector('#MintCreatorWorks').checked = patterns.indexOf('CreatorWorks') !== -1;
-                    page.querySelector('#MintRecommendation').checked = patterns.indexOf('Recommendation') !== -1;
                     bindToggle(page, 'TraktEnabled', 'TraktClientId');
                     bindToggle(page, 'TvdbEnabled', 'TvdbApiKey');
                 }
 
-                // Fire a plugin action endpoint and report the count it returns.
-                function runAction(path, confirmMsg, doneMsg) {
+                // Start a background mint/remove operation and poll for the result message.
+                function pollMint() {
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/MintStatus'), dataType: 'json' })
+                        .then(function (s) {
+                            if (s && s.Running) {
+                                setTimeout(pollMint, 1500);
+                            } else {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert((s && s.Message) || 'Done.');
+                            }
+                        }, function () {
+                            Dashboard.hideLoadingMsg();
+                            Dashboard.alert('Lost contact while working. Check the server logs.');
+                        });
+                }
+
+                function runAction(path, confirmMsg) {
                     if (confirmMsg && !window.confirm(confirmMsg)) {
                         return;
                     }
                     Dashboard.showLoadingMsg();
                     ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/' + path), dataType: 'json' })
-                        .then(function (count) {
-                            Dashboard.hideLoadingMsg();
-                            Dashboard.alert(doneMsg.replace('{n}', count));
+                        .then(function () {
+                            pollMint();
                         }, function () {
                             Dashboard.hideLoadingMsg();
                             Dashboard.alert('Action failed. Check the server logs.');
@@ -219,23 +216,20 @@
                         e.preventDefault();
                         Dashboard.navigate('configurationpage?name=MindTheGapsReport');
                     });
+                    page.querySelector('#btnTodoList').addEventListener('click', function () {
+                        Dashboard.navigate('configurationpage?name=MindTheGapsReport');
+                    });
                     page.querySelector('#TraktEnabled').addEventListener('change', function () {
                         bindToggle(page, 'TraktEnabled', 'TraktClientId');
                     });
                     page.querySelector('#TvdbEnabled').addEventListener('change', function () {
                         bindToggle(page, 'TvdbEnabled', 'TvdbApiKey');
                     });
-                    page.querySelector('#MintPreview').addEventListener('click', function () {
-                        runAction('MintVirtualMovies?dryRun=true', null, 'Dry run: would mint {n} virtual movies. Nothing was written; check the server logs for the per-item detail.');
-                    });
-                    page.querySelector('#MintNow').addEventListener('click', function () {
-                        runAction('MintVirtualMovies', 'Mint virtual placeholder movies into your library now? Enable "Set completion" and Save first. (Try "Preview mint" to see what would happen.)', 'Minted {n} virtual movies.');
-                    });
                     page.querySelector('#RemovePreview').addEventListener('click', function () {
-                        runAction('RemoveMintedMovies?dryRun=true', null, 'Dry run: would remove {n} minted virtual movies. Nothing was deleted; check the server logs.');
+                        runAction('RemoveMintedMovies?dryRun=true', null);
                     });
                     page.querySelector('#RemoveMinted').addEventListener('click', function () {
-                        runAction('RemoveMintedMovies', null, 'Removed {n} minted virtual movies.');
+                        runAction('RemoveMintedMovies', null);
                     });
                     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                         load(page, config);
@@ -265,6 +259,7 @@
                         config.ScanPeople = form.querySelector('#ScanPeople').checked;
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
+                        config.FetchAvailabilityDuringScan = form.querySelector('#FetchAvailabilityDuringScan').checked;
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
                         config.TraktClientId = form.querySelector('#TraktClientId').value;
                         config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;
@@ -275,11 +270,6 @@
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
-                        var mintPatterns = [];
-                        if (form.querySelector('#MintSetCompletion').checked) { mintPatterns.push('SetCompletion'); }
-                        if (form.querySelector('#MintCreatorWorks').checked) { mintPatterns.push('CreatorWorks'); }
-                        if (form.querySelector('#MintRecommendation').checked) { mintPatterns.push('Recommendation'); }
-                        config.MintPatterns = mintPatterns;
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
@@ -12,6 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 public sealed class GapScanRunner
 {
     private readonly GapEngine _engine;
+    private readonly VirtualMovieMinter _minter;
     private readonly ILogger<GapScanRunner> _logger;
     private readonly object _lock = new();
     private bool _running;
@@ -21,10 +23,12 @@ public sealed class GapScanRunner
     /// Initializes a new instance of the <see cref="GapScanRunner"/> class.
     /// </summary>
     /// <param name="engine">The gap engine.</param>
+    /// <param name="minter">The minter (reconciles minted placeholders now owned for real).</param>
     /// <param name="logger">The logger.</param>
-    public GapScanRunner(GapEngine engine, ILogger<GapScanRunner> logger)
+    public GapScanRunner(GapEngine engine, VirtualMovieMinter minter, ILogger<GapScanRunner> logger)
     {
         _engine = engine;
+        _minter = minter;
         _logger = logger;
     }
 
@@ -93,6 +97,7 @@ public sealed class GapScanRunner
             });
 
             await _engine.RunAsync(progress, CancellationToken.None).ConfigureAwait(false);
+            _minter.ReconcileMinted();
             _logger.LogInformation("Background gap scan finished");
         }
         catch (Exception ex)

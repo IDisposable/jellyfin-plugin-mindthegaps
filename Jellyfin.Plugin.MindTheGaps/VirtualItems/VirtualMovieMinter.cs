@@ -13,6 +13,7 @@ using MediaBrowser.Controller.Collections;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -46,6 +47,8 @@ public sealed class VirtualMovieMinter
 
     private readonly ILibraryManager _libraryManager;
     private readonly ICollectionManager _collectionManager;
+    private readonly IProviderManager _providerManager;
+    private readonly IDirectoryService _directoryService;
     private readonly TmdbClient _tmdb;
     private readonly ILogger<VirtualMovieMinter> _logger;
 
@@ -54,197 +57,51 @@ public sealed class VirtualMovieMinter
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="collectionManager">The collection manager.</param>
+    /// <param name="providerManager">The provider manager (queues metadata refreshes).</param>
+    /// <param name="directoryService">The directory service (required to build refresh options).</param>
     /// <param name="tmdb">The TMDB client.</param>
     /// <param name="logger">The logger.</param>
     public VirtualMovieMinter(
         ILibraryManager libraryManager,
         ICollectionManager collectionManager,
+        IProviderManager providerManager,
+        IDirectoryService directoryService,
         TmdbClient tmdb,
         ILogger<VirtualMovieMinter> logger)
     {
         _libraryManager = libraryManager;
         _collectionManager = collectionManager;
+        _providerManager = providerManager;
+        _directoryService = directoryService;
         _tmdb = tmdb;
         _logger = logger;
     }
 
     /// <summary>
-    /// Mints virtual movies for the missing parts of every owned collection, after first removing any
-    /// previously-minted movie the user now actually owns (the reconciliation the server would do).
+    /// Queues a metadata + image refresh for a freshly minted item so providers fill in whatever we
+    /// could not write at insert time (overview, artwork, etc.). Fire-and-forget; runs in the host's
+    /// refresh queue. Merge mode, so the minted marker and our seeded fields are preserved.
     /// </summary>
-    /// <param name="dryRun">When true, logs what would be minted, reconciled and re-linked without writing anything.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The number of virtual movies minted (or, in a dry run, that would be minted) this run.</returns>
-    public async Task<int> MintAsync(bool dryRun, CancellationToken cancellationToken)
+    /// <param name="item">The minted item.</param>
+    private void QueueMetadataRefresh(BaseItem item)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
-        _logger.LogInformation(
-            "MintAsync starting{DryRun}. Enabled mint patterns: [{Patterns}]",
-            dryRun ? " (DRY RUN, nothing will be written)" : string.Empty,
-            string.Join(", ", config.MintPatterns));
-
-        if (!config.MintPatterns.Contains(GapPattern.SetCompletion))
+        try
         {
-            // SetCompletion (missing collection movies) is the only pattern materializable today;
-            // CreatorWorks and Recommendation have no container to render a virtual item into yet.
-            _logger.LogInformation(
-                "Set-completion minting is not enabled (tick \"Set completion\" and Save first); nothing to do");
-            return 0;
-        }
-
-        var ownedRealTmdbIds = OwnedRealMovieTmdbIds();
-        _logger.LogDebug("Indexed {Count} owned real (non-virtual) movie TMDB ids", ownedRealTmdbIds.Count);
-
-        // The server has no reconciler for our items, so do it ourselves: drop anything we minted
-        // earlier that the user now owns as a real file.
-        var reconciled = RemoveMinted(item => HasOwnedRealCounterpart(item, ownedRealTmdbIds), dryRun);
-        if (reconciled > 0)
-        {
-            _logger.LogInformation(
-                "{Verb} {Count} minted movies the library now owns for real",
-                dryRun ? "Would reconcile" : "Reconciled",
-                reconciled);
-        }
-        else
-        {
-            _logger.LogDebug("Reconcile pass found nothing (no minted movie is now owned for real)");
-        }
-
-        var minted = 0;
-        var skippedOwned = 0;
-        var relinked = 0;
-        var failed = 0;
-        var language = config.MetadataLanguage;
-        var country = config.MetadataCountryCode;
-
-        var boxSets = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            IncludeItemTypes = new[] { BaseItemKind.BoxSet },
-            Recursive = true
-        });
-        _logger.LogDebug("Scanning {Count} BoxSets for mintable collection gaps", boxSets.Count);
-
-        foreach (var boxSet in boxSets)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!boxSet.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
-                || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))
-            {
-                _logger.LogDebug("BoxSet '{Name}' ({Id}) has no TMDB collection id; skipping", boxSet.Name, boxSet.Id);
-                continue;
-            }
-
-            _logger.LogDebug("BoxSet '{Name}' maps to TMDB collection {CollectionId}", boxSet.Name, collectionId);
-
-            var collection = await _tmdb.GetCollectionAsync(collectionId, language, country, cancellationToken).ConfigureAwait(false);
-            if (collection?.Parts is null)
-            {
-                _logger.LogWarning(
-                    "TMDB collection {CollectionId} for BoxSet '{Name}' returned no parts; skipping",
-                    collectionId,
-                    boxSet.Name);
-                continue;
-            }
-
-            _logger.LogDebug(
-                "TMDB collection {CollectionId} ('{Name}') has {Count} parts",
-                collectionId,
-                boxSet.Name,
-                collection.Parts.Count);
-
-            foreach (var part in collection.Parts)
-            {
-                var partId = part.Id.ToString(CultureInfo.InvariantCulture);
-                var title = part.Title ?? string.Empty;
-
-                if (ownedRealTmdbIds.Contains(partId))
+            _providerManager.QueueRefresh(
+                item.Id,
+                new MetadataRefreshOptions(_directoryService)
                 {
-                    _logger.LogDebug("Part {PartId} '{Title}' is already owned for real; skipping", partId, title);
-                    skippedOwned++;
-                    continue;
-                }
-
-                try
-                {
-                    var movieId = _libraryManager.GetNewItemId("mindthegaps-virtual-movie-" + partId, typeof(Movie));
-                    if (_libraryManager.GetItemById(movieId) is not null)
-                    {
-                        // Already minted; make sure it is still linked into this BoxSet.
-                        _logger.LogDebug(
-                            "Part {PartId} '{Title}' already minted ({MovieId}); {Action} it stays linked into BoxSet '{BoxSet}'",
-                            partId,
-                            title,
-                            movieId,
-                            dryRun ? "would ensure" : "ensuring",
-                            boxSet.Name);
-                        if (!dryRun)
-                        {
-                            await _collectionManager.AddToCollectionAsync(boxSet.Id, new[] { movieId }).ConfigureAwait(false);
-                        }
-
-                        relinked++;
-                        continue;
-                    }
-
-                    _logger.LogDebug(
-                        "{Action} virtual movie for part {PartId} '{Title}' ({Year}) as {MovieId} into BoxSet '{BoxSet}'",
-                        dryRun ? "Would mint" : "Minting",
-                        partId,
-                        title,
-                        part.ReleaseDate?.Year,
-                        movieId,
-                        boxSet.Name);
-
-                    if (dryRun)
-                    {
-                        minted++;
-                        continue;
-                    }
-
-                    var movie = new Movie
-                    {
-                        Id = movieId,
-                        Name = title,
-                        Overview = part.Overview,
-                        ProductionYear = part.ReleaseDate?.Year,
-                        PremiereDate = part.ReleaseDate,
-                        IsVirtualItem = true,
-                        DateCreated = DateTime.UtcNow
-                    };
-                    movie.ProviderIds[MetadataProvider.Tmdb.ToString()] = partId;
-                    movie.ProviderIds[MintedMarker] = "1";
-
-                    _libraryManager.CreateItem(movie, boxSet);
-                    await _collectionManager.AddToCollectionAsync(boxSet.Id, new[] { movie.Id }).ConfigureAwait(false);
-                    minted++;
-                }
-                catch (Exception ex)
-                {
-                    // Keep going: one bad part should not abort the whole batch. Re-running is safe (idempotent).
-                    failed++;
-                    _logger.LogError(
-                        ex,
-                        "Failed to mint part {PartId} '{Title}' into BoxSet '{BoxSet}'; continuing",
-                        partId,
-                        title,
-                        boxSet.Name);
-                }
-            }
+                    MetadataRefreshMode = MetadataRefreshMode.FullRefresh,
+                    ImageRefreshMode = MetadataRefreshMode.FullRefresh,
+                    ReplaceAllMetadata = false
+                },
+                RefreshPriority.High);
+            _logger.LogDebug("Queued metadata refresh for minted item {Id} '{Name}'", item.Id, item.Name);
         }
-
-        stopwatch.Stop();
-        _logger.LogInformation(
-            "Mint complete{DryRun} in {ElapsedMs} ms. {Verb} {Minted} new, re-linked {Relinked} existing, skipped {SkippedOwned} owned, {Failed} failed",
-            dryRun ? " (DRY RUN, nothing written)" : string.Empty,
-            stopwatch.ElapsedMilliseconds,
-            dryRun ? "Would mint" : "Minted",
-            minted,
-            relinked,
-            skippedOwned,
-            failed);
-        return minted;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to queue metadata refresh for minted item {Id}", item.Id);
+        }
     }
 
     /// <summary>
@@ -263,6 +120,47 @@ public sealed class VirtualMovieMinter
             removed,
             stopwatch.ElapsedMilliseconds);
         return Task.FromResult(removed);
+    }
+
+    /// <summary>
+    /// Removes any minted placeholder whose movie the library now owns for real (the reconciliation the
+    /// server would do). Run after each scan, since the bulk-mint path that used to reconcile is gone.
+    /// </summary>
+    /// <returns>The number of minted placeholders reconciled away.</returns>
+    public int ReconcileMinted()
+    {
+        var ownedRealTmdbIds = OwnedRealMovieTmdbIds();
+        var reconciled = RemoveMinted(item => HasOwnedRealCounterpart(item, ownedRealTmdbIds), dryRun: false);
+        if (reconciled > 0)
+        {
+            _logger.LogInformation("Reconciled {Count} minted movies the library now owns for real", reconciled);
+        }
+
+        return reconciled;
+    }
+
+    private static bool HasOwnedRealCounterpart(BaseItem mintedItem, HashSet<string> ownedRealTmdbIds)
+        => mintedItem.TryGetProviderId(MetadataProvider.Tmdb, out var id)
+            && !string.IsNullOrEmpty(id)
+            && ownedRealTmdbIds.Contains(id);
+
+    private HashSet<string> OwnedRealMovieTmdbIds()
+    {
+        var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Movie },
+            IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            if (item.TryGetProviderId(MetadataProvider.Tmdb, out var id) && !string.IsNullOrEmpty(id))
+            {
+                owned.Add(id);
+            }
+        }
+
+        return owned;
     }
 
     /// <summary>
@@ -362,6 +260,9 @@ public sealed class VirtualMovieMinter
             await AttachPersonAsync(movie.Id, personName, cancellationToken).ConfigureAwait(false);
         }
 
+        // Let providers fill in whatever we could not seed at insert time (artwork, overview, ...).
+        QueueMetadataRefresh(movie);
+
         stopwatch.Stop();
         _logger.LogInformation(
             "One-off: minted '{Name}' (TMDB {Tmdb}) as {MovieId} into '{Container}'{Person} in {Ms} ms",
@@ -372,6 +273,55 @@ public sealed class VirtualMovieMinter
             personSuffix,
             stopwatch.ElapsedMilliseconds);
         return string.Create(CultureInfo.InvariantCulture, $"Minted '{gap.Name}' into '{containerName}'{personSuffix}.");
+    }
+
+    /// <summary>
+    /// Mints several gaps at once (the report's multi-select), each through <see cref="MintGapAsync"/>.
+    /// </summary>
+    /// <param name="gaps">The gaps to mint.</param>
+    /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
+    /// <param name="progress">Optional progress sink (0-100).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A human-readable status message.</returns>
+    public async Task<string> MintGapsAsync(IReadOnlyList<GapItem> gaps, bool dryRun, IProgress<double>? progress, CancellationToken cancellationToken)
+    {
+        if (gaps is null || gaps.Count == 0)
+        {
+            return "Nothing selected.";
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var minted = 0;
+        var failed = 0;
+        var index = 0;
+        foreach (var gap in gaps)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report((double)index++ / gaps.Count * 100);
+            try
+            {
+                await MintGapAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
+                minted++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogError(ex, "Multi-select mint: failed on '{Name}'; continuing", gap.Name);
+            }
+        }
+
+        stopwatch.Stop();
+        _logger.LogInformation(
+            "Multi-select mint complete{DryRun}: {Minted} of {Total} in {Ms} ms ({Failed} failed)",
+            dryRun ? " (DRY RUN)" : string.Empty,
+            minted,
+            gaps.Count,
+            stopwatch.ElapsedMilliseconds,
+            failed);
+        var verb = dryRun ? "Would mint" : "Minted";
+        return failed == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s).")
+            : string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s), {failed} failed. Check the server logs.");
     }
 
     private async Task<BaseItem?> ResolveContainerAsync(GapItem gap, bool dryRun, CancellationToken cancellationToken)
@@ -421,30 +371,6 @@ public sealed class VirtualMovieMinter
             new[] { new PersonInfo { Name = personName, Type = PersonKind.Actor } },
             cancellationToken).ConfigureAwait(false);
         _logger.LogDebug("Attached person '{Person}' to minted movie {MovieId}", personName, movieId);
-    }
-
-    private static bool HasOwnedRealCounterpart(BaseItem mintedItem, HashSet<string> ownedRealTmdbIds)
-        => mintedItem.TryGetProviderId(MetadataProvider.Tmdb, out var id)
-            && !string.IsNullOrEmpty(id)
-            && ownedRealTmdbIds.Contains(id);
-
-    private HashSet<string> OwnedRealMovieTmdbIds()
-    {
-        var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            IncludeItemTypes = new[] { BaseItemKind.Movie },
-            IsVirtualItem = false,
-            Recursive = true
-        }))
-        {
-            if (item.TryGetProviderId(MetadataProvider.Tmdb, out var id) && !string.IsNullOrEmpty(id))
-            {
-                owned.Add(id);
-            }
-        }
-
-        return owned;
     }
 
     private int RemoveMinted(Func<BaseItem, bool> predicate, bool dryRun)

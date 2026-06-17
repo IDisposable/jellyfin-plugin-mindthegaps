@@ -16,4 +16,10 @@ internal static class GapScanLimits
     /// Maximum owned titles used as recommendation seeds (per media type).
     /// </summary>
     public const int MaxRecommendationSeeds = 200;
+
+    /// <summary>
+    /// Maximum gaps enriched with "where to watch" during a scan (when that opt-in is on). Bounds the
+    /// per-scan API cost; the rest stay lazy.
+    /// </summary>
+    public const int MaxAvailabilityLookups = 1000;
 }

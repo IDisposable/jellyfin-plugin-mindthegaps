@@ -28,6 +28,7 @@ public class GapsController : ControllerBase
     private readonly GapScanRunner _scanRunner;
     private readonly AvailabilityService _availabilityService;
     private readonly VirtualMovieMinter _minter;
+    private readonly MintRunner _mintRunner;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -36,12 +37,14 @@ public class GapsController : ControllerBase
     /// <param name="scanRunner">The background scan runner.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="minter">The experimental virtual-movie minter.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, VirtualMovieMinter minter)
+    /// <param name="mintRunner">The background mint runner.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, VirtualMovieMinter minter, MintRunner mintRunner)
     {
         _store = store;
         _scanRunner = scanRunner;
         _availabilityService = availabilityService;
         _minter = minter;
+        _mintRunner = mintRunner;
     }
 
     /// <summary>
@@ -76,27 +79,30 @@ public class GapsController : ControllerBase
         => new ScanStatus { Running = _scanRunner.IsRunning, Progress = _scanRunner.Progress };
 
     /// <summary>
-    /// EXPERIMENTAL. Mints pathless virtual movies into BoxSets for missing collection parts. Requires
-    /// SetCompletion to be selected in the configuration's MintPatterns. Reverse with
-    /// <see cref="RemoveMintedMovies"/>.
+    /// Starts a background removal of every virtual movie this plugin has minted. Poll <see cref="GetMintStatus"/>.
     /// </summary>
-    /// <param name="dryRun">When true, logs what would be minted without writing anything. Returns the would-mint count.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The number of virtual movies minted (or, in a dry run, that would be minted).</returns>
-    [HttpPost("MintVirtualMovies")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<int>> MintVirtualMovies([FromQuery] bool dryRun, CancellationToken cancellationToken)
-        => await _minter.MintAsync(dryRun, cancellationToken).ConfigureAwait(false);
-
-    /// <summary>
-    /// Removes every virtual movie this plugin has minted (the undo for the experiment).
-    /// </summary>
-    /// <param name="dryRun">When true, logs what would be removed without deleting anything. Returns the would-remove count.</param>
-    /// <returns>The number of virtual movies removed (or, in a dry run, that would be removed).</returns>
+    /// <param name="dryRun">When true, logs what would be removed without deleting anything.</param>
+    /// <returns>The mint status.</returns>
     [HttpPost("RemoveMintedMovies")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<int>> RemoveMintedMovies([FromQuery] bool dryRun)
-        => await _minter.RemoveAllAsync(dryRun).ConfigureAwait(false);
+    public ActionResult<MintStatus> RemoveMintedMovies([FromQuery] bool dryRun)
+    {
+        var started = _mintRunner.TryStart(async (_, _) =>
+        {
+            var n = await _minter.RemoveAllAsync(dryRun).ConfigureAwait(false);
+            return string.Create(CultureInfo.InvariantCulture, $"{(dryRun ? "Would remove" : "Removed")} {n} minted virtual movies.");
+        });
+        return new MintStatus { Running = true, Started = started };
+    }
+
+    /// <summary>
+    /// Gets whether a background mint operation is running, its progress, and the last completed message.
+    /// </summary>
+    /// <returns>The mint status.</returns>
+    [HttpGet("MintStatus")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<MintStatus> GetMintStatus()
+        => new MintStatus { Running = _mintRunner.IsRunning, Progress = _mintRunner.Progress, Message = _mintRunner.LastMessage };
 
     /// <summary>
     /// EXPERIMENTAL debug aid. Mints a single gap (posted from a dashboard row) as a virtual movie. A
@@ -112,6 +118,22 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<string>> MintGap([FromQuery] bool dryRun, [FromBody] GapItem gap, CancellationToken cancellationToken)
         => await _minter.MintGapAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// EXPERIMENTAL. Starts a background mint of several gaps (the report's multi-select). Each goes
+    /// through the same one-off path as <see cref="MintGap"/>. Runs in the background so a large
+    /// selection cannot time out the request; poll <see cref="GetMintStatus"/>.
+    /// </summary>
+    /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
+    /// <param name="gaps">The gaps to mint.</param>
+    /// <returns>The mint status.</returns>
+    [HttpPost("MintGaps")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<MintStatus> MintGaps([FromQuery] bool dryRun, [FromBody] IReadOnlyList<GapItem> gaps)
+    {
+        var started = _mintRunner.TryStart((progress, ct) => _minter.MintGapsAsync(gaps, dryRun, progress, ct));
+        return new MintStatus { Running = true, Started = started };
+    }
 
     /// <summary>
     /// Gets streaming availability for a single title (fetched lazily, on demand).

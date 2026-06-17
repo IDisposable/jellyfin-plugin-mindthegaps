@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,8 @@ public sealed class GapEngine
     private readonly ILibraryManager _libraryManager;
     private readonly IEnumerable<IGapSource> _sources;
     private readonly GapStore _store;
+    private readonly AvailabilityService _availabilityService;
+    private readonly ExternalLinkEnricher _externalLinks;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -28,16 +31,22 @@ public sealed class GapEngine
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="sources">The registered gap sources.</param>
     /// <param name="store">The gap store.</param>
+    /// <param name="availabilityService">The availability service (optional scan-time enrichment).</param>
+    /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
         IEnumerable<IGapSource> sources,
         GapStore store,
+        AvailabilityService availabilityService,
+        ExternalLinkEnricher externalLinks,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
         _sources = sources;
         _store = store;
+        _availabilityService = availabilityService;
+        _externalLinks = externalLinks;
         _logger = logger;
     }
 
@@ -94,6 +103,15 @@ public sealed class GapEngine
             progress?.Report(completed * 100.0 / total);
         }
 
+        // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
+        // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
+        _externalLinks.Enrich(gaps);
+
+        if (config.FetchAvailabilityDuringScan)
+        {
+            await EnrichAvailabilityAsync(gaps, config, cancellationToken).ConfigureAwait(false);
+        }
+
         var report = new GapReport
         {
             GeneratedUtc = DateTime.UtcNow,
@@ -103,6 +121,57 @@ public sealed class GapEngine
 
         _store.Save(report);
         return report;
+    }
+
+    // Opt-in: look up "where to watch" for each watchable gap during the scan so the report can filter
+    // to streamable gaps. Bounded by MaxAvailabilityLookups; lookups are cached, so re-scans are cheap.
+    private async Task EnrichAvailabilityAsync(IReadOnlyList<GapItem> gaps, PluginConfiguration config, CancellationToken cancellationToken)
+    {
+        var looked = 0;
+        var enriched = 0;
+        foreach (var gap in gaps)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (looked >= GapScanLimits.MaxAvailabilityLookups)
+            {
+                _logger.LogInformation("Availability enrichment hit the cap ({Cap}); remaining gaps stay lazy", GapScanLimits.MaxAvailabilityLookups);
+                break;
+            }
+
+            var watchable = gap.TargetKind is Jellyfin.Data.Enums.BaseItemKind.Movie or Jellyfin.Data.Enums.BaseItemKind.Series;
+            if (!watchable || !gap.ProviderIds.ContainsKey(GapScanContext.TmdbProvider))
+            {
+                continue;
+            }
+
+            looked++;
+            try
+            {
+                var offers = await _availabilityService.GetOffersAsync(
+                    new AvailabilityQuery
+                    {
+                        TargetKind = gap.TargetKind,
+                        ProviderIds = gap.ProviderIds,
+                        Title = gap.Name,
+                        Year = gap.Year,
+                        Country = config.MetadataCountryCode
+                    },
+                    config,
+                    cancellationToken).ConfigureAwait(false);
+
+                if (offers.Count > 0)
+                {
+                    gap.Availability = offers;
+                    enriched++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Availability enrichment failed for '{Name}'", gap.Name);
+            }
+        }
+
+        _logger.LogInformation("Availability enrichment: looked up {Looked}, {Enriched} have offers", looked, enriched);
     }
 
     private GapScanContext BuildContext(IReadOnlyCollection<IGapSource> enabledSources, PluginConfiguration config)
