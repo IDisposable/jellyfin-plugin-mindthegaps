@@ -149,6 +149,41 @@ targeted deletes), so it does not need its own progress. Availability is its own
 
 ## Backlog
 
+- **Shareable links are enormous (may exceed URL limits).** `shareUrl` (the Copy-link button and the
+  Markdown export's summary link) encodes the whole `captureView` object as URI-encoded JSON in a `cgview`
+  hash param. The bulk is `disabledProviders` (a map of every disabled streaming provider, which can be 100+
+  names), so a link can run to thousands of characters and risk browser/proxy URL caps. Options to noodle on:
+  store *enabled* providers as a short diff (or omit provider state entirely, since it is server-specific and
+  a link pasted to a different server has different providers); drop default-valued fields before encoding;
+  compress the JSON (deflate plus URL-safe base64) before the param; or persist the view server-side under a
+  short token and put only the token in the URL (a real short-link, the most robust against URL limits but it
+  adds a store and an endpoint). Likely combine: omit/short-diff providers and drop defaults first, compress
+  if still large. Group headers already carry
+  `role=button`/`aria-expanded`/`aria-controls`, but the icon-only controls (the search, open-in-Jellyfin,
+  resolve, not-interested, mint, version, refresh, and gear glyphs) rely on `title` only. Material icons
+  render as text ligatures, so a screen reader can read the raw glyph name ("done", "close", "open_in_new").
+  Add `aria-label` to each icon control and `aria-hidden="true"` on the decorative icon span, and confirm the
+  config page's inputs all have associated labels. A focused, low-risk accessibility pass over
+  `Web/mindthegaps.html` and `Configuration/configPage.html`.
+- **Collection completion misses owned movies that lack a TMDB id.** `CollectionGapSource` diffs a TMDB
+  collection's parts against the ownership index, which is keyed by provider id, and never inspects the owned
+  BoxSet's children. A movie that is in the BoxSet but whose library item has no (or a mismatched) TMDB id is
+  reported missing even though it is owned (seen with "Jack Reacher: Never Go Back"). Fix: also treat a part
+  as owned when the owned BoxSet already contains a child matching it by normalized title and year (a fuzzy
+  fallback to provider-id matching), so a thin-metadata owned movie is not flagged.
+- **"Diagnose identification" action.** Automate the manual triage that found the mis-tagged "Never Go Back"
+  (its library item carried the 2012 film's TMDB id 75780 and IMDb tt0790724, so the collection's part 343611
+  had no owned match and was reported missing). A button (per-gap "Why is this missing?" and/or a library-wide
+  audit) that flags identification problems on owned items: (a) **duplicate provider ids** (two owned movies
+  sharing one TMDB or IMDb id, so one is mis-identified); (b) a "missing" collection part that **matches an
+  owned BoxSet child by title and year** but carries a different id (the likely-correct id to set); (c)
+  **cross-provider disagreement** (resolve the item's TMDB id to its external ids via
+  `TmdbClient.GetExternalIdsAsync` and compare to the item's own IMDb/TheTVDB ids). Output a plain-language
+  diagnosis and the suggested correction ("set TheMovieDb id to 343611, IMDb to tt3393786, then rescan"),
+  exactly as a human would. Reuses the ownership index, the collection source's parts, and the existing
+  external-id resolver; pairs with the collection-ownership fallback above (the fallback silently prevents the
+  false gap, this explains it and points at the bad metadata).
+
 - **Curated TMDB Lists (continues the studio/keyword work).** Studio and keyword widening shipped:
   `CuratedSetGapSource` completes the movies of a studio or keyword, configured by **name** (resolved to
   TMDB via `SearchCompanyAsync`), by TMDB id, or **auto-seeded** from the studios most common on owned

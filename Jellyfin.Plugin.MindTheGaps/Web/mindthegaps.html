@@ -68,18 +68,18 @@
                     <div class="sectionTitleContainer flex align-items-center">
                         <h2 class="sectionTitle">Mind the Gaps ToDo List</h2>
                         <span id="cgVersion" class="fieldDescription" style="margin-left:auto;margin-right:.4em;opacity:.6;" title="Installed plugin version"></span>
-                        <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings">
-                            <span class="material-icons">settings</span>
+                        <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" aria-label="Plugin settings">
+                            <span class="material-icons" aria-hidden="true">settings</span>
                         </button>
                     </div>
                     <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.3em;">
                         <p class="fieldDescription" id="cgSummary" style="margin:0;">Loading&hellip;</p>
-                        <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)">
-                            <span class="material-icons">refresh</span>
+                        <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)" aria-label="Reload the last saved results (no rescan)">
+                            <span class="material-icons" aria-hidden="true">refresh</span>
                         </button>
                     </div>
                     <div id="cgStale" style="display:none;align-items:center;gap:.6em;margin-bottom:.5em;padding:.5em .7em;border-radius:4px;background:rgba(240,173,78,.15);border:1px solid #f0ad4e;">
-                        <span class="material-icons" style="color:#f0ad4e;">update</span>
+                        <span class="material-icons" aria-hidden="true" style="color:#f0ad4e;">update</span>
                         <span id="cgStaleMsg" style="flex:1;"></span>
                         <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
                     </div>
@@ -118,7 +118,7 @@
                         <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
                             <span>Export Markdown</span>
                         </button>
-                        <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
+                        <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
                     </div>
                     <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
                         <div style="font-weight:600;">Where to watch</div>
@@ -147,7 +147,7 @@
                     <button is="emby-button" type="button" id="cgSelectAll" class="raised"><span>Select all</span></button>
                     <button is="emby-button" type="button" id="cgSelectNone" class="raised"><span>Clear</span></button>
                     <button is="emby-button" type="button" id="cgMintSelected" class="raised button-submit" disabled>
-                        <span class="material-icons" style="margin-right:.2em;">eco</span>
+                        <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">eco</span>
                         <span>Mint selected (<span id="cgSelCount">0</span>)</span>
                     </button>
                 </div>
@@ -158,9 +158,9 @@
             </div>
         </div>
 
-        <button is="paper-icon-button-light" type="button" id="cgScrollTop" title="Back to top"
+        <button is="paper-icon-button-light" type="button" id="cgScrollTop" title="Back to top" aria-label="Back to top"
             style="position:fixed;right:1.4em;bottom:1.4em;z-index:1000;display:none;background:#00a4dc;color:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.45);">
-            <span class="material-icons">keyboard_arrow_up</span>
+            <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
         </button>
 
         <script type="text/javascript">
@@ -263,8 +263,8 @@
                 // every listed gap under the group in one batch. The click handler collects the ids from the
                 // group's rows, so the label is only for the confirm prompt.
                 function batchDismissBtns(label) {
-                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve all listed items here (not really missing)"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">done</span></a>'
-                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark all listed items here as not interested"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">close</span></a>';
+                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve all listed items here (not really missing)" aria-label="Resolve all listed items here (not really missing)"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">done</span></a>'
+                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark all listed items here as not interested" aria-label="Mark all listed items here as not interested"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">close</span></a>';
                 }
 
                 // The greyed status line for a dismissed gap.
@@ -298,10 +298,10 @@
                     // "Enable all" only when some are off; "disable all" only when some are on.
                     var toggles = '';
                     if (enabledCount < total) {
-                        toggles += '<a class="cgLink cgProvAll" title="Enable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">done_all</span></a>';
+                        toggles += '<a class="cgLink cgProvAll" title="Enable every provider" aria-label="Enable every provider"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">done_all</span></a>';
                     }
                     if (enabledCount > 0) {
-                        toggles += '<a class="cgLink cgProvNone" title="Disable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">clear</span></a>';
+                        toggles += '<a class="cgLink cgProvNone" title="Disable every provider" aria-label="Disable every provider"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">clear</span></a>';
                     }
 
                     // Collapsible: a header (with a caret and the enabled-of-total count) toggles the long list.
@@ -343,7 +343,7 @@
                     var url = '';
                     for (var i = 0; i < offers.length; i++) { if (offers[i].Url) { url = offers[i].Url; break; } }
                     var button = url
-                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page">Watch <span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
+                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page" aria-label="Open the watch page">Watch <span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
                         : '';
                     return button + names;
                 }
@@ -355,7 +355,7 @@
                     if (year) { meta.push(year); }
                     if (type) { meta.push(esc(type)); }
                     var suffix = meta.length ? ' (' + meta.join(' &middot; ') + ')' : '';
-                    var dismiss = id ? ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(id) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this title">&times;</a>' : '';
+                    var dismiss = id ? ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(id) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this title" aria-label="Stop recommendations from this title">&times;</a>' : '';
                     return esc(name) + suffix + openIcon(id) + dismiss;
                 }
 
@@ -385,13 +385,13 @@
                     }
                     // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
-                        actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons">eco</span>Mint</button>');
+                        actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
                     }
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
                         actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the dismissal (show as missing again)">Clear</button>');
                     } else {
-                        actions.push('<button type="button" class="cgLink cgResolve" data-gapid="' + esc(item.Id) + '" title="Mark resolved (not really missing)"><span class="material-icons" style="font-size:1em;vertical-align:text-bottom;">done</span> Resolve</button>');
+                        actions.push('<button type="button" class="cgLink cgResolve" data-gapid="' + esc(item.Id) + '" title="Mark resolved (not really missing)"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">done</span> Resolve</button>');
                         actions.push('<button type="button" class="cgLink cgNotInterested" data-gapid="' + esc(item.Id) + '" title="Not interested (a real gap you do not want)">Not interested</button>');
                         if (item.IsUpcoming && item.ReleaseDate) {
                             actions.push('<button type="button" class="cgLink cgSnooze" data-gapid="' + esc(item.Id) + '" data-until="' + esc(item.ReleaseDate) + '" title="Hide until it is released">Snooze</button>');
@@ -477,7 +477,7 @@
                 // header click ignore it so it does not toggle the collapse.
                 function openIcon(id) {
                     if (!id) { return ''; }
-                    return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
+                    return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin" aria-label="Open in Jellyfin"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
                 }
 
                 // The Jellyfin collectionType to scope a search to, from a gap's media domain. Empty means an
@@ -505,7 +505,7 @@
                 // the referrer (noopener only, not noreferrer) so the search page knows it came from here.
                 function searchIcon(name, collectionType) {
                     if (!name) { return ''; }
-                    return ' <a class="cgLink cgSearch" href="' + esc(searchUrl(name, collectionType)) + '" target="_blank" rel="noopener" title="Search this Jellyfin for &ldquo;' + esc(name) + '&rdquo;"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">search</span></a>';
+                    return ' <a class="cgLink cgSearch" href="' + esc(searchUrl(name, collectionType)) + '" target="_blank" rel="noopener" title="Search this Jellyfin for &ldquo;' + esc(name) + '&rdquo;" aria-label="Search Jellyfin for ' + esc(name) + '"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">search</span></a>';
                 }
 
                 function groupHtml(level, label, count, collapsed, inner, itemId, extra) {
