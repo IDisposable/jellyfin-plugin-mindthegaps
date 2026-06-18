@@ -15,7 +15,10 @@ public sealed class MintRunner
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<MintRunner> _logger;
     private readonly object _lock = new();
-    private bool _running;
+    // The run claim is a lock-free flag (0 = idle, 1 = running): TryStart claims it with a single atomic
+    // compare-and-set. The remaining status fields stay under _lock so a status read is one consistent
+    // snapshot (and _progress is a double, which is not guaranteed atomic without it).
+    private int _running;
     private double _progress;
     private string _lastMessage = string.Empty;
 
@@ -33,16 +36,7 @@ public sealed class MintRunner
     /// <summary>
     /// Gets a value indicating whether a mint operation is currently running.
     /// </summary>
-    public bool IsRunning
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _running;
-            }
-        }
-    }
+    public bool IsRunning => Volatile.Read(ref _running) != 0;
 
     /// <summary>
     /// Gets the progress (0-100) of the running operation.
@@ -79,14 +73,14 @@ public sealed class MintRunner
     /// <returns><see langword="true"/> if this call started the operation; <see langword="false"/> if one was already running.</returns>
     public bool TryStart(Func<IProgress<double>, CancellationToken, Task<string>> work)
     {
+        // Claim the runner atomically; if it was already running, do nothing.
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
+        {
+            return false;
+        }
+
         lock (_lock)
         {
-            if (_running)
-            {
-                return false;
-            }
-
-            _running = true;
             _progress = 0;
             _lastMessage = string.Empty;
         }
@@ -118,11 +112,14 @@ public sealed class MintRunner
                 message = "Operation failed. Check the server logs.";
             }
 
+            // Publish the result message before releasing the claim, so a poller that sees the runner
+            // idle reads the finished message rather than the previous one.
             lock (_lock)
             {
-                _running = false;
                 _lastMessage = message;
             }
+
+            Volatile.Write(ref _running, 0);
         });
 
         return true;

@@ -17,7 +17,10 @@ public sealed class GapScanRunner
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<GapScanRunner> _logger;
     private readonly object _lock = new();
-    private bool _running;
+    // The run claim is a lock-free flag (0 = idle, 1 = running): TryStart claims it with a single atomic
+    // compare-and-set. The remaining status fields stay under _lock so a status read is one consistent
+    // snapshot (and _progress is a double, which is not guaranteed atomic without it).
+    private int _running;
     private double _progress;
 
     /// <summary>
@@ -38,16 +41,7 @@ public sealed class GapScanRunner
     /// <summary>
     /// Gets a value indicating whether a scan is currently running.
     /// </summary>
-    public bool IsRunning
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _running;
-            }
-        }
-    }
+    public bool IsRunning => Volatile.Read(ref _running) != 0;
 
     /// <summary>
     /// Gets the progress (0-100) of the running scan.
@@ -69,14 +63,14 @@ public sealed class GapScanRunner
     /// <returns><see langword="true"/> if this call started a scan; <see langword="false"/> if one was already running.</returns>
     public bool TryStart()
     {
+        // Claim the runner atomically; if it was already running, do nothing.
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
+        {
+            return false;
+        }
+
         lock (_lock)
         {
-            if (_running)
-            {
-                return false;
-            }
-
-            _running = true;
             _progress = 0;
         }
 
@@ -113,10 +107,7 @@ public sealed class GapScanRunner
         }
         finally
         {
-            lock (_lock)
-            {
-                _running = false;
-            }
+            Volatile.Write(ref _running, 0);
         }
     }
 }
