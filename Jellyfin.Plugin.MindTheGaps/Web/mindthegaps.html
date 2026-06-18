@@ -28,14 +28,13 @@
             .cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .1em 1.4em; align-items: start; }
             .cgGridWrap > .cgGroup { min-width: 0; }
             .cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
-            /* Keep a collapsed cell to one line: the name ellipsizes, the count/coverage/open icon stay put,
-               and the batch controls reveal on hover so the cell is not cluttered. */
+            /* Keep a collapsed cell to one line: the name ellipsizes, the count/coverage/open icon stay put.
+               The batch controls are hidden on a collapsed cell (they would wrap and reflow the dense grid);
+               they appear when the series is expanded to full width, where there is room. */
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr { display: flex; align-items: center; gap: .3em; }
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr > .cgLabel { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchResolve,
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchNotInterested { display: none; }
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr:hover .cgBatchResolve,
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr:hover .cgBatchNotInterested { display: inline-block; }
             .cgL2 .listItem { padding-left: 2.6em; }
             .cgL3 .listItem { padding-left: 3.9em; }
             .cgRow { cursor: pointer; }
@@ -65,7 +64,8 @@
                 <div class="verticalSection verticalSection-extrabottompadding">
                     <div class="sectionTitleContainer flex align-items-center">
                         <h2 class="sectionTitle">Mind the Gaps ToDo List</h2>
-                        <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" style="margin-left:auto;">
+                        <span id="cgVersion" class="fieldDescription" style="margin-left:auto;margin-right:.4em;opacity:.6;" title="Installed plugin version"></span>
+                        <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings">
                             <span class="material-icons">settings</span>
                         </button>
                     </div>
@@ -715,7 +715,7 @@
                         if (wrap) { wrap.style.display = 'none'; }
                         return;
                     }
-                    if (wrap) { wrap.style.display = ''; }
+                    if (wrap) { wrap.style.display = 'inline-flex'; }
                     // Decide before rebuilding the options (which clears sel.value): a remembered domain wins,
                     // else keep the current one if still present, else the first.
                     var desired = (page._wantType && present[page._wantType]) ? page._wantType
@@ -1270,6 +1270,17 @@
                     }).catch(function () { /* version check is best-effort */ });
                 }
 
+                // Show the installed plugin version next to the settings gear (best-effort).
+                function showVersion(page) {
+                    var el = page.querySelector('#cgVersion');
+                    if (!el) { return; }
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
+                        var norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
+                        var me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
+                        if (me && me.Version) { el.textContent = 'v' + me.Version; }
+                    }).catch(function () { /* best-effort */ });
+                }
+
                 // True while this dashboard page is still the active, attached one. Jellyfin keeps page
                 // elements around and marks inactive ones with the 'hide' class, so a poll loop started here
                 // must stop (and stop alerting) once the user has navigated elsewhere.
@@ -1800,6 +1811,7 @@
 
                     restoreFilters(page);
                     renderViews(page);
+                    showVersion(page);
                     load(page);
                 });
             })();
