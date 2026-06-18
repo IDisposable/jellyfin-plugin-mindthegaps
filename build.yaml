@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.10"
+version: "10.11.0.11"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -16,10 +16,14 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.10 - Reliability and polish ahead of 1.0. The scan and the background "where to watch" pass no
-  longer overwrite each other, so results from a scan that finishes mid-pass are kept. Tab counts now match
-  the filtered list, and "Hide items with no sources" hides only titles already looked up and found empty,
-  not ones not yet checked. Your scroll position, expanded groups, and selection are kept when a row is
-  resolved or a filter changes. The provider filter is populated from the saved report, collapses into a
-  compact list, gains enable-all and disable-all controls, and now actually re-filters the list when
-  changed. Concurrent minting can no longer create duplicate collections.
+  10.11.0.11 - Faster loading, broader coverage, and hardening ahead of 1.0. The report now loads one tab
+  at a time, so a large library opens quickly. Filmography, recommendations, and the TVmaze/TheTVDB series
+  cross-checks rotate through your library over successive scans, so coverage builds up instead of
+  re-checking the same first items every run; stale entries are pruned automatically and a "Reset scan
+  rotation" button forces a fresh cycle. The "Look up where to watch" button shows how many titles remain,
+  live progress while running, and when the backlog is cleared. Empty tabs now explain which filter to
+  relax, search also matches the creator or recommending title, group headers are keyboard and
+  screen-reader friendly, and the settings page shows a quick gap summary. You can copy a link that reopens
+  the exact tab and filters in another browser or for someone else. API keys are masked with a reveal
+  toggle. Under the hood, minting works from gap ids, report reads are snapshotted against the background
+  pass, background tasks stop cleanly on shutdown, and links are limited to http(s).
