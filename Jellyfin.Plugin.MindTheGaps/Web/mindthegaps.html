@@ -124,6 +124,7 @@
                         <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;"><option value="">(choose a saved view)</option></select>
                         <button is="emby-button" type="button" id="cgSaveView" class="raised" style="margin:0;" title="Save the current filters as a named view"><span>Save current</span></button>
                         <button is="emby-button" type="button" id="cgDeleteView" class="raised" style="margin:0;" title="Delete the selected saved view"><span>Delete</span></button>
+                        <button is="emby-button" type="button" id="cgShareLink" class="raised" style="margin:0;" title="Copy a link that opens this exact view (tab and filters) in another browser or for someone else"><span>Copy link</span></button>
                         <span id="cgHiddenCreators" style="display:none;"></span>
                     </div>
                     <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.5em 0 .2em 0;"></div>
@@ -949,6 +950,50 @@
                     };
                 }
 
+                // Build a link to the current view by stamping the captured view object into a "cgview" query
+                // param on the page's hash (Jellyfin is a hash router), so a paste re-opens the same tab and
+                // filters. Any existing cgview is replaced.
+                function shareUrl(page) {
+                    var encoded = encodeURIComponent(JSON.stringify(captureView(page)));
+                    var href = window.location.href;
+                    var hashIdx = href.indexOf('#');
+                    var base = hashIdx === -1 ? href : href.slice(0, hashIdx);
+                    var hash = hashIdx === -1 ? '/configurationpage?name=MindTheGapsReport' : href.slice(hashIdx + 1);
+                    var qIdx = hash.indexOf('?');
+                    var path = qIdx === -1 ? hash : hash.slice(0, qIdx);
+                    var query = qIdx === -1 ? '' : hash.slice(qIdx + 1);
+                    var params = query ? query.split('&').filter(function (p) { return p && p.indexOf('cgview=') !== 0; }) : [];
+                    params.push('cgview=' + encoded);
+                    return base + '#' + path + '?' + params.join('&');
+                }
+
+                // Read and remove a shared view from the current URL (consume-once): decode the "cgview" param,
+                // then strip it from the address bar with replaceState (no hashchange, so the router is undisturbed)
+                // so a later reload falls back to the per-browser saved filters instead of snapping back.
+                function consumeUrlView() {
+                    var hash = window.location.hash || '';
+                    var qIdx = hash.indexOf('?');
+                    if (qIdx === -1) { return null; }
+                    var parts = hash.slice(qIdx + 1).split('&');
+                    var view = null;
+                    var kept = [];
+                    for (var i = 0; i < parts.length; i++) {
+                        if (parts[i].indexOf('cgview=') === 0) {
+                            try { view = JSON.parse(decodeURIComponent(parts[i].slice('cgview='.length))); } catch (e) { view = null; }
+                        } else if (parts[i]) {
+                            kept.push(parts[i]);
+                        }
+                    }
+                    if (view) {
+                        try {
+                            var path = hash.slice(0, qIdx);
+                            var newHash = kept.length ? path + '?' + kept.join('&') : path;
+                            window.history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
+                        } catch (e) { /* replaceState may be blocked; harmless, the view still applies */ }
+                    }
+                    return view;
+                }
+
                 function applyView(page, v) {
                     if (!v) { return; }
                     if (v.pattern) { page._pattern = v.pattern; }
@@ -970,7 +1015,7 @@
                     renderProviderFilter(page);
                     saveFilters(page);
                     // A saved view can switch the pattern, so make sure that tab's items are loaded first.
-                    ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
+                    return ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
                 }
 
                 // Lists creators and recommendation sources dismissed wholesale (with a Restore), so one can
@@ -1060,8 +1105,13 @@
                                 page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
                             }
                             fetchResolved().then(function () {
-                                ensureSlice(page, page._pattern).then(function () {
-                                    applyAndRender(page);
+                                // A shared link (cgview in the URL) overrides the default tab and the
+                                // per-browser filters, once: it is stripped from the address bar on read.
+                                var shared = consumeUrlView();
+                                var render = shared
+                                    ? applyView(page, shared)
+                                    : ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
+                                render.then(function () {
                                     checkStale(page, summary);
                                     Dashboard.hideLoadingMsg();
                                 });
@@ -1305,6 +1355,16 @@
                         delete views[sel];
                         storeViews(views);
                         renderViews(page);
+                    });
+                    page.querySelector('#cgShareLink').addEventListener('click', function () {
+                        var url = shareUrl(page);
+                        var ok = function () { Dashboard.alert('Link copied. It opens this view (tab and filters) when pasted.'); };
+                        // Clipboard API needs a secure context; fall back to a prompt the user can copy from.
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(url).then(ok, function () { window.prompt('Copy this link:', url); });
+                        } else {
+                            window.prompt('Copy this link:', url);
+                        }
                     });
                     page.querySelector('#cgHiddenCreators').addEventListener('click', function (e) {
                         if (!e.target.closest || !e.target.closest('#cgRestoreCreatorBtn')) { return; }

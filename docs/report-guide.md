@@ -89,6 +89,7 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 | **Export Markdown** | Download the current tab, as filtered, as a Markdown file with links. |
 | **Search** | Free-text filter on the title. |
 | **Saved views** | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser. |
+| **Copy link** | Copy a URL that re-opens this exact view (active tab plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser. |
 
 ![Where to watch](../assets/screenshots/report-where-to-watch.png)
 <!-- Capture: a row (or rows) with streaming-provider chips populated, and the per-provider
