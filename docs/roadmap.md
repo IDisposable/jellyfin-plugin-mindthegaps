@@ -226,6 +226,15 @@ targeted deletes), so it does not need its own progress. Availability is its own
   embedded resource at build time with an MSBuild target, or serve them as their own resources the page
   references. Keep it shipping as few artifacts as before; this is purely maintainability, no behavior
   change, and wants a small test/build-pipeline change rather than a code rewrite.
+- **Mint virtual placeholders for non-movie kinds.** Today only movie gaps are minted. Per kind: missing
+  **episodes** and **seasons** need nothing, the server already synthesizes virtual missing episodes and
+  the report links straight to them. **Albums** are the natural unit to mint for Music (a pathless virtual
+  `MusicAlbum` tagged with the `MintedMarker`, placed in its artist or a catch-all, mirroring the movie
+  minter); **books** likewise as virtual `Book` items. Individual **songs/tracks** are low value (the
+  album is the unit). Both album and book minting depend on two things landing first: the Music/Books gap
+  sources (spiked on a worktree branch) and the bulk-mint container refactor (another branch), so the
+  minter can be generalized from movie-only to kind-aware once those merge. Until then this stays an
+  analysis item rather than speculative, untestable code on main.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
