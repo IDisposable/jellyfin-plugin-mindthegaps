@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -105,21 +108,21 @@ public class GapStoreTests
     }
 
     [Fact]
-    public async System.Threading.Tasks.Task LoadSnapshot_UnderConcurrentMerge_DoesNotThrow()
+    public async Task LoadSnapshot_UnderConcurrentMerge_DoesNotThrow()
     {
         var dir = TempDir();
         try
         {
             var store = Store(dir);
             var items = new List<GapItem>();
-            for (var i = 0; i < 500; i++) { items.Add(Gap("g" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))); }
+            for (var i = 0; i < 500; i++) { items.Add(Gap("g" + i.ToString(CultureInfo.InvariantCulture))); }
             var report = new GapReport { TotalGaps = items.Count, Items = items.ToArray() };
             store.Save(report);
 
             // One thread keeps merging enrichment onto the cached items while another keeps snapshotting and
             // enumerating. The snapshot decouples the list, so enumeration cannot observe a structural change.
-            using var done = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(500));
-            var writer = System.Threading.Tasks.Task.Run(() =>
+            using var done = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+            var writer = Task.Run(() =>
             {
                 while (!done.IsCancellationRequested) { store.SaveAvailabilityMerge(report, throttle: true); }
             });

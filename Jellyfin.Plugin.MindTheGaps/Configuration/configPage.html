@@ -170,18 +170,18 @@
                         <h2 class="sectionTitle">Limits</h2>
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
-                            <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" />
-                            <div class="fieldDescription">Caps how many similar titles each owned item contributes.</div>
+                            <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" max="100" />
+                            <div class="fieldDescription">Caps how many similar titles each owned item contributes (recommended max 100).</div>
                         </div>
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
-                            <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" />
+                            <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" max="10000" />
                             <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
                         </div>
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="MaxFilmographyPeople">Max creators scanned per run</label>
-                            <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" />
-                            <div class="fieldDescription">Filmography and recommendation scans rotate stalest-first within this cap, so coverage builds up over runs; raise this to cover a large cast and crew faster (each person is one cached TMDB lookup).</div>
+                            <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" max="10000" />
+                            <div class="fieldDescription">Filmography and recommendation scans rotate stalest-first within this cap, so coverage builds up over runs; raise this to cover a large cast and crew faster (each person is one cached TMDB lookup; recommended max 10000).</div>
                         </div>
                         <div style="margin: 0.5em 0;">
                             <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">

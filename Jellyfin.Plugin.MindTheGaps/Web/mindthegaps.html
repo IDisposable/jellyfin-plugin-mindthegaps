@@ -183,6 +183,9 @@
                 // The active row sort, set from the Sort dropdown before each render.
                 var currentSort = 'title';
 
+                // Monotonic counter for per-render group body ids (aria-controls targets).
+                var cgGroupSeq = 0;
+
                 // Sort a leaf group's rows by the active mode (popularity desc, then title; or just title).
                 function sortRows(items) {
                     var byTitle = function (a, b) { return ci(a.Name || '', b.Name || ''); };
@@ -454,10 +457,14 @@
                 }
 
                 function groupHtml(level, label, count, collapsed, inner, itemId, extra) {
+                    // A per-render id ties the header to its body for assistive tech (aria-controls), and
+                    // aria-expanded mirrors the collapse state (kept in sync on toggle and re-render).
+                    var bodyId = 'cgBody' + (++cgGroupSeq);
                     return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '">'
-                        + '<div class="cgHdr cgHdr' + level + '"><span class="cgCaret"></span>' + esc(label)
+                        + '<div class="cgHdr cgHdr' + level + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? 'false' : 'true') + '" aria-controls="' + bodyId + '">'
+                        + '<span class="cgCaret"></span>' + esc(label)
                         + ' <span class="cgCount">(' + count + ')</span>' + (extra || '') + openIcon(itemId) + '</div>'
-                        + '<div class="cgBody">' + inner + '</div></div>';
+                        + '<div class="cgBody" id="' + bodyId + '">' + inner + '</div></div>';
                 }
 
                 // A coverage badge ("6 of 9 owned, 67%") for a set whose owned/total counts are known.
@@ -601,7 +608,12 @@
                         // "unknown", not "no sources", so keep it visible (with its Where-to-watch button)
                         // rather than vanishing the whole un-enriched list behind this filter.
                         if (streamable && it.AvailabilityChecked && !filterOffers(it.Availability).length) { return false; }
-                        if (term && (it.Name || '').toLowerCase().indexOf(term) === -1) { return false; }
+                        // Match the title and the owning source (creator or recommending title), so searching a
+                        // person's name finds their filmography rows even though the row name is the missing film.
+                        if (term) {
+                            var haystack = ((it.Name || '') + ' ' + (it.SourceItemName || '')).toLowerCase();
+                            if (haystack.indexOf(term) === -1) { return false; }
+                        }
                         return true;
                     };
                 }
@@ -642,6 +654,16 @@
                         parts.unshift(n.getAttribute('data-cglabel') || '');
                     }
                     return parts.join('');
+                }
+
+                // Point each group header's aria-expanded at its current collapse state, after a render or a
+                // bulk class change that did not set it inline.
+                function syncGroupAria(listEl) {
+                    var hdrs = listEl.querySelectorAll('.cgHdr');
+                    for (var i = 0; i < hdrs.length; i++) {
+                        var g = hdrs[i].parentElement;
+                        hdrs[i].setAttribute('aria-expanded', g && g.classList.contains('cgCollapsed') ? 'false' : 'true');
+                    }
                 }
 
                 // Escape the markdown control characters so a title cannot break the output.
@@ -769,7 +791,25 @@
                             + '<button is="emby-button" type="button" id="cgEnableAvail" class="raised button-submit">'
                             + '<span>Look up where to watch</span></button>';
                     } else {
-                        empty = '<p class="fieldDescription">No gaps in this view. Pick another axis, adjust filters, or rescan.</p>';
+                        // The pattern has gaps overall (summary count) but none pass the filters: name the
+                        // filters that are on so the user knows what to relax, rather than a dead-end blank.
+                        var rawForPattern = (page._summary && page._summary.PatternCounts && page._summary.PatternCounts[page._pattern]) || 0;
+                        var active = [];
+                        if (page.querySelector('#cgTypeFilter').value) { active.push('the type filter'); }
+                        if ((page.querySelector('#cgSearch').value || '').trim()) { active.push('the search box'); }
+                        if (page.querySelector('#cgHideSpecials').checked) { active.push('"Hide specials"'); }
+                        if (page.querySelector('#cgHideUpcoming').checked) { active.push('"Hide upcoming"'); }
+                        if (streamable) { active.push('"Hide items with no sources"'); }
+                        if (rawForPattern > 0 && active.length) {
+                            var list = active.length === 1 ? active[0]
+                                : active.slice(0, -1).join(', ') + ' or ' + active[active.length - 1];
+                            empty = '<p class="fieldDescription">No gaps match the current filters. Try clearing ' + list + '.</p>';
+                        } else if (rawForPattern > 0) {
+                            // No filters on, yet nothing shows: the rows are all dismissed.
+                            empty = '<p class="fieldDescription">Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.</p>';
+                        } else {
+                            empty = '<p class="fieldDescription">No gaps on this tab. Pick another axis, or rescan to refresh.</p>';
+                        }
                     }
 
                     var listEl = page.querySelector('#cgList');
@@ -797,6 +837,7 @@
                         var k = groupKey(ng[ngi]);
                         if (k in collapsed) { ng[ngi].classList.toggle('cgCollapsed', collapsed[k]); }
                     }
+                    syncGroupAria(listEl);
                     var nr = listEl.querySelectorAll('.cgRow');
                     for (var nri = 0; nri < nr.length; nri++) {
                         if (openRows[nr[nri].getAttribute('data-gapid')]) { var nd = nr[nri].querySelector('.cgDetails'); if (nd) { nd.style.display = 'block'; } }
@@ -1286,6 +1327,7 @@
                             if (groups[i].getAttribute('data-cglabel') === letter) {
                                 // Expand the target letter group and its ancestors, then scroll to it.
                                 for (var n = groups[i]; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) { n.classList.remove('cgCollapsed'); }
+                                syncGroupAria(page.querySelector('#cgList'));
                                 groups[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
                                 break;
                             }
@@ -1323,6 +1365,17 @@
                         // Actually re-filter the list with the new provider set (this is what makes
                         // "enable all" / "disable all" visibly change the results, not just the checkboxes).
                         if (page._report) { applyAndRender(page); }
+                    });
+                    // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
+                    // tree is operable from the keyboard.
+                    page.querySelector('#cgList').addEventListener('keydown', function (e) {
+                        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') { return; }
+                        var hdr = e.target.closest ? e.target.closest('.cgHdr') : null;
+                        if (hdr && hdr.parentElement) {
+                            e.preventDefault();
+                            var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
+                            hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+                        }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
@@ -1481,7 +1534,8 @@
 
                         var hdr = e.target.closest('.cgHdr');
                         if (hdr && hdr.parentElement) {
-                            hdr.parentElement.classList.toggle('cgCollapsed');
+                            var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
+                            hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
                             return;
                         }
 
