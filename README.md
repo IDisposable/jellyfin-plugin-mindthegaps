@@ -36,21 +36,31 @@ changes (only Video is implemented today):
 - **Collection gaps**: missing movies in a partially-owned TMDB collection or BoxSet. Movie-franchise
   only by design (TMDB collections don't model shows).
 - **Filmography gaps (TMDB)**: an owned person's movie credits (cast plus directing/writing crew) that
-  aren't in the library.
+  aren't in the library. People are scanned most-credited-first, so the per-run cap keeps the creators you
+  have the most work from (raise the cap to cover more of a large cast and crew).
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
   configured metadata provider doesn't list. TVmaze is keyless; TheTVDB needs your own v4 API key.
-- **Recommendations**: TMDB "similar" titles; opt-in.
+- **Curated sets (studio / keyword)**: complete the movies of a studio ("every A24 film", "every Studio
+  Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers. Opt-in: list the TMDB company and
+  keyword ids to track.
+- **Recommendations**: TMDB "similar" titles; opt-in. Each result lists every owned title that recommends
+  it, not just the first.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
-- **A usable report**: grouped by movies/shows and source, with alphabetical sub-grouping for creator
-  works and recommendations; filter by type, specials, upcoming, streamable, or resolved; search; links
-  to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has, including the
-  JustWatch plugin) plus an "open in Jellyfin" jump to items you already hold.
-- **Resolve a gap** you don't consider missing (for example two listed episodes that are a single
-  combined file): mark it with a note and it drops off the list, recoverable via a "Show resolved" filter.
+- **A usable report**: grouped by movies/shows and source, with an A-Z jump bar for the creator-works and
+  recommendation tabs and a coverage badge ("6 of 9 owned, 67%") on collection groups; filter by type,
+  specials, upcoming, streamable, or dismissed; search; save named view presets; export the current view
+  to Markdown; links to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has,
+  including the JustWatch plugin) plus an "open in Jellyfin" jump to items you already hold.
+- **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a
+  single combined file), **not interested** (a real gap you do not want), or **snooze until release** (an
+  upcoming title, which resurfaces on its own once released). Dismissed gaps drop off the list, recoverable
+  via a "Show dismissed" filter.
+- **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
+  when a scan or the "where to watch" pass finishes.
 - **Virtual placeholders** (experimental, opt-in): mint greyed-out "missing" placeholders in place,
   the way a missing episode renders inside a series. See below.
 
@@ -92,7 +102,10 @@ In the dashboard, go to **Plugins > Mind the Gaps**. The settings page has per-s
 |---|---|
 | Metadata country / language | Locale for TMDB lookups and availability. |
 | Max related per item | Caps how many "similar" titles each owned item contributes. |
+| Max creators scanned per run | Caps the filmography scan; people are scanned most-credited-first, so raise it to cover more of a large cast and crew. |
+| Curated studio / keyword ids | Comma-separated TMDB company and keyword ids to complete (for example 41077 for A24). |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
+| Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
 | TMDB API key | Optional; falls back to the built-in public key. |
