@@ -225,6 +225,14 @@ targeted deletes), so it does not need its own progress. Availability is its own
   soft dependency on two third-party plugins the user must install, and injected JS targets jellyfin-web's
   DOM, so it is version-fragile and needs upkeep across web releases. Best shipped as an optional
   enhancement (ship the injectable assets, document the dependency), not a core requirement.
+- **Modularize the dashboard (`Web/mindthegaps.html`).** The report page has grown into one large file
+  with inline CSS and a long inline script (filters, tree render, availability, dismissals, saved views,
+  export, acquisition, mint). It works but is hard to navigate. Split the source at least at the
+  authoring level: extract the CSS and the script into separate files grouped by concern (filters/state,
+  tree render, row actions, availability, views/export), then either concatenate them into the single
+  embedded resource at build time with an MSBuild target, or serve them as their own resources the page
+  references. Keep it shipping as few artifacts as before; this is purely maintainability, no behavior
+  change, and wants a small test/build-pipeline change rather than a code rewrite.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with

@@ -59,6 +59,7 @@ public sealed class CuratedSetGapSource : IGapSource
         var keywordIds = ParseIds(context.Config.CuratedKeywordIds);
         var total = Math.Max(1, companyIds.Count + keywordIds.Count);
         var done = 0;
+        _logger.LogInformation("Curated sets: scanning {Companies} studios and {Keywords} keywords", companyIds.Count, keywordIds.Count);
 
         foreach (var companyId in companyIds)
         {
@@ -68,6 +69,7 @@ public sealed class CuratedSetGapSource : IGapSource
             var results = await CollectAsync(
                 (page, ct) => _tmdb.DiscoverMoviesByCompanyAsync(companyId, page, language, ct),
                 cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Curated sets: studio '{Label}' ({Id}) has {Count} movies on TMDB", label, companyId, results.Count);
 
             foreach (var gap in CuratedSetGapMapper.BuildMovies(
                 results,

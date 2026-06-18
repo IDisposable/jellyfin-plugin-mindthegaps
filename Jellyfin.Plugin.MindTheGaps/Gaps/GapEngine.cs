@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -58,8 +59,14 @@ public sealed class GapEngine
     /// <returns>The generated report.</returns>
     public async Task<GapReport> RunAsync(IProgress<double>? progress, CancellationToken cancellationToken)
     {
+        var stopwatch = Stopwatch.StartNew();
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var enabled = _sources.Where(s => s.IsEnabled(config)).ToList();
+        _logger.LogInformation(
+            "Gap scan starting: {Count} of {Total} sources enabled [{Sources}]",
+            enabled.Count,
+            _sources.Count(),
+            string.Join(", ", enabled.Select(s => s.Name)));
         var context = BuildContext(enabled, config);
 
         var priorReport = _store.Load();
@@ -79,6 +86,8 @@ public sealed class GapEngine
             var slice = 1.0 / total;
             context.SetProgressSink(f => progress?.Report((sliceBase + (Math.Clamp(f, 0.0, 1.0) * slice)) * 100.0));
 
+            var sourceStarted = stopwatch.ElapsedMilliseconds;
+            var beforeCount = gaps.Count;
             try
             {
                 await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
@@ -106,6 +115,12 @@ public sealed class GapEngine
             {
                 context.SetProgressSink(null);
             }
+
+            _logger.LogInformation(
+                "Gap source {Source} contributed {Count} gaps in {Ms} ms",
+                source.Name,
+                gaps.Count - beforeCount,
+                stopwatch.ElapsedMilliseconds - sourceStarted);
 
             completed++;
             progress?.Report(completed * 100.0 / total);
@@ -140,6 +155,12 @@ public sealed class GapEngine
         _store.Save(report);
 
         var newCount = gaps.Count(g => !priorIds.Contains(g.Id));
+        _logger.LogInformation(
+            "Gap scan complete: {Total} gaps ({New} new) saved in {Ms} ms",
+            gaps.Count,
+            newCount,
+            stopwatch.ElapsedMilliseconds);
+
         await _webhook.NotifyAsync(
             "scan",
             string.Create(CultureInfo.InvariantCulture, $"Mind the Gaps scan finished: {gaps.Count} gaps ({newCount} new)."),
