@@ -110,6 +110,12 @@
                         </div>
                         <div id="cgProviderFilter" style="margin-top:.15em;"></div>
                     </div>
+                    <div style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.3em 0;font-size:.9em;">
+                        <span style="opacity:.7;">Saved views:</span>
+                        <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;"><option value="">(choose a saved view)</option></select>
+                        <button is="emby-button" type="button" id="cgSaveView" class="raised" style="margin:0;" title="Save the current filters as a named view"><span>Save current</span></button>
+                        <button is="emby-button" type="button" id="cgDeleteView" class="raised" style="margin:0;" title="Delete the selected saved view"><span>Delete</span></button>
+                    </div>
                     <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.5em 0 .2em 0;"></div>
                 </div>
 
@@ -771,6 +777,64 @@
                     renderProviderFilter(page);
                 }
 
+                // Named saved views: a snapshot of every filter (and the active tab) the user can name and
+                // re-apply later. Stored per browser, separate from the live filter state.
+                var VIEWS_KEY = 'mindthegaps.views';
+
+                function loadViews() {
+                    try { return JSON.parse(localStorage.getItem(VIEWS_KEY) || '{}') || {}; } catch (e) { return {}; }
+                }
+
+                function storeViews(views) {
+                    try { localStorage.setItem(VIEWS_KEY, JSON.stringify(views)); } catch (e) { /* ignore */ }
+                }
+
+                function captureView(page) {
+                    var mon = {};
+                    var cbs = page.querySelectorAll('.cgMon');
+                    for (var i = 0; i < cbs.length; i++) { mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
+                    return {
+                        pattern: page._pattern,
+                        type: page.querySelector('#cgTypeFilter').value,
+                        search: page.querySelector('#cgSearch').value || '',
+                        hideSpecials: page.querySelector('#cgHideSpecials').checked,
+                        hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
+                        showResolved: page.querySelector('#cgShowResolved').checked,
+                        streamable: page.querySelector('#cgStreamable').checked,
+                        mon: mon,
+                        disabledProviders: disabledProviders
+                    };
+                }
+
+                function applyView(page, v) {
+                    if (!v) { return; }
+                    if (v.pattern) { page._pattern = v.pattern; }
+                    if (v.type != null) { page.querySelector('#cgTypeFilter').value = v.type; }
+                    page.querySelector('#cgSearch').value = v.search || '';
+                    page.querySelector('#cgHideSpecials').checked = !!v.hideSpecials;
+                    page.querySelector('#cgHideUpcoming').checked = !!v.hideUpcoming;
+                    page.querySelector('#cgShowResolved').checked = !!v.showResolved;
+                    page.querySelector('#cgStreamable').checked = !!v.streamable;
+                    if (v.mon) {
+                        var cbs = page.querySelectorAll('.cgMon');
+                        for (var i = 0; i < cbs.length; i++) {
+                            var k = cbs[i].getAttribute('data-mon');
+                            if (v.mon[k] != null) { cbs[i].checked = !!v.mon[k]; }
+                        }
+                    }
+                    disabledProviders = v.disabledProviders || {};
+                    renderProviderFilter(page);
+                    saveFilters(page);
+                    applyAndRender(page);
+                }
+
+                function renderViews(page) {
+                    var views = loadViews();
+                    var names = Object.keys(views).sort(function (a, b) { return ci(a, b); });
+                    page.querySelector('#cgViews').innerHTML = '<option value="">(choose a saved view)</option>'
+                        + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+                }
+
                 function load(page) {
                     Dashboard.showLoadingMsg();
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps'), dataType: 'json' })
@@ -1009,6 +1073,27 @@
                     page.querySelector('#cgLookupAvail').addEventListener('click', function () {
                         startAvailability(page, this);
                     });
+                    page.querySelector('#cgSaveView').addEventListener('click', function () {
+                        var name = (window.prompt('Save current filters as a view named:', '') || '').trim().slice(0, 60);
+                        if (!name) { return; }
+                        var views = loadViews();
+                        views[name] = captureView(page);
+                        storeViews(views);
+                        renderViews(page);
+                        page.querySelector('#cgViews').value = name;
+                    });
+                    page.querySelector('#cgViews').addEventListener('change', function () {
+                        var views = loadViews();
+                        if (this.value && views[this.value]) { applyView(page, views[this.value]); }
+                    });
+                    page.querySelector('#cgDeleteView').addEventListener('click', function () {
+                        var sel = page.querySelector('#cgViews').value;
+                        if (!sel) { return; }
+                        var views = loadViews();
+                        delete views[sel];
+                        storeViews(views);
+                        renderViews(page);
+                    });
                     page.querySelector('#cgExport').addEventListener('click', function () {
                         if (!page._report) { return; }
                         downloadText('mind-the-gaps-' + (page._pattern || 'report') + '.md', buildMarkdown(page));
@@ -1209,6 +1294,7 @@
                     })();
 
                     restoreFilters(page);
+                    renderViews(page);
                     load(page);
                 });
             })();

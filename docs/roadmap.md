@@ -217,10 +217,11 @@ targeted deletes), so it does not need its own progress. Availability is its own
   `Popularity` and `VoteAverage`, so the discovery and curated-set mappers could stamp a popularity onto
   `GapItem` (the BoxSet/filmography/series sources have no equivalent, so they would fall back to title).
   Then a sort dropdown next to the tabs reorders rows within each group; persists with the other filters.
-- **Saved views.** Remember named filter/sort combinations (for example "movies with sources, hide
-  upcoming, sorted by year") and let the report deep-link to one via the URL, so a particular slice is one
-  click or one bookmark away instead of re-toggling filters each visit. The filters already live in
-  `localStorage`; this promotes them to named, shareable presets. Small, dashboard-only.
+- **Shareable view URLs.** Named saved views shipped: a "Saved views" control snapshots the active tab
+  and every filter (type, specials, upcoming, dismissed, streamable, monetization, providers, search) as
+  a named preset in `localStorage`, re-applied in one click. What remains is the shareable part: encode a
+  view into the page URL so it survives a bookmark or a paste to another browser/user, which the saved
+  presets (per browser) do not. Fiddly inside Jellyfin's hash router, hence deferred.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
