@@ -32,7 +32,7 @@ namespace Jellyfin.Plugin.MindTheGaps.VirtualItems;
 /// <see cref="MintedMarker"/> and fully removable via <see cref="RemoveAllAsync"/>.
 /// </para>
 /// </summary>
-public sealed class VirtualMovieMinter
+public sealed class VirtualMovieMinter : IDisposable
 {
     /// <summary>
     /// Provider-id key stamped on every item this plugin mints, so they can be found and removed.
@@ -45,12 +45,19 @@ public sealed class VirtualMovieMinter
     /// </summary>
     public const string CatchAllCollectionName = "Mind the Gaps (minted)";
 
+    // Upper bound on a single multi-select request so a malformed payload cannot enqueue unbounded work.
+    private const int MaxMintSelection = 2000;
+
     private readonly ILibraryManager _libraryManager;
     private readonly ICollectionManager _collectionManager;
     private readonly IProviderManager _providerManager;
     private readonly IDirectoryService _directoryService;
     private readonly TmdbClient _tmdb;
     private readonly ILogger<VirtualMovieMinter> _logger;
+
+    // Serializes find-or-create of the catch-all collection so two concurrent mints (a per-row mint and a
+    // multi-select pass, which do not share the MintRunner) cannot both create it and leave duplicates.
+    private readonly SemaphoreSlim _catchAllGate = new(1, 1);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VirtualMovieMinter"/> class.
@@ -290,14 +297,32 @@ public sealed class VirtualMovieMinter
             return "Nothing selected.";
         }
 
+        if (gaps.Count > MaxMintSelection)
+        {
+            _logger.LogWarning("Multi-select mint: {Count} gaps requested, capping at {Max}", gaps.Count, MaxMintSelection);
+            gaps = gaps.Take(MaxMintSelection).ToList();
+        }
+
         var stopwatch = Stopwatch.StartNew();
         var minted = 0;
+        var skipped = 0;
         var failed = 0;
         var index = 0;
         foreach (var gap in gaps)
         {
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report((double)index++ / gaps.Count * 100);
+
+            // The report only offers Mint on movie gaps with a TMDB id; count anything else as skipped
+            // rather than minted, so the total reflects actual mint attempts (MintGapAsync would no-op it).
+            if (gap.TargetKind != BaseItemKind.Movie
+                || !gap.ProviderIds.TryGetValue("Tmdb", out var tmdbId)
+                || string.IsNullOrEmpty(tmdbId))
+            {
+                skipped++;
+                continue;
+            }
+
             try
             {
                 await MintGapAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
@@ -312,16 +337,18 @@ public sealed class VirtualMovieMinter
 
         stopwatch.Stop();
         _logger.LogInformation(
-            "Multi-select mint complete{DryRun}: {Minted} of {Total} in {Ms} ms ({Failed} failed)",
+            "Multi-select mint complete{DryRun}: {Minted} of {Total} in {Ms} ms ({Skipped} skipped, {Failed} failed)",
             dryRun ? " (DRY RUN)" : string.Empty,
             minted,
             gaps.Count,
             stopwatch.ElapsedMilliseconds,
+            skipped,
             failed);
         var verb = dryRun ? "Would mint" : "Minted";
+        var skippedSuffix = skipped > 0 ? string.Create(CultureInfo.InvariantCulture, $", {skipped} skipped (not mintable)") : string.Empty;
         return failed == 0
-            ? string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s).")
-            : string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s), {failed} failed. Check the server logs.");
+            ? string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s){skippedSuffix}.")
+            : string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s){skippedSuffix}, {failed} failed. Check the server logs.");
     }
 
     private async Task<BaseItem?> ResolveContainerAsync(GapItem gap, bool dryRun, CancellationToken cancellationToken)
@@ -335,28 +362,37 @@ public sealed class VirtualMovieMinter
 
         // No owning BoxSet (filmography or recommendation gap, or the owner is gone): use a single
         // catch-all collection so the virtual movie has a valid parent and a place to be found/removed.
-        var catchAll = _libraryManager
-            .GetItemList(new InternalItemsQuery
+        // Hold the gate across the lookup and the create so concurrent mints share one collection.
+        await _catchAllGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var catchAll = _libraryManager
+                .GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { BaseItemKind.BoxSet },
+                    Recursive = true
+                })
+                .FirstOrDefault(b => string.Equals(b.Name, CatchAllCollectionName, StringComparison.Ordinal));
+
+            if (catchAll is not null)
             {
-                IncludeItemTypes = new[] { BaseItemKind.BoxSet },
-                Recursive = true
-            })
-            .FirstOrDefault(b => string.Equals(b.Name, CatchAllCollectionName, StringComparison.Ordinal));
+                return catchAll;
+            }
 
-        if (catchAll is not null)
-        {
-            return catchAll;
+            if (dryRun)
+            {
+                return null;
+            }
+
+            _logger.LogInformation("Creating catch-all collection '{Name}' for one-off mints", CatchAllCollectionName);
+            return await _collectionManager
+                .CreateCollectionAsync(new CollectionCreationOptions { Name = CatchAllCollectionName })
+                .ConfigureAwait(false);
         }
-
-        if (dryRun)
+        finally
         {
-            return null;
+            _catchAllGate.Release();
         }
-
-        _logger.LogInformation("Creating catch-all collection '{Name}' for one-off mints", CatchAllCollectionName);
-        return await _collectionManager
-            .CreateCollectionAsync(new CollectionCreationOptions { Name = CatchAllCollectionName })
-            .ConfigureAwait(false);
     }
 
     private async Task AttachPersonAsync(Guid movieId, string personName, CancellationToken cancellationToken)
@@ -412,5 +448,11 @@ public sealed class VirtualMovieMinter
         }
 
         return removed;
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        _catchAllGate.Dispose();
     }
 }

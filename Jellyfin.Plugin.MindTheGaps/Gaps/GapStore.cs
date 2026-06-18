@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -21,6 +22,7 @@ public sealed class GapStore
     private static readonly TimeSpan _minWriteInterval = TimeSpan.FromSeconds(5);
 
     private readonly ILogger<GapStore> _logger;
+    private readonly string? _dataFolderOverride;
     private readonly object _lock = new();
     private GapReport? _cached;
     private DateTime _lastWriteUtc = DateTime.MinValue;
@@ -34,11 +36,23 @@ public sealed class GapStore
         _logger = logger;
     }
 
-    private static string FilePath
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GapStore"/> class with an explicit data folder.
+    /// Test seam: lets a test persist into an isolated directory instead of the plugin data folder.
+    /// </summary>
+    /// <param name="logger">The logger.</param>
+    /// <param name="dataFolder">The folder to persist the report into.</param>
+    public GapStore(ILogger<GapStore> logger, string dataFolder)
+        : this(logger)
+    {
+        _dataFolderOverride = dataFolder;
+    }
+
+    private string FilePath
     {
         get
         {
-            var dataFolder = Plugin.Instance?.DataFolderPath ?? Path.GetTempPath();
+            var dataFolder = _dataFolderOverride ?? Plugin.Instance?.DataFolderPath ?? Path.GetTempPath();
             Directory.CreateDirectory(dataFolder);
             return Path.Combine(dataFolder, "gaps.json");
         }
@@ -58,21 +72,63 @@ public sealed class GapStore
     }
 
     /// <summary>
-    /// Caches the report in memory and flushes to disk only if enough time has passed since the last
-    /// flush (the in-memory copy is always current). For frequent checkpoint saves during a long pass,
-    /// so a large report is not fully rewritten on every checkpoint. Call <see cref="Save"/> for the
-    /// final write.
+    /// Folds the availability enrichment from a background pass into the current report by gap id, then
+    /// flushes. If the pass's report is still the cached one this is an ordinary save; if a scan replaced
+    /// the cached report while the pass was running, the enrichment (offers, the checked flag, resolved
+    /// external ids and their links) lands on the new report instead of overwriting it with the older
+    /// captured copy. That is the lost update a long background pass would otherwise cause.
     /// </summary>
-    /// <param name="report">The report to save.</param>
-    public void SaveThrottled(GapReport report)
+    /// <param name="report">The report the pass has been enriching.</param>
+    /// <param name="throttle">When true, flush only if past the coalescing interval (checkpoint saves).</param>
+    public void SaveAvailabilityMerge(GapReport report, bool throttle)
     {
         lock (_lock)
         {
-            _cached = report;
-            if (DateTime.UtcNow - _lastWriteUtc >= _minWriteInterval)
+            GapReport current;
+            if (_cached is null || ReferenceEquals(_cached, report))
             {
-                Flush(report);
+                _cached = report;
+                current = report;
             }
+            else
+            {
+                MergeAvailability(report, _cached);
+                current = _cached;
+            }
+
+            if (!throttle || DateTime.UtcNow - _lastWriteUtc >= _minWriteInterval)
+            {
+                Flush(current);
+            }
+        }
+    }
+
+    // Copy the fields the availability pass produces from one report's items onto a (newer) report's
+    // items, matched by id. Items the newer report does not have (resolved or acquired since) are skipped;
+    // items it has that the pass did not touch keep their values.
+    private static void MergeAvailability(GapReport from, GapReport into)
+    {
+        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+        foreach (var item in from.Items)
+        {
+            byId[item.Id] = item;
+        }
+
+        foreach (var target in into.Items)
+        {
+            if (!byId.TryGetValue(target.Id, out var source))
+            {
+                continue;
+            }
+
+            target.AvailabilityChecked = source.AvailabilityChecked;
+            if (source.Availability.Count > 0)
+            {
+                target.Availability = source.Availability;
+            }
+
+            target.ProviderIds = source.ProviderIds;
+            target.Links = source.Links;
         }
     }
 

@@ -16,6 +16,7 @@ public sealed class ResolutionStore
 {
     // A resolution note is a short, single-line explanation; cap it so a note cannot bloat the store.
     private const int MaxNoteLength = 100;
+    private const int MaxIdLength = 256;
 
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -77,7 +78,9 @@ public sealed class ResolutionStore
     /// <param name="note">The note.</param>
     public void Resolve(string id, string? note)
     {
-        if (string.IsNullOrEmpty(id))
+        // Gap ids are short, structured keys (see ADR-0008); reject anything implausibly long so a
+        // malformed request cannot bloat the store.
+        if (string.IsNullOrEmpty(id) || id.Length > MaxIdLength)
         {
             return;
         }

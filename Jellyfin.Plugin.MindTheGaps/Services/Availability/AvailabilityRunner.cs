@@ -229,13 +229,13 @@ public sealed class AvailabilityRunner
 
                 if ((i + 1) % SaveEvery == 0)
                 {
-                    _store.SaveThrottled(report);
+                    _store.SaveAvailabilityMerge(report, throttle: true);
                 }
 
                 await Task.Delay(ThrottleMilliseconds).ConfigureAwait(false);
             }
 
-            _store.Save(report);
+            _store.SaveAvailabilityMerge(report, throttle: false);
 
             var remaining = groups.Count - batch.Count;
             var message = remaining > 0

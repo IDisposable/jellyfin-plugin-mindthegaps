@@ -159,6 +159,13 @@ public sealed class GapEngine
                 gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
             }
 
+            // Carry the episode's watch target (its series' TMDB id, resolved by an earlier pass) so a
+            // rescan does not drop it and re-resolve; sources only stamp it when they can.
+            if (string.IsNullOrEmpty(gap.WatchTmdbId) && !string.IsNullOrEmpty(before.WatchTmdbId))
+            {
+                gap.WatchTmdbId = before.WatchTmdbId;
+            }
+
             if (before.AvailabilityChecked)
             {
                 gap.AvailabilityChecked = true;
