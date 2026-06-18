@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.9",
+                "changelog": "10.11.0.9 - Resolve a gap you don't consider missing (for example two listed episodes that are one combined file): mark it with a note and it drops off the list. A \"Show resolved\" filter brings resolved rows back, greyed, with their note and a Clear button; resolutions persist across rescans. New \"Hide upcoming\" filter for gaps with a future release date. The Settings button on the plugin page now opens the settings, not the report. The \"open in Jellyfin\" icon now sits next to each row's title.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.9/mind-the-gaps_10.11.0.9.zip",
+                "checksum": "2eed772fdcf245a5aed0e7582e3eb030",
+                "timestamp": "2026-06-18T05:34:51Z"
+            },
+            {
                 "version": "10.11.0.8",
                 "changelog": "10.11.0.8 - Missing-episode rows now show where to watch the show. Availability look-ups are grouped by title (episodes of a series share one call) and remember when a title has no sources, showing \"No streaming sources found\" instead of a look-up that comes back empty. The report is version-stamped and nudges you to rescan after a plugin upgrade (rebuilds stale links). Fixed group headers not toggling after navigating away and back. Creator Works and Recommendations letter groups start collapsed, plus a back-to-top button. The watch-page link is now \"Watch\", next to \"Where to watch:\". Settings page reorganized into labelled sections.\n",
                 "targetAbi": "10.11.0.0",
