@@ -16,6 +16,9 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanSeries = true;
         ScanPeople = true;
         ScanRecommendations = false;
+        ScanCuratedSets = false;
+        CuratedCompanyIds = string.Empty;
+        CuratedKeywordIds = string.Empty;
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
@@ -49,6 +52,23 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether to include TMDB recommendations/similar titles as discovery gaps.
     /// </summary>
     public bool ScanRecommendations { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface missing movies from curated TMDB sets (studios
+    /// and keywords listed in <see cref="CuratedCompanyIds"/> / <see cref="CuratedKeywordIds"/>).
+    /// </summary>
+    public bool ScanCuratedSets { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of TMDB company (studio) ids to track as curated sets, for
+    /// example "41077" for A24 or "10342" for Studio Ghibli.
+    /// </summary>
+    public string CuratedCompanyIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of TMDB keyword ids to track as curated sets.
+    /// </summary>
+    public string CuratedKeywordIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where

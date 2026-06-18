@@ -48,6 +48,22 @@
                                 <span>Include recommendations / similar titles (discovery)</span>
                             </label>
                         </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanCuratedSets" name="ScanCuratedSets" type="checkbox" is="emby-checkbox" />
+                                <span>Track curated sets (studios and keywords below)</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyIds">TMDB studio (company) ids</label>
+                            <input id="CuratedCompanyIds" name="CuratedCompanyIds" type="text" is="emby-input" />
+                            <div class="fieldDescription">Comma-separated TMDB company ids to complete, for example 41077 (A24), 10342 (Studio Ghibli).</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CuratedKeywordIds">TMDB keyword ids</label>
+                            <input id="CuratedKeywordIds" name="CuratedKeywordIds" type="text" is="emby-input" />
+                            <div class="fieldDescription">Comma-separated TMDB keyword ids to complete.</div>
+                        </div>
                     </div>
 
                     <div class="verticalSection">
@@ -187,6 +203,9 @@
                     page.querySelector('#ScanSeries').checked = config.ScanSeries;
                     page.querySelector('#ScanPeople').checked = config.ScanPeople;
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
+                    page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
+                    page.querySelector('#CuratedCompanyIds').value = config.CuratedCompanyIds || '';
+                    page.querySelector('#CuratedKeywordIds').value = config.CuratedKeywordIds || '';
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
                     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
@@ -282,6 +301,9 @@
                         config.ScanSeries = form.querySelector('#ScanSeries').checked;
                         config.ScanPeople = form.querySelector('#ScanPeople').checked;
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
+                        config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
+                        config.CuratedCompanyIds = form.querySelector('#CuratedCompanyIds').value;
+                        config.CuratedKeywordIds = form.querySelector('#CuratedKeywordIds').value;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
                         config.TraktClientId = form.querySelector('#TraktClientId').value;

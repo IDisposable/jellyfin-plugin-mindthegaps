@@ -149,16 +149,13 @@ targeted deletes), so it does not need its own progress. Availability is its own
 
 ## Backlog
 
-- **Studio, keyword, and curated-list collection widening (top priority).** SetCompletion today is
-  anchored to formal TMDB BoxSets, which only cover named franchises. Users think in broader sets: "every
-  A24 film", "every Studio Ghibli film", "the films in this themed list". TMDB exposes the inputs already:
-  `discover/movie` with `with_companies` (studio) or `with_keywords`, and TMDB Lists. Seed the queries
-  from what is already owned (collect the studios and keywords present on owned items, or let the user
-  paste a TMDB list id), diff the result against ownership exactly like a BoxSet, and emit SetCompletion
-  gaps tagged with the set name. This is a large widening of detection with zero engine or report change:
-  it is another `IGapSource` producing the existing `GapItem` shape, grouped like collections. Needs a
-  config surface for which studios/keywords/lists to track and a per-set cap so a broad studio does not
-  flood the list.
+- **Curated-list and owned-derived set widening (continues the studio/keyword work).** Studio and
+  keyword widening shipped: `CuratedSetGapSource` runs `discover/movie` for the TMDB company and keyword
+  ids configured under `CuratedCompanyIds` / `CuratedKeywordIds`, diffs against ownership, and emits
+  SetCompletion gaps grouped by the set name (studios labelled from TMDB, with a per-set page and gap
+  cap so a broad studio does not flood the list). Two pieces remain: (a) TMDB Lists, paste a list id and
+  complete it the same way (TMDbLib `GetListAsync`); and (b) auto-seeding, derive the studios/keywords to
+  track from those most common on owned items instead of requiring the user to look up TMDB ids.
 - **Incremental, "fill up" scanning that scales past the per-run caps.** Each source caps its work per
   run (`PeopleGapSource` scans at most `MaxPeople` = 500 owned people; recommendations cap seeds; the
   series sources cap too). Worse, those caps apply to the library's default order, which is `SortName`

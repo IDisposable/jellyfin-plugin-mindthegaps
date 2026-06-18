@@ -144,6 +144,62 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets a single page of a company's (studio's) movies via discover.
+    /// </summary>
+    /// <param name="companyId">The TMDB company id.</param>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public async Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> DiscoverMoviesByCompanyAsync(int companyId, int page, string? language, CancellationToken cancellationToken)
+    {
+        var query = _client.DiscoverMoviesAsync().IncludeWithAllOfCompany(new[] { companyId });
+        if (!string.IsNullOrEmpty(language))
+        {
+            query = query.WhereLanguageIs(language);
+        }
+
+        var results = await query.Query(page, cancellationToken).ConfigureAwait(false);
+        return results?.Results is null || results.Results.Count == 0
+            ? (Array.Empty<SearchMovie>(), 0)
+            : (results.Results, results.TotalPages);
+    }
+
+    /// <summary>
+    /// Gets a single page of a keyword's movies via discover.
+    /// </summary>
+    /// <param name="keywordId">The TMDB keyword id.</param>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public async Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> DiscoverMoviesByKeywordAsync(int keywordId, int page, string? language, CancellationToken cancellationToken)
+    {
+        var query = _client.DiscoverMoviesAsync().IncludeWithAllOfKeywords(new[] { keywordId });
+        if (!string.IsNullOrEmpty(language))
+        {
+            query = query.WhereLanguageIs(language);
+        }
+
+        var results = await query.Query(page, cancellationToken).ConfigureAwait(false);
+        return results?.Results is null || results.Results.Count == 0
+            ? (Array.Empty<SearchMovie>(), 0)
+            : (results.Results, results.TotalPages);
+    }
+
+    /// <summary>
+    /// Gets a company's (studio's) display name by its TMDB id, for labelling a curated set.
+    /// </summary>
+    /// <param name="companyId">The TMDB company id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The company name, or null if not found.</returns>
+    public async Task<string?> GetCompanyNameAsync(int companyId, CancellationToken cancellationToken)
+    {
+        var company = await _client.GetCompanyAsync(companyId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return company?.Name;
+    }
+
+    /// <summary>
     /// Gets a title's external ids (IMDb, and TheTVDB for series) by its TMDB id. TMDB list responses
     /// only carry the TMDB id, so this fills in the rest so a gap can link to more than TMDB.
     /// </summary>

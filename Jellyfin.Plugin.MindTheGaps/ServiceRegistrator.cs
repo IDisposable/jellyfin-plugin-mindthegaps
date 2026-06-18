@@ -48,5 +48,6 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, PeopleGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktFilmographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, RecommendationsGapSource>();
+        serviceCollection.AddSingleton<IGapSource, CuratedSetGapSource>();
     }
 }
