@@ -150,7 +150,7 @@ Jellyfin.Plugin.MindTheGaps/            # the plugin
   Web/mindthegaps.html                  # dashboard
   Configuration/PluginConfiguration.cs, configPage.html
   VirtualItems/VirtualMovieMinter.cs    # experimental, opt-in
-  jellyfin.ruleset
+.editorconfig                           # code style + analyzer severities
 Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures
 ```
 

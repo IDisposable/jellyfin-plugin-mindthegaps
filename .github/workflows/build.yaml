@@ -33,6 +33,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Catch the "tagged before bumping build.yaml" slip: on a release, the tag (minus the leading v)
+      # must equal build.yaml's version (the single source). Fails fast, before any build work.
+      - name: Guard - release tag matches build.yaml version
+        if: github.event_name == 'release'
+        run: |
+          base_ver=$(grep -m1 '^version:' build.yaml | cut -d'"' -f2)
+          tag="${{ github.event.release.tag_name }}"
+          tag="${tag#v}"
+          if [ "$tag" != "$base_ver" ]; then
+            echo "::error::Release tag v$tag does not match build.yaml version $base_ver. Bump build.yaml (and commit) before tagging."
+            exit 1
+          fi
+          echo "Tag matches build.yaml version: $base_ver"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
