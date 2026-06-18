@@ -24,6 +24,13 @@ changelog: >
   live progress while running, and when the backlog is cleared. Empty tabs now explain which filter to
   relax, search also matches the creator or recommending title, group headers are keyboard and
   screen-reader friendly, and the settings page shows a quick gap summary. You can copy a link that reopens
-  the exact tab and filters in another browser or for someone else. API keys are masked with a reveal
-  toggle. Under the hood, minting works from gap ids, report reads are snapshotted against the background
-  pass, background tasks stop cleanly on shutdown, and links are limited to http(s).
+  the exact tab and filters in another browser or for someone else. A relevance gate keeps Creator works
+  and Recommendations actionable on a large library: a TMDB vote floor (plus an optional cast-billing
+  limit) drops obscure and bit-part credits, all tunable in settings. Set completion lays its collapsed
+  series and collections out in responsive columns instead of one very tall list, and a magnifying-glass
+  icon opens a scoped Jellyfin search for any title, series, collection, or creator. You can resolve or
+  dismiss every episode under a series or season in one batch. The Markdown export folds the domain into
+  the heading with a linked "Watch" and a shareable-view link. Also fixes the stale-list "Rescan now"
+  giving no feedback and some season links going missing. Under the hood, minting works from gap ids,
+  report reads are snapshotted against the background pass, background tasks stop cleanly on shutdown, and
+  links are limited to http(s).

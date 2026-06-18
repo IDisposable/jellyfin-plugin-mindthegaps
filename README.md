@@ -41,7 +41,9 @@ changes (only Video is implemented today):
   only by design (TMDB collections don't model shows).
 - **Filmography gaps (TMDB)**: an owned person's movie credits (cast plus directing/writing crew) that
   aren't in the library. People are scanned stalest-first, so coverage accumulates over runs (and the
-  per-run cap, raised, covers a large cast and crew faster); most-owned-credits breaks ties.
+  per-run cap, raised, covers a large cast and crew faster); most-owned-credits breaks ties. A relevance
+  gate (a TMDB vote floor, plus an optional cast-billing limit) drops obscure and bit-part credits so the
+  list stays actionable on a large library.
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
@@ -50,15 +52,20 @@ changes (only Video is implemented today):
   Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers. Opt-in: list the TMDB company and
   keyword ids to track.
 - **Recommendations**: TMDB "similar" titles; opt-in. Each result lists every owned title that recommends
-  it, not just the first.
+  it, not just the first; a TMDB vote floor trims the obscure long tail.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
 - **A usable report**: grouped by movies/shows and source, with an A-Z jump bar for the creator-works and
-  recommendation tabs and a coverage badge ("6 of 9 owned, 67%") on collection groups; filter by type,
-  specials, upcoming, streamable, or dismissed; search; save named view presets; export the current view
-  to Markdown; links to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has,
-  including the JustWatch plugin) plus an "open in Jellyfin" jump to items you already hold.
+  recommendation tabs and a coverage badge ("6 of 9 owned, 67%") on collection groups. Each tab loads on
+  demand, and Set completion lays its collapsed series and collections out in responsive columns so a big
+  library is not one very tall list. Filter by type, specials, upcoming, streamable, or dismissed; search
+  (matches the creator/source too); save named view presets or copy a shareable link to the exact view;
+  export the current view to Markdown. Links to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link
+  provider the host has, including the JustWatch plugin), an "open in Jellyfin" jump to items you already
+  hold, and a search icon that opens a scoped Jellyfin search for any title, series, collection, or creator.
+- **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
+  season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
 - **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a
   single combined file), **not interested** (a real gap you do not want), or **snooze until release** (an
   upcoming title, which resurfaces on its own once released). Dismissed gaps drop off the list, recoverable
@@ -112,6 +119,7 @@ settings page has per-source toggles plus:
 | Metadata country / language | Locale for TMDB lookups and availability. |
 | Max related per item | Caps how many "similar" titles each owned item contributes. |
 | Max creators scanned per run | Caps the filmography scan; people are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster. |
+| Relevance floors | Minimum TMDB votes for filmography and recommendation gaps (plus an optional cast-billing limit), so Creator works and Recommendations stay actionable on a large library. |
 | Curated studio / keyword ids | Comma-separated TMDB company and keyword ids to complete (for example 41077 for A24). |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |

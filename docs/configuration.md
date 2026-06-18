@@ -61,7 +61,8 @@ opt-in cross-checks that need your own credentials.
 | **TVmaze cross-check** (`TvMazeEnabled`) | Off | Keyless. Catches episodes a series' configured metadata provider does not list. Shares episode ids with the library and TheTVDB sources, so duplicates are de-duped. Series are cross-checked stalest-first in capped batches (rate-limited API), so coverage accumulates over runs. | No TVmaze cross-check. |
 | **TheTVDB cross-check** (`TvdbEnabled` + `TvdbApiKey`) | Off | Adds a TheTVDB series-content cross-check. Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). Also rotated stalest-first over runs. | No TheTVDB cross-check. |
 
-> Note: API keys are sensitive. If a key ever ends up in a URL or browser history, rotate it.
+> Note: API keys are sensitive. The key fields are masked (password inputs) with a **Show** toggle to
+> reveal one when you need to check it. If a key ever ends up in a URL or browser history, rotate it.
 
 ## Region
 
