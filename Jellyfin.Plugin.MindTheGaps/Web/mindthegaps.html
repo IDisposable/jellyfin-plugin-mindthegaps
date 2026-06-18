@@ -13,6 +13,7 @@
             .cgHdr3 { font-size: .92em; padding-left: 2.6em; font-weight: 400; opacity: .8; }
             .cgGroup.cgCollapsed > .cgBody { display: none; }
             .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
+            .cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
             .cgCaret {
                 display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
                 border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
@@ -384,11 +385,18 @@
                     return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
                 }
 
-                function groupHtml(level, label, count, collapsed, inner, itemId) {
+                function groupHtml(level, label, count, collapsed, inner, itemId, extra) {
                     return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '">'
                         + '<div class="cgHdr cgHdr' + level + '"><span class="cgCaret"></span>' + esc(label)
-                        + ' <span class="cgCount">(' + count + ')</span>' + openIcon(itemId) + '</div>'
+                        + ' <span class="cgCount">(' + count + ')</span>' + (extra || '') + openIcon(itemId) + '</div>'
                         + '<div class="cgBody">' + inner + '</div></div>';
+                }
+
+                // A coverage badge ("6 of 9 owned, 67%") for a set whose owned/total counts are known.
+                function coverageBadge(item) {
+                    if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
+                    var pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
+                    return ' <span class="cgCoverage">' + item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%</span>';
                 }
 
                 // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
@@ -497,7 +505,7 @@
                         bySrc.order.sort(ci);
                         var srcHtml = bySrc.order.map(function (src) {
                             var srcItems = bySrc.map[src];
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId);
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, coverageBadge(srcItems[0]));
                         }).join('');
                         return groupHtml(1, cat, catItems.length, false, srcHtml);
                     }).join('');

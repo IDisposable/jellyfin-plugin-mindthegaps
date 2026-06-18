@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Jellyfin.Data.Enums;
 
 namespace Jellyfin.Plugin.MindTheGaps.Model;
@@ -114,9 +115,25 @@ public class GapItem
     /// <summary>
     /// Gets or sets additional owned items that surfaced this same gap, beyond the primary one in
     /// <see cref="SourceItemName"/>. The engine accumulates these when the same recommendation target is
-    /// surfaced by several owned titles, so the report can list every recommending source.
+    /// surfaced by several owned titles, so the report can list every recommending source. Null (omitted
+    /// from the JSON) for the common case of a single source.
     /// </summary>
-    public IReadOnlyList<GapSourceRef> OtherSources { get; set; } = System.Array.Empty<GapSourceRef>();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<GapSourceRef>? OtherSources { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many members of this gap's set the library already owns, for a SetCompletion gap
+    /// (a collection/studio/keyword set). Null (and omitted) for gaps that are not part of a counted set.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? SetOwnedCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total number of members in this gap's set, for a SetCompletion gap. Null (and
+    /// omitted) for gaps that are not part of a counted set.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? SetTotalCount { get; set; }
 
     /// <summary>
     /// Gets or sets the id of this gap's own item in the library, when it exists as a (virtual) item the

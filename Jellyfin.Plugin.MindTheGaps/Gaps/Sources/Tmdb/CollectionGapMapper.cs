@@ -30,7 +30,12 @@ public static class CollectionGapMapper
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl)
     {
-        foreach (var part in parts)
+        // Materialize so the set's owned/total counts can be computed for coverage scoring.
+        var partList = new List<SearchMovie>(parts);
+        var total = partList.Count;
+        var owned = 0;
+        var missing = new List<(SearchMovie Part, Dictionary<string, string> Ids)>();
+        foreach (var part in partList)
         {
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -39,9 +44,15 @@ public static class CollectionGapMapper
 
             if (ownership.OwnsAny(BaseItemKind.Movie, providerIds))
             {
+                owned++;
                 continue;
             }
 
+            missing.Add((part, providerIds));
+        }
+
+        foreach (var (part, providerIds) in missing)
+        {
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"collection:{collectionId}:{part.Id}"),
                 pattern: GapPattern.SetCompletion,
@@ -54,7 +65,9 @@ public static class CollectionGapMapper
                 sourceItemType: "BoxSet",
                 releaseDate: part.ReleaseDate,
                 imageUrl: posterUrl(part.PosterPath),
-                overview: part.Overview);
+                overview: part.Overview,
+                setOwnedCount: owned,
+                setTotalCount: total);
         }
     }
 }

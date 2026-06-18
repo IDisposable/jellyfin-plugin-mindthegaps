@@ -205,11 +205,12 @@ targeted deletes), so it does not need its own progress. Availability is its own
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
-- **Coverage scoring.** A per-container completeness readout: "this BoxSet is 6 of 9 owned (67%)", "this
-  series is missing 3 of 40 episodes", a domain rollup at the top of each tab. The data is already in the
-  report (gaps are counted against owned containers); this is a presentation layer that turns the todo
-  list into a progress view, and it gives the dashboard a headline number per group rather than only a
-  flat list. Small, report-only.
+- **Extend coverage scoring to series and a domain rollup.** Coverage badges ("6 of 9 owned, 67%") now
+  show on BoxSet/collection groups, where the set is complete and the owned/total counts are exact
+  (`GapItem.SetOwnedCount`/`SetTotalCount`, stamped by `CollectionGapMapper`). Two extensions remain: the
+  series sources could stamp owned-of-total episodes per show ("missing 3 of 40") by counting owned
+  episodes, and a per-tab domain rollup at the top would sum the per-set coverage. Curated studio/keyword
+  sets are deliberately excluded (they are open-ended, so a percentage would mislead).
 - **Sort rows within a group.** Rows inside a group are always alphabetical by title. Offer other sort
   keys, most usefully popularity (or rating, or release date), so the gaps worth filling float to the top
   of each group. The gap would need to carry a sort signal: TMDB `SearchMovie`/`SearchTv` already expose

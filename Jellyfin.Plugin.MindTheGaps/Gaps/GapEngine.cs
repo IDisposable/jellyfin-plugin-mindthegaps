@@ -162,13 +162,14 @@ public sealed class GapEngine
             return;
         }
 
-        if (existing.OtherSources.Count >= maxSourcesPerGap)
+        var current = existing.OtherSources ?? (IReadOnlyList<GapSourceRef>)Array.Empty<GapSourceRef>();
+        if (current.Count >= maxSourcesPerGap)
         {
             return;
         }
 
         var key = duplicate.SourceItemId ?? duplicate.SourceItemName;
-        foreach (var existingSource in existing.OtherSources)
+        foreach (var existingSource in current)
         {
             if (string.Equals(existingSource.Id ?? existingSource.Name, key, StringComparison.Ordinal))
             {
@@ -176,7 +177,7 @@ public sealed class GapEngine
             }
         }
 
-        var sources = new List<GapSourceRef>(existing.OtherSources)
+        var sources = new List<GapSourceRef>(current)
         {
             new GapSourceRef
             {
