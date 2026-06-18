@@ -213,8 +213,10 @@ targeted deletes), so it does not need its own progress. Availability is its own
   things currently gated on jellyfin-web changes: (a) render our minted virtual items as greyed "Missing"
   placeholders (otherwise waiting on jellyfin-web PR A / #8049), and (b) add a dedicated "Gaps" shelf to
   native browse pages, the person page for Creator Works gaps and the studio page (the `#/list?studioId=`
-  view) for curated-set gaps, so each appears in context as its own section. The minting that creates
-  and reconciles the items is already done; this is only the presentation layer. Trade-offs: it adds a
+  view) for curated-set gaps, so each appears in context as its own section; and (c) inject a "Gaps" entry
+  into a library's overflow ("...") context menu, next to Refresh metadata / Edit images, that jumps to the
+  report scoped to that library (its domain, or its studios/series). The minting that creates and
+  reconciles the items is already done; this is only the presentation layer. Trade-offs: it adds a
   soft dependency on two third-party plugins the user must install, and injected JS targets jellyfin-web's
   DOM, so it is version-fragile and needs upkeep across web releases. Best shipped as an optional
   enhancement (ship the injectable assets, document the dependency), not a core requirement.
@@ -244,7 +246,10 @@ targeted deletes), so it does not need its own progress. Availability is its own
   split would break it. Touches `GapStore` (multi-file atomic writes), `GapEngine` (per-domain de-dup and
   carry-forward), and `AvailabilityRunner`. The cheaper, higher-value first step is the transfer half: have
   the API serve the report per pattern or domain so the browser loads only the active tab, without yet
-  splitting the persisted file. Pairs with the report-virtualization note.
+  splitting the persisted file. Pairs with the report-virtualization note. A welcome side effect: once the
+  dashboard loads per domain, the Type filter's "All" option goes away (a combined cross-domain view would
+  defeat the lazy load), so the domain becomes the primary selector and there is one fewer state to keep
+  coherent.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
