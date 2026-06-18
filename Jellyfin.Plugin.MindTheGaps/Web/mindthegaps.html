@@ -177,18 +177,16 @@
 
                 // Sort a leaf group's rows by the active mode (popularity desc, then title; or just title).
                 function sortRows(items) {
-                    var arr = items.slice();
+                    var byTitle = function (a, b) { return ci(a.Name || '', b.Name || ''); };
+                    var cmp = byTitle;
                     if (currentSort === 'popularity') {
-                        arr.sort(function (a, b) {
+                        cmp = function (a, b) {
                             var pa = a.SortScore == null ? -1 : a.SortScore;
                             var pb = b.SortScore == null ? -1 : b.SortScore;
-                            if (pb !== pa) { return pb - pa; }
-                            return ci(a.Name || '', b.Name || '');
-                        });
-                    } else {
-                        arr.sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
+                            return pb !== pa ? pb - pa : byTitle(a, b);
+                        };
                     }
-                    return arr;
+                    return items.slice().sort(cmp);
                 }
 
                 // Report-level "where to watch" filters. Monetization types are fixed checkboxes; providers
