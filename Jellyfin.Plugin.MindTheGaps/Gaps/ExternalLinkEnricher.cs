@@ -247,7 +247,9 @@ public sealed class ExternalLinkEnricher
             return null;
         }
 
-        var idx = id.LastIndexOf('e');
+        // Case-insensitive: accept both "...eNN" and "...ENN". Upper-casing does not move indices, so the
+        // position found in the upper-cased copy slices the original.
+        var idx = id.ToUpperInvariant().LastIndexOf('E');
         if (idx < 0 || idx == id.Length - 1)
         {
             return null;

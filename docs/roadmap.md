@@ -218,6 +218,12 @@ targeted deletes), so it does not need its own progress. Availability is its own
   report (gaps are counted against owned containers); this is a presentation layer that turns the todo
   list into a progress view, and it gives the dashboard a headline number per group rather than only a
   flat list. Small, report-only.
+- **Sort rows within a group.** Rows inside a group are always alphabetical by title. Offer other sort
+  keys, most usefully popularity (or rating, or release date), so the gaps worth filling float to the top
+  of each group. The gap would need to carry a sort signal: TMDB `SearchMovie`/`SearchTv` already expose
+  `Popularity` and `VoteAverage`, so the discovery and curated-set mappers could stamp a popularity onto
+  `GapItem` (the BoxSet/filmography/series sources have no equivalent, so they would fall back to title).
+  Then a sort dropdown next to the tabs reorders rows within each group; persists with the other filters.
 - **Saved views.** Remember named filter/sort combinations (for example "movies with sources, hide
   upcoming, sorted by year") and let the report deep-link to one via the URL, so a particular slice is one
   click or one bookmark away instead of re-toggling filters each visit. The filters already live in
