@@ -58,7 +58,7 @@ public sealed class GapEngine
         var context = BuildContext(enabled, config);
 
         var gaps = new List<GapItem>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
 
         var total = enabled.Count;
         var completed = 0;
@@ -75,8 +75,13 @@ public sealed class GapEngine
             {
                 await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
                 {
-                    if (seen.Add(gap.Id))
+                    if (byId.TryGetValue(gap.Id, out var existing))
                     {
+                        MergeDuplicateSource(existing, gap);
+                    }
+                    else
+                    {
+                        byId[gap.Id] = gap;
                         gaps.Add(gap);
                     }
                 }
@@ -117,6 +122,51 @@ public sealed class GapEngine
 
         _store.Save(report);
         return report;
+    }
+
+    // A recommendation target can be surfaced by several owned titles, but they collapse to one gap (the
+    // id is keyed on the target). Instead of dropping the duplicates, accumulate their owning items onto
+    // the surviving gap so the report can list every recommending source. Capped and de-duped.
+    private static void MergeDuplicateSource(GapItem existing, GapItem duplicate)
+    {
+        const int maxSourcesPerGap = 12;
+
+        if (existing.Pattern != GapPattern.Recommendation || string.IsNullOrEmpty(duplicate.SourceItemName))
+        {
+            return;
+        }
+
+        if (string.Equals(duplicate.SourceItemName, existing.SourceItemName, StringComparison.Ordinal)
+            && string.Equals(duplicate.SourceItemId, existing.SourceItemId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (existing.OtherSources.Count >= maxSourcesPerGap)
+        {
+            return;
+        }
+
+        var key = duplicate.SourceItemId ?? duplicate.SourceItemName;
+        foreach (var existingSource in existing.OtherSources)
+        {
+            if (string.Equals(existingSource.Id ?? existingSource.Name, key, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        var sources = new List<GapSourceRef>(existing.OtherSources)
+        {
+            new GapSourceRef
+            {
+                Id = duplicate.SourceItemId,
+                Name = duplicate.SourceItemName,
+                Type = duplicate.SourceItemType,
+                Year = duplicate.SourceItemYear
+            }
+        };
+        existing.OtherSources = sources;
     }
 
     private void CarryForward(IReadOnlyList<GapItem> gaps)

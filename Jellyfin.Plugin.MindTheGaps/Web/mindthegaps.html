@@ -237,6 +237,15 @@
                     return button + names;
                 }
 
+                // One recommending source as text: name, its year/type meta, and an open-in-Jellyfin icon.
+                function recSource(name, year, type, id) {
+                    var meta = [];
+                    if (year) { meta.push(year); }
+                    if (type) { meta.push(esc(type)); }
+                    var suffix = meta.length ? ' (' + meta.join(' &middot; ') + ')' : '';
+                    return esc(name) + suffix + openIcon(id);
+                }
+
                 function renderRow(item) {
                     var meta = [];
                     if (item.Year) { meta.push(item.Year); }
@@ -295,11 +304,9 @@
 
                     var detailParts = [];
                     if (item.PatternName === 'Recommendation' && item.SourceItemName) {
-                        var srcMeta = [];
-                        if (item.SourceItemYear) { srcMeta.push(item.SourceItemYear); }
-                        if (item.SourceItemType) { srcMeta.push(esc(item.SourceItemType)); }
-                        var srcSuffix = srcMeta.length ? ' (' + srcMeta.join(' &middot; ') + ')' : '';
-                        detailParts.push('<div style="opacity:.85;">Recommended by: ' + esc(item.SourceItemName) + srcSuffix + openIcon(item.SourceItemId) + '</div>');
+                        var srcs = [recSource(item.SourceItemName, item.SourceItemYear, item.SourceItemType, item.SourceItemId)];
+                        (item.OtherSources || []).forEach(function (s) { if (s && s.Name) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
+                        detailParts.push('<div style="opacity:.85;">Recommended by: ' + srcs.join(', ') + '</div>');
                     }
                     if (item.Overview) { detailParts.push(esc(item.Overview)); }
                     var details = detailParts.length

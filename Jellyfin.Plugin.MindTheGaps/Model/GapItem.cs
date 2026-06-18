@@ -112,6 +112,13 @@ public class GapItem
     public int? SourceItemYear { get; set; }
 
     /// <summary>
+    /// Gets or sets additional owned items that surfaced this same gap, beyond the primary one in
+    /// <see cref="SourceItemName"/>. The engine accumulates these when the same recommendation target is
+    /// surfaced by several owned titles, so the report can list every recommending source.
+    /// </summary>
+    public IReadOnlyList<GapSourceRef> OtherSources { get; set; } = System.Array.Empty<GapSourceRef>();
+
+    /// <summary>
     /// Gets or sets the id of this gap's own item in the library, when it exists as a (virtual) item the
     /// server already tracks (for example a missing episode). Lets the report link straight to it.
     /// </summary>

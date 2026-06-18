@@ -213,10 +213,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
-- **Show every recommending source per target.** The engine dedupes recommendations by target, so each
-  recommended title keeps only the one seed that first surfaced it; the report pivot shows that single
-  source. Listing all owned titles that recommend a target needs the engine to aggregate sources per
-  target instead of deduping them away.
 - **Coverage scoring.** A per-container completeness readout: "this BoxSet is 6 of 9 owned (67%)", "this
   series is missing 3 of 40 episodes", a domain rollup at the top of each tab. The data is already in the
   report (gaps are counted against owned containers); this is a presentation layer that turns the todo
