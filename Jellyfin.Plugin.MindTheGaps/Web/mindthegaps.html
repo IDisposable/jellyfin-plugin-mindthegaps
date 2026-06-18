@@ -14,6 +14,8 @@
             .cgGroup.cgCollapsed > .cgBody { display: none; }
             .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
             .cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
+            /* A small dot on a (usually collapsed) group whose items include a streamable title. */
+            .cgStreamDot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: #3ddc97; opacity: .8; margin-left: .35em; vertical-align: middle; }
             #cgRollup { font-size: 1.05em; opacity: .9; margin: .2em 0 .4em 0; padding: .45em .6em; background: rgba(255,255,255,.04); border-radius: 4px; }
             #cgRollup .cgRollupCov { color: #3ddc97; }
             .cgCaret {
@@ -520,6 +522,15 @@
                 }
 
                 // A coverage badge ("6 of 9 owned, 67%") for a set whose owned/total counts are known.
+                // A small dot for a group header when any of its items has a streaming source matching the
+                // current provider filters, so a collapsed group's streamability shows at a glance. The
+                // length guard keeps it cheap when no availability has been looked up (the common case).
+                var STREAM_DOT = ' <span class="cgStreamDot" title="Has a streamable title" aria-hidden="true"></span>';
+                function anyStream(items) {
+                    return items.some(function (it) { return it.Availability && it.Availability.length && filterOffers(it.Availability).length; });
+                }
+                function streamDot(items) { return anyStream(items) ? STREAM_DOT : ''; }
+
                 function coverageBadge(item) {
                     if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
                     var pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
@@ -612,7 +623,7 @@
                             byL.order.sort(letterSort);
                             var recHtml = byL.order.map(function (L) {
                                 var li = sortRows(byL.map[L]);
-                                return groupHtml(2, L, li.length, true, li.map(renderRow).join(''));
+                                return groupHtml(2, L, li.length, true, li.map(renderRow).join(''), '', streamDot(li));
                             }).join('');
                             return recHtml;
                         }
@@ -631,9 +642,10 @@
                                 var names = byLetter[L].slice().sort(ci);
                                 var inner = names.map(function (src) {
                                     var srcItems = bySrcC.map[src];
-                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, searchIcon(src, '') + creatorDismissBtn(srcItems[0].SourceItemId, src));
+                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, streamDot(srcItems) + searchIcon(src, '') + creatorDismissBtn(srcItems[0].SourceItemId, src));
                                 }).join('');
-                                return groupHtml(2, L, names.length, true, inner);
+                                var letterDot = byLetter[L].some(function (src) { return anyStream(bySrcC.map[src]); }) ? STREAM_DOT : '';
+                                return groupHtml(2, L, names.length, true, inner, '', letterDot);
                             }).join('');
                             return creatorHtml;
                         }
@@ -650,7 +662,8 @@
                             // resolve-all, not-interested-all. The open icon goes in extra (so itemId is '' on
                             // groupHtml, which would otherwise append it last). Search a series in the shows
                             // libraries; a collection (franchise) in the box sets.
-                            var extra = coverageBadge(covItem)
+                            var extra = streamDot(srcItems)
+                                + coverageBadge(covItem)
                                 + searchIcon(src, isEpisodic ? 'tvshows' : 'boxsets')
                                 + openIcon(srcItems[0].SourceItemId)
                                 + (isEpisodic ? batchDismissBtns(src) : '');
