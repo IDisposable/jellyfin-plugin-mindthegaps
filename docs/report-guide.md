@@ -40,6 +40,10 @@ started" axis.
 Each row is a concrete missing title with links out (TMDB/IMDb/TheTVDB as applicable) and, for movies,
 a **Mint** action if you have enabled virtual items.
 
+The collapsed series and collections lay out in responsive columns, so a large library is not one very
+tall list; expanding one widens it to full width in place to show its seasons and episodes. On a
+collapsed series, the batch controls appear on hover.
+
 ![Set completion tab](../assets/screenshots/report-set-completion.png)
 <!-- Capture: Set completion tab, a collection or series group with a few missing entries and the
      "N of M owned" coverage badge. -->

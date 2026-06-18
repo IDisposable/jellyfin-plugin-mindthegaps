@@ -22,6 +22,20 @@
                 transition: transform .12s;
             }
             .cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
+            /* Set completion lays its collapsed series/collection groups out in responsive columns, so a
+               large library is not one very tall column. An expanded group spans every column to show its
+               seasons and episodes full width. */
+            .cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .1em 1.4em; align-items: start; }
+            .cgGridWrap > .cgGroup { min-width: 0; }
+            .cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
+            /* Keep a collapsed cell to one line: the name ellipsizes, the count/coverage/open icon stay put,
+               and the batch controls reveal on hover so the cell is not cluttered. */
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr { display: flex; align-items: center; gap: .3em; }
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr > .cgLabel { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchResolve,
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchNotInterested { display: none; }
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr:hover .cgBatchResolve,
+            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr:hover .cgBatchNotInterested { display: inline-block; }
             .cgL2 .listItem { padding-left: 2.6em; }
             .cgL3 .listItem { padding-left: 3.9em; }
             .cgRow { cursor: pointer; }
@@ -471,7 +485,7 @@
                     var bodyId = 'cgBody' + (++cgGroupSeq);
                     return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '">'
                         + '<div class="cgHdr cgHdr' + level + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? 'false' : 'true') + '" aria-controls="' + bodyId + '">'
-                        + '<span class="cgCaret"></span>' + esc(label)
+                        + '<span class="cgCaret"></span><span class="cgLabel">' + esc(label) + '</span>'
                         + ' <span class="cgCount">(' + count + ')</span>' + (extra || '') + openIcon(itemId) + '</div>'
                         + '<div class="cgBody" id="' + bodyId + '">' + inner + '</div></div>';
                 }
@@ -602,7 +616,9 @@
                             var extra = coverageBadge(covItem) + (isEpisodic ? batchDismissBtns(src) : '');
                             return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, extra);
                         }).join('');
-                        return groupHtml(1, cat, catItems.length, false, srcHtml);
+                        // The source groups lay out in responsive columns (see .cgGridWrap) so a big library's
+                        // collapsed series/collections are not one very tall column.
+                        return groupHtml(1, cat, catItems.length, false, '<div class="cgGridWrap">' + srcHtml + '</div>');
                     }).join('');
                 }
 
