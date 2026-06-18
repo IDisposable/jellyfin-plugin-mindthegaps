@@ -235,6 +235,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   sources (spiked on a worktree branch) and the bulk-mint container refactor (another branch), so the
   minter can be generalized from movie-only to kind-aware once those merge. Until then this stays an
   analysis item rather than speculative, untestable code on main.
+- **Shard the report by domain (storage and transfer).** The whole report lives in one `gaps.json` and
+  is shipped to the browser whole; with more sources and the filmography backfill (toward the 50k cap) it
+  can reach multiple MB, which is slow to load, parse, atomically save on every scan and availability
+  checkpoint, and transfer/render in the dashboard. Split by `MediaDomain` (Movies/Shows/Music/Books), not
+  by source: the dashboard already groups by domain and the cross-source de-dup that matters (the three
+  series sources sharing episode ids) stays within the Shows shard, so it is not broken; a per-source
+  split would break it. Touches `GapStore` (multi-file atomic writes), `GapEngine` (per-domain de-dup and
+  carry-forward), and `AvailabilityRunner`. The cheaper, higher-value first step is the transfer half: have
+  the API serve the report per pattern or domain so the browser loads only the active tab, without yet
+  splitting the persisted file. Pairs with the report-virtualization note.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
