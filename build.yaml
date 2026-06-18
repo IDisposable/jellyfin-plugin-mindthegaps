@@ -16,8 +16,9 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.9 - Resolve a gap you don't consider missing (for example two listed episodes that are one
-  combined file): mark it with a note and it drops off the list. A "Show resolved" filter brings resolved
-  rows back, greyed, with their note and a Clear button; resolutions persist across rescans. New "Hide
-  upcoming" filter for gaps with a future release date. The Settings button on the plugin page now opens
-  the settings, not the report. The "open in Jellyfin" icon now sits next to each row's title.
+  10.11.0.10 - Reliability and polish ahead of 1.0. The scan and the background "where to watch" pass no
+  longer overwrite each other, so results from a scan that finishes mid-pass are kept. Tab counts now match
+  the filtered list, and "Hide items with no sources" hides only titles already looked up and found empty,
+  not ones not yet checked. Your scroll position, expanded groups, and selection are kept when a row is
+  resolved or a filter changes. The provider filter is populated from the saved report and gains enable-all
+  and disable-all controls. Concurrent minting can no longer create duplicate collections.
