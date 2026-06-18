@@ -599,17 +599,13 @@
                 }
 
                 function renderTabs(page) {
-                    var items = (page._report && page._report.Items) || [];
-                    var pass = buildFilter(page);
-                    var rawCounts = {}, counts = {};
-                    items.forEach(function (it) {
-                        rawCounts[it.PatternName] = (rawCounts[it.PatternName] || 0) + 1;
-                        if (pass(it)) { counts[it.PatternName] = (counts[it.PatternName] || 0) + 1; }
-                    });
-                    // Stay on a pattern that has any gaps at all (raw), so toggling a filter down to zero does
-                    // not yank you to another tab; only fall back when the current pattern is truly empty.
-                    if (!page._pattern || !rawCounts[page._pattern]) {
-                        page._pattern = PATTERNS.filter(function (p) { return rawCounts[p]; })[0] || PATTERNS[0];
+                    // The per-pattern totals come from the summary, so the inactive tabs show a count without
+                    // their items being loaded. Each tab shows the raw gap total for its pattern.
+                    var counts = (page._summary && page._summary.PatternCounts) || {};
+                    // Stay on a pattern that has any gaps at all, so toggling a filter down to zero does not
+                    // yank you to another tab; only fall back when the current pattern is truly empty.
+                    if (!page._pattern || !counts[page._pattern]) {
+                        page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
                     }
                     page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
                         var active = p === page._pattern ? ' cgActive' : '';
@@ -924,7 +920,8 @@
                     disabledProviders = v.disabledProviders || {};
                     renderProviderFilter(page);
                     saveFilters(page);
-                    applyAndRender(page);
+                    // A saved view can switch the pattern, so make sure that tab's items are loaded first.
+                    ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
                 }
 
                 // Lists creators and recommendation sources dismissed wholesale (with a Restore), so one can
@@ -968,28 +965,57 @@
                         + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
                 }
 
+                // Fetch one pattern's items on demand (cached per pattern), so a large report is not shipped
+                // whole; the browser only loads the tab being viewed. Sets page._report to that slice.
+                function ensureSlice(page, pattern) {
+                    page._slices = page._slices || {};
+                    if (page._slices[pattern]) {
+                        page._report = page._slices[pattern];
+                        return Promise.resolve(page._report);
+                    }
+                    Dashboard.showLoadingMsg();
+                    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', { pattern: pattern }), dataType: 'json' })
+                        .then(function (report) {
+                            page._slices[pattern] = report;
+                            page._report = report;
+                            // Seed the provider filter from this slice's offers too (a tab not yet loaded when
+                            // the summary was built still contributes once opened).
+                            var offers = [];
+                            (report.Items || []).forEach(function (it) {
+                                if (it.Availability && it.Availability.length) { offers = offers.concat(it.Availability); }
+                            });
+                            noteProviders(page, offers);
+                            Dashboard.hideLoadingMsg();
+                            return report;
+                        }, function () { Dashboard.hideLoadingMsg(); return { Items: [] }; });
+                }
+
                 function load(page) {
                     Dashboard.showLoadingMsg();
-                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps'), dataType: 'json' })
-                        .then(function (report) {
-                            page._report = report;
-                            // Seed the provider filter from every offer already in the report (the background
-                            // pass may have filled these in), so the filter is populated before any on-demand
-                            // "Where to watch" click.
-                            var allOffers = [];
-                            (report.Items || []).forEach(function (it) {
-                                if (it.Availability && it.Availability.length) { allOffers = allOffers.concat(it.Availability); }
-                            });
-                            noteProviders(page, allOffers);
-                            var when = report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0
-                                ? new Date(report.GeneratedUtc).toLocaleString()
+                    // Drop any cached slices so a reload (after a scan, mint, or availability pass) re-fetches.
+                    page._slices = {};
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Summary'), dataType: 'json' })
+                        .then(function (summary) {
+                            page._summary = summary;
+                            // Seed the provider filter from the providers seen across the whole report, so it is
+                            // populated before any one tab (or "Where to watch" click) loads.
+                            noteProviders(page, (summary.Providers || []).map(function (n) { return { Provider: n }; }));
+                            var when = summary.GeneratedUtc && summary.GeneratedUtc.indexOf('0001') !== 0
+                                ? new Date(summary.GeneratedUtc).toLocaleString()
                                 : 'never';
                             page.querySelector('#cgSummary').textContent =
-                                (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
+                                (summary.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
+                            // Pick a pattern that has gaps before loading its slice.
+                            var counts = summary.PatternCounts || {};
+                            if (!page._pattern || !counts[page._pattern]) {
+                                page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
+                            }
                             fetchResolved().then(function () {
-                                applyAndRender(page);
-                                checkStale(page, report);
-                                Dashboard.hideLoadingMsg();
+                                ensureSlice(page, page._pattern).then(function () {
+                                    applyAndRender(page);
+                                    checkStale(page, summary);
+                                    Dashboard.hideLoadingMsg();
+                                });
                             });
                         });
                 }
@@ -1178,7 +1204,7 @@
                         var tab = e.target.closest ? e.target.closest('.cgTab') : null;
                         if (!tab) { return; }
                         page._pattern = tab.getAttribute('data-pattern');
-                        applyAndRender(page);
+                        ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
                     });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
                         saveFilters(page);

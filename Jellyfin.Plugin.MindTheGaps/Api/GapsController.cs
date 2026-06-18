@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -57,12 +58,67 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
-    /// Gets the latest gap report (todo list).
+    /// Gets the latest gap report (todo list), optionally narrowed to a single pattern so the dashboard
+    /// can load one tab at a time instead of shipping the whole report.
     /// </summary>
-    /// <returns>The latest report.</returns>
+    /// <param name="pattern">An optional pattern name (for example SetCompletion); omitted returns all.</param>
+    /// <returns>The latest report, filtered to the pattern when one is given.</returns>
     [HttpGet("Gaps")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<GapReport> GetGaps() => _store.Load();
+    public ActionResult<GapReport> GetGaps([FromQuery] string? pattern)
+    {
+        var report = _store.Load();
+        if (string.IsNullOrEmpty(pattern) || !Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var wanted))
+        {
+            return report;
+        }
+
+        var items = report.Items.Where(i => i.Pattern == wanted).ToArray();
+        return new GapReport
+        {
+            GeneratedUtc = report.GeneratedUtc,
+            GeneratedVersion = report.GeneratedVersion,
+            TotalGaps = report.TotalGaps,
+            Items = items
+        };
+    }
+
+    /// <summary>
+    /// Gets a lightweight overview of the report (per-pattern counts and provider names) without the gap
+    /// items, so the dashboard can render the tabs and provider filter before loading any one tab.
+    /// </summary>
+    /// <returns>The report summary.</returns>
+    [HttpGet("Summary")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<GapSummary> GetSummary()
+    {
+        var report = _store.Load();
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var providers = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var item in report.Items)
+        {
+            counts.TryGetValue(item.PatternName, out var c);
+            counts[item.PatternName] = c + 1;
+
+            foreach (var offer in item.Availability)
+            {
+                if (!string.IsNullOrEmpty(offer.Provider))
+                {
+                    providers.Add(offer.Provider);
+                }
+            }
+        }
+
+        return new GapSummary
+        {
+            GeneratedUtc = report.GeneratedUtc,
+            GeneratedVersion = report.GeneratedVersion,
+            TotalGaps = report.TotalGaps,
+            PatternCounts = counts,
+            Providers = providers.ToArray()
+        };
+    }
 
     /// <summary>
     /// Starts a scan in the background and returns immediately. Poll <see cref="GetScanStatus"/> for

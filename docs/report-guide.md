@@ -136,6 +136,9 @@ after a rescan has dropped its individual rows from the report.
 ## Tips
 
 - The report reflects the **last scan**. Settings changes need a **Rescan now** to take effect.
+- Each pattern tab loads its gaps on demand the first time you open it (and is then cached for the
+  session), so a large report does not all transfer at once. The tab counts come from a lightweight
+  summary, so they are visible before any tab loads.
 - Filmography, recommendation, and TVmaze/TheTVDB series cross-check coverage build up over successive
   scans (stalest-first rotation), so the lists grow run over run rather than all at once. The library's
   own missing-episode reading is not capped and runs every scan.
