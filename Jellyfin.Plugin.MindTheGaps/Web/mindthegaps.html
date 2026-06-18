@@ -28,13 +28,16 @@
             .cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .1em 1.4em; align-items: start; }
             .cgGridWrap > .cgGroup { min-width: 0; }
             .cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
-            /* Keep a collapsed cell to one line: the name ellipsizes, the count/coverage/open icon stay put.
-               The batch controls are hidden on a collapsed cell (they would wrap and reflow the dense grid);
-               they appear when the series is expanded to full width, where there is room. */
+            /* Keep a collapsed cell to one line: the name ellipsizes; the count, the short coverage %, and
+               the trailing icons (search, open, resolve, not-interested) stay put. The icons are compact, so
+               they fit even when collapsed. */
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr { display: flex; align-items: center; gap: .3em; }
             .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr > .cgLabel { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchResolve,
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr .cgBatchNotInterested { display: none; }
+            /* Coverage shows the full "N of M owned, P%" normally, but just "P%" (hover for the full text) in a
+               collapsed grid cell, where space is tight. */
+            .cgCovPct { display: none; }
+            .cgGridWrap > .cgGroup.cgCollapsed .cgCovFull { display: none; }
+            .cgGridWrap > .cgGroup.cgCollapsed .cgCovPct { display: inline; }
             .cgL2 .listItem { padding-left: 2.6em; }
             .cgL3 .listItem { padding-left: 3.9em; }
             .cgRow { cursor: pointer; }
@@ -260,8 +263,8 @@
                 // every listed gap under the group in one batch. The click handler collects the ids from the
                 // group's rows, so the label is only for the confirm prompt.
                 function batchDismissBtns(label) {
-                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve every listed item here (not really missing)">Resolve all</a>'
-                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark every listed item here as not interested">Not interested in all</a>';
+                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve all listed items here (not really missing)"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">done</span></a>'
+                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark all listed items here as not interested"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">close</span></a>';
                 }
 
                 // The greyed status line for a dismissed gap.
@@ -441,8 +444,9 @@
                         + selBox
                         + poster
                         + '<div style="flex:1;min-width:0;">'
-                        + '<div class="listItemBodyText">' + esc(item.Name) + openIcon(item.LibraryItemId)
-                        + (item.TargetKindName === 'Episode' ? '' : searchIcon(item.Name, domainScope(item.DomainName))) + '</div>'
+                        + '<div class="listItemBodyText">' + esc(item.Name)
+                        + (item.TargetKindName === 'Episode' ? '' : searchIcon(item.Name, domainScope(item.DomainName)))
+                        + openIcon(item.LibraryItemId) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
                         + details
                         + avail
@@ -519,7 +523,8 @@
                 function coverageBadge(item) {
                     if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
                     var pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
-                    return ' <span class="cgCoverage">' + item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%</span>';
+                    var full = item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%';
+                    return ' <span class="cgCoverage" title="' + esc(full) + '"><span class="cgCovFull">' + full + '</span><span class="cgCovPct">' + pct + '%</span></span>';
                 }
 
                 // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
@@ -638,9 +643,15 @@
                             for (var ci2 = 0; ci2 < srcItems.length; ci2++) { if (srcItems[ci2].SetTotalCount) { covItem = srcItems[ci2]; break; } }
                             // A series (episode source) gets batch resolve/not-interested over all its episodes.
                             var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
-                            // Search a series in the shows libraries; a collection (franchise) in the box sets.
-                            var extra = coverageBadge(covItem) + searchIcon(src, isEpisodic ? 'tvshows' : 'boxsets') + (isEpisodic ? batchDismissBtns(src) : '');
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, extra);
+                            // Order the header trailing controls: coverage, then search, open-in-Jellyfin,
+                            // resolve-all, not-interested-all. The open icon goes in extra (so itemId is '' on
+                            // groupHtml, which would otherwise append it last). Search a series in the shows
+                            // libraries; a collection (franchise) in the box sets.
+                            var extra = coverageBadge(covItem)
+                                + searchIcon(src, isEpisodic ? 'tvshows' : 'boxsets')
+                                + openIcon(srcItems[0].SourceItemId)
+                                + (isEpisodic ? batchDismissBtns(src) : '');
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
                         }).join('');
                         // The source groups lay out in responsive columns (see .cgGridWrap) so a big library's
                         // collapsed series/collections are not one very tall column.
