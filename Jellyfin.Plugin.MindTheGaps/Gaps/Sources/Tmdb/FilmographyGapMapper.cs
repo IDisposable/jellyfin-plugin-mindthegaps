@@ -36,13 +36,24 @@ public static class FilmographyGapMapper
     /// <param name="sourceItemName">The owned library person's name.</param>
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
+    /// <param name="minVotes">The minimum TMDB vote count a credit must have to be kept (0 disables).</param>
+    /// <param name="maxCastOrder">The deepest cast billing order to keep (0 disables).</param>
     /// <returns>The filmography gaps.</returns>
+    /// <remarks>
+    /// The relevance gate keeps the list actionable for a large library, where the noise is cast roles: a
+    /// cast credit is kept only if its TMDB vote count is at least <paramref name="minVotes"/> (which drops
+    /// obscure and unreleased titles) and it is billed no deeper than <paramref name="maxCastOrder"/> (a
+    /// minor appearance is not really the person's work). Directing/writing crew is not gated: TMDB's
+    /// filmography crew entries carry no vote count, and those credits are few and inherently key works.
+    /// </remarks>
     public static IEnumerable<GapItem> Build(
         TmdbPerson person,
         string sourceItemId,
         string? sourceItemName,
         OwnershipIndex ownership,
-        Func<string?, string?> posterUrl)
+        Func<string?, string?> posterUrl,
+        int minVotes,
+        int maxCastOrder)
     {
         var emitted = 0;
         var credits = person.MovieCredits;
@@ -54,6 +65,11 @@ public static class FilmographyGapMapper
                 if (emitted >= GapScanLimits.MaxCreditsPerPerson)
                 {
                     break;
+                }
+
+                if (!MeetsVotes(role.VoteCount, minVotes) || (maxCastOrder > 0 && role.Order > maxCastOrder))
+                {
+                    continue;
                 }
 
                 var gap = BuildGap(
@@ -98,6 +114,9 @@ public static class FilmographyGapMapper
             }
         }
     }
+
+    // A credit clears the relevance floor when the gate is off (min <= 0) or it has enough TMDB votes.
+    private static bool MeetsVotes(int voteCount, int minVotes) => minVotes <= 0 || voteCount >= minVotes;
 
     private static GapItem? BuildGap(
         int tmdbId,

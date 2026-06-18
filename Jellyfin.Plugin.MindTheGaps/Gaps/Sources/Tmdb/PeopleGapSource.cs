@@ -138,7 +138,9 @@ public sealed class PeopleGapSource : IGapSource
                 person.Id.ToString("N", CultureInfo.InvariantCulture),
                 person.Name,
                 context.Ownership,
-                _tmdb.GetPosterUrl);
+                _tmdb.GetPosterUrl,
+                context.Config.MinFilmographyVotes,
+                context.Config.MaxCastBillingOrder);
 
             foreach (var gap in gaps)
             {

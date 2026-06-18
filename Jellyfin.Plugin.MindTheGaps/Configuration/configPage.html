@@ -184,6 +184,16 @@
                             <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" max="10000" />
                             <div class="fieldDescription">Filmography and recommendation scans rotate stalest-first within this cap, so coverage builds up over runs; raise this to cover a large cast and crew faster (each person is one cached TMDB lookup; recommended max 10000).</div>
                         </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MinFilmographyVotes">Filmography: minimum TMDB votes</label>
+                            <input id="MinFilmographyVotes" name="MinFilmographyVotes" type="number" is="emby-input" min="0" max="100000" />
+                            <div class="fieldDescription">Keeps Creator works actionable on a large library: a cast credit must have at least this many TMDB votes to surface, which drops obscure and unreleased films. 0 shows everything; raise it (for example 500 or 1000) to trim to only well-known films. Directing/writing credits are always shown.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxCastBillingOrder">Filmography: deepest cast billing</label>
+                            <input id="MaxCastBillingOrder" name="MaxCastBillingOrder" type="number" is="emby-input" min="0" max="100" />
+                            <div class="fieldDescription">Drops minor (deeply billed) acting roles, so a bit part is not counted as the person's work. 0 keeps any billing; for example 10 keeps only roles billed in the top 10. Does not affect directing/writing.</div>
+                        </div>
                         <div style="margin: 0.5em 0;">
                             <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">
                                 <span>Reset scan rotation</span>
@@ -261,6 +271,8 @@
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
                     page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
+                    page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
+                    page.querySelector('#MaxCastBillingOrder').value = config.MaxCastBillingOrder;
                     bindToggle(page, 'TraktEnabled', 'TraktClientId');
                     bindToggle(page, 'TvdbEnabled', 'TvdbApiKey');
                 }
@@ -420,6 +432,8 @@
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
                         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
+                        config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
+                        config.MaxCastBillingOrder = parseInt(form.querySelector('#MaxCastBillingOrder').value || '0', 10);
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });

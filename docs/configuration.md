@@ -83,6 +83,8 @@ These bound how much each scan produces, so one prolific show or a huge cast doe
 | **Max related per item** (`MaxRelatedPerItem`) | 20 | Caps how many "similar" titles each owned item contributes to recommendations. |
 | **Max missing episodes per show** (`MaxMissingEpisodesPerShow`) | 200 | Caps missing episodes listed per show. `0` lists them all. |
 | **Max creators scanned per run** (`MaxFilmographyPeople`) | 1000 | Caps how many owned people have their filmography scanned per run. People are scanned stalest-first (never-scanned first, then longest-ago), so a lower cap still eventually covers everyone over successive runs; raise it to cover a large cast/crew faster (each person is one cached TMDB lookup). |
+| **Filmography: minimum TMDB votes** (`MinFilmographyVotes`) | 100 | A cast credit must have at least this many TMDB votes to surface as a Creator works gap, which keeps the list actionable on a large library by dropping obscure and unreleased films. `0` shows everything; raise it (e.g. 500 or 1000) to trim to only well-known films. Directing/writing credits are always shown (TMDB's filmography crew carries no vote count). |
+| **Filmography: deepest cast billing** (`MaxCastBillingOrder`) | 0 (any) | Drops minor (deeply billed) acting roles so a bit part is not counted as the person's work. `0` keeps any billing; e.g. `10` keeps only roles billed in the top 10. Does not affect directing/writing. |
 
 **Reset scan rotation** (button). Forgets which items were scanned recently so the next scan starts a
 fresh coverage cycle, treating everything as never-scanned. It does not delete any gaps or dismissals.

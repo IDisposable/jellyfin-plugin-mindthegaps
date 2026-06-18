@@ -27,6 +27,8 @@ public class PluginConfiguration : BasePluginConfiguration
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
         MaxFilmographyPeople = 1000;
+        MinFilmographyVotes = 100;
+        MaxCastBillingOrder = 0;
         MetadataCountryCode = "US";
         MetadataLanguage = "en";
         TraktEnabled = false;
@@ -122,6 +124,20 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Raise it to cover more of a large cast/crew (each person is a single cached TMDB call).
     /// </summary>
     public int MaxFilmographyPeople { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum TMDB vote count a filmography credit must have to surface as a gap, which
+    /// keeps Creator works actionable for a large library by dropping obscure and unreleased titles. 0
+    /// disables the gate (every credit surfaces). Raise it to trim the list to only well-known films.
+    /// </summary>
+    public int MinFilmographyVotes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the deepest cast billing order a filmography role may have to surface as a gap, so a
+    /// minor (deeply billed) appearance is not treated as the person's work. 0 disables the limit (any
+    /// billing). Does not affect directing/writing credits, which are gated on votes only.
+    /// </summary>
+    public int MaxCastBillingOrder { get; set; }
 
     /// <summary>
     /// Gets or sets the metadata country code (ISO 3166-1 alpha-2) used for releases and availability.
