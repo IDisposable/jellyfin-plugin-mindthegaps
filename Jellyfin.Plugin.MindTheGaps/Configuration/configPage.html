@@ -20,6 +20,7 @@
                                 <span>View report</span>
                             </button>
                         </div>
+                        <div id="cgConfigSummary" class="fieldDescription" style="margin-top:.6em;display:none;"></div>
                     </div>
 
                     <div class="verticalSection">
@@ -351,7 +352,32 @@
                         load(page, config);
                         Dashboard.hideLoadingMsg();
                     });
+                    loadSummary(page);
                 });
+
+                // Show a quick "what's on the report" line (total and per-pattern counts, last scan time) at
+                // the top of the settings page, since the plugin-details page itself has no slot for it.
+                function loadSummary(page) {
+                    var el = page.querySelector('#cgConfigSummary');
+                    if (!el) { return; }
+                    var labels = { SetCompletion: 'set completion', CreatorWorks: 'creator works', Recommendation: 'recommendations' };
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Summary'), dataType: 'json' })
+                        .then(function (s) {
+                            var counts = (s && s.PatternCounts) || {};
+                            var parts = [];
+                            ['SetCompletion', 'CreatorWorks', 'Recommendation'].forEach(function (p) {
+                                if (counts[p]) { parts.push(counts[p] + ' ' + labels[p]); }
+                            });
+                            var when = s && s.GeneratedUtc && s.GeneratedUtc.indexOf('0001') !== 0
+                                ? new Date(s.GeneratedUtc).toLocaleString() : null;
+                            el.innerHTML = when
+                                ? '<strong>' + ((s && s.TotalGaps) || 0) + ' gaps</strong>'
+                                    + (parts.length ? ' (' + parts.join(', ') + ')' : '')
+                                    + '. Last scan: ' + when + '.'
+                                : 'No scan has run yet. Open the report and press Rescan to find gaps.';
+                            el.style.display = '';
+                        }, function () { /* no report yet or request failed: leave the line hidden */ });
+                }
 
                 function saveConfig(e) {
                     if (e) { e.preventDefault(); }
