@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging;
@@ -177,6 +178,29 @@ public sealed class GapStore
             }
 
             return _cached ?? new GapReport { GeneratedUtc = DateTime.MinValue };
+        }
+    }
+
+    /// <summary>
+    /// Returns a read snapshot of the current report: a new report wrapping a fresh copy of the items
+    /// list (the gap objects are shared, not deep-copied). Read paths (the API) use this so a response is
+    /// never the live cached list that a scan can replace, or the availability pass can be mutating,
+    /// mid-serialize. The per-item field writes the pass makes are atomic reference/scalar writes, so a
+    /// shared item never serializes torn; the snapshot only decouples the list itself.
+    /// </summary>
+    /// <returns>A snapshot of the latest report.</returns>
+    public GapReport LoadSnapshot()
+    {
+        lock (_lock)
+        {
+            var report = Load();
+            return new GapReport
+            {
+                GeneratedUtc = report.GeneratedUtc,
+                GeneratedVersion = report.GeneratedVersion,
+                TotalGaps = report.TotalGaps,
+                Items = report.Items.ToArray()
+            };
         }
     }
 }

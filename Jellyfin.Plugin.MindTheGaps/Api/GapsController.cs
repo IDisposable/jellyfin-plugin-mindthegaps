@@ -67,7 +67,7 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<GapReport> GetGaps([FromQuery] string? pattern)
     {
-        var report = _store.Load();
+        var report = _store.LoadSnapshot();
         if (string.IsNullOrEmpty(pattern) || !Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var wanted))
         {
             return report;
@@ -92,7 +92,7 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<GapSummary> GetSummary()
     {
-        var report = _store.Load();
+        var report = _store.LoadSnapshot();
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         var providers = new SortedSet<string>(StringComparer.Ordinal);
@@ -190,13 +190,21 @@ public class GapsController : ControllerBase
     /// <see cref="RemoveMintedMovies"/>.
     /// </summary>
     /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
-    /// <param name="gap">The gap to mint.</param>
+    /// <param name="id">The stable id of the gap to mint (rehydrated from the stored report).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A human-readable status message.</returns>
     [HttpPost("MintGap")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<string>> MintGap([FromQuery] bool dryRun, [FromBody] GapItem gap, CancellationToken cancellationToken)
-        => await _minter.MintGapAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
+    public async Task<ActionResult<string>> MintGap([FromQuery] bool dryRun, [FromQuery] string? id, CancellationToken cancellationToken)
+    {
+        var gap = RehydrateGap(id);
+        if (gap is null)
+        {
+            return "That gap is no longer in the current report; rescan and try again.";
+        }
+
+        return await _minter.MintGapAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// EXPERIMENTAL. Starts a background mint of several gaps (the report's multi-select). Each goes
@@ -204,14 +212,34 @@ public class GapsController : ControllerBase
     /// selection cannot time out the request; poll <see cref="GetMintStatus"/>.
     /// </summary>
     /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
-    /// <param name="gaps">The gaps to mint.</param>
+    /// <param name="ids">The stable ids of the gaps to mint (rehydrated from the stored report).</param>
     /// <returns>The mint status.</returns>
     [HttpPost("MintGaps")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<MintStatus> MintGaps([FromQuery] bool dryRun, [FromBody] IReadOnlyList<GapItem> gaps)
+    public ActionResult<MintStatus> MintGaps([FromQuery] bool dryRun, [FromBody] IReadOnlyList<string> ids)
     {
+        // Rehydrate from the server's own report rather than trusting client-sent gap objects, so a stale
+        // or tampered payload cannot drive a mint with arbitrary fields. Unknown ids are dropped.
+        var wanted = new HashSet<string>(ids ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var gaps = _store.LoadSnapshot().Items.Where(i => wanted.Contains(i.Id)).ToArray();
+        if (gaps.Length == 0)
+        {
+            return new MintStatus { Running = false, Started = false, Message = "None of those gaps are in the current report; rescan and try again." };
+        }
+
         var started = _mintRunner.TryStart((progress, ct) => _minter.MintGapsAsync(gaps, dryRun, progress, ct));
         return new MintStatus { Running = true, Started = started };
+    }
+
+    // Look a gap up by its stable id in the current stored report. Returns null for a missing/unknown id.
+    private GapItem? RehydrateGap(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        return _store.LoadSnapshot().Items.FirstOrDefault(i => string.Equals(i.Id, id, StringComparison.Ordinal));
     }
 
     /// <summary>

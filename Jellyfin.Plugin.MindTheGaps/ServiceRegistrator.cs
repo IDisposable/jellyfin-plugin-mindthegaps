@@ -28,6 +28,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
+        serviceCollection.AddSingleton<PluginLifetime>();
         serviceCollection.AddSingleton<GapStore>();
         serviceCollection.AddSingleton<ResolutionStore>();
         serviceCollection.AddSingleton<ScanCursorStore>();

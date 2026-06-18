@@ -35,6 +35,7 @@ public sealed class AvailabilityRunner
     private readonly TmdbClient _tmdb;
     private readonly ExternalLinkEnricher _externalLinks;
     private readonly Webhook.WebhookNotifier _webhook;
+    private readonly PluginLifetime _lifetime;
     private readonly ILogger<AvailabilityRunner> _logger;
     private readonly object _lock = new();
     private bool _running;
@@ -49,14 +50,16 @@ public sealed class AvailabilityRunner
     /// <param name="tmdb">The TMDB client (used to resolve external ids).</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
+    /// <param name="lifetime">The plugin-lifetime cancellation, so a pass stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, Webhook.WebhookNotifier webhook, ILogger<AvailabilityRunner> logger)
+    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, Webhook.WebhookNotifier webhook, PluginLifetime lifetime, ILogger<AvailabilityRunner> logger)
     {
         _store = store;
         _availabilityService = availabilityService;
         _tmdb = tmdb;
         _externalLinks = externalLinks;
         _webhook = webhook;
+        _lifetime = lifetime;
         _logger = logger;
     }
 
@@ -154,6 +157,7 @@ public sealed class AvailabilityRunner
 
     private async Task RunAsync()
     {
+        var ct = _lifetime.Stopping;
         try
         {
             var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
@@ -176,6 +180,8 @@ public sealed class AvailabilityRunner
             var enriched = 0;
             for (var i = 0; i < batch.Count; i++)
             {
+                ct.ThrowIfCancellationRequested();
+
                 var group = batch[i];
                 var first = group.First();
                 var target = WatchTarget(first)!.Value;
@@ -194,8 +200,12 @@ public sealed class AvailabilityRunner
                             Country = config.MetadataCountryCode
                         },
                         config,
-                        CancellationToken.None).ConfigureAwait(false);
+                        ct).ConfigureAwait(false);
                     looked = true;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -212,7 +222,7 @@ public sealed class AvailabilityRunner
                     foreach (var gap in group)
                     {
                         // Movie/Series gaps also pick up their IMDb/TheTVDB ids here; episodes already carry theirs.
-                        await ResolveExternalIdsAsync(gap).ConfigureAwait(false);
+                        await ResolveExternalIdsAsync(gap, ct).ConfigureAwait(false);
 
                         // Marked checked on a successful lookup even with no offers, so the row shows "no
                         // sources" rather than a look-up button that comes back empty. A failed lookup leaves
@@ -235,7 +245,7 @@ public sealed class AvailabilityRunner
                     _store.SaveAvailabilityMerge(report, throttle: true);
                 }
 
-                await Task.Delay(ThrottleMilliseconds).ConfigureAwait(false);
+                await Task.Delay(ThrottleMilliseconds, ct).ConfigureAwait(false);
             }
 
             _store.SaveAvailabilityMerge(report, throttle: false);
@@ -256,7 +266,12 @@ public sealed class AvailabilityRunner
                     ["withSources"] = enriched,
                     ["remaining"] = remaining
                 },
-                CancellationToken.None).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Availability enrichment cancelled (plugin shutting down)");
+            SetMessage("Availability lookup was cancelled.");
         }
         catch (Exception ex)
         {
@@ -274,7 +289,7 @@ public sealed class AvailabilityRunner
 
     // Resolve the title's IMDb/TheTVDB ids from its TMDB id and fold them in, then rebuild the gap's
     // links so the row shows more than the TMDB button. No-op when nothing new is found.
-    private async Task ResolveExternalIdsAsync(GapItem gap)
+    private async Task ResolveExternalIdsAsync(GapItem gap, CancellationToken cancellationToken)
     {
         // Only a movie/series gap's own TMDB id maps to an external-id lookup. An episode's TMDB id (if it
         // carries one) is an episode id, not a movie/series id, so resolving it would be wrong; episodes
@@ -293,7 +308,7 @@ public sealed class AvailabilityRunner
         (string? Imdb, string? Tvdb) ids;
         try
         {
-            ids = await _tmdb.GetExternalIdsAsync(tmdbId, gap.TargetKind == BaseItemKind.Series, CancellationToken.None).ConfigureAwait(false);
+            ids = await _tmdb.GetExternalIdsAsync(tmdbId, gap.TargetKind == BaseItemKind.Series, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

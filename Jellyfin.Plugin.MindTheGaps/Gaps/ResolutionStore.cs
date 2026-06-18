@@ -145,7 +145,8 @@ public sealed class ResolutionStore
     /// <param name="id">The gap id.</param>
     public void Clear(string id)
     {
-        if (string.IsNullOrEmpty(id))
+        // Mirror the bound the set path applies, so both ends reject the same implausible ids.
+        if (string.IsNullOrEmpty(id) || id.Length > MaxIdLength)
         {
             return;
         }

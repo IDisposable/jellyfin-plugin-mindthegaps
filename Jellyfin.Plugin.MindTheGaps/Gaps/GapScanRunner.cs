@@ -14,6 +14,7 @@ public sealed class GapScanRunner
 {
     private readonly GapEngine _engine;
     private readonly VirtualMovieMinter _minter;
+    private readonly PluginLifetime _lifetime;
     private readonly ILogger<GapScanRunner> _logger;
     private readonly object _lock = new();
     private bool _running;
@@ -24,11 +25,13 @@ public sealed class GapScanRunner
     /// </summary>
     /// <param name="engine">The gap engine.</param>
     /// <param name="minter">The minter (reconciles minted placeholders now owned for real).</param>
+    /// <param name="lifetime">The plugin-lifetime cancellation, so a scan stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public GapScanRunner(GapEngine engine, VirtualMovieMinter minter, ILogger<GapScanRunner> logger)
+    public GapScanRunner(GapEngine engine, VirtualMovieMinter minter, PluginLifetime lifetime, ILogger<GapScanRunner> logger)
     {
         _engine = engine;
         _minter = minter;
+        _lifetime = lifetime;
         _logger = logger;
     }
 
@@ -96,9 +99,13 @@ public sealed class GapScanRunner
                 }
             });
 
-            await _engine.RunAsync(progress, CancellationToken.None).ConfigureAwait(false);
+            await _engine.RunAsync(progress, _lifetime.Stopping).ConfigureAwait(false);
             _minter.ReconcileMinted();
             _logger.LogInformation("Background gap scan finished");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Background gap scan cancelled (plugin shutting down)");
         }
         catch (Exception ex)
         {

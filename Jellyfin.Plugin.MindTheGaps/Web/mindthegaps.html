@@ -167,6 +167,14 @@
                     });
                 }
 
+                // Only allow http(s) link targets, so a javascript:/data: URL that slipped in from a third-party
+                // API (TMDB watch page, a host link provider) cannot execute when rendered as an href. Anything
+                // else collapses to '#'. The result is still passed through esc() at the call site.
+                function safeUrl(u) {
+                    var s = (u == null ? '' : String(u)).trim();
+                    return /^https?:\/\//i.test(s) ? s : '#';
+                }
+
                 // The gap's media domain (Movies/Shows/Music/Books) straight from the model.
                 function categoryOf(item) { return item.DomainName || 'Other'; }
 
@@ -310,7 +318,7 @@
                     var url = '';
                     for (var i = 0; i < offers.length; i++) { if (offers[i].Url) { url = offers[i].Url; break; } }
                     var button = url
-                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page">Watch <span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
+                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page">Watch <span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
                         : '';
                     return button + names;
                 }
@@ -333,7 +341,7 @@
                     if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
 
                     var providerLinks = (item.Links || []).map(function (l) {
-                        return '<a is="emby-linkbutton" class="cgLink" href="' + esc(l.Url) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                        return '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
                     }).join('');
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
@@ -643,13 +651,13 @@
                 // watch, an open-in-Jellyfin link for held items, and a resolved note.
                 function gapMarkdown(it) {
                     var links = it.Links || [];
-                    var name = links.length ? '[' + mdEsc(it.Name) + '](' + links[0].Url + ')' : '**' + mdEsc(it.Name) + '**';
+                    var name = links.length ? '[' + mdEsc(it.Name) + '](' + safeUrl(links[0].Url) + ')' : '**' + mdEsc(it.Name) + '**';
                     var parts = [name];
                     var meta = [];
                     if (it.Year) { meta.push(it.Year); }
                     if (it.TargetKindName) { meta.push(it.TargetKindName); }
                     if (meta.length) { parts.push('(' + meta.join(', ') + ')'); }
-                    if (links.length) { parts.push(links.map(function (l) { return '[' + mdEsc(l.Name) + '](' + l.Url + ')'; }).join(' ')); }
+                    if (links.length) { parts.push(links.map(function (l) { return '[' + mdEsc(l.Name) + '](' + safeUrl(l.Url) + ')'; }).join(' ')); }
                     var offers = filterOffers(it.Availability);
                     if (offers.length) {
                         var provs = offers.map(function (o) { return o.Provider; }).filter(function (p, i, a) { return p && a.indexOf(p) === i; });
@@ -813,14 +821,14 @@
                     page.querySelector('#cgMintSelected').disabled = n === 0;
                 }
 
-                function selectedGaps(page) {
-                    var byId = {};
-                    ((page._report && page._report.Items) || []).forEach(function (it) { byId[it.Id] = it; });
+                // The ids of the checked rows. Mint rehydrates each from the stored report server-side, so the
+                // client only needs to name them, not ship the whole gap object.
+                function selectedGapIds(page) {
                     var out = [];
                     var cbs = page.querySelectorAll('#cgList .cgSel:checked');
                     for (var i = 0; i < cbs.length; i++) {
-                        var g = byId[cbs[i].getAttribute('data-gapid')];
-                        if (g) { out.push(g); }
+                        var id = cbs[i].getAttribute('data-gapid');
+                        if (id) { out.push(id); }
                     }
                     return out;
                 }
@@ -1124,9 +1132,9 @@
                         if (e.target && e.target.classList && e.target.classList.contains('cgSel')) { updateSelection(page); }
                     });
                     page.querySelector('#cgMintSelected').addEventListener('click', function () {
-                        var gaps = selectedGaps(page);
-                        if (!gaps.length) { return; }
-                        if (!window.confirm('Mint ' + gaps.length + ' selected item(s) as virtual placeholders?')) { return; }
+                        var ids = selectedGapIds(page);
+                        if (!ids.length) { return; }
+                        if (!window.confirm('Mint ' + ids.length + ' selected item(s) as virtual placeholders?')) { return; }
                         var btn = this;
                         var label = btn.querySelectorAll('span')[1];
                         var labelHtml = label ? label.innerHTML : '';
@@ -1159,7 +1167,7 @@
                             type: 'POST',
                             url: ApiClient.getUrl('MindTheGaps/MintGaps'),
                             contentType: 'application/json',
-                            data: JSON.stringify(gaps),
+                            data: JSON.stringify(ids),
                             dataType: 'json'
                         }).then(function () { setTimeout(pollMint, 800); })
                           .catch(function () {
@@ -1426,18 +1434,13 @@
                         var mintBtn = e.target.closest('.cgMint');
                         if (mintBtn) {
                             var gid = mintBtn.getAttribute('data-gapid');
-                            var items = (page._report && page._report.Items) || [];
-                            var gap = null;
-                            for (var i = 0; i < items.length; i++) { if (items[i].Id === gid) { gap = items[i]; break; } }
-                            if (!gap) { return; }
+                            if (!gid) { return; }
                             var mintHtml = mintBtn.innerHTML;
                             mintBtn.textContent = 'Minting…';
                             mintBtn.disabled = true;
                             ApiClient.ajax({
                                 type: 'POST',
-                                url: ApiClient.getUrl('MindTheGaps/MintGap'),
-                                contentType: 'application/json',
-                                data: JSON.stringify(gap),
+                                url: ApiClient.getUrl('MindTheGaps/MintGap', { id: gid }),
                                 dataType: 'json'
                             }).then(function (msg) {
                                 Dashboard.alert(String(msg));

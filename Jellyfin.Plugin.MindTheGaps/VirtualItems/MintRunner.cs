@@ -12,6 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.VirtualItems;
 /// </summary>
 public sealed class MintRunner
 {
+    private readonly PluginLifetime _lifetime;
     private readonly ILogger<MintRunner> _logger;
     private readonly object _lock = new();
     private bool _running;
@@ -21,9 +22,11 @@ public sealed class MintRunner
     /// <summary>
     /// Initializes a new instance of the <see cref="MintRunner"/> class.
     /// </summary>
+    /// <param name="lifetime">The plugin-lifetime cancellation, so a bulk mint stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public MintRunner(ILogger<MintRunner> logger)
+    public MintRunner(PluginLifetime lifetime, ILogger<MintRunner> logger)
     {
+        _lifetime = lifetime;
         _logger = logger;
     }
 
@@ -102,7 +105,12 @@ public sealed class MintRunner
             string message;
             try
             {
-                message = await work(progress, CancellationToken.None).ConfigureAwait(false);
+                message = await work(progress, _lifetime.Stopping).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Background mint operation cancelled (plugin shutting down)");
+                message = "Operation cancelled.";
             }
             catch (Exception ex)
             {

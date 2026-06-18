@@ -55,6 +55,16 @@ public sealed class WebhookNotifier
             return;
         }
 
+        // Only post over http/https. The URL is admin-configured outbound, so we do not block private or
+        // loopback hosts (a LAN webhook sink is a normal self-hosted setup), but we do refuse other schemes
+        // (file, ftp, ...) that a typo or paste could otherwise turn into something unexpected.
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)
+            && !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Webhook skipped: URL scheme '{Scheme}' is not http or https", uri.Scheme);
+            return;
+        }
+
         try
         {
             // Identify which Jellyfin instance fired this, so one shared webhook URL can serve several.

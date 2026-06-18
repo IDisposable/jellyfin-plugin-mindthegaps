@@ -59,6 +59,32 @@ public class ResolutionStoreTests
     }
 
     [Fact]
+    public void Clear_OverlongId_IsIgnored_LikeTheSetPath()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Resolve("ep:1", "a");
+            var huge = new string('z', 1000);
+
+            // Both ends reject an implausibly long id; an over-long Clear must not throw and must not
+            // disturb the existing entries.
+            store.Clear(huge);
+            store.Resolve(huge, "ignored");
+
+            var all = Store(dir).GetAll();
+            Assert.Single(all);
+            Assert.True(all.ContainsKey("ep:1"));
+            Assert.False(all.ContainsKey(huge));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void Resolve_EmptyId_IsIgnored()
     {
         var dir = TempDir();

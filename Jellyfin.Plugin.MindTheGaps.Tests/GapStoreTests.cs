@@ -81,6 +81,66 @@ public class GapStoreTests
     }
 
     [Fact]
+    public void LoadSnapshot_ReturnsAnIndependentListDecoupledFromLaterSaves()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportWith(Gap("g1")));
+
+            var snapshot = store.LoadSnapshot();
+
+            // A scan replaces the cache; the snapshot already taken must not change.
+            store.Save(new GapReport { Items = new[] { Gap("a"), Gap("b") } });
+
+            Assert.Single(snapshot.Items);
+            Assert.Equal("g1", snapshot.Items[0].Id);
+            Assert.NotSame(store.Load().Items, snapshot.Items);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task LoadSnapshot_UnderConcurrentMerge_DoesNotThrow()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var items = new List<GapItem>();
+            for (var i = 0; i < 500; i++) { items.Add(Gap("g" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))); }
+            var report = new GapReport { TotalGaps = items.Count, Items = items.ToArray() };
+            store.Save(report);
+
+            // One thread keeps merging enrichment onto the cached items while another keeps snapshotting and
+            // enumerating. The snapshot decouples the list, so enumeration cannot observe a structural change.
+            using var done = new System.Threading.CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+            var writer = System.Threading.Tasks.Task.Run(() =>
+            {
+                while (!done.IsCancellationRequested) { store.SaveAvailabilityMerge(report, throttle: true); }
+            });
+
+            for (var r = 0; r < 200; r++)
+            {
+                var snap = store.LoadSnapshot();
+                var n = 0;
+                foreach (var item in snap.Items) { n += item.Id.Length; }
+                Assert.True(n >= 0);
+            }
+
+            await writer;
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void SaveAvailabilityMerge_DoesNotResurrectGapsAbsentFromNewReport()
     {
         var dir = TempDir();
