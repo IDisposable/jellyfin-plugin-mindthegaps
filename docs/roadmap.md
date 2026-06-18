@@ -220,6 +220,39 @@ targeted deletes), so it does not need its own progress. Availability is its own
   soft dependency on two third-party plugins the user must install, and injected JS targets jellyfin-web's
   DOM, so it is version-fragile and needs upkeep across web releases. Best shipped as an optional
   enhancement (ship the injectable assets, document the dependency), not a core requirement.
+  - **Discovery (2026-06).** Mechanism: the maintainable path is the **File Transformation** plugin
+    ([IAmParadox27/jellyfin-plugin-file-transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation),
+    2.5.11 as of June 2026), not editing `index.html` on disk. It registers a callback invoked each time
+    `index.html` is served and rewrites it in memory (non-destructive, reversible, Docker-friendly; several
+    plugins can stack). Integration is **reflection-based and a soft dependency** (the assembly is in an
+    isolated load context, so it cannot be a compile reference): find the assembly whose name contains
+    `.FileTransformation`, get type `Jellyfin.Plugin.FileTransformation.PluginInterface`, and invoke
+    `RegisterTransformation(payload)` where the payload is `{ id, fileNamePattern, callbackAssembly,
+    callbackClass, callbackMethod }`; our static callback receives `{ "contents": "<index.html>" }` and
+    returns the modified string. We would use it to inject one `<script>`/`<link>` that loads our own bundled
+    asset, then our JS runs in the web context. The JavaScript Injector plugin is a convenience layer over
+    the same mechanism, not required if we register the transformation ourselves.
+  - **Maintainability verdict.** The injection mechanism is stable and reversible, but what the injected JS
+    *does* is the fragile part. jellyfin-web is a webpack SPA: its internal modules (`cardBuilder`, the
+    shelf/row components, dialogs, the router internals) are **not exposed on `window`**, so an injected
+    script cannot import them. A native-looking "Gaps shelf" would have to hand-roll markup mimicking the
+    current card DOM and select existing elements by class/structure, which breaks across web releases. The
+    n00bcodr plugins confirm the cost: they pin to "Jellyfin 10.11+" and follow strict one-version
+    compatibility, shipping an update per web release. Plan for recurring upkeep.
+  - **Core JS we could reuse (the standing question).** jellyfin-web ships **no formal, documented, stable
+    public JS API** for plugins. The de-facto stable surface is small, and the dashboard already uses all of
+    it: `ApiClient` (from jellyfin-apiclient-javascript: `getUrl`, `ajax`, `getCurrentUserId`,
+    `serverAddress`) and `Dashboard` (`navigate`, `showLoadingMsg`/`hideLoadingMsg`, `alert`,
+    `processPluginConfigurationUpdate`), plus the page lifecycle (`pageshow`/`viewshow`, `data-role="page"`)
+    and the `emby-*` custom elements. Everything richer lives in the bundle, unexposed. So there is no
+    untapped core library to lean on; for injected in-page work we would be DOM-scraping, not calling stable
+    helpers. (This is also why our config and report pages stick to `ApiClient` + `Dashboard`: that is the
+    durable contract.)
+  - **If pursued (post-1.0, optional).** Prefer File Transformation over `index.html` edits. Sequence by
+    fragility: first the cheapest, most durable wins (a library "..." context-menu "Gaps" entry; greying
+    minted items via CSS keyed off a stable marker), and only later attempt native-looking shelves (highest
+    fragility). Ship the injectable assets as an opt-in, document the third-party dependency, and budget an
+    upkeep pass per jellyfin-web release.
 - **Modularize the dashboard (`Web/mindthegaps.html`).** The report page has grown into one large file
   with inline CSS and a long inline script (filters, tree render, availability, dismissals, saved views,
   export, acquisition, mint). It works but is hard to navigate. Split the source at least at the
