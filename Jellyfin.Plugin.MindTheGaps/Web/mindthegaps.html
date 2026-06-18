@@ -445,7 +445,8 @@
                         + selBox
                         + poster
                         + '<div style="flex:1;min-width:0;">'
-                        + '<div class="listItemBodyText">' + esc(item.Name) + openIcon(item.LibraryItemId) + '</div>'
+                        + '<div class="listItemBodyText">' + esc(item.Name) + openIcon(item.LibraryItemId)
+                        + (item.TargetKindName === 'Episode' ? '' : searchIcon(item.Name, domainScope(item.DomainName))) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
                         + details
                         + avail
@@ -477,6 +478,34 @@
                 function openIcon(id) {
                     if (!id) { return ''; }
                     return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
+                }
+
+                // The Jellyfin collectionType to scope a search to, from a gap's media domain. Empty means an
+                // unscoped (all-libraries) search, used for a person/creator.
+                function domainScope(domainName) {
+                    switch (domainName) {
+                        case 'Movies': return 'movies';
+                        case 'Shows': return 'tvshows';
+                        case 'Music': return 'music';
+                        case 'Books': return 'books';
+                        case 'MusicVideos': return 'musicvideos';
+                        default: return '';
+                    }
+                }
+
+                // A Jellyfin search URL for a name, optionally scoped to a collectionType. Built from the
+                // current page URL so it targets this same server whatever the web root is.
+                function searchUrl(name, collectionType) {
+                    var base = window.location.href.split('#')[0] + '#/search?';
+                    var scope = collectionType ? 'collectionType=' + encodeURIComponent(collectionType) + '&' : '';
+                    return base + scope + 'query=' + encodeURIComponent(name).replace(/%20/g, '+');
+                }
+
+                // A magnifying-glass that opens a Jellyfin search for this title/creator in a new tab. Keeps
+                // the referrer (noopener only, not noreferrer) so the search page knows it came from here.
+                function searchIcon(name, collectionType) {
+                    if (!name) { return ''; }
+                    return ' <a class="cgLink cgSearch" href="' + esc(searchUrl(name, collectionType)) + '" target="_blank" rel="noopener" title="Search this Jellyfin for &ldquo;' + esc(name) + '&rdquo;"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">search</span></a>';
                 }
 
                 function groupHtml(level, label, count, collapsed, inner, itemId, extra) {
@@ -598,7 +627,7 @@
                                 var names = byLetter[L].slice().sort(ci);
                                 var inner = names.map(function (src) {
                                     var srcItems = bySrcC.map[src];
-                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, creatorDismissBtn(srcItems[0].SourceItemId, src));
+                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, searchIcon(src, '') + creatorDismissBtn(srcItems[0].SourceItemId, src));
                                 }).join('');
                                 return groupHtml(2, L, names.length, true, inner);
                             }).join('');
@@ -613,7 +642,8 @@
                             for (var ci2 = 0; ci2 < srcItems.length; ci2++) { if (srcItems[ci2].SetTotalCount) { covItem = srcItems[ci2]; break; } }
                             // A series (episode source) gets batch resolve/not-interested over all its episodes.
                             var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
-                            var extra = coverageBadge(covItem) + (isEpisodic ? batchDismissBtns(src) : '');
+                            // Search a series in the shows libraries; a collection (franchise) in the box sets.
+                            var extra = coverageBadge(covItem) + searchIcon(src, isEpisodic ? 'tvshows' : 'boxsets') + (isEpisodic ? batchDismissBtns(src) : '');
                             return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, extra);
                         }).join('');
                         // The source groups lay out in responsive columns (see .cgGridWrap) so a big library's
@@ -1523,9 +1553,9 @@
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
 
-                        // The "open in Jellyfin" icon is a real link; let it open the new tab and do not
-                        // treat the click as a header toggle or row action.
-                        if (e.target.closest('.cgOpen')) { return; }
+                        // The "open in Jellyfin" and search icons are real links; let them open the new tab
+                        // and do not treat the click as a header toggle or row action.
+                        if (e.target.closest('.cgOpen') || e.target.closest('.cgSearch')) { return; }
 
                         // The "Hide items with no sources" nudge: look the data up in the background.
                         var enableAvail = e.target.closest('#cgEnableAvail');

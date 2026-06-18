@@ -109,6 +109,10 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
 
 - **Open in Jellyfin**: jumps to the item in your library where one exists (for example the owning
   series of a missing episode).
+- **Search (magnifying glass)**: opens a Jellyfin search for that title (or series, collection, or
+  creator) in a new tab, scoped to the right library type (movies, shows, music, books, music videos,
+  or box sets; a creator searches everywhere). Handy to confirm you do not already hold it under another
+  name, or to find it on a federated server.
 - **Where to watch / Watch**: streaming-availability links. If a row has not been looked up yet, the
   button fetches it on demand; the background **Look up where to watch** pass does many at once.
 - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
