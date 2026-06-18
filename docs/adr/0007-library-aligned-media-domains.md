@@ -4,16 +4,16 @@ Status: Accepted.
 
 ## Context
 
-`MediaDomain` (ADR-0001) started as `Video`, `Music`, `Book`. `Video` lumped movies and shows into one
-bucket, so the dashboard could not separate "missing movies" from "missing episodes", and the domains
-did not line up with how people actually organise Jellyfin libraries.
+A coarse `Video`/`Music`/`Book` domain split lumps movies and shows into one `Video` bucket, so the
+dashboard cannot separate "missing movies" from "missing episodes", and it does not line up with how
+people organise Jellyfin libraries.
 
 ## Decision
 
-Split the domain to be library-aligned: `MediaDomain` is now `Movies`, `Shows`, `Music`, `Books`,
-`MusicVideos`. Each source tags its gaps with the right one (collections and filmographies are Movies;
-series content and series recommendations are Shows). The dashboard groups and filters by domain;
-`TargetKind` keeps the finer Jellyfin kind (Movie/Series/Episode/...).
+Make `MediaDomain` (ADR-0001) library-aligned: `Movies`, `Shows`, `Music`, `Books`, `MusicVideos`. Each
+source tags its gaps with the right one (collections and filmographies are Movies; series content and
+series recommendations are Shows). The dashboard groups and filters by domain; `TargetKind` keeps the
+finer Jellyfin kind (Movie/Series/Episode/...).
 
 A custom enum is kept on purpose rather than reusing the core type.
 

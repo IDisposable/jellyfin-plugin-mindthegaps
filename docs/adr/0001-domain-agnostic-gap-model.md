@@ -4,10 +4,10 @@ Status: Accepted.
 
 ## Context
 
-The plugin began as "collection gaps" (missing movies in a partially-owned franchise). The same shape
-kept recurring: an owned actor's unowned films, an owned series' missing episodes, recommended titles,
-and later music discographies and book series. Modelling each of these as its own special case would
-not scale.
+Many different "gaps" share one shape: a known member of an owned container is missing (a franchise
+movie, a series episode), a work by an owned creator is unowned (a filmography film), or a related title
+is worth discovering. Modelling each as its own special case, with more added for music discographies or
+book series, would not scale.
 
 ## Decision
 

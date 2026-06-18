@@ -12,11 +12,13 @@ proposal.
 
 ## Decision
 
-Ship a minter that creates tagged, pathless virtual `Movie` items into BoxSets via the public library
-APIs. It is off by default, gated by a per-pattern selection (`MintPatterns`), and fully reversible
-from the settings page. Only the `SetCompletion` pattern is materializable today (missing collection
-movies into a BoxSet); `CreatorWorks` and `Recommendation` have no container to render into yet. The
-code and UI state plainly that this belongs in core.
+Ship a minter that creates tagged, pathless virtual `Movie` items via the public library APIs, fully
+reversible. It is driven from the report one movie gap at a time (a per-row Mint button and a
+multi-select "Mint selected"), never automatically: a collection gap mints into its BoxSet, anything
+else into a catch-all collection, and a filmography gap also attaches the owned person. The plugin runs
+its own reconciliation at the end of every scan (drop a minted movie once the real file is owned). Only
+movies are minted; missing episodes are left to the server, which already synthesizes them. The code and
+UI state plainly that this belongs in core.
 
 ## Consequences
 

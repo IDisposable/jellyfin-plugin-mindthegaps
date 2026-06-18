@@ -4,19 +4,17 @@ Status: Accepted.
 
 ## Context
 
-Every `GapItem` carries an `Id`. It started as an in-memory de-duplication key: the engine unions all
-sources and drops repeats by id, so the same missing episode found by the library reader and by the
-TVmaze and TheTVDB cross-checks collapses to one entry (that is what `SeriesGapKey` exists for).
-
-Two later features turned that id into something persisted, not just transient:
+Every `GapItem` carries an `Id` that the engine de-dups on, so the same missing episode found by the
+library reader and the TVmaze and TheTVDB cross-checks collapses to one entry (that is what
+`SeriesGapKey` exists for). Two features also persist by that id and so depend on it being stable across
+rescans and plugin upgrades:
 
 - Gap resolutions (a note marking a gap "not really missing") are stored in `resolutions.json` keyed by
-  gap id, and must survive rescans.
-- The scan carries availability and resolved external ids forward across rescans by gap id, so a rescan
-  does not re-look-up or wipe what a previous pass found.
+  gap id.
+- The scan carries availability and resolved external ids forward across rescans by gap id, so it does
+  not re-look-up or wipe what a previous pass found.
 
-Both only work if the same logical gap gets the same id on every scan, and keeps it across plugin
-upgrades.
+Both only work if the same logical gap gets the same id on every scan.
 
 ## Decision
 

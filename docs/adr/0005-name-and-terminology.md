@@ -4,17 +4,17 @@ Status: Accepted.
 
 ## Context
 
-The original name "CollectionGaps" collided with Jellyfin's existing Collection (BoxSet) concept,
-which is ironically one of the plugin's own targets, and it undersold the scope (filmographies,
-series, recommendations). Separately, "TV" is ambiguous in Jellyfin: the "Shows" library is episodic
-content, while "Live TV" is the tuner/EPG feature, which this plugin has nothing to do with.
+"Collection" is loaded in Jellyfin: it is the BoxSet concept, which is one of this plugin's own targets,
+so naming the plugin after it would collide and undersell the scope (filmographies, series,
+recommendations). Separately, "TV" is ambiguous: the "Shows" library is episodic content, while "Live TV"
+is the tuner/EPG feature, which this plugin has nothing to do with.
 
 ## Decision
 
-Rename the plugin to "Mind the Gaps" (`Jellyfin.Plugin.MindTheGaps`), keeping the same plugin GUID so
-identity is preserved. Use "Shows / Series / Seasons / Episodes" for episodic content and reserve
-"TV / Live TV" for the tuner feature. `CollectionGapSource` and `CollectionGapMapper` keep their
-names on purpose: they genuinely handle TMDB collections.
+Name the plugin "Mind the Gaps" (`Jellyfin.Plugin.MindTheGaps`); the GUID is fixed so identity is stable.
+Use "Shows / Series / Seasons / Episodes" for episodic content and reserve "TV / Live TV" for the tuner
+feature. `CollectionGapSource` and `CollectionGapMapper` keep their names on purpose: they genuinely
+handle TMDB collections.
 
 ## Consequences
 

@@ -11,7 +11,7 @@ There are two separate layers, and only one of them is narrow:
 | Layer | What it is | Scope today |
 |---|---|---|
 | Detection | The gap engine plus its sources scan the library and produce the dashboard todo list of what is missing or related | Broad: all three patterns, movies and series episodes, four providers |
-| Materialization | The minter creates pathless virtual placeholder items inside the library so a gap renders in place | Narrow: only SetCompletion collection movies, into BoxSets |
+| Materialization | The minter creates pathless virtual placeholder items inside the library so a gap renders in place | Narrow: movie gaps only, one at a time from the report (BoxSet for collection gaps, a catch-all collection otherwise) |
 
 Most assumptions that "the plugin only handles BoxSet movies" are really about the materialization
 layer. Detection is wide. The minter is the experiment.
@@ -29,12 +29,16 @@ Every source is wired in DI and its mapper is covered by captured-data tests.
 | PeopleGapSource (TMDB) | CreatorWorks | unowned films from owned actors and directors | Done |
 | TraktFilmographyGapSource | CreatorWorks | the same, independently cross-checked via Trakt | Done |
 | RecommendationsGapSource (TMDB) | Recommendation | similar movies and series | Done |
-| AvailabilityService (TMDB) | n/a | "where to watch", fetched lazily per item, or (opt-in) for every gap during the scan | Done |
+| AvailabilityService (TMDB) | n/a | "where to watch", lazily per item or via the background "Look up where to watch" pass (never during the scan) | Done |
 
-Supporting pieces that are done: the dashboard todo list (filter, search, external links per item),
-the scheduled scan, the dedupe engine, and the per-item availability lookup. CreatorWorks and
-Recommendation gaps are detected and shown today, for movies and series. They render as a list with
-links, not as in-library placeholders.
+Supporting pieces that are done: the dashboard todo list (pattern tabs, Movies/Shows grouping with
+alphabetical sub-grouping for Creator Works and Recommendations, filters for type / specials / upcoming /
+no-sources / resolved / search, external links per item, open-in-Jellyfin links), the scheduled scan and
+its background runner, the dedupe engine, the background "where to watch" pass (cached, resumable, with a
+"checked" flag and an episode-to-series lookup), per-gap resolutions (mark "not really missing" with a
+note, persisted across rescans, ADR-0008), and a version-stamped report that nudges for a rescan after an
+upgrade. CreatorWorks and Recommendation gaps are detected and shown today, for movies and series; they
+render as a list with links, not as in-library placeholders.
 
 External links are extensible without a hard-coded list or a plugin dependency: `ExternalLinkEnricher`
 hands each gap's provider ids to a throwaway `BaseItem` and merges whatever the host's registered
@@ -132,8 +136,8 @@ typical library sizes; both matter before a wide release.
 The mint paths run in the background like the scan: `MintRunner` runs multi-select `MintGaps`,
 per-row `MintGap`, and "Remove minted" off the request thread (reporting 0-100 progress), and the UIs
 poll `MintStatus`. Reconciliation is a cheap synchronous tail on the scan (one owned-movies query plus
-targeted deletes), so it does not need its own progress. Scan-time availability enrichment runs inside
-the already-backgrounded scan, so it never blocks a request either.
+targeted deletes), so it does not need its own progress. Availability is its own background pass
+(`AvailabilityRunner`), not part of the scan, so the scan stays detection-only and never blocks a request.
 
 ## Priorities (suggested, not committed)
 
@@ -145,14 +149,6 @@ the already-backgrounded scan, so it never blocks a request either.
 
 ## Backlog
 
-- **Batch availability past the lookup cap.** Scan-time enrichment stops at `MaxAvailabilityLookups`, so
-  beyond that gaps stay un-enriched and "Hide items with no sources" cannot see them. Plan: make
-  enrichment a standalone pass over the *persisted* report (no rescan) that loads `gaps.json`, enriches
-  the next batch of un-enriched watchable gaps, saves, and reports how many remain; run it repeatedly (a
-  "look up more sources" action and/or an auto-continuing background loop with rate-limit delays) to
-  drain. Preserve enrichment across full rescans by carrying `Availability` forward by `GapItem.Id` so a
-  rescan does not wipe it (and so the scan only needs to look up genuinely new gaps). Add a "refresh all"
-  mode to re-fetch for staleness. Reuse the background-runner + status pattern (`GapScanRunner`/`MintRunner`).
 - **Bulk mint across all enabled patterns.** Minting today is per-row and multi-select from the report.
   A one-click "mint every gap of a pattern" (or every gap in a domain) needs the per-cell container
   strategy (collections use a BoxSet, episodes are native in core, CreatorWorks/Recommendation use the
@@ -178,10 +174,19 @@ the already-backgrounded scan, so it never blocks a request either.
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
+- **Preserve scroll and expansion across row actions.** Resolving/clearing (and any action that calls
+  `applyAndRender`) rebuilds `#cgList`, so scroll position and which groups were expanded are lost. Two
+  ways: snapshot the scroll offset and the set of collapsed group keys before re-render and restore them
+  after, or (cleaner) update just the affected row in place (remove it, or grey it and swap Resolve for
+  Clear plus the note) without a full re-render. The in-place update also avoids the resolutions re-fetch.
 - **Show every recommending source per target.** The engine dedupes recommendations by target, so each
   recommended title keeps only the one seed that first surfaced it; the report pivot shows that single
   source. Listing all owned titles that recommend a target needs the engine to aggregate sources per
   target instead of deduping them away.
 
-Shipped from earlier backlog: the per-provider availability filter, multi-select mint, and the
-streamable filter (opt-in scan-time availability, surfaced as "Hide items with no sources").
+Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
+with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
+past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
+availability and resolved ids carried forward across rescans by gap id). Also shipped since: per-gap
+resolutions, the "Hide upcoming" filter, alphabetical grouping for Creator Works and Recommendations,
+open-in-Jellyfin links, the version-stamped report with a rescan nudge, and the settings-page reorg.

@@ -42,8 +42,15 @@ changes (only Video is implemented today):
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
   configured metadata provider doesn't list. TVmaze is keyless; TheTVDB needs your own v4 API key.
 - **Recommendations**: TMDB "similar" titles; opt-in.
-- **Where to watch**: streaming availability aggregated per item, fetched lazily (never in bulk during
-  a scan). Ships with TMDB watch/providers (officially licensed).
+- **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
+  looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
+  missing episode it shows where to watch the show.
+- **A usable report**: grouped by movies/shows and source, with alphabetical sub-grouping for creator
+  works and recommendations; filter by type, specials, upcoming, streamable, or resolved; search; links
+  to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has, including the
+  JustWatch plugin) plus an "open in Jellyfin" jump to items you already hold.
+- **Resolve a gap** you don't consider missing (for example two listed episodes that are a single
+  combined file): mark it with a note and it drops off the list, recoverable via a "Show resolved" filter.
 - **Virtual placeholders** (experimental, opt-in): mint greyed-out "missing" placeholders in place,
   the way a missing episode renders inside a series. See below.
 
@@ -84,32 +91,34 @@ In the dashboard, go to **Plugins > Mind the Gaps**. The settings page has per-s
 | Setting | Description |
 |---|---|
 | Metadata country / language | Locale for TMDB lookups and availability. |
-| Max recommendations per item | Caps how many "similar" titles each owned item contributes. |
-| Availability | Turns the on-demand "Where to watch" lookups on or off. |
+| Max related per item | Caps how many "similar" titles each owned item contributes. |
+| Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
 | TMDB API key | Optional; falls back to the built-in public key. |
-| Mint patterns | Which gap patterns to materialise as virtual placeholders (experimental). |
 
 ## Virtual placeholders (experimental, opt-in)
 
-Off by default, the plugin can mint pathless "virtual" placeholder items so a gap renders greyed-out
-in place. Today only the **SetCompletion** pattern is materialisable (missing collection movies into a
-BoxSet); CreatorWorks and Recommendation have no container to render into yet. This is a deliberately
-temporary stand-in for proper server support: the server doesn't reconcile or garbage-collect these,
-so the plugin does it itself, and everything minted is tagged and fully removable from the settings
-page. Pick the patterns to mint, then use the **Mint now** / **Remove minted movies** buttons; the
-**Preview** buttons do a dry run that logs what would happen without writing. The dashboard also has a
-per-row **Mint** button (debug) to materialise a single gap; a filmography row mints into a catch-all
-collection and attaches the person, so it shows on that person's page.
+Off by default, the plugin can mint pathless "virtual" placeholder items so a gap renders greyed-out in
+place. It is an experimental stand-in for proper server support: the server does not reconcile or
+garbage-collect these, so the plugin does it itself, and everything minted is tagged and fully reversible.
+
+Minting is driven from the report, one gap at a time: each movie row has a **Mint** button, and you can
+checkbox several rows and **Mint selected**. Both run in the background with progress. A collection gap
+mints into its BoxSet; anything else mints into a catch-all "Mind the Gaps (minted)" collection, and a
+filmography gap also attaches the person so it shows on that person's page. Every minted item queues a
+metadata refresh, and at the end of every scan a reconcile pass drops any minted movie the library now
+owns for real. The settings page keeps only **Remove minted movies** (with a dry-run preview) to undo
+everything at once. Missing episodes are not minted here: the server already synthesizes those.
 
 ## How it integrates
 
 Mind the Gaps is self-contained. It carries its own TMDB client (over `TMDbLib`) and hand-rolled
 Trakt/TVmaze/TheTVDB HTTP clients, so it has no dependency on `MediaBrowser.Providers` or on any other
-plugin. It only *renders* a JustWatch link when an item already has `ProviderIds["JustWatch"]` (set by
-the separate [Jellyfin.Plugin.JustWatch](https://github.com/IDisposable/jellyfin-plugin-justwatch)),
-with no code dependency between the two.
+plugin. External links are also extensible without a hard dependency: it merges in whatever the host's
+own link providers emit, so a TMDB/IMDb link comes from core and a JustWatch link lights up if the
+separate [Jellyfin.Plugin.JustWatch](https://github.com/IDisposable/jellyfin-plugin-justwatch) is
+installed, with no code dependency between the two.
 
 ## Building
 
@@ -121,7 +130,9 @@ dotnet test  Jellyfin.Plugin.MindTheGaps.sln
 The projects reference the published `Jellyfin.Controller` / `Jellyfin.Model` NuGet packages
 (compile-only via `ExcludeAssets="runtime"`), so the repo builds standalone, no Jellyfin server
 checkout required. The CI matrix in [.github/workflows/build.yaml](.github/workflows/build.yaml) builds
-each supported ABI; 12.x is dormant until that NuGet ships.
+each supported ABI; a 12.x row is ready to enable once a 12.x Jellyfin NuGet ships. The full build and
+release pattern is documented in
+[this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd).
 
 ### Releasing
 
