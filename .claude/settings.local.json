@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E *",
+      "Bash(grep -r *",
+      "Bash(grep -ri *",
+      "Bash(xargs cat:*)",
+      "Bash(git checkout:*)",
+      "Bash(find /workspaces/jellyfin-jellyfin *",
+      "Bash(dotnet build:*)"
+    ]
+  }
+}

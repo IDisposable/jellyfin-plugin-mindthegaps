@@ -16,6 +16,8 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanSeries = true;
         ScanPeople = true;
         ScanRecommendations = false;
+        ScanMusic = false;
+        ScanBooks = false;
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
@@ -48,6 +50,18 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether to include TMDB recommendations/similar titles as discovery gaps.
     /// </summary>
     public bool ScanRecommendations { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to scan owned music artists for missing studio-album
+    /// release-groups (MusicBrainz discography). Experimental; defaults off.
+    /// </summary>
+    public bool ScanMusic { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to scan owned books for other entries in the author's
+    /// bibliography or the book's series (OpenLibrary). Experimental; defaults off.
+    /// </summary>
+    public bool ScanBooks { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where
