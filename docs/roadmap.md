@@ -197,11 +197,11 @@ targeted deletes), so it does not need its own progress. Availability is its own
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
-- **Domain rollup at the top of each tab.** Coverage badges ("6 of 9 owned, 67%") now show on
-  BoxSet/collection groups and on series groups (the library source stamps owned-of-total episodes per
-  show, counting owned vs the server's missing list). What remains is a per-tab summary line at the top
-  that sums those into a domain headline. Cross-check-only series (not in the server's missing list) and
-  the open-ended curated studio/keyword sets carry no badge by design.
+- **Coverage on more sources (mostly done).** Coverage badges ("6 of 9 owned, 67%") show on
+  BoxSet/collection and series groups, and each tab has a domain rollup line summing gap counts, group
+  counts, and the owned-of-total aggregate. Cross-check-only series (not in the server's missing list) and
+  the open-ended curated studio/keyword sets carry no badge by design; giving cross-check series a count
+  would mean counting their owned episodes the same way the library source now does.
 - **Sort rows within a group.** Rows inside a group are always alphabetical by title. Offer other sort
   keys, most usefully popularity (or rating, or release date), so the gaps worth filling float to the top
   of each group. The gap would need to carry a sort signal: TMDB `SearchMovie`/`SearchTv` already expose

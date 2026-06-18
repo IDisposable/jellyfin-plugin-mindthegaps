@@ -14,6 +14,8 @@
             .cgGroup.cgCollapsed > .cgBody { display: none; }
             .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
             .cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
+            #cgRollup { font-size: .92em; opacity: .85; margin: .2em 0 .4em 0; padding: .35em .5em; background: rgba(255,255,255,.04); border-radius: 4px; }
+            #cgRollup .cgRollupCov { color: #3ddc97; }
             .cgCaret {
                 display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
                 border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
@@ -130,6 +132,7 @@
                 </div>
 
                 <div id="cgJump" style="display:none;"></div>
+                <div id="cgRollup" style="display:none;"></div>
                 <div id="cgList" class="itemsContainer vertical-list"></div>
             </div>
         </div>
@@ -676,6 +679,37 @@
                     bar.style.display = 'flex';
                 }
 
+                // A per-domain summary line for the current tab: gap and group counts, plus an owned-of-total
+                // coverage aggregate where sets carry counts (collections and series).
+                function rollupHtml(items) {
+                    if (!items.length) { return ''; }
+                    var noun = page_pattern_noun();
+                    var byCat = groupBy(items, categoryOf);
+                    byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+                    var parts = byCat.order.map(function (cat) {
+                        var catItems = byCat.map[cat];
+                        var groups = {}, ownedSum = 0, totalSum = 0;
+                        catItems.forEach(function (it) {
+                            var key = (it.SourceItemId || '') + '|' + (it.SourceItemName || '');
+                            if (!groups[key]) {
+                                groups[key] = true;
+                                if (it.SetTotalCount) { ownedSum += (it.SetOwnedCount || 0); totalSum += it.SetTotalCount; }
+                            }
+                        });
+                        var nGroups = Object.keys(groups).length;
+                        var cov = totalSum ? ' <span class="cgRollupCov">(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)</span>' : '';
+                        return '<b>' + esc(cat) + '</b>: ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov;
+                    });
+                    return parts.join(' &nbsp;&middot;&nbsp; ');
+                }
+
+                function page_pattern_noun() {
+                    var p = document.querySelector('#MindTheGapsPage') && document.querySelector('#MindTheGapsPage')._pattern;
+                    if (p === 'CreatorWorks') { return 'creator'; }
+                    if (p === 'Recommendation') { return 'source'; }
+                    return 'set';
+                }
+
                 function applyAndRender(page) {
                     var report = page._report || { Items: [] };
                     renderTabs(page);
@@ -728,6 +762,10 @@
                     scroller.scrollTop = scrollY;
 
                     renderJumpBar(page);
+                    var rollup = page.querySelector('#cgRollup');
+                    var rh = items.length ? rollupHtml(items) : '';
+                    rollup.innerHTML = rh;
+                    rollup.style.display = rh ? 'block' : 'none';
                     renderHiddenCreators(page);
                     page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
                     updateSelection(page);
