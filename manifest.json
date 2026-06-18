@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.12",
+                "changelog": "10.11.0.12 - A relevance gate keeps Creator works and Recommendations actionable on a large library: a TMDB vote floor (plus an optional cast-billing limit) drops obscure and bit-part credits, all tunable in settings. Set completion now lays its collapsed series and collections out in responsive columns instead of one very tall list, and a magnifying-glass icon opens a scoped Jellyfin search for any title, series, collection, or creator. The Type filter now lists the media domains actually present in each tab (so Music and Books gaps are reachable) and is a one-domain-at-a-time selector. You can resolve or mark \"not interested\" every episode under a series or season in one batch. The Markdown export folds the domain into the heading with a linked \"Watch\" and a link back to the same view. Fixes: the stale-list \"Rescan now\" button gave no feedback, and some season links were missing. Background runners now claim their run flag without locking the status counters.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.12/mind-the-gaps_10.11.0.12.zip",
+                "checksum": "5a7e0ad49af24916f1aade24af2d9026",
+                "timestamp": "2026-06-18T21:23:57Z"
+            },
+            {
                 "version": "10.11.0.11",
                 "changelog": "10.11.0.11 - Faster loading, broader coverage, and hardening ahead of 1.0. The report now loads one tab at a time, so a large library opens quickly. Filmography, recommendations, and the TVmaze/TheTVDB series cross-checks rotate through your library over successive scans, so coverage builds up instead of re-checking the same first items every run; stale entries are pruned automatically and a \"Reset scan rotation\" button forces a fresh cycle. The \"Look up where to watch\" button shows how many titles remain, live progress while running, and when the backlog is cleared. Empty tabs now explain which filter to relax, search also matches the creator or recommending title, group headers are keyboard and screen-reader friendly, and the settings page shows a quick gap summary. You can copy a link that reopens the exact tab and filters in another browser or for someone else. API keys are masked with a reveal toggle. Under the hood, minting works from gap ids, report reads are snapshotted against the background pass, background tasks stop cleanly on shutdown, and links are limited to http(s).\n",
                 "targetAbi": "10.11.0.0",
