@@ -65,7 +65,8 @@ public static class RecommendationGapMapper
                 releaseDate: rec.ReleaseDate,
                 imageUrl: posterUrl(rec.PosterPath),
                 overview: rec.Overview,
-                sourceItemYear: sourceItemYear);
+                sourceItemYear: sourceItemYear,
+                sortScore: rec.Popularity);
         }
     }
 
@@ -122,7 +123,8 @@ public static class RecommendationGapMapper
                 releaseDate: rec.FirstAirDate,
                 imageUrl: posterUrl(rec.PosterPath),
                 overview: rec.Overview,
-                sourceItemYear: sourceItemYear);
+                sourceItemYear: sourceItemYear,
+                sortScore: rec.Popularity);
         }
     }
 

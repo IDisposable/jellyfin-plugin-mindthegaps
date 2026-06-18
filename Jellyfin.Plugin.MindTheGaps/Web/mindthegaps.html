@@ -80,6 +80,13 @@
                                 <option value="Shows">Shows</option>
                             </select>
                         </label>
+                        <label style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
+                            <span>Sort:</span>
+                            <select is="emby-select" id="cgSort" class="emby-select" style="width:auto;">
+                                <option value="title">Title</option>
+                                <option value="popularity">Popularity</option>
+                            </select>
+                        </label>
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
                             <input type="checkbox" id="cgHideSpecials" /> Hide specials
                         </label>
@@ -164,6 +171,25 @@
                 function categoryOf(item) { return item.DomainName || 'Other'; }
 
                 function ci(a, b) { a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
+
+                // The active row sort, set from the Sort dropdown before each render.
+                var currentSort = 'title';
+
+                // Sort a leaf group's rows by the active mode (popularity desc, then title; or just title).
+                function sortRows(items) {
+                    var arr = items.slice();
+                    if (currentSort === 'popularity') {
+                        arr.sort(function (a, b) {
+                            var pa = a.SortScore == null ? -1 : a.SortScore;
+                            var pb = b.SortScore == null ? -1 : b.SortScore;
+                            if (pb !== pa) { return pb - pa; }
+                            return ci(a.Name || '', b.Name || '');
+                        });
+                    } else {
+                        arr.sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
+                    }
+                    return arr;
+                }
 
                 // Report-level "where to watch" filters. Monetization types are fixed checkboxes; providers
                 // are discovered from offers as availability is looked up (default-on, unchecked remembered).
@@ -425,7 +451,7 @@
                 // Specials); everything else lists rows directly.
                 function sourceBody(items) {
                     var hasSeason = items.some(function (it) { return it.Season != null; });
-                    if (!hasSeason) { return items.map(renderRow).join(''); }
+                    if (!hasSeason) { return sortRows(items).map(renderRow).join(''); }
 
                     var bySeason = groupBy(items, function (it) { return it.Season == null ? 'na' : String(it.Season); });
                     bySeason.order.sort(function (a, b) {
@@ -439,7 +465,7 @@
                         var n = Number(key);
                         var label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
                         var seasonItems = bySeason.map[key];
-                        return groupHtml(3, label, seasonItems.length, true, seasonItems.map(renderRow).join(''), seasonItems[0].SeasonItemId);
+                        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), seasonItems[0].SeasonItemId);
                     }).join('');
                 }
 
@@ -496,7 +522,7 @@
                             var byL = groupBy(catItems, function (it) { return firstLetter(it.Name); });
                             byL.order.sort(letterSort);
                             var recHtml = byL.order.map(function (L) {
-                                var li = byL.map[L].slice().sort(function (a, b) { return ci(a.Name || '', b.Name || ''); });
+                                var li = sortRows(byL.map[L]);
                                 return groupHtml(2, L, li.length, true, li.map(renderRow).join(''));
                             }).join('');
                             return groupHtml(1, cat, catItems.length, false, recHtml);
@@ -516,7 +542,7 @@
                                 var names = byLetter[L].slice().sort(ci);
                                 var inner = names.map(function (src) {
                                     var srcItems = bySrcC.map[src];
-                                    return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''), srcItems[0].SourceItemId, creatorDismissBtn(srcItems[0].SourceItemId, src));
+                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, creatorDismissBtn(srcItems[0].SourceItemId, src));
                                 }).join('');
                                 return groupHtml(2, L, names.length, true, inner);
                             }).join('');
@@ -712,6 +738,7 @@
 
                 function applyAndRender(page) {
                     var report = page._report || { Items: [] };
+                    currentSort = page.querySelector('#cgSort').value || 'title';
                     renderTabs(page);
                     var pass = buildFilter(page);
                     var items = (report.Items || []).filter(function (it) {
@@ -796,6 +823,7 @@
                     try {
                         var state = {
                             type: page.querySelector('#cgTypeFilter').value,
+                            sort: page.querySelector('#cgSort').value,
                             hideSpecials: page.querySelector('#cgHideSpecials').checked,
                             hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
                             showResolved: page.querySelector('#cgShowResolved').checked,
@@ -815,6 +843,7 @@
                     var state;
                     try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
                     if (state.type != null) { page.querySelector('#cgTypeFilter').value = state.type; }
+                    if (state.sort != null) { page.querySelector('#cgSort').value = state.sort; }
                     if (state.hideSpecials != null) { page.querySelector('#cgHideSpecials').checked = !!state.hideSpecials; }
                     if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
                     if (state.showResolved != null) { page.querySelector('#cgShowResolved').checked = !!state.showResolved; }
@@ -851,6 +880,7 @@
                     return {
                         pattern: page._pattern,
                         type: page.querySelector('#cgTypeFilter').value,
+                        sort: page.querySelector('#cgSort').value,
                         search: page.querySelector('#cgSearch').value || '',
                         hideSpecials: page.querySelector('#cgHideSpecials').checked,
                         hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
@@ -865,6 +895,7 @@
                     if (!v) { return; }
                     if (v.pattern) { page._pattern = v.pattern; }
                     if (v.type != null) { page.querySelector('#cgTypeFilter').value = v.type; }
+                    if (v.sort != null) { page.querySelector('#cgSort').value = v.sort; }
                     page.querySelector('#cgSearch').value = v.search || '';
                     page.querySelector('#cgHideSpecials').checked = !!v.hideSpecials;
                     page.querySelector('#cgHideUpcoming').checked = !!v.hideUpcoming;
@@ -1120,6 +1151,10 @@
                         applyAndRender(page);
                     });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
+                        saveFilters(page);
+                        if (page._report) { applyAndRender(page); }
+                    });
+                    page.querySelector('#cgSort').addEventListener('change', function () {
                         saveFilters(page);
                         if (page._report) { applyAndRender(page); }
                     });

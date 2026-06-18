@@ -62,6 +62,7 @@ public static class FilmographyGapMapper
                     role.ReleaseDate,
                     role.PosterPath,
                     string.IsNullOrEmpty(role.Character) ? null : "as " + role.Character,
+                    role.Popularity,
                     sourceItemId,
                     sourceItemName,
                     ownership,
@@ -88,7 +89,7 @@ public static class FilmographyGapMapper
                     continue;
                 }
 
-                var gap = BuildGap(job.Id, job.Title, job.ReleaseDate, job.PosterPath, job.Job, sourceItemId, sourceItemName, ownership, posterUrl);
+                var gap = BuildGap(job.Id, job.Title, job.ReleaseDate, job.PosterPath, job.Job, null, sourceItemId, sourceItemName, ownership, posterUrl);
                 if (gap is not null)
                 {
                     emitted++;
@@ -104,6 +105,7 @@ public static class FilmographyGapMapper
         DateTime? releaseDate,
         string? posterPath,
         string? role,
+        double? popularity,
         string sourceItemId,
         string? sourceItemName,
         OwnershipIndex ownership,
@@ -136,6 +138,7 @@ public static class FilmographyGapMapper
             sourceItemType: "Person",
             releaseDate: releaseDate,
             imageUrl: posterUrl(posterPath),
-            overview: role);
+            overview: role,
+            sortScore: popularity);
     }
 }

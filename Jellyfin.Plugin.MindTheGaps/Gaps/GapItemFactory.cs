@@ -32,6 +32,7 @@ public static class GapItemFactory
     /// <param name="sourceItemYear">The release year of the owning item, if known.</param>
     /// <param name="setOwnedCount">For a counted set, how many members the library already owns.</param>
     /// <param name="setTotalCount">For a counted set, the total number of members.</param>
+    /// <param name="sortScore">An optional popularity score for the report's sort-by-popularity.</param>
     /// <returns>The constructed gap item.</returns>
     public static GapItem Create(
         string id,
@@ -50,7 +51,8 @@ public static class GapItemFactory
         IEnumerable<ExternalLink>? extraLinks = null,
         int? sourceItemYear = null,
         int? setOwnedCount = null,
-        int? setTotalCount = null)
+        int? setTotalCount = null,
+        double? sortScore = null)
     {
         var links = ProviderLinks.Build(targetKind, providerIds);
         if (extraLinks is not null)
@@ -80,7 +82,8 @@ public static class GapItemFactory
             SourceItemType = sourceItemType,
             SourceItemYear = sourceItemYear,
             SetOwnedCount = setOwnedCount,
-            SetTotalCount = setTotalCount
+            SetTotalCount = setTotalCount,
+            SortScore = sortScore
         };
     }
 }

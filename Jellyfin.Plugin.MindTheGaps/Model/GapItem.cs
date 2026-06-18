@@ -136,6 +136,13 @@ public class GapItem
     public int? SetTotalCount { get; set; }
 
     /// <summary>
+    /// Gets or sets a popularity score (TMDB popularity) used by the report's optional "sort by
+    /// popularity". Null (and omitted) for gaps from sources that carry no such signal.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? SortScore { get; set; }
+
+    /// <summary>
     /// Gets or sets the id of this gap's own item in the library, when it exists as a (virtual) item the
     /// server already tracks (for example a missing episode). Lets the report link straight to it.
     /// </summary>

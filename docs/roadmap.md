@@ -202,12 +202,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   counts, and the owned-of-total aggregate. Cross-check-only series (not in the server's missing list) and
   the open-ended curated studio/keyword sets carry no badge by design; giving cross-check series a count
   would mean counting their owned episodes the same way the library source now does.
-- **Sort rows within a group.** Rows inside a group are always alphabetical by title. Offer other sort
-  keys, most usefully popularity (or rating, or release date), so the gaps worth filling float to the top
-  of each group. The gap would need to carry a sort signal: TMDB `SearchMovie`/`SearchTv` already expose
-  `Popularity` and `VoteAverage`, so the discovery and curated-set mappers could stamp a popularity onto
-  `GapItem` (the BoxSet/filmography/series sources have no equivalent, so they would fall back to title).
-  Then a sort dropdown next to the tabs reorders rows within each group; persists with the other filters.
 - **Shareable view URLs.** Named saved views shipped: a "Saved views" control snapshots the active tab
   and every filter (type, specials, upcoming, dismissed, streamable, monetization, providers, search) as
   a named preset in `localStorage`, re-applied in one click. What remains is the shareable part: encode a

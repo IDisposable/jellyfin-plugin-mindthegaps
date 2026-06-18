@@ -67,7 +67,8 @@ public static class CollectionGapMapper
                 imageUrl: posterUrl(part.PosterPath),
                 overview: part.Overview,
                 setOwnedCount: owned,
-                setTotalCount: total);
+                setTotalCount: total,
+                sortScore: part.Popularity);
         }
     }
 }

@@ -68,7 +68,8 @@ public static class CuratedSetGapMapper
                 releaseDate: movie.ReleaseDate,
                 imageUrl: posterUrl(movie.PosterPath),
                 overview: movie.Overview,
-                sourceItemYear: year);
+                sourceItemYear: year,
+                sortScore: movie.Popularity);
         }
     }
 
