@@ -33,6 +33,10 @@
             .cgMint { border-color: #3ddc97; color: #3ddc97; }
             .cgMint:hover { background: rgba(61,220,151,.16); }
             .cgMint .material-icons { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
+            /* Keep each provider's checkbox and name together, and never break a multi-word name. */
+            .cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
+            .cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }
+            .cgProvToggle .cgCaret { border-left-color: currentColor; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -145,6 +149,8 @@
                 // are discovered from offers as availability is looked up (default-on, unchecked remembered).
                 var disabledProviders = {};
                 var knownProviders = [];
+                // The provider list is long (one entry per streaming service), so it collapses by default.
+                var providersExpanded = false;
                 // gap id -> { Note, ResolvedUtc } for gaps the user marked "not really missing".
                 var resolvedMap = {};
 
@@ -165,21 +171,29 @@
                 function renderProviderFilter(page) {
                     var el = page.querySelector('#cgProviderFilter');
                     if (!knownProviders.length) { el.innerHTML = ''; return; }
+                    var total = knownProviders.length;
+                    var enabledCount = 0;
+                    for (var i = 0; i < total; i++) { if (!disabledProviders[knownProviders[i]]) { enabledCount++; } }
+
                     // "Enable all" only when some are off; "disable all" only when some are on.
-                    var anyDisabled = knownProviders.some(function (n) { return disabledProviders[n]; });
-                    var anyEnabled = knownProviders.some(function (n) { return !disabledProviders[n]; });
                     var toggles = '';
-                    if (anyDisabled) {
+                    if (enabledCount < total) {
                         toggles += '<a class="cgLink cgProvAll" title="Enable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">done_all</span></a>';
                     }
-                    if (anyEnabled) {
+                    if (enabledCount > 0) {
                         toggles += '<a class="cgLink cgProvNone" title="Disable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">clear</span></a>';
                     }
-                    el.innerHTML = '<span style="opacity:.7;">Providers:</span> ' + toggles
+
+                    // Collapsible: a header (with a caret and the enabled-of-total count) toggles the long list.
+                    var header = '<span class="cgProvToggle" title="Show or hide the provider list">'
+                        + '<span class="cgCaret" style="' + (providersExpanded ? 'transform:rotate(90deg);' : '') + '"></span>'
+                        + 'Providers (' + enabledCount + ' of ' + total + ')</span> ' + toggles;
+                    var list = '<div class="cgProvList" style="display:' + (providersExpanded ? 'flex' : 'none') + ';flex-wrap:wrap;margin-top:.25em;">'
                         + knownProviders.map(function (name) {
-                            return '<label style="margin-left:.5em;"><input type="checkbox" class="cgProv" data-prov="' + esc(name) + '"'
+                            return '<label class="cgProvLabel"><input type="checkbox" class="cgProv" data-prov="' + esc(name) + '"'
                                 + (disabledProviders[name] ? '' : ' checked') + ' /> ' + esc(name) + '</label>';
-                        }).join('');
+                        }).join('') + '</div>';
+                    el.innerHTML = header + list;
                 }
 
                 // Add any newly-seen providers to the filter (default enabled) and persist.
@@ -189,11 +203,6 @@
                         if (o.Provider && knownProviders.indexOf(o.Provider) === -1) { knownProviders.push(o.Provider); added = true; }
                     });
                     if (added) { knownProviders.sort(); renderProviderFilter(page); saveFilters(page); }
-                }
-
-                function reapplyAvail(page) {
-                    var notes = page.querySelectorAll('.cgAvail');
-                    for (var i = 0; i < notes.length; i++) { renderAvail(notes[i]); }
                 }
 
                 // Render an availability note from the full offer set it stashed, applying the current filters.
@@ -609,6 +618,7 @@
                         for (var i = 0; i < cbs.length; i++) { state.mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
                         state.knownProviders = knownProviders;
                         state.disabledProviders = disabledProviders;
+                        state.providersExpanded = providersExpanded;
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                     } catch (e) { /* localStorage unavailable; ignore */ }
                 }
@@ -630,6 +640,7 @@
                     }
                     knownProviders = Array.isArray(state.knownProviders) ? state.knownProviders : [];
                     disabledProviders = state.disabledProviders || {};
+                    providersExpanded = !!state.providersExpanded;
                     renderProviderFilter(page);
                 }
 
@@ -873,17 +884,26 @@
                     });
                     page.querySelector('#cgMonFilter').addEventListener('change', function () {
                         saveFilters(page);
-                        reapplyAvail(page);
+                        // Monetization changes affect "where to watch" matching, so re-filter the list.
+                        if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgProviderFilter').addEventListener('change', function (e) {
                         var cb = e.target.closest ? e.target.closest('.cgProv') : null;
                         if (!cb) { return; }
                         var name = cb.getAttribute('data-prov');
                         if (cb.checked) { delete disabledProviders[name]; } else { disabledProviders[name] = true; }
+                        renderProviderFilter(page);
                         saveFilters(page);
-                        reapplyAvail(page);
+                        if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgProviderFilter').addEventListener('click', function (e) {
+                        // The header toggles the (long) provider list open and closed.
+                        if (e.target.closest && e.target.closest('.cgProvToggle')) {
+                            providersExpanded = !providersExpanded;
+                            renderProviderFilter(page);
+                            saveFilters(page);
+                            return;
+                        }
                         var all = e.target.closest ? e.target.closest('.cgProvAll') : null;
                         var none = e.target.closest ? e.target.closest('.cgProvNone') : null;
                         if (!all && !none) { return; }
@@ -891,7 +911,9 @@
                         if (none) { knownProviders.forEach(function (n) { disabledProviders[n] = true; }); }
                         renderProviderFilter(page);
                         saveFilters(page);
-                        reapplyAvail(page);
+                        // Actually re-filter the list with the new provider set (this is what makes
+                        // "enable all" / "disable all" visibly change the results, not just the checkboxes).
+                        if (page._report) { applyAndRender(page); }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }

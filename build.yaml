@@ -20,5 +20,6 @@ changelog: >
   longer overwrite each other, so results from a scan that finishes mid-pass are kept. Tab counts now match
   the filtered list, and "Hide items with no sources" hides only titles already looked up and found empty,
   not ones not yet checked. Your scroll position, expanded groups, and selection are kept when a row is
-  resolved or a filter changes. The provider filter is populated from the saved report and gains enable-all
-  and disable-all controls. Concurrent minting can no longer create duplicate collections.
+  resolved or a filter changes. The provider filter is populated from the saved report, collapses into a
+  compact list, gains enable-all and disable-all controls, and now actually re-filters the list when
+  changed. Concurrent minting can no longer create duplicate collections.
