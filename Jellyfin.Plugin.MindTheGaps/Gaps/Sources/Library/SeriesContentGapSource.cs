@@ -62,6 +62,33 @@ public sealed class SeriesContentGapSource : IGapSource
             Recursive = true
         });
 
+        // Per-series owned/missing episode counts for the coverage badge ("59 of 62 owned"). The missing
+        // count here is the true total (the per-show display cap below only truncates the listed rows).
+        var missingPerSeries = new Dictionary<Guid, int>();
+        foreach (var item in missing)
+        {
+            if (item is Episode ep)
+            {
+                missingPerSeries.TryGetValue(ep.SeriesId, out var c);
+                missingPerSeries[ep.SeriesId] = c + 1;
+            }
+        }
+
+        var ownedPerSeries = new Dictionary<Guid, int>();
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Episode },
+            IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            if (item is Episode ep)
+            {
+                ownedPerSeries.TryGetValue(ep.SeriesId, out var c);
+                ownedPerSeries[ep.SeriesId] = c + 1;
+            }
+        }
+
         // 0 in config means "no limit".
         var cap = context.Config.MaxMissingEpisodesPerShow;
         if (cap <= 0)
@@ -109,11 +136,13 @@ public sealed class SeriesContentGapSource : IGapSource
                 seriesInfo[seriesId] = info;
             }
 
-            yield return BuildGap(episode, info.Year, info.Tmdb);
+            var ownedCount = ownedPerSeries.TryGetValue(seriesId, out var oc) ? oc : 0;
+            var totalCount = ownedCount + (missingPerSeries.TryGetValue(seriesId, out var mc) ? mc : 0);
+            yield return BuildGap(episode, info.Year, info.Tmdb, ownedCount, totalCount);
         }
     }
 
-    private static GapItem BuildGap(Episode episode, int? seriesYear, string? seriesTmdb)
+    private static GapItem BuildGap(Episode episode, int? seriesYear, string? seriesTmdb, int ownedCount, int totalCount)
     {
         var season = episode.ParentIndexNumber;
         var number = episode.IndexNumber;
@@ -151,7 +180,9 @@ public sealed class SeriesContentGapSource : IGapSource
             releaseDate: episode.PremiereDate,
             overview: episode.Overview,
             season: season,
-            sourceItemYear: seriesYear);
+            sourceItemYear: seriesYear,
+            setOwnedCount: ownedCount,
+            setTotalCount: totalCount);
 
         // This gap is a (virtual) episode the server already tracks, so the report can link to it and
         // its season directly.

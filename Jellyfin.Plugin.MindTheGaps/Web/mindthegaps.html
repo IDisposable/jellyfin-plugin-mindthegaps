@@ -524,7 +524,9 @@
                         bySrc.order.sort(ci);
                         var srcHtml = bySrc.order.map(function (src) {
                             var srcItems = bySrc.map[src];
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, coverageBadge(srcItems[0]));
+                            var covItem = srcItems[0];
+                            for (var ci2 = 0; ci2 < srcItems.length; ci2++) { if (srcItems[ci2].SetTotalCount) { covItem = srcItems[ci2]; break; } }
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, coverageBadge(covItem));
                         }).join('');
                         return groupHtml(1, cat, catItems.length, false, srcHtml);
                     }).join('');
