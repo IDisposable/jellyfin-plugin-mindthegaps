@@ -54,7 +54,7 @@
                         <span id="cgStaleMsg" style="flex:1;"></span>
                         <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
                     </div>
-                    <div style="margin-bottom:.5em;">
+                    <div id="cgRescanBar" style="margin-bottom:.5em;">
                         <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
                             <span>Rescan now</span>
                         </button>
@@ -165,10 +165,21 @@
                 function renderProviderFilter(page) {
                     var el = page.querySelector('#cgProviderFilter');
                     if (!knownProviders.length) { el.innerHTML = ''; return; }
-                    el.innerHTML = '<span style="opacity:.7;">Providers:</span> ' + knownProviders.map(function (name) {
-                        return '<label style="margin-left:.5em;"><input type="checkbox" class="cgProv" data-prov="' + esc(name) + '"'
-                            + (disabledProviders[name] ? '' : ' checked') + ' /> ' + esc(name) + '</label>';
-                    }).join('');
+                    // "Enable all" only when some are off; "disable all" only when some are on.
+                    var anyDisabled = knownProviders.some(function (n) { return disabledProviders[n]; });
+                    var anyEnabled = knownProviders.some(function (n) { return !disabledProviders[n]; });
+                    var toggles = '';
+                    if (anyDisabled) {
+                        toggles += '<a class="cgLink cgProvAll" title="Enable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">done_all</span></a>';
+                    }
+                    if (anyEnabled) {
+                        toggles += '<a class="cgLink cgProvNone" title="Disable every provider"><span class="material-icons" style="font-size:1.05em;vertical-align:middle;">clear</span></a>';
+                    }
+                    el.innerHTML = '<span style="opacity:.7;">Providers:</span> ' + toggles
+                        + knownProviders.map(function (name) {
+                            return '<label style="margin-left:.5em;"><input type="checkbox" class="cgProv" data-prov="' + esc(name) + '"'
+                                + (disabledProviders[name] ? '' : ' checked') + ' /> ' + esc(name) + '</label>';
+                        }).join('');
                 }
 
                 // Add any newly-seen providers to the filter (default enabled) and persist.
@@ -325,7 +336,7 @@
                 }
 
                 function groupHtml(level, label, count, collapsed, inner, itemId) {
-                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '">'
+                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '">'
                         + '<div class="cgHdr cgHdr' + level + '"><span class="cgCaret"></span>' + esc(label)
                         + ' <span class="cgCount">(' + count + ')</span>' + openIcon(itemId) + '</div>'
                         + '<div class="cgBody">' + inner + '</div></div>';
@@ -443,12 +454,41 @@
                     }).join('');
                 }
 
+                // The filters shared by the tab counts and the list, all of them except the pattern itself,
+                // so a tab's badge shows how many gaps would appear if you opened it under the current filters.
+                function buildFilter(page) {
+                    var type = page.querySelector('#cgTypeFilter').value;
+                    var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
+                    var hideSpecials = page.querySelector('#cgHideSpecials').checked;
+                    var hideUpcoming = page.querySelector('#cgHideUpcoming').checked;
+                    var showResolved = page.querySelector('#cgShowResolved').checked;
+                    var streamable = page.querySelector('#cgStreamable').checked;
+                    return function (it) {
+                        if (resolvedMap[it.Id] && !showResolved) { return false; }
+                        if (type && categoryOf(it) !== type) { return false; }
+                        if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
+                        if (hideUpcoming && it.IsUpcoming) { return false; }
+                        // Hide "no sources" only once a title has actually been looked up. An un-checked gap is
+                        // "unknown", not "no sources", so keep it visible (with its Where-to-watch button)
+                        // rather than vanishing the whole un-enriched list behind this filter.
+                        if (streamable && it.AvailabilityChecked && !filterOffers(it.Availability).length) { return false; }
+                        if (term && (it.Name || '').toLowerCase().indexOf(term) === -1) { return false; }
+                        return true;
+                    };
+                }
+
                 function renderTabs(page) {
                     var items = (page._report && page._report.Items) || [];
-                    var counts = {};
-                    items.forEach(function (it) { counts[it.PatternName] = (counts[it.PatternName] || 0) + 1; });
-                    if (!page._pattern || !counts[page._pattern]) {
-                        page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
+                    var pass = buildFilter(page);
+                    var rawCounts = {}, counts = {};
+                    items.forEach(function (it) {
+                        rawCounts[it.PatternName] = (rawCounts[it.PatternName] || 0) + 1;
+                        if (pass(it)) { counts[it.PatternName] = (counts[it.PatternName] || 0) + 1; }
+                    });
+                    // Stay on a pattern that has any gaps at all (raw), so toggling a filter down to zero does
+                    // not yank you to another tab; only fall back when the current pattern is truly empty.
+                    if (!page._pattern || !rawCounts[page._pattern]) {
+                        page._pattern = PATTERNS.filter(function (p) { return rawCounts[p]; })[0] || PATTERNS[0];
                     }
                     page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
                         var active = p === page._pattern ? ' cgActive' : '';
@@ -457,34 +497,78 @@
                     }).join('');
                 }
 
+                // The element that actually scrolls the report (or the window), cached on the page.
+                function scrollerFor(page) {
+                    if (page._scroller) { return page._scroller; }
+                    var s = document.scrollingElement || document.documentElement;
+                    for (var n = page.querySelector('#cgList'); n && n !== document.body; n = n.parentElement) {
+                        var oy = getComputedStyle(n).overflowY;
+                        if (oy === 'auto' || oy === 'scroll') { s = n; break; }
+                    }
+                    page._scroller = s;
+                    return s;
+                }
+
+                // A stable key for a group: the chain of its and its ancestors' labels, so its collapsed state
+                // can be matched back to the same group after a re-render.
+                function groupKey(el) {
+                    var parts = [];
+                    for (var n = el; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) {
+                        parts.unshift(n.getAttribute('data-cglabel') || '');
+                    }
+                    return parts.join('');
+                }
+
                 function applyAndRender(page) {
                     var report = page._report || { Items: [] };
-                    var type = page.querySelector('#cgTypeFilter').value;
-                    var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
-                    var hideSpecials = page.querySelector('#cgHideSpecials').checked;
-                    var hideUpcoming = page.querySelector('#cgHideUpcoming').checked;
-                    var showResolved = page.querySelector('#cgShowResolved').checked;
-                    var streamable = page.querySelector('#cgStreamable').checked;
+                    renderTabs(page);
+                    var pass = buildFilter(page);
                     var items = (report.Items || []).filter(function (it) {
-                        if (it.PatternName !== page._pattern) { return false; }
-                        if (resolvedMap[it.Id] && !showResolved) { return false; }
-                        if (type && categoryOf(it) !== type) { return false; }
-                        if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
-                        if (hideUpcoming && it.IsUpcoming) { return false; }
-                        if (streamable && !filterOffers(it.Availability).length) { return false; }
-                        if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
-                        return true;
+                        return it.PatternName === page._pattern && pass(it);
                     });
 
+                    var streamable = page.querySelector('#cgStreamable').checked;
                     var empty;
-                    if (streamable && !(report.Items || []).some(function (it) { return it.Availability && it.Availability.length; })) {
-                        empty = '<p class="fieldDescription">No "where to watch" data yet, so this filter hides everything. Look it up in the background, then it fills in here.</p>'
+                    if (streamable && !(report.Items || []).some(function (it) { return it.AvailabilityChecked; })) {
+                        empty = '<p class="fieldDescription">No "where to watch" data yet, so this filter has nothing to act on. Look it up in the background, then it fills in here.</p>'
                             + '<button is="emby-button" type="button" id="cgEnableAvail" class="raised button-submit">'
                             + '<span>Look up where to watch</span></button>';
                     } else {
                         empty = '<p class="fieldDescription">No gaps in this view. Pick another axis, adjust filters, or rescan.</p>';
                     }
-                    page.querySelector('#cgList').innerHTML = items.length ? buildTree(items) : empty;
+
+                    var listEl = page.querySelector('#cgList');
+
+                    // Snapshot what the user has expanded/collapsed/selected and where they are scrolled, so a
+                    // re-render (resolving a row, toggling a filter) does not throw it all away.
+                    var collapsed = {}, openRows = {}, checkedSel = {};
+                    var pg = listEl.querySelectorAll('.cgGroup');
+                    for (var gi = 0; gi < pg.length; gi++) { collapsed[groupKey(pg[gi])] = pg[gi].classList.contains('cgCollapsed'); }
+                    var pr = listEl.querySelectorAll('.cgRow');
+                    for (var rj = 0; rj < pr.length; rj++) {
+                        var dd = pr[rj].querySelector('.cgDetails');
+                        if (dd && dd.style.display !== 'none') { openRows[pr[rj].getAttribute('data-gapid')] = true; }
+                    }
+                    var psel = listEl.querySelectorAll('.cgSel:checked');
+                    for (var sk = 0; sk < psel.length; sk++) { checkedSel[psel[sk].getAttribute('data-gapid')] = true; }
+                    var scroller = scrollerFor(page);
+                    var scrollY = scroller.scrollTop;
+
+                    listEl.innerHTML = items.length ? buildTree(items) : empty;
+
+                    // Restore the snapshot onto whichever groups/rows still exist after the rebuild.
+                    var ng = listEl.querySelectorAll('.cgGroup');
+                    for (var ngi = 0; ngi < ng.length; ngi++) {
+                        var k = groupKey(ng[ngi]);
+                        if (k in collapsed) { ng[ngi].classList.toggle('cgCollapsed', collapsed[k]); }
+                    }
+                    var nr = listEl.querySelectorAll('.cgRow');
+                    for (var nri = 0; nri < nr.length; nri++) {
+                        if (openRows[nr[nri].getAttribute('data-gapid')]) { var nd = nr[nri].querySelector('.cgDetails'); if (nd) { nd.style.display = 'block'; } }
+                    }
+                    var nsel = listEl.querySelectorAll('.cgSel');
+                    for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
+                    scroller.scrollTop = scrollY;
 
                     page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
                     updateSelection(page);
@@ -554,13 +638,20 @@
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps'), dataType: 'json' })
                         .then(function (report) {
                             page._report = report;
+                            // Seed the provider filter from every offer already in the report (the background
+                            // pass may have filled these in), so the filter is populated before any on-demand
+                            // "Where to watch" click.
+                            var allOffers = [];
+                            (report.Items || []).forEach(function (it) {
+                                if (it.Availability && it.Availability.length) { allOffers = allOffers.concat(it.Availability); }
+                            });
+                            noteProviders(page, allOffers);
                             var when = report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0
                                 ? new Date(report.GeneratedUtc).toLocaleString()
                                 : 'never';
                             page.querySelector('#cgSummary').textContent =
                                 (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
                             fetchResolved().then(function () {
-                                renderTabs(page);
                                 applyAndRender(page);
                                 checkStale(page, report);
                                 Dashboard.hideLoadingMsg();
@@ -580,7 +671,9 @@
                 // an upgrade the persisted links/fields may be stale until rebuilt).
                 function checkStale(page, report) {
                     var stale = page.querySelector('#cgStale');
+                    var rescanBar = page.querySelector('#cgRescanBar');
                     stale.style.display = 'none';
+                    rescanBar.style.display = '';
                     var generated = report && report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0;
                     if (!generated) { return; }
                     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
@@ -592,8 +685,18 @@
                             page.querySelector('#cgStaleMsg').textContent =
                                 'This list was built by ' + built + '. You are on ' + cur + '. Rescan to rebuild it with the current version.';
                             stale.style.display = 'flex';
+                            // The banner carries its own Rescan, so hide the standalone one to avoid two
+                            // identical buttons stacked together.
+                            rescanBar.style.display = 'none';
                         }
                     }).catch(function () { /* version check is best-effort */ });
+                }
+
+                // True while this dashboard page is still the active, attached one. Jellyfin keeps page
+                // elements around and marks inactive ones with the 'hide' class, so a poll loop started here
+                // must stop (and stop alerting) once the user has navigated elsewhere.
+                function pageActive(page) {
+                    return !!page && document.body.contains(page) && !page.classList.contains('hide');
                 }
 
                 // Kick off the background "where to watch" pass and poll until it finishes, then reload so
@@ -610,6 +713,7 @@
                     }
 
                     function poll() {
+                        if (!pageActive(page)) { return; }
                         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Availability/Status'), dataType: 'json' })
                             .then(function (s) {
                                 if (s && s.Running) {
@@ -674,6 +778,7 @@
                             if (msg) { Dashboard.alert(msg); }
                         }
                         function pollMint() {
+                            if (!pageActive(page)) { return; }
                             ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/MintStatus'), dataType: 'json' })
                                 .then(function (s) {
                                     if (s && s.Running) {
@@ -716,6 +821,7 @@
                         }
 
                         function poll() {
+                            if (!pageActive(page)) { return; }
                             ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/ScanStatus'), dataType: 'json' })
                                 .then(function (s) {
                                     if (s && s.Running) {
@@ -737,7 +843,6 @@
                         var tab = e.target.closest ? e.target.closest('.cgTab') : null;
                         if (!tab) { return; }
                         page._pattern = tab.getAttribute('data-pattern');
-                        renderTabs(page);
                         applyAndRender(page);
                     });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
@@ -778,6 +883,16 @@
                         saveFilters(page);
                         reapplyAvail(page);
                     });
+                    page.querySelector('#cgProviderFilter').addEventListener('click', function (e) {
+                        var all = e.target.closest ? e.target.closest('.cgProvAll') : null;
+                        var none = e.target.closest ? e.target.closest('.cgProvNone') : null;
+                        if (!all && !none) { return; }
+                        disabledProviders = {};
+                        if (none) { knownProviders.forEach(function (n) { disabledProviders[n] = true; }); }
+                        renderProviderFilter(page);
+                        saveFilters(page);
+                        reapplyAvail(page);
+                    });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
 
@@ -797,7 +912,7 @@
                             var rid = resolveBtn.getAttribute('data-gapid');
                             var rItems = (page._report && page._report.Items) || [];
                             var rName = 'this item';
-                            for (var ri = 0; ri < rItems.length; ri++) { if (rItems[ri].Id === rid) { rName = rItems[ri].Name; break; } }
+                            for (var ri = 0; ri < rItems.length; ri++) { if (rItems[ri].Id === rid) { rName = rItems[ri].Name || 'this item'; break; } }
                             var note = window.prompt('Resolve "' + rName + '" (not really missing).\nOptional note (e.g. why):', '');
                             if (note === null) { return; }
                             note = note.trim().slice(0, 100);
@@ -828,6 +943,7 @@
                             var gap = null;
                             for (var i = 0; i < items.length; i++) { if (items[i].Id === gid) { gap = items[i]; break; } }
                             if (!gap) { return; }
+                            var mintHtml = mintBtn.innerHTML;
                             mintBtn.textContent = 'Minting…';
                             mintBtn.disabled = true;
                             ApiClient.ajax({
@@ -838,11 +954,11 @@
                                 dataType: 'json'
                             }).then(function (msg) {
                                 Dashboard.alert(String(msg));
-                                mintBtn.textContent = 'Mint';
+                                mintBtn.innerHTML = mintHtml;
                                 mintBtn.disabled = false;
                             }).catch(function () {
                                 Dashboard.alert('Mint failed. Check the server logs.');
-                                mintBtn.textContent = 'Mint';
+                                mintBtn.innerHTML = mintHtml;
                                 mintBtn.disabled = false;
                             });
                             return;
@@ -890,11 +1006,7 @@
                     // own scroll container (or the window, whichever actually scrolls) back to the top.
                     (function () {
                         var topBtn = page.querySelector('#cgScrollTop');
-                        var scroller = document.scrollingElement || document.documentElement;
-                        for (var n = page.querySelector('#cgList'); n && n !== document.body; n = n.parentElement) {
-                            var oy = getComputedStyle(n).overflowY;
-                            if (oy === 'auto' || oy === 'scroll') { scroller = n; break; }
-                        }
+                        var scroller = scrollerFor(page);
                         var listenOn = (scroller === document.scrollingElement || scroller === document.documentElement) ? window : scroller;
                         function onScroll() {
                             var y = scroller.scrollTop || window.pageYOffset || 0;
