@@ -34,6 +34,12 @@ public class GapResolution
     public const string CreatorPrefix = "creator:";
 
     /// <summary>
+    /// Resolution id prefix for a dismissed recommendation source, as in "recsource:{itemGuid}". Stops an
+    /// owned title from generating recommendations.
+    /// </summary>
+    public const string RecSourcePrefix = "recsource:";
+
+    /// <summary>
     /// Gets or sets the dismissal kind. Null (the common case, also entries saved before kinds existed)
     /// means <see cref="Resolved"/>; it is omitted from the stored JSON and API responses so the default
     /// carries no overhead. Only <see cref="NotInterested"/> and <see cref="Snoozed"/> are written.

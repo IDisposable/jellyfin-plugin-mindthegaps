@@ -216,6 +216,17 @@
                 // Whole-creator dismissals are stored in the same map under a "creator:{guid}" key.
                 function creatorDismissed(guid) { return !!(guid && resolvedMap['creator:' + guid]); }
 
+                // Dismissed recommendation sources are stored under a "recsource:{guid}" key.
+                function recSourceDismissed(guid) { return !!(guid && resolvedMap['recsource:' + guid]); }
+
+                // How many of a recommendation's sources (primary plus others) are not dismissed.
+                function effectiveRecSourceCount(it) {
+                    var n = 0;
+                    if (it.SourceItemName && !recSourceDismissed(it.SourceItemId)) { n++; }
+                    (it.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { n++; } });
+                    return n;
+                }
+
                 // The dismiss/restore control shown on a creator (person) group header.
                 function creatorDismissBtn(guid, name) {
                     if (!guid) { return ''; }
@@ -306,13 +317,15 @@
                     return button + names;
                 }
 
-                // One recommending source as text: name, its year/type meta, and an open-in-Jellyfin icon.
+                // One recommending source: name, its year/type meta, an open-in-Jellyfin icon, and a small
+                // control to dismiss it (stop recommendations from this title).
                 function recSource(name, year, type, id) {
                     var meta = [];
                     if (year) { meta.push(year); }
                     if (type) { meta.push(esc(type)); }
                     var suffix = meta.length ? ' (' + meta.join(' &middot; ') + ')' : '';
-                    return esc(name) + suffix + openIcon(id);
+                    var dismiss = id ? ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(id) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this title">&times;</a>' : '';
+                    return esc(name) + suffix + openIcon(id) + dismiss;
                 }
 
                 function renderRow(item) {
@@ -377,9 +390,10 @@
 
                     var detailParts = [];
                     if (item.PatternName === 'Recommendation' && item.SourceItemName) {
-                        var srcs = [recSource(item.SourceItemName, item.SourceItemYear, item.SourceItemType, item.SourceItemId)];
-                        (item.OtherSources || []).forEach(function (s) { if (s && s.Name) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
-                        detailParts.push('<div style="opacity:.85;">Recommended by: ' + srcs.join(', ') + '</div>');
+                        var srcs = [];
+                        if (!recSourceDismissed(item.SourceItemId)) { srcs.push(recSource(item.SourceItemName, item.SourceItemYear, item.SourceItemType, item.SourceItemId)); }
+                        (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
+                        if (srcs.length) { detailParts.push('<div style="opacity:.85;">Recommended by: ' + srcs.join(', ') + '</div>'); }
                     }
                     if (item.Overview) { detailParts.push(esc(item.Overview)); }
                     var details = detailParts.length
@@ -573,6 +587,7 @@
                     return function (it) {
                         if (activeDismissal(it) && !showResolved) { return false; }
                         if (it.PatternName === 'CreatorWorks' && creatorDismissed(it.SourceItemId) && !showResolved) { return false; }
+                        if (it.PatternName === 'Recommendation' && effectiveRecSourceCount(it) === 0 && !showResolved) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
                         if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
                         if (hideUpcoming && it.IsUpcoming) { return false; }
@@ -914,20 +929,21 @@
                     applyAndRender(page);
                 }
 
-                // Lists creators dismissed wholesale (with a Restore), so one can be brought back even after
-                // a rescan has dropped its gaps from the report. Hidden when there are none.
+                // Lists creators and recommendation sources dismissed wholesale (with a Restore), so one can
+                // be brought back even after a rescan has dropped its gaps from the report. Hidden when none.
                 function renderHiddenCreators(page) {
                     var el = page.querySelector('#cgHiddenCreators');
                     var entries = [];
                     Object.keys(resolvedMap).forEach(function (k) {
-                        if (k.indexOf('creator:') === 0) { entries.push({ guid: k.slice(8), name: (resolvedMap[k].Note || k.slice(8)) }); }
+                        if (k.indexOf('creator:') === 0) { entries.push({ key: k, name: (resolvedMap[k].Note || k.slice(8)) + ' (creator)' }); }
+                        else if (k.indexOf('recsource:') === 0) { entries.push({ key: k, name: (resolvedMap[k].Note || k.slice(10)) + ' (rec source)' }); }
                     });
                     if (!entries.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
                     entries.sort(function (a, b) { return ci(a.name, b.name); });
                     el.style.display = '';
-                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;">Hidden creators:</span> '
+                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;">Hidden:</span> '
                         + '<select is="emby-select" id="cgHiddenCreatorSel" class="emby-select" style="width:auto;">'
-                        + entries.map(function (en) { return '<option value="' + esc(en.guid) + '">' + esc(en.name) + '</option>'; }).join('')
+                        + entries.map(function (en) { return '<option value="' + esc(en.key) + '">' + esc(en.name) + '</option>'; }).join('')
                         + '</select> <button is="emby-button" type="button" id="cgRestoreCreatorBtn" class="raised" style="margin:0;"><span>Restore</span></button>';
                 }
 
@@ -1205,7 +1221,7 @@
                         if (!e.target.closest || !e.target.closest('#cgRestoreCreatorBtn')) { return; }
                         var sel = page.querySelector('#cgHiddenCreatorSel');
                         if (!sel || !sel.value) { return; }
-                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: 'creator:' + sel.value }) })
+                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: sel.value }) })
                             .then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
                             .catch(function () { Dashboard.alert('Could not restore the creator. Check the server logs.'); });
                     });
@@ -1339,6 +1355,21 @@
                                 data: JSON.stringify({ Id: 'creator:' + dcGuid, Kind: 'notinterested', Note: dcName })
                             }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
                                 .catch(function () { Dashboard.alert('Could not dismiss the creator. Check the server logs.'); });
+                            return;
+                        }
+
+                        var dismissRecSrcBtn = e.target.closest('.cgDismissRecSource');
+                        if (dismissRecSrcBtn) {
+                            var rsGuid = dismissRecSrcBtn.getAttribute('data-gapid');
+                            var rsName = dismissRecSrcBtn.getAttribute('data-name') || 'this title';
+                            if (!window.confirm('Stop recommendations from "' + rsName + '"?')) { return; }
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Resolve'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Id: 'recsource:' + rsGuid, Kind: 'notinterested', Note: rsName })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not dismiss the source. Check the server logs.'); });
                             return;
                         }
 

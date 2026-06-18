@@ -22,6 +22,7 @@ public sealed class RecommendationsGapSource : IGapSource
 {
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
+    private readonly ResolutionStore _resolutions;
     private readonly ILogger<RecommendationsGapSource> _logger;
 
     /// <summary>
@@ -29,14 +30,17 @@ public sealed class RecommendationsGapSource : IGapSource
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="tmdb">The TMDB client.</param>
+    /// <param name="resolutions">Holds dismissals, including dismissed recommendation sources to skip.</param>
     /// <param name="logger">The logger.</param>
     public RecommendationsGapSource(
         ILibraryManager libraryManager,
         TmdbClient tmdb,
+        ResolutionStore resolutions,
         ILogger<RecommendationsGapSource> logger)
     {
         _libraryManager = libraryManager;
         _tmdb = tmdb;
+        _resolutions = resolutions;
         _logger = logger;
     }
 
@@ -69,6 +73,7 @@ public sealed class RecommendationsGapSource : IGapSource
         });
         var totalSeeds = Math.Max(1, ownedMovies.Count + ownedSeries.Count);
         var done = 0;
+        var dismissed = DismissedRecSourceGuids();
 
         // Movie recommendations.
         var seedMovies = 0;
@@ -76,6 +81,11 @@ public sealed class RecommendationsGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)done++ / totalSeeds);
+            if (dismissed.Contains(movie.Id.ToString("N", CultureInfo.InvariantCulture)))
+            {
+                continue;
+            }
+
             if (seedMovies >= GapScanLimits.MaxRecommendationSeeds)
             {
                 break;
@@ -119,6 +129,11 @@ public sealed class RecommendationsGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)done++ / totalSeeds);
+            if (dismissed.Contains(series.Id.ToString("N", CultureInfo.InvariantCulture)))
+            {
+                continue;
+            }
+
             if (seedSeries >= GapScanLimits.MaxRecommendationSeeds)
             {
                 break;
@@ -155,5 +170,20 @@ public sealed class RecommendationsGapSource : IGapSource
                 yield return gap;
             }
         }
+    }
+
+    // The set of owned-item guids (N-format) the user dismissed as a recommendation source.
+    private HashSet<string> DismissedRecSourceGuids()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in _resolutions.GetAll().Keys)
+        {
+            if (id.StartsWith(GapResolution.RecSourcePrefix, StringComparison.Ordinal))
+            {
+                set.Add(id[GapResolution.RecSourcePrefix.Length..]);
+            }
+        }
+
+        return set;
     }
 }
