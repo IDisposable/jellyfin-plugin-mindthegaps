@@ -175,6 +175,11 @@
                             <div class="fieldDescription">Caps how many similar titles each owned item contributes (recommended max 100).</div>
                         </div>
                         <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MinRecommendationVotes">Recommendations: minimum TMDB votes</label>
+                            <input id="MinRecommendationVotes" name="MinRecommendationVotes" type="number" is="emby-input" min="0" max="100000" />
+                            <div class="fieldDescription">A recommended ("similar") title must have at least this many TMDB votes to surface, trimming the obscure long tail of the discovery feed. 0 shows everything; raise it (for example 500 or 1000) to keep only well-known suggestions.</div>
+                        </div>
+                        <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
                             <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" max="10000" />
                             <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
@@ -269,6 +274,7 @@
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
+                    page.querySelector('#MinRecommendationVotes').value = config.MinRecommendationVotes;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
                     page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
                     page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
@@ -430,6 +436,7 @@
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.WebhookUrl = form.querySelector('#WebhookUrl').value;
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
+                        config.MinRecommendationVotes = parseInt(form.querySelector('#MinRecommendationVotes').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
                         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
                         config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);

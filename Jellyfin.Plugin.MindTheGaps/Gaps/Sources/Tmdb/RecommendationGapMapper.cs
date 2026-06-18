@@ -22,6 +22,7 @@ public static class RecommendationGapMapper
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
+    /// <param name="minVotes">The minimum TMDB vote count a result must have to surface (0 disables).</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildMovies(
         IEnumerable<SearchMovie> results,
@@ -30,7 +31,8 @@ public static class RecommendationGapMapper
         int? sourceItemYear,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
-        int perItem)
+        int perItem,
+        int minVotes)
     {
         var emitted = 0;
         foreach (var rec in results)
@@ -40,7 +42,7 @@ public static class RecommendationGapMapper
                 break;
             }
 
-            if (string.IsNullOrEmpty(rec.Title))
+            if (string.IsNullOrEmpty(rec.Title) || (minVotes > 0 && rec.VoteCount < minVotes))
             {
                 continue;
             }
@@ -80,6 +82,7 @@ public static class RecommendationGapMapper
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
+    /// <param name="minVotes">The minimum TMDB vote count a result must have to surface (0 disables).</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildSeries(
         IEnumerable<SearchTv> results,
@@ -88,7 +91,8 @@ public static class RecommendationGapMapper
         int? sourceItemYear,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
-        int perItem)
+        int perItem,
+        int minVotes)
     {
         var emitted = 0;
         foreach (var rec in results)
@@ -98,7 +102,7 @@ public static class RecommendationGapMapper
                 break;
             }
 
-            if (string.IsNullOrEmpty(rec.Name))
+            if (string.IsNullOrEmpty(rec.Name) || (minVotes > 0 && rec.VoteCount < minVotes))
             {
                 continue;
             }

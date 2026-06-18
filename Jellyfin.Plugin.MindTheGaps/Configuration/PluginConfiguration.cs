@@ -25,6 +25,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanBooks = false;
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
+        MinRecommendationVotes = 100;
         MaxMissingEpisodesPerShow = 200;
         MaxFilmographyPeople = 1000;
         MinFilmographyVotes = 100;
@@ -111,6 +112,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the maximum number of related titles to surface per source item.
     /// </summary>
     public int MaxRelatedPerItem { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum TMDB vote count a recommended ("similar") title must have to surface as a
+    /// gap, which trims the obscure long tail of the discovery feed. 0 disables the gate (every result
+    /// surfaces). Raise it to keep only well-known suggestions.
+    /// </summary>
+    public int MinRecommendationVotes { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of missing episodes listed per show. 0 means no limit (list

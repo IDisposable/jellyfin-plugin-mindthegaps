@@ -25,7 +25,7 @@ public class TmdbRecommendationsCapturedDataTests
         var similar = Load();
         var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
 
-        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 5).ToList();
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 5, 0).ToList();
 
         Assert.Equal(5, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
@@ -38,9 +38,22 @@ public class TmdbRecommendationsCapturedDataTests
         var similar = Load();
         var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
 
-        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100).ToList();
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100, 0).ToList();
 
         Assert.Equal(20, gaps.Count);
         Assert.Equal("recommendation:movie:1969", gaps[0].Id);
+    }
+
+    [Fact]
+    public void BuildMovies_VoteGate_DropsObscureSuggestions()
+    {
+        var similar = Load();
+        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+
+        // 7 of the 20 captured results have at least 1000 TMDB votes (the obscure long tail falls away).
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100, 1000).ToList();
+
+        Assert.Equal(7, gaps.Count);
+        Assert.Contains(gaps, g => g.Id == "recommendation:movie:1969"); // 1174 votes, kept
     }
 }

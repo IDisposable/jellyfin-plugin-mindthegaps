@@ -134,7 +134,8 @@ public sealed class RecommendationsGapSource : IGapSource
                     item.ProductionYear,
                     context.Ownership,
                     _tmdb.GetPosterUrl,
-                    perItem))
+                    perItem,
+                    context.Config.MinRecommendationVotes))
                 {
                     yield return gap;
                 }
@@ -159,7 +160,8 @@ public sealed class RecommendationsGapSource : IGapSource
                     item.ProductionYear,
                     context.Ownership,
                     _tmdb.GetPosterUrl,
-                    perItem))
+                    perItem,
+                    context.Config.MinRecommendationVotes))
                 {
                     yield return gap;
                 }

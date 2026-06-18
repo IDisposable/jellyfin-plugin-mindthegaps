@@ -81,6 +81,7 @@ These bound how much each scan produces, so one prolific show or a huge cast doe
 | Setting | Default | Effect |
 |---|---|---|
 | **Max related per item** (`MaxRelatedPerItem`) | 20 | Caps how many "similar" titles each owned item contributes to recommendations. |
+| **Recommendations: minimum TMDB votes** (`MinRecommendationVotes`) | 100 | A recommended ("similar") title must have at least this many TMDB votes to surface, trimming the obscure long tail of the discovery feed. `0` shows everything; raise it (e.g. 500 or 1000) to keep only well-known suggestions. |
 | **Max missing episodes per show** (`MaxMissingEpisodesPerShow`) | 200 | Caps missing episodes listed per show. `0` lists them all. |
 | **Max creators scanned per run** (`MaxFilmographyPeople`) | 1000 | Caps how many owned people have their filmography scanned per run. People are scanned stalest-first (never-scanned first, then longest-ago), so a lower cap still eventually covers everyone over successive runs; raise it to cover a large cast/crew faster (each person is one cached TMDB lookup). |
 | **Filmography: minimum TMDB votes** (`MinFilmographyVotes`) | 100 | A cast credit must have at least this many TMDB votes to surface as a Creator works gap, which keeps the list actionable on a large library by dropping obscure and unreleased films. `0` shows everything; raise it (e.g. 500 or 1000) to trim to only well-known films. Directing/writing credits are always shown (TMDB's filmography crew carries no vote count). |
