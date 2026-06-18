@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using MediaBrowser.Common.Net;
+using MediaBrowser.Controller;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Webhook;
@@ -22,16 +23,19 @@ public sealed class WebhookNotifier
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IServerApplicationHost _appHost;
     private readonly ILogger<WebhookNotifier> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebhookNotifier"/> class.
     /// </summary>
     /// <param name="httpClientFactory">The HTTP client factory.</param>
+    /// <param name="appHost">The server host, for identifying which Jellyfin instance fired the webhook.</param>
     /// <param name="logger">The logger.</param>
-    public WebhookNotifier(IHttpClientFactory httpClientFactory, ILogger<WebhookNotifier> logger)
+    public WebhookNotifier(IHttpClientFactory httpClientFactory, IServerApplicationHost appHost, ILogger<WebhookNotifier> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _appHost = appHost;
         _logger = logger;
     }
 
@@ -53,10 +57,14 @@ public sealed class WebhookNotifier
 
         try
         {
+            // Identify which Jellyfin instance fired this, so one shared webhook URL can serve several.
+            var serverName = string.IsNullOrWhiteSpace(_appHost.FriendlyName) ? "Jellyfin" : _appHost.FriendlyName;
             var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["content"] = content,
-                ["event"] = eventName
+                ["content"] = "[" + serverName + "] " + content,
+                ["event"] = eventName,
+                ["server"] = serverName,
+                ["serverId"] = _appHost.SystemId
             };
             foreach (var field in fields)
             {
