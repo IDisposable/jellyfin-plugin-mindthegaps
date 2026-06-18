@@ -1,17 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Persists, per gap source, the set of items already scanned in the current cycle, so a source that
-/// caps its work per run can advance to the next batch next run instead of rescanning the same items.
-/// Paired with the engine carrying unowned gaps forward across scans, this lets a large library "fill
-/// up" over repeated runs. When everything has been scanned the source starts a fresh cycle.
+/// Persists, per gap source, when each library item was last scanned (a side table keyed by the item's
+/// guid, so the owned items are never touched). A capped source uses it as a staleness queue: each run it
+/// scans the items that were scanned longest ago, with never-scanned items first, so over repeated runs
+/// the whole library is covered and then the stalest entries refresh, with no explicit cycle reset.
 /// </summary>
 public sealed class ScanCursorStore
 {
@@ -23,7 +22,7 @@ public sealed class ScanCursorStore
     private readonly ILogger<ScanCursorStore> _logger;
     private readonly string? _dataFolderOverride;
     private readonly object _lock = new();
-    private Dictionary<string, HashSet<string>>? _cache;
+    private Dictionary<string, Dictionary<string, DateTime>>? _cache;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScanCursorStore"/> class.
@@ -57,45 +56,49 @@ public sealed class ScanCursorStore
     }
 
     /// <summary>
-    /// Gets the keys already scanned in the current cycle for a source.
+    /// Gets, for a source, the last-scanned UTC time of each item it has scanned. Items absent from the
+    /// map have never been scanned and rank as the stalest.
     /// </summary>
     /// <param name="source">The source name.</param>
-    /// <returns>The processed keys.</returns>
-    public IReadOnlyCollection<string> GetProcessed(string source)
+    /// <returns>The item-key to last-scanned-time map (a snapshot copy).</returns>
+    public IReadOnlyDictionary<string, DateTime> GetLastScanned(string source)
     {
         lock (_lock)
         {
             var map = Load();
-            return map.TryGetValue(source, out var set) ? set.ToArray() : Array.Empty<string>();
+            return map.TryGetValue(source, out var times)
+                ? new Dictionary<string, DateTime>(times, StringComparer.Ordinal)
+                : new Dictionary<string, DateTime>(StringComparer.Ordinal);
         }
     }
 
     /// <summary>
-    /// Adds keys to a source's processed set for the current cycle.
+    /// Stamps the given item keys as scanned now for a source.
     /// </summary>
     /// <param name="source">The source name.</param>
-    /// <param name="keys">The keys just scanned.</param>
-    public void MarkProcessed(string source, IReadOnlyCollection<string> keys)
+    /// <param name="keys">The item keys just scanned.</param>
+    public void MarkScanned(string source, IReadOnlyCollection<string> keys)
     {
         if (keys.Count == 0)
         {
             return;
         }
 
+        var now = DateTime.UtcNow;
         lock (_lock)
         {
             var map = Load();
-            if (!map.TryGetValue(source, out var set))
+            if (!map.TryGetValue(source, out var times))
             {
-                set = new HashSet<string>(StringComparer.Ordinal);
-                map[source] = set;
+                times = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+                map[source] = times;
             }
 
             foreach (var key in keys)
             {
                 if (!string.IsNullOrEmpty(key))
                 {
-                    set.Add(key);
+                    times[key] = now;
                 }
             }
 
@@ -103,23 +106,7 @@ public sealed class ScanCursorStore
         }
     }
 
-    /// <summary>
-    /// Clears a source's processed set, starting a fresh coverage cycle.
-    /// </summary>
-    /// <param name="source">The source name.</param>
-    public void StartNewCycle(string source)
-    {
-        lock (_lock)
-        {
-            var map = Load();
-            if (map.Remove(source))
-            {
-                Flush(map);
-            }
-        }
-    }
-
-    private Dictionary<string, HashSet<string>> Load()
+    private Dictionary<string, Dictionary<string, DateTime>> Load()
     {
         if (_cache is not null)
         {
@@ -131,26 +118,21 @@ public sealed class ScanCursorStore
             var path = FilePath;
             if (File.Exists(path))
             {
-                var raw = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(File.ReadAllText(path), _jsonOptions);
-                if (raw is not null)
-                {
-                    _cache = raw.ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => new HashSet<string>(kvp.Value, StringComparer.Ordinal),
-                        StringComparer.Ordinal);
-                }
+                _cache = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, DateTime>>>(File.ReadAllText(path), _jsonOptions);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to read scan cursors");
+            // A pre-existing file in the old (set) format simply will not parse; treat it as empty and
+            // rebuild, which costs one fresh coverage cycle and nothing more.
+            _logger.LogWarning(ex, "Could not read scan cursors; starting fresh");
         }
 
-        return _cache ??= new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        return _cache ??= new Dictionary<string, Dictionary<string, DateTime>>(StringComparer.Ordinal);
     }
 
     // Atomic write: serialize to a temp file then replace. Caller holds _lock.
-    private void Flush(Dictionary<string, HashSet<string>> map)
+    private void Flush(Dictionary<string, Dictionary<string, DateTime>> map)
     {
         try
         {

@@ -135,13 +135,18 @@ public sealed class GapEngine
         // up genuinely new gaps. Do this before the host link pass so carried ids produce their links.
         CarryForward(gaps);
 
-        // Backfill: filmography only scans a slice of the cast and crew each run, so carry forward prior
-        // CreatorWorks gaps that were not re-emitted this run and are still unowned. Coverage then
-        // accumulates across runs instead of the un-scanned creators' gaps vanishing. Gated on a
-        // filmography source being enabled, so disabling it lets the accumulation drain on the next scan.
+        // Backfill: filmography and recommendations only scan a slice of their seeds each run, so carry
+        // forward prior gaps of those patterns that were not re-emitted this run and are still unowned.
+        // Coverage then accumulates across runs instead of the un-scanned seeds' gaps vanishing. Gated on
+        // the relevant source being enabled, so disabling it lets the accumulation drain on the next scan.
         if (config.ScanPeople || config.TraktEnabled)
         {
-            AccumulateCreatorWorks(gaps, byId, priorReport.Items, context.Ownership);
+            AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.CreatorWorks, GapResolution.CreatorPrefix);
+        }
+
+        if (config.ScanRecommendations)
+        {
+            AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, GapResolution.RecSourcePrefix);
         }
 
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
@@ -179,34 +184,34 @@ public sealed class GapEngine
         return report;
     }
 
-    // Carry prior CreatorWorks gaps forward across scans so filmography coverage accumulates: a gap that
-    // was found before, is still not owned, and was not re-found this run (its creator was not in this
-    // run's batch) is kept rather than dropped. Bounded so a huge library cannot grow the report without
-    // limit. The carried gap object keeps its prior enrichment (availability, resolved ids).
-    private void AccumulateCreatorWorks(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership)
+    // Carry prior gaps of one capped pattern forward across scans so its coverage accumulates: a gap that
+    // was found before, is still not owned, and was not re-found this run (its seed was not in this run's
+    // batch) is kept rather than dropped. Gaps whose source the user dismissed wholesale (creator or
+    // recommendation source, per dismissedPrefix) drain away. Bounded so a huge library cannot grow the
+    // report without limit. The carried gap object keeps its prior enrichment (availability, resolved ids).
+    private void AccumulateUnowned(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership, GapPattern pattern, string dismissedPrefix)
     {
         const int maxAccumulated = 50000;
 
-        // Do not carry forward gaps for a creator the user dismissed wholesale; they should drain away.
-        var dismissedCreators = new HashSet<string>(StringComparer.Ordinal);
+        var dismissed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in _resolutions.GetAll().Keys)
         {
-            if (id.StartsWith(GapResolution.CreatorPrefix, StringComparison.Ordinal))
+            if (id.StartsWith(dismissedPrefix, StringComparison.Ordinal))
             {
-                dismissedCreators.Add(id[GapResolution.CreatorPrefix.Length..]);
+                dismissed.Add(id[dismissedPrefix.Length..]);
             }
         }
 
-        var creatorWorks = gaps.Count(g => g.Pattern == GapPattern.CreatorWorks);
+        var count = gaps.Count(g => g.Pattern == pattern);
         var carried = 0;
         foreach (var item in prior)
         {
-            if (item.Pattern != GapPattern.CreatorWorks || byId.ContainsKey(item.Id))
+            if (item.Pattern != pattern || byId.ContainsKey(item.Id))
             {
                 continue;
             }
 
-            if (item.SourceItemId is not null && dismissedCreators.Contains(item.SourceItemId))
+            if (item.SourceItemId is not null && dismissed.Contains(item.SourceItemId))
             {
                 continue;
             }
@@ -216,21 +221,21 @@ public sealed class GapEngine
                 continue;
             }
 
-            if (creatorWorks >= maxAccumulated)
+            if (count >= maxAccumulated)
             {
-                _logger.LogInformation("Filmography backfill: reached the {Max} accumulated cap; older gaps not carried", maxAccumulated);
+                _logger.LogInformation("Backfill: reached the {Max} accumulated cap for {Pattern}; older gaps not carried", maxAccumulated, pattern);
                 break;
             }
 
             byId[item.Id] = item;
             gaps.Add(item);
-            creatorWorks++;
+            count++;
             carried++;
         }
 
         if (carried > 0)
         {
-            _logger.LogInformation("Filmography backfill: carried {Carried} unowned creator-works gaps forward from the previous scan", carried);
+            _logger.LogInformation("Backfill: carried {Carried} unowned {Pattern} gaps forward from the previous scan", carried, pattern);
         }
     }
 

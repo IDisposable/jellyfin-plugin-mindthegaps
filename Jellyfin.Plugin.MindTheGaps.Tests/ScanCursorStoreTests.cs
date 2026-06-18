@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -14,16 +13,19 @@ public class ScanCursorStoreTests
     private static ScanCursorStore Store(string dir) => new(NullLogger<ScanCursorStore>.Instance, dir);
 
     [Fact]
-    public void MarkProcessed_AccumulatesAcrossCalls_AndReloadsFromDisk()
+    public void MarkScanned_StampsKeys_AndReloadsFromDisk()
     {
         var dir = TempDir();
         try
         {
-            Store(dir).MarkProcessed("Filmography", new[] { "a", "b" });
-            Store(dir).MarkProcessed("Filmography", new[] { "b", "c" });
+            var before = DateTime.UtcNow;
+            Store(dir).MarkScanned("Filmography", new[] { "a", "b" });
+            var after = DateTime.UtcNow;
 
-            var processed = Store(dir).GetProcessed("Filmography").OrderBy(x => x).ToArray();
-            Assert.Equal(new[] { "a", "b", "c" }, processed);
+            var times = Store(dir).GetLastScanned("Filmography");
+            Assert.Equal(2, times.Count);
+            Assert.InRange(times["a"], before, after);
+            Assert.InRange(times["b"], before, after);
         }
         finally
         {
@@ -32,19 +34,39 @@ public class ScanCursorStoreTests
     }
 
     [Fact]
-    public void StartNewCycle_ClearsOnlyThatSource()
+    public void MarkScanned_OverwritesEarlierStamp_ForRescannedKey()
     {
         var dir = TempDir();
         try
         {
             var store = Store(dir);
-            store.MarkProcessed("Filmography", new[] { "a" });
-            store.MarkProcessed("Other", new[] { "x" });
+            store.MarkScanned("Filmography", new[] { "a" });
+            var first = store.GetLastScanned("Filmography")["a"];
 
-            store.StartNewCycle("Filmography");
+            store.MarkScanned("Filmography", new[] { "a" });
+            var second = store.GetLastScanned("Filmography")["a"];
 
-            Assert.Empty(Store(dir).GetProcessed("Filmography"));
-            Assert.Single(Store(dir).GetProcessed("Other"));
+            Assert.True(second >= first);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetLastScanned_IsPerSource_AndUnknownSourceIsEmpty()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.MarkScanned("Filmography", new[] { "a" });
+            store.MarkScanned("Recommendations", new[] { "x", "y" });
+
+            Assert.Single(Store(dir).GetLastScanned("Filmography"));
+            Assert.Equal(2, Store(dir).GetLastScanned("Recommendations").Count);
+            Assert.Empty(Store(dir).GetLastScanned("Nope"));
         }
         finally
         {

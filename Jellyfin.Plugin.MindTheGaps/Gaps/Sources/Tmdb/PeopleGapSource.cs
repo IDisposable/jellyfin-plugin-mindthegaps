@@ -77,51 +77,23 @@ public sealed class PeopleGapSource : IGapSource
             Recursive = true
         });
 
-        // Order people by how many owned movies/series credit them, so each run's batch is the most
-        // relevant un-scanned creators, not the alphabetically-first names.
-        var ordered = OrderByRelevance(people, cancellationToken);
-
-        // Drop creators the user dismissed wholesale ("never delve into them"): do not scan them at all.
+        // Order people stalest-first (never-scanned rank as oldest), tiebroken by relevance (most owned
+        // credits) then name. Each run takes the next cap, so over runs the whole cast and crew is covered
+        // and then the people scanned longest ago refresh; the engine carries unowned gaps forward between
+        // runs. Creators the user dismissed wholesale are excluded entirely.
         var dismissed = DismissedCreatorGuids();
-        if (dismissed.Count > 0)
-        {
-            var before = ordered.Count;
-            ordered = ordered.Where(p => !dismissed.Contains(p.Id.ToString("N", CultureInfo.InvariantCulture))).ToList();
-            _logger.LogInformation("Filmography: skipping {Count} dismissed creators", before - ordered.Count);
-        }
+        var lastScanned = _cursors.GetLastScanned(Name);
+        var appearances = CountOwnedAppearances(cancellationToken);
 
-        // Resume where the last run left off: take the next batch of people not yet scanned this cycle, so
-        // over repeated runs the whole cast and crew is covered (the engine carries unowned filmography
-        // gaps forward between runs). When everyone has been scanned, start a fresh cycle to refresh.
-        var done = new HashSet<string>(_cursors.GetProcessed(Name), StringComparer.Ordinal);
-        var batch = new List<BaseItem>();
-        foreach (var candidate in ordered)
-        {
-            if (batch.Count >= cap)
-            {
-                break;
-            }
+        var ordered = people
+            .Select(p => (Person: p, Key: p.Id.ToString("N", CultureInfo.InvariantCulture)))
+            .Where(x => !dismissed.Contains(x.Key))
+            .OrderBy(x => lastScanned.TryGetValue(x.Key, out var t) ? t : DateTime.MinValue)
+            .ThenByDescending(x => appearances.TryGetValue(x.Person.Name, out var c) ? c : 0)
+            .ThenBy(x => x.Person.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-            if (!done.Contains(candidate.Id.ToString("N", CultureInfo.InvariantCulture)))
-            {
-                batch.Add(candidate);
-            }
-        }
-
-        if (batch.Count == 0 && ordered.Count > 0)
-        {
-            _logger.LogInformation("Filmography: all {Count} people scanned this cycle; starting a fresh cycle", ordered.Count);
-            _cursors.StartNewCycle(Name);
-            foreach (var candidate in ordered)
-            {
-                if (batch.Count >= cap)
-                {
-                    break;
-                }
-
-                batch.Add(candidate);
-            }
-        }
+        var batch = ordered.Count > cap ? ordered.GetRange(0, cap) : ordered;
 
         var scannedKeys = new List<string>(batch.Count);
         for (var index = 0; index < batch.Count; index++)
@@ -129,8 +101,8 @@ public sealed class PeopleGapSource : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index / Math.Max(1, batch.Count));
 
-            var person = batch[index];
-            scannedKeys.Add(person.Id.ToString("N", CultureInfo.InvariantCulture));
+            var person = batch[index].Person;
+            scannedKeys.Add(batch[index].Key);
 
             if (!person.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var personTmdbId))
@@ -168,7 +140,7 @@ public sealed class PeopleGapSource : IGapSource
             }
         }
 
-        _cursors.MarkProcessed(Name, scannedKeys);
+        _cursors.MarkScanned(Name, scannedKeys);
     }
 
     // The set of owned-person guids (N-format) the user dismissed as a whole creator.
@@ -186,10 +158,9 @@ public sealed class PeopleGapSource : IGapSource
         return set;
     }
 
-    // Order owned people most-credited-first. Counts how many owned movies/series list each person, then
-    // sorts the person list by that count (descending), tie-breaking by name. This makes the per-run cap
-    // keep the prominent creators rather than the alphabetically-first names.
-    private List<BaseItem> OrderByRelevance(IReadOnlyList<BaseItem> people, CancellationToken cancellationToken)
+    // Count how many owned movies/series credit each person by name. Used as the relevance tiebreak when
+    // ordering people, so the per-run cap favours the creators the library has the most work from.
+    private Dictionary<string, int> CountOwnedAppearances(CancellationToken cancellationToken)
     {
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var owned = _libraryManager.GetItemList(new InternalItemsQuery
@@ -213,9 +184,6 @@ public sealed class PeopleGapSource : IGapSource
             }
         }
 
-        return people
-            .OrderByDescending(p => counts.TryGetValue(p.Name, out var c) ? c : 0)
-            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return counts;
     }
 }

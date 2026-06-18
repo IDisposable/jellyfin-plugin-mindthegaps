@@ -931,18 +931,34 @@
                 // be brought back even after a rescan has dropped its gaps from the report. Hidden when none.
                 function renderHiddenCreators(page) {
                     var el = page.querySelector('#cgHiddenCreators');
+
+                    // Whole-source dismissals only make sense on the two pattern tabs that have them: a creator
+                    // on Creator works, a seed title on Recommendations. Hide the picker entirely elsewhere.
+                    if (page._pattern !== 'CreatorWorks' && page._pattern !== 'Recommendation') {
+                        el.style.display = 'none'; el.innerHTML = ''; return;
+                    }
+
                     var entries = [];
                     Object.keys(resolvedMap).forEach(function (k) {
-                        if (k.indexOf('creator:') === 0) { entries.push({ key: k, name: (resolvedMap[k].Note || k.slice(8)) + ' (creator)' }); }
-                        else if (k.indexOf('recsource:') === 0) { entries.push({ key: k, name: (resolvedMap[k].Note || k.slice(10)) + ' (rec source)' }); }
+                        if (page._pattern === 'CreatorWorks' && k.indexOf('creator:') === 0) {
+                            entries.push({ key: k, name: resolvedMap[k].Note || k.slice(8) });
+                        } else if (page._pattern === 'Recommendation' && k.indexOf('recsource:') === 0) {
+                            entries.push({ key: k, name: resolvedMap[k].Note || k.slice(10) });
+                        }
                     });
                     if (!entries.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
                     entries.sort(function (a, b) { return ci(a.name, b.name); });
+
+                    var label = page._pattern === 'CreatorWorks' ? 'Muted creators:' : 'Muted sources:';
+                    var help = page._pattern === 'CreatorWorks'
+                        ? 'Creators you dismissed wholesale are not scanned for missing films. Pick one and Bring back to scan it again.'
+                        : 'Owned titles you dismissed as a recommendation seed produce no suggestions. Pick one and Bring back to suggest from it again.';
                     el.style.display = '';
-                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;">Hidden:</span> '
-                        + '<select is="emby-select" id="cgHiddenCreatorSel" class="emby-select" style="width:auto;">'
+                    el.title = help;
+                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;" title="' + esc(help) + '">' + esc(label) + '</span> '
+                        + '<select is="emby-select" id="cgHiddenCreatorSel" class="emby-select" style="width:auto;" title="' + esc(help) + '">'
                         + entries.map(function (en) { return '<option value="' + esc(en.key) + '">' + esc(en.name) + '</option>'; }).join('')
-                        + '</select> <button is="emby-button" type="button" id="cgRestoreCreatorBtn" class="raised" style="margin:0;"><span>Restore</span></button>';
+                        + '</select> <button is="emby-button" type="button" id="cgRestoreCreatorBtn" class="raised" style="margin:0;" title="' + esc(help) + '"><span>Bring back</span></button>';
                 }
 
                 function renderViews(page) {
