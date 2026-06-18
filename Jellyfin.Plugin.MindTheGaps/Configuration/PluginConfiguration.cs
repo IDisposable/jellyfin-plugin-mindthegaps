@@ -19,6 +19,7 @@ public class PluginConfiguration : BasePluginConfiguration
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
+        MaxFilmographyPeople = 1000;
         MetadataCountryCode = "US";
         MetadataLanguage = "en";
         TraktEnabled = false;
@@ -65,6 +66,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// them all). Keeps a single prolific show from flooding the todo list.
     /// </summary>
     public int MaxMissingEpisodesPerShow { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of owned people whose filmography is scanned per run. People are
+    /// scanned most-credited-first, so a lower cap keeps the creators the library has the most work from.
+    /// Raise it to cover more of a large cast/crew (each person is a single cached TMDB call).
+    /// </summary>
+    public int MaxFilmographyPeople { get; set; }
 
     /// <summary>
     /// Gets or sets the metadata country code (ISO 3166-1 alpha-2) used for releases and availability.

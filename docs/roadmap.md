@@ -171,8 +171,12 @@ targeted deletes), so it does not need its own progress. Availability is its own
   background passes. Carry a per-source cursor forward (last person/seed/series processed) and resume
   from it next run, and/or partition the work into bounded rotating slices (for example one alphabetical
   bucket and one axis/pattern tab per run) so each scan covers a different slice and the set fills up over
-  time. Interim mitigation available now without the full design: the relevance ordering in (1) alone
-  removes the alphabetical bias cheaply.
+  time. Part (1) is DONE: `PeopleGapSource` now orders people most-credited-first and the cap is
+  configurable (`MaxFilmographyPeople`), so a single run covers the prominent creators across all names
+  instead of only the "A" names. Part (2), cross-run accumulation, is still open and is the harder half:
+  the report is rebuilt from scratch each scan, so a rotating cursor alone would make a previous run's
+  gaps vanish; true fill-up needs the engine to carry forward prior still-missing gaps from incremental
+  sources (re-checking ownership) rather than dropping any gap a source did not re-emit this run.
 - **Send a gap to Radarr/Sonarr.** The report dead-ends at a link; power users running the arr stack
   want one click from "missing" to "queued". Gaps already carry the ids these need: a movie gap has a
   TMDB id (Radarr `POST /api/v3/movie` takes a tmdbId), a missing episode carries its series' TheTVDB id

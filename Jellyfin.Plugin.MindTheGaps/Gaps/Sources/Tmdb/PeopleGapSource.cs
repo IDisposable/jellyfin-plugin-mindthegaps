@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Jellyfin.Data.Enums;
@@ -21,8 +22,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// </summary>
 public sealed class PeopleGapSource : IGapSource
 {
-    // TMDB person fetch is a single cached call per person, so a generous cap is fine.
-    private const int MaxPeople = 500;
+    // Fallback cap when the configured value is not set; TMDB person fetch is one cached call each.
+    private const int DefaultMaxPeople = 1000;
 
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
@@ -60,6 +61,7 @@ public sealed class PeopleGapSource : IGapSource
     {
         var language = context.Config.MetadataLanguage;
         var country = context.Config.MetadataCountryCode;
+        var cap = context.Config.MaxFilmographyPeople > 0 ? context.Config.MaxFilmographyPeople : DefaultMaxPeople;
 
         var people = _libraryManager.GetItemList(new InternalItemsQuery
         {
@@ -67,22 +69,27 @@ public sealed class PeopleGapSource : IGapSource
             Recursive = true
         });
 
+        // Order people by how many owned movies/series credit them, so the per-run cap keeps the creators
+        // the library has the most work from. The default item order is SortName (alphabetical), so a flat
+        // cap on that order would only ever reach the "A" names on a large library.
+        var ordered = OrderByRelevance(people, cancellationToken);
+
         var processed = 0;
-        var index = 0;
-        foreach (var person in people)
+        for (var index = 0; index < ordered.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            context.ReportProgress((double)index++ / Math.Max(1, people.Count));
+            context.ReportProgress((double)index / Math.Max(1, ordered.Count));
 
-            if (processed >= MaxPeople)
+            if (processed >= cap)
             {
                 _logger.LogInformation(
-                    "Filmography: reached people cap ({Cap}); {Remaining} people not scanned this run",
-                    MaxPeople,
-                    people.Count - processed);
+                    "Filmography: reached people cap ({Cap}); {Remaining} less-credited people not scanned this run",
+                    cap,
+                    ordered.Count - processed);
                 break;
             }
 
+            var person = ordered[index];
             if (!person.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var personTmdbId))
             {
@@ -119,5 +126,38 @@ public sealed class PeopleGapSource : IGapSource
                 yield return gap;
             }
         }
+    }
+
+    // Order owned people most-credited-first. Counts how many owned movies/series list each person, then
+    // sorts the person list by that count (descending), tie-breaking by name. This makes the per-run cap
+    // keep the prominent creators rather than the alphabetically-first names.
+    private List<BaseItem> OrderByRelevance(IReadOnlyList<BaseItem> people, CancellationToken cancellationToken)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var owned = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
+            Recursive = true
+        });
+
+        foreach (var item in owned)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var credit in _libraryManager.GetPeople(item))
+            {
+                if (string.IsNullOrEmpty(credit.Name))
+                {
+                    continue;
+                }
+
+                counts.TryGetValue(credit.Name, out var current);
+                counts[credit.Name] = current + 1;
+            }
+        }
+
+        return people
+            .OrderByDescending(p => counts.TryGetValue(p.Name, out var c) ? c : 0)
+            .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

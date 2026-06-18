@@ -131,6 +131,11 @@
                             <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" />
                             <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
                         </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxFilmographyPeople">Max creators scanned per run</label>
+                            <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" />
+                            <div class="fieldDescription">Filmography scans people most-credited-first; raise this to cover more of a large cast and crew (each is one cached TMDB lookup).</div>
+                        </div>
                     </div>
 
                     <div class="verticalSection">
@@ -193,6 +198,7 @@
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
+                    page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
                     bindToggle(page, 'TraktEnabled', 'TraktClientId');
                     bindToggle(page, 'TvdbEnabled', 'TvdbApiKey');
                 }
@@ -287,6 +293,7 @@
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
+                        config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
