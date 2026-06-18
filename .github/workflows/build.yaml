@@ -23,12 +23,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Version comes from build.yaml (the single source). A row with no plugin-version uses it
-          # verbatim; a row with abi-base derives <abi-base>.<build.yaml trailing fields> so other ABIs
-          # auto-stay in lockstep (build.yaml 10.11.0.3 -> 12.0.0.3). An explicit plugin-version overrides.
-          - { abi: "10.11", framework: net9.0, dotnet: "9.0.x", jellyfin: "10.11.11", targetabi: "10.11.0.0" }
+          # Version comes from build.yaml (the single source). An empty plugin-version uses it verbatim;
+          # an abi-base derives <abi-base>.<build.yaml trailing fields> so other ABIs auto-stay in lockstep
+          # (build.yaml 10.11.0.3 -> 12.0.0.3). A non-empty plugin-version overrides. plugin-version and
+          # abi-base are declared empty here (not just omitted) so the matrix context type includes them and
+          # the "Resolve version" step's matrix['plugin-version'] / matrix['abi-base'] do not warn.
+          - { abi: "10.11", framework: net9.0, dotnet: "9.0.x", jellyfin: "10.11.11", targetabi: "10.11.0.0", plugin-version: "", abi-base: "" }
           # Enable 12.x by uncommenting (set jellyfin to the real published version):
-          # - { abi: "12.x", framework: net10.0, dotnet: "10.0.x", jellyfin: "12.0.0", abi-base: "12.0", targetabi: "12.0.0.0" }
+          # - { abi: "12.x", framework: net10.0, dotnet: "10.0.x", jellyfin: "12.0.0", plugin-version: "", abi-base: "12.0", targetabi: "12.0.0.0" }
     name: build (${{ matrix.abi }})
     steps:
       - uses: actions/checkout@v6
