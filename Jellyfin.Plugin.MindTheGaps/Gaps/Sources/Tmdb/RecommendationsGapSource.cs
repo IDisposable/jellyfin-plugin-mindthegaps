@@ -84,9 +84,15 @@ public sealed class RecommendationsGapSource : IGapSource
         // (never-scanned first), so over repeated runs every owned title gets used as a recommendation seed and
         // then the seeds scanned longest ago refresh. The engine carries unowned recommendation gaps forward
         // between runs, so coverage accumulates rather than churning each scan.
-        var seeds = ownedMovies.Select(m => (Item: m, IsMovie: true))
+        var pool = ownedMovies.Select(m => (Item: m, IsMovie: true))
             .Concat(ownedSeries.Select(s => (Item: s, IsMovie: false)))
             .Select(x => (x.Item, x.IsMovie, Key: x.Item.Id.ToString("N", CultureInfo.InvariantCulture)))
+            .ToList();
+
+        // Drop rotation entries for titles no longer owned, so the table tracks the live seed set.
+        _cursors.RetainOnly(Name, pool.Select(x => x.Key).ToHashSet(StringComparer.Ordinal));
+
+        var seeds = pool
             .Where(x => !dismissed.Contains(x.Key))
             .OrderBy(x => lastScanned.TryGetValue(x.Key, out var t) ? t : DateTime.MinValue)
             .ThenBy(x => x.Item.Name, StringComparer.OrdinalIgnoreCase)

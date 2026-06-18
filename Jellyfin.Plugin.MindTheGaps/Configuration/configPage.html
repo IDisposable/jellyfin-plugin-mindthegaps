@@ -178,7 +178,13 @@
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="MaxFilmographyPeople">Max creators scanned per run</label>
                             <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" />
-                            <div class="fieldDescription">Filmography scans people most-credited-first; raise this to cover more of a large cast and crew (each is one cached TMDB lookup).</div>
+                            <div class="fieldDescription">Filmography and recommendation scans rotate stalest-first within this cap, so coverage builds up over runs; raise this to cover a large cast and crew faster (each person is one cached TMDB lookup).</div>
+                        </div>
+                        <div style="margin: 0.5em 0;">
+                            <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">
+                                <span>Reset scan rotation</span>
+                            </button>
+                            <div class="fieldDescription">Forgets which items were scanned recently, so the next scan starts a fresh coverage cycle treating everything as never-scanned. Does not delete any gaps or dismissals. Stale entries for items that left the library are pruned automatically, so you rarely need this.</div>
                         </div>
                     </div>
 
@@ -306,6 +312,20 @@
                     });
                     page.querySelector('#RemoveMinted').addEventListener('click', function () {
                         runAction('RemoveMintedMovies', null);
+                    });
+                    page.querySelector('#ResetRotation').addEventListener('click', function () {
+                        if (!window.confirm('Forget which items were scanned recently and start a fresh coverage cycle on the next scan?')) {
+                            return;
+                        }
+                        Dashboard.showLoadingMsg();
+                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/ResetScanRotation') })
+                            .then(function () {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Scan rotation reset. The next scan starts a fresh coverage cycle.');
+                            }, function () {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Reset failed. Check the server logs.');
+                            });
                     });
                     // Bind the save here (per page show), so it is always attached to the live form. Bound
                     // once at document scope it would go stale when the view is recreated, the native form

@@ -73,6 +73,67 @@ public sealed class ScanCursorStore
     }
 
     /// <summary>
+    /// Drops stored entries for a source whose item key is not in the current live set, so the table
+    /// stays the size of the library and a deleted item cannot leave a stale stamp behind (which would
+    /// matter if its deterministic guid were later reused by a re-added item). A no-op when nothing is
+    /// pruned, so no needless write.
+    /// </summary>
+    /// <param name="source">The source name.</param>
+    /// <param name="liveKeys">The keys of every candidate item the source currently sees.</param>
+    public void RetainOnly(string source, IReadOnlyCollection<string> liveKeys)
+    {
+        var live = liveKeys as ISet<string> ?? new HashSet<string>(liveKeys, StringComparer.Ordinal);
+        lock (_lock)
+        {
+            var map = Load();
+            if (!map.TryGetValue(source, out var times))
+            {
+                return;
+            }
+
+            var dead = new List<string>();
+            foreach (var key in times.Keys)
+            {
+                if (!live.Contains(key))
+                {
+                    dead.Add(key);
+                }
+            }
+
+            if (dead.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var key in dead)
+            {
+                times.Remove(key);
+            }
+
+            Flush(map);
+        }
+    }
+
+    /// <summary>
+    /// Clears all scan-rotation state, so every source treats every item as never-scanned and a fresh
+    /// coverage cycle starts on the next scan.
+    /// </summary>
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            var map = Load();
+            if (map.Count == 0)
+            {
+                return;
+            }
+
+            map.Clear();
+            Flush(map);
+        }
+    }
+
+    /// <summary>
     /// Stamps the given item keys as scanned now for a source.
     /// </summary>
     /// <param name="source">The source name.</param>

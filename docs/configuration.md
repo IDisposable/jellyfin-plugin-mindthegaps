@@ -72,6 +72,12 @@ These bound how much each scan produces, so one prolific show or a huge cast doe
 | **Max missing episodes per show** (`MaxMissingEpisodesPerShow`) | 200 | Caps missing episodes listed per show. `0` lists them all. |
 | **Max creators scanned per run** (`MaxFilmographyPeople`) | 1000 | Caps how many owned people have their filmography scanned per run. People are scanned stalest-first (never-scanned first, then longest-ago), so a lower cap still eventually covers everyone over successive runs; raise it to cover a large cast/crew faster (each person is one cached TMDB lookup). |
 
+**Reset scan rotation** (button). Forgets which items were scanned recently so the next scan starts a
+fresh coverage cycle, treating everything as never-scanned. It does not delete any gaps or dismissals.
+You rarely need it: each scan automatically prunes rotation entries for items that have left the
+library, so the table stays the size of the library on its own. Use it after raising a cap, or if you
+suspect the rotation is stuck.
+
 ## Experimental: virtual items
 
 Off by default and clearly marked. Lets the plugin mint pathless "virtual" placeholder items so a gap

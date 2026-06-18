@@ -85,8 +85,14 @@ public sealed class PeopleGapSource : IGapSource
         var lastScanned = _cursors.GetLastScanned(Name);
         var appearances = CountOwnedAppearances(cancellationToken);
 
-        var ordered = people
+        var tagged = people
             .Select(p => (Person: p, Key: p.Id.ToString("N", CultureInfo.InvariantCulture)))
+            .ToList();
+
+        // Drop rotation entries for people no longer in the library, so the table tracks the live cast.
+        _cursors.RetainOnly(Name, tagged.Select(x => x.Key).ToHashSet(StringComparer.Ordinal));
+
+        var ordered = tagged
             .Where(x => !dismissed.Contains(x.Key))
             .OrderBy(x => lastScanned.TryGetValue(x.Key, out var t) ? t : DateTime.MinValue)
             .ThenByDescending(x => appearances.TryGetValue(x.Person.Name, out var c) ? c : 0)

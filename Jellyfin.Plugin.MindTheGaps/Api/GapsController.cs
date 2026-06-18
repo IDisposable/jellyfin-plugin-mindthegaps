@@ -31,6 +31,7 @@ public class GapsController : ControllerBase
     private readonly VirtualMovieMinter _minter;
     private readonly MintRunner _mintRunner;
     private readonly ResolutionStore _resolutions;
+    private readonly ScanCursorStore _cursors;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -42,7 +43,8 @@ public class GapsController : ControllerBase
     /// <param name="minter">The experimental virtual-movie minter.</param>
     /// <param name="mintRunner">The background mint runner.</param>
     /// <param name="resolutions">The store of per-gap resolution notes.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions)
+    /// <param name="cursors">The scan-rotation cursor store.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -51,6 +53,7 @@ public class GapsController : ControllerBase
         _minter = minter;
         _mintRunner = mintRunner;
         _resolutions = resolutions;
+        _cursors = cursors;
     }
 
     /// <summary>
@@ -83,6 +86,20 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<ScanStatus> GetScanStatus()
         => new ScanStatus { Running = _scanRunner.IsRunning, Progress = _scanRunner.Progress };
+
+    /// <summary>
+    /// Clears the scan-rotation state so the capped sources (filmography, recommendations) treat every
+    /// item as never-scanned and start a fresh coverage cycle on the next scan. Does not delete any gaps
+    /// or dismissals.
+    /// </summary>
+    /// <returns>No content.</returns>
+    [HttpPost("ResetScanRotation")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult ResetScanRotation()
+    {
+        _cursors.Reset();
+        return NoContent();
+    }
 
     /// <summary>
     /// Starts a background removal of every virtual movie this plugin has minted. Poll <see cref="GetMintStatus"/>.

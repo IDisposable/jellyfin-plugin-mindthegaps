@@ -55,6 +55,50 @@ public class ScanCursorStoreTests
     }
 
     [Fact]
+    public void RetainOnly_DropsEntriesNotInLiveSet_KeepsTheRest()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.MarkScanned("Filmography", new[] { "a", "b", "c" });
+
+            store.RetainOnly("Filmography", new[] { "a", "c" });
+
+            var times = Store(dir).GetLastScanned("Filmography");
+            Assert.Equal(2, times.Count);
+            Assert.True(times.ContainsKey("a"));
+            Assert.False(times.ContainsKey("b"));
+            Assert.True(times.ContainsKey("c"));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void Reset_ClearsEverySource()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.MarkScanned("Filmography", new[] { "a" });
+            store.MarkScanned("Recommendations", new[] { "x" });
+
+            store.Reset();
+
+            Assert.Empty(Store(dir).GetLastScanned("Filmography"));
+            Assert.Empty(Store(dir).GetLastScanned("Recommendations"));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void GetLastScanned_IsPerSource_AndUnknownSourceIsEmpty()
     {
         var dir = TempDir();
