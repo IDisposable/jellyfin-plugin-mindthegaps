@@ -94,15 +94,20 @@ Open **Dashboard > Mind the Gaps** and click **Rescan now**. For collection gaps
 TMDB id (from the TMDB box-set provider). The scan also runs on a schedule (editable under
 **Dashboard > Scheduled Tasks**).
 
+See the [report guide](docs/report-guide.md) for the three pattern tabs (Set completion, Creator works,
+Recommendations), the filters and saved views, and the per-row actions (where to watch, mint, dismiss).
+
 ## Configuration
 
-In the dashboard, go to **Plugins > Mind the Gaps**. The settings page has per-source toggles plus:
+In the dashboard, go to **Plugins > Mind the Gaps**. For every setting, what it does, and what changes
+when you set or clear it, see the [configuration reference](docs/configuration.md). In brief, the
+settings page has per-source toggles plus:
 
 | Setting | Description |
 |---|---|
 | Metadata country / language | Locale for TMDB lookups and availability. |
 | Max related per item | Caps how many "similar" titles each owned item contributes. |
-| Max creators scanned per run | Caps the filmography scan; people are scanned most-credited-first, so raise it to cover more of a large cast and crew. |
+| Max creators scanned per run | Caps the filmography scan; people are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster. |
 | Curated studio / keyword ids | Comma-separated TMDB company and keyword ids to complete (for example 41077 for A24). |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |
@@ -165,6 +170,8 @@ Directory.Packages.props                # central NuGet versions (single source)
 LICENSE
 assets/                                 # social card
 docs/                                   # ADRs + upstream drafts + design notes
+  configuration.md                      # every setting and its implications
+  report-guide.md                       # how to read and work the report
 Jellyfin.Plugin.MindTheGaps/            # the plugin
   Plugin.cs, ServiceRegistrator.cs, ProviderLinks.cs
   Gaps/                                 # engine + IGapSource + sources
