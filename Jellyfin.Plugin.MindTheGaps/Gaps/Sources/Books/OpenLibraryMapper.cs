@@ -106,12 +106,14 @@ public static class OpenLibraryMapper
             return full;
         }
 
-        // OpenLibrary first_publish_date is free-form; pull a leading 4-digit year if there is one.
+        // OpenLibrary first_publish_date is free-form; pull a 4-digit year if there is one. The range is
+        // the DateTime-representable one (1 to 9999 CE), so old works are kept, not cut at year 1000. BCE
+        // dates cannot be represented by DateTime at all, so an ancient work simply gets no date here.
         for (var i = 0; i + 4 <= value.Length; i++)
         {
             var slice = value.Substring(i, 4);
             if (int.TryParse(slice, NumberStyles.Integer, CultureInfo.InvariantCulture, out var year)
-                && year is > 1000 and < 9999)
+                && year is >= 1 and <= 9999)
             {
                 return new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             }
