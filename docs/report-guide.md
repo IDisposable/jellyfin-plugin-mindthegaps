@@ -115,6 +115,9 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
   - **Not interested**: a real gap you do not want.
   - **Snooze** (upcoming items): hide until the release date.
   - **Clear**: undo any dismissal (visible via **Show dismissed**).
+- **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group
+  header carries **Resolve all** / **Not interested in all**, which dismiss every listed episode under that
+  group in one step (after a confirm). They act on the episodes currently shown, so any filter applies.
 
 ## Minting several at once
 

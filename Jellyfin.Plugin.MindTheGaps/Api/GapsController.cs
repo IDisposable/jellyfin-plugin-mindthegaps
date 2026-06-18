@@ -339,6 +339,24 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
+    /// Dismisses several gaps at once with the same kind and note, for the "resolve every item under this
+    /// series or season" group actions. Persists across rescans.
+    /// </summary>
+    /// <param name="request">The gap ids, the kind, and a note.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("ResolveBatch")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult ResolveBatch([FromBody] ResolveBatchRequest request)
+    {
+        foreach (var id in request.Ids)
+        {
+            _resolutions.SetState(id, request.Kind, request.Note, null);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Clears a gap's resolution so it shows as missing again.
     /// </summary>
     /// <param name="id">The gap id.</param>

@@ -246,6 +246,14 @@
                     return ' <a class="cgLink cgDismissCreator" data-gapid="' + esc(guid) + '" data-name="' + esc(name || '') + '" title="Never delve into this creator (stop scanning and hide their gaps)">Not interested in creator</a>';
                 }
 
+                // Resolve-all / Not-interested-all controls for a series or season group header: they dismiss
+                // every listed gap under the group in one batch. The click handler collects the ids from the
+                // group's rows, so the label is only for the confirm prompt.
+                function batchDismissBtns(label) {
+                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve every listed item here (not really missing)">Resolve all</a>'
+                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark every listed item here as not interested">Not interested in all</a>';
+                }
+
                 // The greyed status line for a dismissed gap.
                 function dismissalLabel(r) {
                     if (r.Kind === 'notinterested') { return 'Not interested' + (r.Note ? ': ' + esc(r.Note) : ''); }
@@ -493,7 +501,13 @@
                         var n = Number(key);
                         var label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
                         var seasonItems = bySeason.map[key];
-                        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), seasonItems[0].SeasonItemId);
+                        // The season's open-in-Jellyfin link needs a season item, but only library-known
+                        // episodes carry one (a cross-check discovery for a wholly-unowned season has none).
+                        // Take it from any episode that has it, not just the first, so the link is not dropped
+                        // just because a linkless cross-check episode happens to sort first.
+                        var seasonId = '';
+                        for (var si = 0; si < seasonItems.length; si++) { if (seasonItems[si].SeasonItemId) { seasonId = seasonItems[si].SeasonItemId; break; } }
+                        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), seasonId, batchDismissBtns(label));
                     }).join('');
                 }
 
@@ -583,7 +597,10 @@
                             var srcItems = bySrc.map[src];
                             var covItem = srcItems[0];
                             for (var ci2 = 0; ci2 < srcItems.length; ci2++) { if (srcItems[ci2].SetTotalCount) { covItem = srcItems[ci2]; break; } }
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, coverageBadge(covItem));
+                            // A series (episode source) gets batch resolve/not-interested over all its episodes.
+                            var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
+                            var extra = coverageBadge(covItem) + (isEpisodic ? batchDismissBtns(src) : '');
+                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), srcItems[0].SourceItemId, extra);
                         }).join('');
                         return groupHtml(1, cat, catItems.length, false, srcHtml);
                     }).join('');
@@ -1551,6 +1568,32 @@
                                 url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: clearResBtn.getAttribute('data-gapid') })
                             }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
                                 .catch(function () { Dashboard.alert('Could not clear the resolution. Check the server logs.'); });
+                            return;
+                        }
+
+                        // Batch resolve / not-interested for every listed gap under a series or season group.
+                        var batchBtn = e.target.closest('.cgBatchResolve') || e.target.closest('.cgBatchNotInterested');
+                        if (batchBtn) {
+                            var notInterested = !!e.target.closest('.cgBatchNotInterested');
+                            var grp = batchBtn.closest('.cgGroup');
+                            if (!grp) { return; }
+                            var rows = grp.querySelectorAll('.cgRow');
+                            var ids = [];
+                            for (var bi = 0; bi < rows.length; bi++) {
+                                var bid = rows[bi].getAttribute('data-gapid');
+                                if (bid) { ids.push(bid); }
+                            }
+                            if (!ids.length) { return; }
+                            var blabel = batchBtn.getAttribute('data-label') || 'this group';
+                            var verb = notInterested ? 'mark as not interested' : 'resolve';
+                            if (!window.confirm('This will ' + verb + ' all ' + ids.length + ' listed item(s) under ' + blabel + '. Continue?')) { return; }
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/ResolveBatch'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Ids: ids, Kind: notInterested ? 'notinterested' : null, Note: '' })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not update those items. Check the server logs.'); });
                             return;
                         }
 
