@@ -50,8 +50,8 @@ opt-in cross-checks that need your own credentials.
 | **TMDB API key** (`TmdbApiKey`) | Empty (built-in key) | Uses your own TMDB v3 key, so lookups draw on your request budget instead of the shared default. Get one at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api). | Falls back to the built-in public key. |
 | **Webhook URL** (`WebhookUrl`) | Empty | Posts a summary (Discord-compatible `content` payload) when a scan or the availability pass finishes. | No webhook is sent. |
 | **Trakt cross-check** (`TraktEnabled` + `TraktClientId`) | Off | Adds a Trakt filmography cross-check alongside TMDB, catching credits TMDB misses. Requires a free Trakt app **Client ID** from [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications); opt-in per Trakt's terms. | No Trakt cross-check. |
-| **TVmaze cross-check** (`TvMazeEnabled`) | Off | Keyless. Catches episodes a series' configured metadata provider does not list. Shares episode ids with the library and TheTVDB sources, so duplicates are de-duped. | No TVmaze cross-check. |
-| **TheTVDB cross-check** (`TvdbEnabled` + `TvdbApiKey`) | Off | Adds a TheTVDB series-content cross-check. Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). | No TheTVDB cross-check. |
+| **TVmaze cross-check** (`TvMazeEnabled`) | Off | Keyless. Catches episodes a series' configured metadata provider does not list. Shares episode ids with the library and TheTVDB sources, so duplicates are de-duped. Series are cross-checked stalest-first in capped batches (rate-limited API), so coverage accumulates over runs. | No TVmaze cross-check. |
+| **TheTVDB cross-check** (`TvdbEnabled` + `TvdbApiKey`) | Off | Adds a TheTVDB series-content cross-check. Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). Also rotated stalest-first over runs. | No TheTVDB cross-check. |
 
 > Note: API keys are sensitive. If a key ever ends up in a URL or browser history, rotate it.
 

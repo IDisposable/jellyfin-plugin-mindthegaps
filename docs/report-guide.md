@@ -108,7 +108,8 @@ after a rescan has dropped its individual rows from the report.
 ## Tips
 
 - The report reflects the **last scan**. Settings changes need a **Rescan now** to take effect.
-- Filmography and recommendation coverage build up over successive scans (stalest-first rotation), so
-  the lists grow run over run rather than all at once.
+- Filmography, recommendation, and TVmaze/TheTVDB series cross-check coverage build up over successive
+  scans (stalest-first rotation), so the lists grow run over run rather than all at once. The library's
+  own missing-episode reading is not capped and runs every scan.
 - Availability never runs during a scan; trigger it from the report when you want "where to watch"
   data, then use the provider filter and **Hide items with no sources**.

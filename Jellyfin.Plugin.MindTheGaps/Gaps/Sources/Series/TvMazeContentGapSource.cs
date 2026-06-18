@@ -27,9 +27,10 @@ public sealed class TvMazeContentGapSource : SeriesContentGapSourceBase
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="client">The TVmaze client.</param>
+    /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="logger">The logger.</param>
-    public TvMazeContentGapSource(ILibraryManager libraryManager, TvMazeClient client, ILogger<TvMazeContentGapSource> logger)
-        : base(libraryManager, logger)
+    public TvMazeContentGapSource(ILibraryManager libraryManager, TvMazeClient client, ScanCursorStore cursors, ILogger<TvMazeContentGapSource> logger)
+        : base(libraryManager, cursors, logger)
     {
         _client = client;
     }

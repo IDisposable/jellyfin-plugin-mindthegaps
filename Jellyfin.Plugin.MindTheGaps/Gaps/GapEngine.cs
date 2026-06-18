@@ -5,9 +5,11 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
 
@@ -149,6 +151,16 @@ public sealed class GapEngine
             AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, GapResolution.RecSourcePrefix);
         }
 
+        // The TVmaze/TheTVDB cross-checks scan only a slice of resolvable series each run, so an episode
+        // one of them found (that the library reader does not also mint as a virtual episode) would vanish
+        // on a run that did not re-check its series. Carry those forward, draining a carried gap once its
+        // series leaves the library or the episode lands on disk. Gated on a cross-check being enabled so
+        // turning them off lets the accumulation drain.
+        if (config.ScanSeries && (config.TvMazeEnabled || config.TvdbEnabled))
+        {
+            AccumulateSeriesContent(gaps, byId, priorReport.Items);
+        }
+
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
         // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
         _externalLinks.Enrich(gaps);
@@ -237,6 +249,95 @@ public sealed class GapEngine
         {
             _logger.LogInformation("Backfill: carried {Carried} unowned {Pattern} gaps forward from the previous scan", carried, pattern);
         }
+    }
+
+    // Carry forward prior missing-episode gaps (SetCompletion, Episode) that no source re-emitted this run,
+    // so a cross-check discovery survives runs that did not re-check its series. A carried gap drains when
+    // its owning series is gone from the library, or the specific season/episode is now owned on disk.
+    // Owned-episode sets are computed lazily, once per distinct series we actually consider.
+    private void AccumulateSeriesContent(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior)
+    {
+        const int maxAccumulated = 50000;
+
+        var ownedBySeries = new Dictionary<Guid, HashSet<(int Season, int Number)>>();
+        var seriesExists = new Dictionary<Guid, bool>();
+        var carried = 0;
+
+        foreach (var item in prior)
+        {
+            if (item.Pattern != GapPattern.SetCompletion
+                || item.TargetKind != BaseItemKind.Episode
+                || byId.ContainsKey(item.Id))
+            {
+                continue;
+            }
+
+            if (!SeriesGapKey.TryParseEpisode(item.Id, out var season, out var number)
+                || item.SourceItemId is null
+                || !Guid.TryParseExact(item.SourceItemId, "N", out var seriesId))
+            {
+                continue;
+            }
+
+            if (!seriesExists.TryGetValue(seriesId, out var exists))
+            {
+                exists = _libraryManager.GetItemById(seriesId) is not null;
+                seriesExists[seriesId] = exists;
+            }
+
+            if (!exists)
+            {
+                continue;
+            }
+
+            if (!ownedBySeries.TryGetValue(seriesId, out var owned))
+            {
+                owned = OwnedEpisodeNumbers(seriesId);
+                ownedBySeries[seriesId] = owned;
+            }
+
+            if (owned.Contains((season, number)))
+            {
+                continue;
+            }
+
+            if (carried >= maxAccumulated)
+            {
+                _logger.LogInformation("Backfill: reached the {Max} accumulated cap for series content; older gaps not carried", maxAccumulated);
+                break;
+            }
+
+            byId[item.Id] = item;
+            gaps.Add(item);
+            carried++;
+        }
+
+        if (carried > 0)
+        {
+            _logger.LogInformation("Backfill: carried {Carried} unowned series-content gaps forward from the previous scan", carried);
+        }
+    }
+
+    private HashSet<(int Season, int Number)> OwnedEpisodeNumbers(Guid seriesId)
+    {
+        var owned = new HashSet<(int Season, int Number)>();
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Episode },
+            AncestorIds = new[] { seriesId },
+            IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            if (item is Episode episode
+                && episode.ParentIndexNumber is int s
+                && episode.IndexNumber is int n)
+            {
+                owned.Add((s, n));
+            }
+        }
+
+        return owned;
     }
 
     // A recommendation target can be surfaced by several owned titles, but they collapse to one gap (the

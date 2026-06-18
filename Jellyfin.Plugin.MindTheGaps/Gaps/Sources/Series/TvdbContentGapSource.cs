@@ -25,9 +25,10 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="client">The TheTVDB client.</param>
+    /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="logger">The logger.</param>
-    public TvdbContentGapSource(ILibraryManager libraryManager, TvdbClient client, ILogger<TvdbContentGapSource> logger)
-        : base(libraryManager, logger)
+    public TvdbContentGapSource(ILibraryManager libraryManager, TvdbClient client, ScanCursorStore cursors, ILogger<TvdbContentGapSource> logger)
+        : base(libraryManager, cursors, logger)
     {
         _client = client;
     }

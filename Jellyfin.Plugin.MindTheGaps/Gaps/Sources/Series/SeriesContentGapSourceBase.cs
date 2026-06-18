@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,16 +24,19 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 public abstract class SeriesContentGapSourceBase : IGapSource
 {
     private readonly ILibraryManager _libraryManager;
+    private readonly ScanCursorStore _cursors;
     private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SeriesContentGapSourceBase"/> class.
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
+    /// <param name="cursors">Tracks which series were cross-checked, for stalest-first rotation.</param>
     /// <param name="logger">The logger.</param>
-    protected SeriesContentGapSourceBase(ILibraryManager libraryManager, ILogger logger)
+    protected SeriesContentGapSourceBase(ILibraryManager libraryManager, ScanCursorStore cursors, ILogger logger)
     {
         _libraryManager = libraryManager;
+        _cursors = cursors;
         _logger = logger;
     }
 
@@ -69,26 +73,42 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             episodeCap = int.MaxValue;
         }
 
-        var processed = 0;
-        var index = 0;
+        // Only series this source can resolve are candidates (the rest cost no API call). Rotate them
+        // stalest-first (never-checked first), so over repeated runs every series is cross-checked and
+        // then the longest-unchecked refresh, rather than always re-checking the first MaxSeries in
+        // library order and never reaching the tail. The engine carries cross-check-only episode gaps
+        // forward between runs so coverage accumulates. Prune entries for series no longer present.
+        var candidates = new List<(BaseItem Series, string Key)>();
         foreach (var series in allSeries)
         {
+            if (HasLookupId(series))
+            {
+                candidates.Add((series, series.Id.ToString("N", CultureInfo.InvariantCulture)));
+            }
+        }
+
+        _cursors.RetainOnly(Name, candidates.Select(c => c.Key).ToHashSet(StringComparer.Ordinal));
+        var lastScanned = _cursors.GetLastScanned(Name);
+
+        var ordered = candidates
+            .OrderBy(c => lastScanned.TryGetValue(c.Key, out var t) ? t : DateTime.MinValue)
+            .ThenBy(c => c.Series.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var batch = ordered.Count > MaxSeries ? ordered.GetRange(0, MaxSeries) : ordered;
+        if (ordered.Count > MaxSeries)
+        {
+            _logger.LogInformation("{Source}: cross-checking {Batch} of {Total} resolvable series this run (stalest first)", Name, MaxSeries, ordered.Count);
+        }
+
+        var scannedKeys = new List<string>(batch.Count);
+        for (var index = 0; index < batch.Count; index++)
+        {
             cancellationToken.ThrowIfCancellationRequested();
-            context.ReportProgress((double)index++ / Math.Max(1, allSeries.Count));
+            context.ReportProgress((double)index / Math.Max(1, batch.Count));
 
-            // Series without an id this source can look up cost no API calls and don't use budget.
-            if (!HasLookupId(series))
-            {
-                continue;
-            }
-
-            if (processed >= MaxSeries)
-            {
-                _logger.LogInformation("{Source}: reached series cap ({Cap}); remaining not scanned this run", Name, MaxSeries);
-                break;
-            }
-
-            processed++;
+            var series = batch[index].Series;
+            scannedKeys.Add(batch[index].Key);
 
             var canonical = await GetCanonicalEpisodesAsync(series, context, cancellationToken).ConfigureAwait(false);
             if (canonical is null || canonical.Count == 0)
@@ -102,6 +122,8 @@ public abstract class SeriesContentGapSourceBase : IGapSource
                 yield return BuildGap(series, episode);
             }
         }
+
+        _cursors.MarkScanned(Name, scannedKeys);
     }
 
     /// <summary>

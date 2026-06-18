@@ -29,4 +29,26 @@ public class SeriesGapKeyTests
 
         Assert.NotEqual(SeriesGapKey.Episode(seriesId, 1, 1), SeriesGapKey.Episode(seriesId, 1, 2));
     }
+
+    [Fact]
+    public void TryParseEpisode_RoundTripsTheKey()
+    {
+        var seriesId = Guid.NewGuid();
+        var id = SeriesGapKey.Episode(seriesId, 12, 7);
+
+        Assert.True(SeriesGapKey.TryParseEpisode(id, out var season, out var number));
+        Assert.Equal(12, season);
+        Assert.Equal(7, number);
+    }
+
+    [Theory]
+    [InlineData("seriescontent:11111111222233334444555555555555")] // library episode-id fallback form, no s/e
+    [InlineData("bibliography:OL79034A:OL45588324W")] // a different domain's id
+    [InlineData("seriescontent:guid:sxxeyy")] // non-numeric
+    [InlineData("")]
+    [InlineData("seriescontent:guid:s05")] // no episode part
+    public void TryParseEpisode_RejectsOtherShapes(string id)
+    {
+        Assert.False(SeriesGapKey.TryParseEpisode(id, out _, out _));
+    }
 }
