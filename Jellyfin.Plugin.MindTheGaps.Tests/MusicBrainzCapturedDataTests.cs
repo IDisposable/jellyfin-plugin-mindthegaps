@@ -11,18 +11,15 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
-// SYNTHETIC FIXTURE. Network capture was unavailable in the build environment, so
-// musicbrainz_releasegroups.json is hand-built to match the real shape of the MusicBrainz
-// "browse release-groups by artist" response. The release-group MBIDs are illustrative.
-//
-// To (re)capture the real response (keyless, public; send a descriptive User-Agent):
+// Captured from the live MusicBrainz API (keyless, public; send a descriptive User-Agent). To recapture:
 //   curl -s -H 'User-Agent: Jellyfin.Plugin.MindTheGaps/1.0 (https://github.com/IDisposable)' \
 //     'https://musicbrainz.org/ws/2/release-group?artist=b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d&type=album&fmt=json&limit=100' \
 //     > musicbrainz_releasegroups.json
-// (artist b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d is The Beatles.)
+// (artist b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d is The Beatles; the response carries no key, safe to commit.)
 public class MusicBrainzCapturedDataTests
 {
     private const string BeatlesMbid = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
+    private const string AbbeyRoadMbid = "9162580e-5df4-32de-80cc-f45a8d8a9b1d";
 
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
 
@@ -52,8 +49,8 @@ public class MusicBrainzCapturedDataTests
     public void Response_ParsesReleaseGroups()
     {
         var groups = Load();
-        Assert.Equal(5, groups.Count);
-        Assert.Equal("Please Please Me", groups[0].Title);
+        Assert.Equal(100, groups.Count);
+        Assert.Equal("A Collection of Beatles Oldies", groups[0].Title);
         Assert.Equal("Album", groups[0].PrimaryType);
     }
 
@@ -63,10 +60,10 @@ public class MusicBrainzCapturedDataTests
         var groups = Load();
         var studio = groups.Where(MusicBrainzMapper.IsStudioAlbum).Select(g => g.Title).ToList();
 
-        Assert.Equal(3, studio.Count);
+        Assert.Equal(18, studio.Count);
         Assert.Contains("Abbey Road", studio);
-        Assert.DoesNotContain("Live at the BBC", studio);
-        Assert.DoesNotContain("1967–1970", studio);
+        Assert.DoesNotContain("A Collection of Beatles Oldies", studio);
+        Assert.DoesNotContain("Anthology 3", studio);
     }
 
     [Fact]
@@ -75,13 +72,13 @@ public class MusicBrainzCapturedDataTests
         var groups = Load();
         var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", IndexWith()).ToList();
 
-        Assert.Equal(3, gaps.Count);
+        Assert.Equal(18, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.SetCompletion, g.Pattern));
         Assert.All(gaps, g => Assert.Equal(MediaDomain.Music, g.Domain));
         Assert.All(gaps, g => Assert.Equal(BaseItemKind.MusicAlbum, g.TargetKind));
 
         var abbey = gaps.Single(g => g.Name == "Abbey Road");
-        Assert.Equal("discography:" + BeatlesMbid + ":b84ee12a-09ed-39b8-a89b1a234abef9", abbey.Id);
+        Assert.Equal("discography:" + BeatlesMbid + ":" + AbbeyRoadMbid, abbey.Id);
         Assert.Equal(1969, abbey.Year);
         Assert.Equal("MusicArtist", abbey.SourceItemType);
     }
@@ -93,11 +90,11 @@ public class MusicBrainzCapturedDataTests
         var owned = IndexWith(OwnershipIndex.MakeKey(
             BaseItemKind.MusicAlbum,
             MusicBrainzMapper.ReleaseGroupProvider,
-            "b84ee12a-09ed-39b8-a89b1a234abef9"));
+            AbbeyRoadMbid));
 
         var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", owned).ToList();
 
         Assert.DoesNotContain(gaps, g => g.Name == "Abbey Road");
-        Assert.Equal(2, gaps.Count);
+        Assert.Equal(17, gaps.Count);
     }
 }

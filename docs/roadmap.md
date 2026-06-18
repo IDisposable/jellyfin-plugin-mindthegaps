@@ -233,10 +233,19 @@ targeted deletes), so it does not need its own progress. Availability is its own
   the report links straight to them. **Albums** are the natural unit to mint for Music (a pathless virtual
   `MusicAlbum` tagged with the `MintedMarker`, placed in its artist or a catch-all, mirroring the movie
   minter); **books** likewise as virtual `Book` items. Individual **songs/tracks** are low value (the
-  album is the unit). Both album and book minting depend on two things landing first: the Music/Books gap
-  sources (spiked on a worktree branch) and the bulk-mint container refactor (another branch), so the
-  minter can be generalized from movie-only to kind-aware once those merge. Until then this stays an
-  analysis item rather than speculative, untestable code on main.
+  album is the unit). The Music/Books gap sources are now merged, so the gaps display in the report; the
+  minting itself is deferred to post-1.0, to be built on top of the bulk-mint container refactor (branch
+  B, a post-1.0 PR) where the minter can be generalized from movie-only to kind-aware and validated
+  against a running server, rather than written as speculative, untestable code on main now.
+- **Harden the Books source against real OpenLibrary data.** Capturing real fixtures surfaced three gaps
+  the synthetic ones hid (now documented in `OpenLibraryCapturedDataTests`): (1) the author search's first
+  result is often the wrong namesake (searching "Frank Herbert" returns Frank Herbert Hayward first; the
+  Dune author OL79034A is third) so a naive docs[0] pick resolves the wrong author; (2) the works-list
+  endpoint carries no publish date, so book gaps get no year; (3) several works share a title. For (1) the
+  fix is to surface candidates for disambiguation rather than auto-pick: verify a candidate by confirming
+  their works actually include the owned book, rank by work_count as a tiebreak, and/or present a list so
+  the user can map their authors to OpenLibrary keys (a config-time mapping). For (2) read the date from
+  the per-work record or accept no year. The Books domain stays experimental until these are addressed.
 - **Shard the report by domain (storage and transfer).** The whole report lives in one `gaps.json` and
   is shipped to the browser whole; with more sources and the filmography backfill (toward the 50k cap) it
   can reach multiple MB, which is slow to load, parse, atomically save on every scan and availability
