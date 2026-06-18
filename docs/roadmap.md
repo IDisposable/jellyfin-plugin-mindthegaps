@@ -188,12 +188,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   config pair (URL plus API key), and it covers both movies and series with no profile/root-folder
   plumbing. Both integrations are opt-in and config-gated like the Trakt/TheTVDB cross-checks: the
   "Send to ..." button only appears when that service is configured, so nothing assumes one is installed.
-- **Export the report to Markdown.** A single "Export" action that renders the current (filtered) report
-  as Markdown with embedded links: each gap as a bullet with its provider links (TMDB/IMDb/TheTVDB/
-  JustWatch), its "where to watch" providers, and an open-in-Jellyfin link for items already held, grouped
-  the way the dashboard groups them. Pure serialization of the in-memory report, no new data, so it is
-  small; it just needs a controller route returning `text/markdown` and a download button. Good for
-  pasting a wishlist into a forum, an issue, or a notes app.
 - **Better dismissal: not-interested and snooze-until-release.** The resolve feature marks a gap "not
   really missing"; dismissal is the sibling for "real gap, do not want it" and "want it, but not yet".
   Two states are enough (no free-form taxonomy of reasons): *not interested* permanently drops a gap you
