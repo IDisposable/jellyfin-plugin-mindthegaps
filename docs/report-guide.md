@@ -82,7 +82,7 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 
 | Control | What it does |
 |---|---|
-| **Type filter** | Narrow to a target kind (Movie, Series, Episode, Album, Book, ...) present on the tab. |
+| **Type** (domain) | Pick the media domain to view: Movies, Shows, Music, Books, or Music videos, listed only when the current tab actually has gaps in them (so Music shows up on Set completion, Books on Creator works). It is the primary selector, so there is no "All" and you view one domain at a time; the control hides itself when a tab has a single domain. |
 | **Sort** | Reorder rows (for example by title or year). |
 | **Hide specials** | Drop season-0 / special episodes. |
 | **Hide upcoming** | Drop gaps whose release date is in the future (not yet acquirable). |

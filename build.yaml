@@ -20,8 +20,9 @@ changelog: >
   a TMDB vote floor (plus an optional cast-billing limit) drops obscure and bit-part credits, all
   tunable in settings. Set completion now lays its collapsed series and collections out in responsive
   columns instead of one very tall list, and a magnifying-glass icon opens a scoped Jellyfin search
-  for any title, series, collection, or creator. You can resolve or mark "not interested" every
-  episode under a series or season in one batch. The Markdown export folds the domain into the heading
+  for any title, series, collection, or creator. The Type filter now lists the media domains actually
+  present in each tab (so Music and Books gaps are reachable) and is a one-domain-at-a-time selector.
+  You can resolve or mark "not interested" every episode under a series or season in one batch. The Markdown export folds the domain into the heading
   with a linked "Watch" and a link back to the same view. Fixes: the stale-list "Rescan now" button
   gave no feedback, and some season links were missing. Background runners now claim their run flag
   without locking the status counters.

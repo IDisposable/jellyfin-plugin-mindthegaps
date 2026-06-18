@@ -86,13 +86,9 @@
                         </button>
                     </div>
                     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:.5em;">
-                        <label style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
+                        <label id="cgTypeFilterWrap" style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
                             <span>Type:</span>
-                            <select is="emby-select" id="cgTypeFilter" class="emby-select" style="width:auto;">
-                                <option value="">All</option>
-                                <option value="Movies">Movies</option>
-                                <option value="Shows">Shows</option>
-                            </select>
+                            <select is="emby-select" id="cgTypeFilter" class="emby-select" style="width:auto;"></select>
                         </label>
                         <label style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
                             <span>Sort:</span>
@@ -698,6 +694,38 @@
                     }).join('');
                 }
 
+                // Build the "Type:" (media domain) selector from the domains actually present in the current
+                // tab's slice (Movies/Shows/Music/Books/MusicVideos), in display order. The domain is the
+                // primary selector here, so there is no "All": it defaults to the first present domain, and the
+                // control hides entirely when a tab has a single domain (nothing to choose). A remembered
+                // domain (page._wantType, from a saved view or the per-browser filters) is applied once.
+                function renderTypeFilter(page) {
+                    var wrap = page.querySelector('#cgTypeFilterWrap');
+                    var sel = page.querySelector('#cgTypeFilter');
+                    var present = {};
+                    ((page._report && page._report.Items) || []).forEach(function (it) {
+                        if (it.PatternName === page._pattern) { present[categoryOf(it)] = true; }
+                    });
+                    var domains = Object.keys(present).sort(function (a, b) {
+                        return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9);
+                    });
+                    if (domains.length <= 1) {
+                        sel.innerHTML = '';
+                        sel.value = '';
+                        if (wrap) { wrap.style.display = 'none'; }
+                        return;
+                    }
+                    if (wrap) { wrap.style.display = ''; }
+                    // Decide before rebuilding the options (which clears sel.value): a remembered domain wins,
+                    // else keep the current one if still present, else the first.
+                    var desired = (page._wantType && present[page._wantType]) ? page._wantType
+                        : ((sel.value && present[sel.value]) ? sel.value : domains[0]);
+                    sel.innerHTML = domains.map(function (d) { return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('');
+                    sel.value = desired;
+                    // Consume the remembered domain once applied, so a later manual pick is not overridden.
+                    if (page._wantType && desired === page._wantType) { page._wantType = ''; }
+                }
+
                 // The element that actually scrolls the report (or the window), cached on the page.
                 function scrollerFor(page) {
                     if (page._scroller) { return page._scroller; }
@@ -859,6 +887,7 @@
                     var report = page._report || { Items: [] };
                     currentSort = page.querySelector('#cgSort').value || 'title';
                     renderTabs(page);
+                    renderTypeFilter(page);
                     var pass = buildFilter(page);
                     var items = (report.Items || []).filter(function (it) {
                         return it.PatternName === page._pattern && pass(it);
@@ -873,14 +902,20 @@
                     } else {
                         // The pattern has gaps overall (summary count) but none pass the filters: name the
                         // filters that are on so the user knows what to relax, rather than a dead-end blank.
+                        // The Type (domain) selector is not a "hide" filter here, so it is handled separately:
+                        // if the chosen domain is empty but the tab has gaps in another domain, say so.
                         var rawForPattern = (page._summary && page._summary.PatternCounts && page._summary.PatternCounts[page._pattern]) || 0;
+                        var selDomain = page.querySelector('#cgTypeFilter').value;
+                        var rawItems = (report.Items || []).filter(function (it) { return it.PatternName === page._pattern; });
+                        var selDomainHasRaw = !selDomain || rawItems.some(function (it) { return categoryOf(it) === selDomain; });
                         var active = [];
-                        if (page.querySelector('#cgTypeFilter').value) { active.push('the type filter'); }
                         if ((page.querySelector('#cgSearch').value || '').trim()) { active.push('the search box'); }
                         if (page.querySelector('#cgHideSpecials').checked) { active.push('"Hide specials"'); }
                         if (page.querySelector('#cgHideUpcoming').checked) { active.push('"Hide upcoming"'); }
                         if (streamable) { active.push('"Hide items with no sources"'); }
-                        if (rawForPattern > 0 && active.length) {
+                        if (selDomain && !selDomainHasRaw && rawItems.length) {
+                            empty = '<p class="fieldDescription">No ' + esc(selDomain) + ' gaps on this tab. Pick another type from the menu above.</p>';
+                        } else if (rawForPattern > 0 && active.length) {
                             var list = active.length === 1 ? active[0]
                                 : active.slice(0, -1).join(', ') + ' or ' + active[active.length - 1];
                             empty = '<p class="fieldDescription">No gaps match the current filters. Try clearing ' + list + '.</p>';
@@ -888,7 +923,7 @@
                             // No filters on, yet nothing shows: the rows are all dismissed.
                             empty = '<p class="fieldDescription">Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.</p>';
                         } else {
-                            empty = '<p class="fieldDescription">No gaps on this tab. Pick another axis, or rescan to refresh.</p>';
+                            empty = '<p class="fieldDescription">No gaps on this tab. Pick another tab, or rescan to refresh.</p>';
                         }
                     }
 
@@ -980,7 +1015,9 @@
                 function restoreFilters(page) {
                     var state;
                     try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
-                    if (state.type != null) { page.querySelector('#cgTypeFilter').value = state.type; }
+                    // The Type options are built per tab from the data, so remember the wanted domain and let
+                    // renderTypeFilter apply it once that tab's domains are known.
+                    page._wantType = state.type || '';
                     if (state.sort != null) { page.querySelector('#cgSort').value = state.sort; }
                     if (state.hideSpecials != null) { page.querySelector('#cgHideSpecials').checked = !!state.hideSpecials; }
                     if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
@@ -1076,7 +1113,8 @@
                 function applyView(page, v) {
                     if (!v) { return; }
                     if (v.pattern) { page._pattern = v.pattern; }
-                    if (v.type != null) { page.querySelector('#cgTypeFilter').value = v.type; }
+                    // The Type options are rebuilt per tab, so route the wanted domain through _wantType.
+                    page._wantType = v.type || '';
                     if (v.sort != null) { page.querySelector('#cgSort').value = v.sort; }
                     page.querySelector('#cgSearch').value = v.search || '';
                     page.querySelector('#cgHideSpecials').checked = !!v.hideSpecials;
