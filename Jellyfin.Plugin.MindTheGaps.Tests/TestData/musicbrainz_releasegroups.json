@@ -1,0 +1,46 @@
+{
+  "release-group-count": 5,
+  "release-group-offset": 0,
+  "release-groups": [
+    {
+      "id": "d68f7783-8a80-39c6-9d9c-4d68ad0b8f30",
+      "title": "Please Please Me",
+      "primary-type": "Album",
+      "secondary-types": [],
+      "first-release-date": "1963-03-22",
+      "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc"
+    },
+    {
+      "id": "a8ba1684-e470-3f6f-9c8e-4a3787d12345",
+      "title": "With the Beatles",
+      "primary-type": "Album",
+      "secondary-types": [],
+      "first-release-date": "1963-11-22",
+      "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc"
+    },
+    {
+      "id": "b84ee12a-09ed-39b8-a89b1a234abef9",
+      "title": "Abbey Road",
+      "primary-type": "Album",
+      "secondary-types": [],
+      "first-release-date": "1969-09-26",
+      "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc"
+    },
+    {
+      "id": "1c205925-2cfe-35c0-81de1c40bb1c2caa",
+      "title": "Live at the BBC",
+      "primary-type": "Album",
+      "secondary-types": ["Live", "Compilation"],
+      "first-release-date": "1994-11-30",
+      "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc"
+    },
+    {
+      "id": "e9f56b3d-2c2d-3a9f-9d2a4abc1234dcba",
+      "title": "1967–1970",
+      "primary-type": "Album",
+      "secondary-types": ["Compilation"],
+      "first-release-date": "1973-04-02",
+      "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc"
+    }
+  ]
+}

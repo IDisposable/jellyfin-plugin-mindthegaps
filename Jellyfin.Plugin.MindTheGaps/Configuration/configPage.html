@@ -75,6 +75,18 @@
                             <input id="CuratedKeywordIds" name="CuratedKeywordIds" type="text" is="emby-input" />
                             <div class="fieldDescription">Comma-separated TMDB keyword ids to complete.</div>
                         </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanMusic" name="ScanMusic" type="checkbox" is="emby-checkbox" />
+                                <span>Scan music artists for missing studio albums (MusicBrainz, experimental)</span>
+                            </label>
+                        </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ScanBooks" name="ScanBooks" type="checkbox" is="emby-checkbox" />
+                                <span>Scan books for other works by the author (OpenLibrary, experimental)</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="verticalSection">
@@ -224,6 +236,8 @@
                     page.querySelector('#CuratedCompanyNames').value = config.CuratedCompanyNames || '';
                     page.querySelector('#CuratedCompanyIds').value = config.CuratedCompanyIds || '';
                     page.querySelector('#CuratedKeywordIds').value = config.CuratedKeywordIds || '';
+                    page.querySelector('#ScanMusic').checked = config.ScanMusic;
+                    page.querySelector('#ScanBooks').checked = config.ScanBooks;
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
                     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
@@ -329,6 +343,8 @@
                         config.CuratedCompanyNames = form.querySelector('#CuratedCompanyNames').value;
                         config.CuratedCompanyIds = form.querySelector('#CuratedCompanyIds').value;
                         config.CuratedKeywordIds = form.querySelector('#CuratedKeywordIds').value;
+                        config.ScanMusic = form.querySelector('#ScanMusic').checked;
+                        config.ScanBooks = form.querySelector('#ScanBooks').checked;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
                         config.TraktClientId = form.querySelector('#TraktClientId').value;

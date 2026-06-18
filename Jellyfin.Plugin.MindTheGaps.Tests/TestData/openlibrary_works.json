@@ -1,0 +1,29 @@
+{
+  "links": {
+    "self": "/authors/OL79034A/works.json",
+    "author": "/authors/OL79034A"
+  },
+  "size": 4,
+  "entries": [
+    {
+      "title": "Dune",
+      "key": "/works/OL893415W",
+      "first_publish_date": "1965"
+    },
+    {
+      "title": "Dune Messiah",
+      "key": "/works/OL27482W",
+      "first_publish_date": "1969"
+    },
+    {
+      "title": "Children of Dune",
+      "key": "/works/OL27483W",
+      "first_publish_date": "1976"
+    },
+    {
+      "title": "God Emperor of Dune",
+      "key": "/works/OL27484W",
+      "first_publish_date": "1981"
+    }
+  ]
+}
