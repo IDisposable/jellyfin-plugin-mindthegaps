@@ -149,6 +149,44 @@ targeted deletes), so it does not need its own progress. Availability is its own
 
 ## Backlog
 
+- **Studio, keyword, and curated-list collection widening (top priority).** SetCompletion today is
+  anchored to formal TMDB BoxSets, which only cover named franchises. Users think in broader sets: "every
+  A24 film", "every Studio Ghibli film", "the films in this themed list". TMDB exposes the inputs already:
+  `discover/movie` with `with_companies` (studio) or `with_keywords`, and TMDB Lists. Seed the queries
+  from what is already owned (collect the studios and keywords present on owned items, or let the user
+  paste a TMDB list id), diff the result against ownership exactly like a BoxSet, and emit SetCompletion
+  gaps tagged with the set name. This is a large widening of detection with zero engine or report change:
+  it is another `IGapSource` producing the existing `GapItem` shape, grouped like collections. Needs a
+  config surface for which studios/keywords/lists to track and a per-set cap so a broad studio does not
+  flood the list.
+- **Send a gap to Radarr/Sonarr.** The report dead-ends at a link; power users running the arr stack
+  want one click from "missing" to "queued". Gaps already carry the ids these need: a movie gap has a
+  TMDB id (Radarr `POST /api/v3/movie` takes a tmdbId), a missing episode carries its series' TheTVDB id
+  (Sonarr is keyed on tvdbId). A `Services/Arr/{RadarrClient,SonarrClient}` (hand-rolled like the
+  Trakt/TVmaze clients), config for base URL plus API key and a default quality profile and root folder
+  per service, a per-row button next to Mint, and the multi-select bar for bulk. Larger effort: two
+  clients, profile/root-folder selection, error surfacing, and movie-versus-series routing by `TargetKind`.
+- **Send a gap to Jellyseerr/Overseerr.** The lighter-weight half of the above and the better first
+  target: many Jellyfin households already run Jellyseerr as the request front door (with approval
+  workflows for non-admins), and it is keyed purely on TMDB ids, which every gap already has. One client
+  (`Services/Seerr/SeerrClient`), one endpoint (`POST /api/v1/request` with `{mediaType, mediaId}`), one
+  config pair (URL plus API key), and it covers both movies and series with no profile/root-folder
+  plumbing. Both integrations are opt-in and config-gated like the Trakt/TheTVDB cross-checks: the
+  "Send to ..." button only appears when that service is configured, so nothing assumes one is installed.
+- **Export the report to Markdown.** A single "Export" action that renders the current (filtered) report
+  as Markdown with embedded links: each gap as a bullet with its provider links (TMDB/IMDb/TheTVDB/
+  JustWatch), its "where to watch" providers, and an open-in-Jellyfin link for items already held, grouped
+  the way the dashboard groups them. Pure serialization of the in-memory report, no new data, so it is
+  small; it just needs a controller route returning `text/markdown` and a download button. Good for
+  pasting a wishlist into a forum, an issue, or a notes app.
+- **Better dismissal: not-interested and snooze-until-release.** The resolve feature marks a gap "not
+  really missing"; dismissal is the sibling for "real gap, do not want it" and "want it, but not yet".
+  Two states are enough (no free-form taxonomy of reasons): *not interested* permanently drops a gap you
+  deliberately do not want, and *snooze until release* hides an upcoming/unreleased gap and
+  auto-resurfaces it after its release date. They differ because snooze expires on a date; everything
+  else is covered by the existing optional note. Small extension of `ResolutionStore` (add a state and an
+  optional snoozed-until date to the stored record) and the report filter; the persistence and overlay
+  plumbing already exist.
 - **Bulk mint across all enabled patterns.** Minting today is per-row and multi-select from the report.
   A one-click "mint every gap of a pattern" (or every gap in a domain) needs the per-cell container
   strategy (collections use a BoxSet, episodes are native in core, CreatorWorks/Recommendation use the
@@ -183,6 +221,22 @@ targeted deletes), so it does not need its own progress. Availability is its own
   recommended title keeps only the one seed that first surfaced it; the report pivot shows that single
   source. Listing all owned titles that recommend a target needs the engine to aggregate sources per
   target instead of deduping them away.
+- **Coverage scoring.** A per-container completeness readout: "this BoxSet is 6 of 9 owned (67%)", "this
+  series is missing 3 of 40 episodes", a domain rollup at the top of each tab. The data is already in the
+  report (gaps are counted against owned containers); this is a presentation layer that turns the todo
+  list into a progress view, and it gives the dashboard a headline number per group rather than only a
+  flat list. Small, report-only.
+- **Finer alphabetical hierarchy (low priority).** Single-letter buckets get large on big libraries (an
+  "A" group can hold 100+ creators or titles). A second level (for example "Ab", "Ad", "Al") or a sticky
+  A-Z jump bar would make a long group navigable. Dashboard-only grouping change, low priority.
+- **Saved views.** Remember named filter/sort combinations (for example "movies with sources, hide
+  upcoming, sorted by year") and let the report deep-link to one via the URL, so a particular slice is one
+  click or one bookmark away instead of re-toggling filters each visit. The filters already live in
+  `localStorage`; this promotes them to named, shareable presets. Small, dashboard-only.
+- **Webhook and notification on scan or availability completion (bottom, luxury).** Fire a webhook
+  (Discord/Gotify/generic JSON) when a scan or the background "where to watch" pass finishes, with a small
+  summary payload (counts, new gaps). Hangs off the existing `MintRunner`/`AvailabilityRunner` completion
+  points; config is a URL plus which events. Genuinely a nice-to-have, lowest priority.
 
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
