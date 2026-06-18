@@ -9,7 +9,7 @@
          data-require="emby-input,emby-button,emby-select,emby-checkbox">
         <div data-role="content">
             <div class="content-primary">
-                <form id="MindTheGapsConfigForm">
+                <form id="MindTheGapsConfigForm" onsubmit="return false;">
                     <div class="verticalSection">
                         <h2 class="sectionTitle">Mind the Gaps</h2>
                         <div style="display:flex;align-items:center;gap:.8em;flex-wrap:wrap;">
@@ -280,15 +280,19 @@
                     page.querySelector('#RemoveMinted').addEventListener('click', function () {
                         runAction('RemoveMintedMovies', null);
                     });
+                    // Bind the save here (per page show), so it is always attached to the live form. Bound
+                    // once at document scope it would go stale when the view is recreated, the native form
+                    // would GET-submit, and every field (API keys included) would leak into the URL.
+                    page.querySelector('#MindTheGapsConfigForm').addEventListener('submit', saveConfig);
                     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                         load(page, config);
                         Dashboard.hideLoadingMsg();
                     });
                 });
 
-                document.querySelector('#MindTheGapsConfigForm').addEventListener('submit', function (e) {
-                    e.preventDefault();
-                    var form = this;
+                function saveConfig(e) {
+                    if (e) { e.preventDefault(); }
+                    var form = document.querySelector('#MindTheGapsConfigForm');
 
                     // Validate when enabled; bypass entirely when disabled.
                     if (form.querySelector('#TraktEnabled').checked && !form.querySelector('#TraktClientId').value.trim()) {
@@ -328,7 +332,7 @@
                         });
                     });
                     return false;
-                });
+                }
             })();
         </script>
     </div>
