@@ -14,7 +14,7 @@
             .cgGroup.cgCollapsed > .cgBody { display: none; }
             .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
             .cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
-            #cgRollup { font-size: .92em; opacity: .85; margin: .2em 0 .4em 0; padding: .35em .5em; background: rgba(255,255,255,.04); border-radius: 4px; }
+            #cgRollup { font-size: 1.05em; opacity: .9; margin: .2em 0 .4em 0; padding: .45em .6em; background: rgba(255,255,255,.04); border-radius: 4px; }
             #cgRollup .cgRollupCov { color: #3ddc97; }
             .cgCaret {
                 display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
@@ -602,6 +602,9 @@
                     var byCat = groupBy(items, categoryOf);
                     byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
 
+                    // One domain is shown at a time, so each branch returns that domain's content directly:
+                    // the column grid for Set completion, the letter groups for Creator works and
+                    // Recommendations. The rollup line names the domain.
                     return byCat.order.map(function (cat) {
                         var catItems = byCat.map[cat];
                         if (isRec) {
@@ -611,7 +614,7 @@
                                 var li = sortRows(byL.map[L]);
                                 return groupHtml(2, L, li.length, true, li.map(renderRow).join(''));
                             }).join('');
-                            return groupHtml(1, cat, catItems.length, false, recHtml);
+                            return recHtml;
                         }
 
                         if (isCreator) {
@@ -632,7 +635,7 @@
                                 }).join('');
                                 return groupHtml(2, L, names.length, true, inner);
                             }).join('');
-                            return groupHtml(1, cat, catItems.length, false, creatorHtml);
+                            return creatorHtml;
                         }
 
                         var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
@@ -655,7 +658,7 @@
                         }).join('');
                         // The source groups lay out in responsive columns (see .cgGridWrap) so a big library's
                         // collapsed series/collections are not one very tall column.
-                        return groupHtml(1, cat, catItems.length, false, '<div class="cgGridWrap">' + srcHtml + '</div>');
+                        return '<div class="cgGridWrap">' + srcHtml + '</div>';
                     }).join('');
                 }
 
