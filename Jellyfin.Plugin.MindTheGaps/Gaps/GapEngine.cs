@@ -24,6 +24,7 @@ public sealed class GapEngine
     private readonly GapStore _store;
     private readonly ExternalLinkEnricher _externalLinks;
     private readonly Services.Webhook.WebhookNotifier _webhook;
+    private readonly ResolutionStore _resolutions;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -34,6 +35,7 @@ public sealed class GapEngine
     /// <param name="store">The gap store.</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
+    /// <param name="resolutions">Holds dismissals, including whole-creator dismissals not to carry forward.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
@@ -41,6 +43,7 @@ public sealed class GapEngine
         GapStore store,
         ExternalLinkEnricher externalLinks,
         Services.Webhook.WebhookNotifier webhook,
+        ResolutionStore resolutions,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
@@ -48,6 +51,7 @@ public sealed class GapEngine
         _store = store;
         _externalLinks = externalLinks;
         _webhook = webhook;
+        _resolutions = resolutions;
         _logger = logger;
     }
 
@@ -183,11 +187,26 @@ public sealed class GapEngine
     {
         const int maxAccumulated = 50000;
 
+        // Do not carry forward gaps for a creator the user dismissed wholesale; they should drain away.
+        var dismissedCreators = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in _resolutions.GetAll().Keys)
+        {
+            if (id.StartsWith(GapResolution.CreatorPrefix, StringComparison.Ordinal))
+            {
+                dismissedCreators.Add(id[GapResolution.CreatorPrefix.Length..]);
+            }
+        }
+
         var creatorWorks = gaps.Count(g => g.Pattern == GapPattern.CreatorWorks);
         var carried = 0;
         foreach (var item in prior)
         {
             if (item.Pattern != GapPattern.CreatorWorks || byId.ContainsKey(item.Id))
+            {
+                continue;
+            }
+
+            if (item.SourceItemId is not null && dismissedCreators.Contains(item.SourceItemId))
             {
                 continue;
             }

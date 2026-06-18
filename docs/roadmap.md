@@ -220,7 +220,8 @@ targeted deletes), so it does not need its own progress. Availability is its own
   plugin push CSS/JS into jellyfin-web without forking it. That gives a non-upstream path to the two
   things currently gated on jellyfin-web changes: (a) render our minted virtual items as greyed "Missing"
   placeholders (otherwise waiting on jellyfin-web PR A / #8049), and (b) add a dedicated "Gaps" shelf to
-  the native person page so Creator Works gaps appear there as their own section. The minting that creates
+  native browse pages, the person page for Creator Works gaps and the studio page (the `#/list?studioId=`
+  view) for curated-set gaps, so each appears in context as its own section. The minting that creates
   and reconciles the items is already done; this is only the presentation layer. Trade-offs: it adds a
   soft dependency on two third-party plugins the user must install, and injected JS targets jellyfin-web's
   DOM, so it is version-fragile and needs upkeep across web releases. Best shipped as an optional

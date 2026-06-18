@@ -28,6 +28,7 @@ public sealed class PeopleGapSource : IGapSource
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
     private readonly ScanCursorStore _cursors;
+    private readonly ResolutionStore _resolutions;
     private readonly ILogger<PeopleGapSource> _logger;
 
     /// <summary>
@@ -36,16 +37,19 @@ public sealed class PeopleGapSource : IGapSource
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="tmdb">The TMDB client.</param>
     /// <param name="cursors">Tracks which people have been scanned this cycle, for cross-run backfill.</param>
+    /// <param name="resolutions">Holds dismissals, including whole-creator dismissals to skip.</param>
     /// <param name="logger">The logger.</param>
     public PeopleGapSource(
         ILibraryManager libraryManager,
         TmdbClient tmdb,
         ScanCursorStore cursors,
+        ResolutionStore resolutions,
         ILogger<PeopleGapSource> logger)
     {
         _libraryManager = libraryManager;
         _tmdb = tmdb;
         _cursors = cursors;
+        _resolutions = resolutions;
         _logger = logger;
     }
 
@@ -76,6 +80,15 @@ public sealed class PeopleGapSource : IGapSource
         // Order people by how many owned movies/series credit them, so each run's batch is the most
         // relevant un-scanned creators, not the alphabetically-first names.
         var ordered = OrderByRelevance(people, cancellationToken);
+
+        // Drop creators the user dismissed wholesale ("never delve into them"): do not scan them at all.
+        var dismissed = DismissedCreatorGuids();
+        if (dismissed.Count > 0)
+        {
+            var before = ordered.Count;
+            ordered = ordered.Where(p => !dismissed.Contains(p.Id.ToString("N", CultureInfo.InvariantCulture))).ToList();
+            _logger.LogInformation("Filmography: skipping {Count} dismissed creators", before - ordered.Count);
+        }
 
         // Resume where the last run left off: take the next batch of people not yet scanned this cycle, so
         // over repeated runs the whole cast and crew is covered (the engine carries unowned filmography
@@ -156,6 +169,21 @@ public sealed class PeopleGapSource : IGapSource
         }
 
         _cursors.MarkProcessed(Name, scannedKeys);
+    }
+
+    // The set of owned-person guids (N-format) the user dismissed as a whole creator.
+    private HashSet<string> DismissedCreatorGuids()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in _resolutions.GetAll().Keys)
+        {
+            if (id.StartsWith(GapResolution.CreatorPrefix, StringComparison.Ordinal))
+            {
+                set.Add(id[GapResolution.CreatorPrefix.Length..]);
+            }
+        }
+
+        return set;
     }
 
     // Order owned people most-credited-first. Counts how many owned movies/series list each person, then

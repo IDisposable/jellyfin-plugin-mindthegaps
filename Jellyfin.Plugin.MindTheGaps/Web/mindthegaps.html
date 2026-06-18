@@ -115,6 +115,7 @@
                         <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;"><option value="">(choose a saved view)</option></select>
                         <button is="emby-button" type="button" id="cgSaveView" class="raised" style="margin:0;" title="Save the current filters as a named view"><span>Save current</span></button>
                         <button is="emby-button" type="button" id="cgDeleteView" class="raised" style="margin:0;" title="Delete the selected saved view"><span>Delete</span></button>
+                        <span id="cgHiddenCreators" style="display:none;"></span>
                     </div>
                     <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.5em 0 .2em 0;"></div>
                 </div>
@@ -181,6 +182,18 @@
                         if (until && Date.now() >= until) { return null; }
                     }
                     return r;
+                }
+
+                // Whole-creator dismissals are stored in the same map under a "creator:{guid}" key.
+                function creatorDismissed(guid) { return !!(guid && resolvedMap['creator:' + guid]); }
+
+                // The dismiss/restore control shown on a creator (person) group header.
+                function creatorDismissBtn(guid, name) {
+                    if (!guid) { return ''; }
+                    if (creatorDismissed(guid)) {
+                        return ' <a class="cgLink cgRestoreCreator" data-gapid="' + esc(guid) + '" title="Scan this creator again">Restore</a>';
+                    }
+                    return ' <a class="cgLink cgDismissCreator" data-gapid="' + esc(guid) + '" data-name="' + esc(name || '') + '" title="Never delve into this creator (stop scanning and hide their gaps)">Not interested in creator</a>';
                 }
 
                 // The greyed status line for a dismissed gap.
@@ -500,7 +513,7 @@
                                 var names = byLetter[L].slice().sort(ci);
                                 var inner = names.map(function (src) {
                                     var srcItems = bySrcC.map[src];
-                                    return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''), srcItems[0].SourceItemId);
+                                    return groupHtml(3, src, srcItems.length, true, srcItems.map(renderRow).join(''), srcItems[0].SourceItemId, creatorDismissBtn(srcItems[0].SourceItemId, src));
                                 }).join('');
                                 return groupHtml(2, L, names.length, true, inner);
                             }).join('');
@@ -528,6 +541,7 @@
                     var streamable = page.querySelector('#cgStreamable').checked;
                     return function (it) {
                         if (activeDismissal(it) && !showResolved) { return false; }
+                        if (it.PatternName === 'CreatorWorks' && creatorDismissed(it.SourceItemId) && !showResolved) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
                         if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
                         if (hideUpcoming && it.IsUpcoming) { return false; }
@@ -712,6 +726,7 @@
                     scroller.scrollTop = scrollY;
 
                     renderJumpBar(page);
+                    renderHiddenCreators(page);
                     page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
                     updateSelection(page);
                 }
@@ -826,6 +841,23 @@
                     renderProviderFilter(page);
                     saveFilters(page);
                     applyAndRender(page);
+                }
+
+                // Lists creators dismissed wholesale (with a Restore), so one can be brought back even after
+                // a rescan has dropped its gaps from the report. Hidden when there are none.
+                function renderHiddenCreators(page) {
+                    var el = page.querySelector('#cgHiddenCreators');
+                    var entries = [];
+                    Object.keys(resolvedMap).forEach(function (k) {
+                        if (k.indexOf('creator:') === 0) { entries.push({ guid: k.slice(8), name: (resolvedMap[k].Note || k.slice(8)) }); }
+                    });
+                    if (!entries.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+                    entries.sort(function (a, b) { return ci(a.name, b.name); });
+                    el.style.display = '';
+                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;">Hidden creators:</span> '
+                        + '<select is="emby-select" id="cgHiddenCreatorSel" class="emby-select" style="width:auto;">'
+                        + entries.map(function (en) { return '<option value="' + esc(en.guid) + '">' + esc(en.name) + '</option>'; }).join('')
+                        + '</select> <button is="emby-button" type="button" id="cgRestoreCreatorBtn" class="raised" style="margin:0;"><span>Restore</span></button>';
                 }
 
                 function renderViews(page) {
@@ -1094,6 +1126,14 @@
                         storeViews(views);
                         renderViews(page);
                     });
+                    page.querySelector('#cgHiddenCreators').addEventListener('click', function (e) {
+                        if (!e.target.closest || !e.target.closest('#cgRestoreCreatorBtn')) { return; }
+                        var sel = page.querySelector('#cgHiddenCreatorSel');
+                        if (!sel || !sel.value) { return; }
+                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: 'creator:' + sel.value }) })
+                            .then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                            .catch(function () { Dashboard.alert('Could not restore the creator. Check the server logs.'); });
+                    });
                     page.querySelector('#cgExport').addEventListener('click', function () {
                         if (!page._report) { return; }
                         downloadText('mind-the-gaps-' + (page._pattern || 'report') + '.md', buildMarkdown(page));
@@ -1209,6 +1249,31 @@
                                 url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: clearResBtn.getAttribute('data-gapid') })
                             }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
                                 .catch(function () { Dashboard.alert('Could not clear the resolution. Check the server logs.'); });
+                            return;
+                        }
+
+                        var dismissCreatorBtn = e.target.closest('.cgDismissCreator');
+                        if (dismissCreatorBtn) {
+                            var dcGuid = dismissCreatorBtn.getAttribute('data-gapid');
+                            var dcName = dismissCreatorBtn.getAttribute('data-name') || 'this creator';
+                            if (!window.confirm('Stop scanning "' + dcName + '" and hide all their gaps?')) { return; }
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Resolve'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Id: 'creator:' + dcGuid, Kind: 'notinterested', Note: dcName })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not dismiss the creator. Check the server logs.'); });
+                            return;
+                        }
+
+                        var restoreCreatorBtn = e.target.closest('.cgRestoreCreator');
+                        if (restoreCreatorBtn) {
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: 'creator:' + restoreCreatorBtn.getAttribute('data-gapid') })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not restore the creator. Check the server logs.'); });
                             return;
                         }
 

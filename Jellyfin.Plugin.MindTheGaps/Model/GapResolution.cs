@@ -28,6 +28,12 @@ public class GapResolution
     public const string Snoozed = "snoozed";
 
     /// <summary>
+    /// Resolution id prefix for a whole-creator dismissal, as in "creator:{personGuid}". Lets a person be
+    /// dismissed ("never delve into them") using the same per-id store as gap dismissals.
+    /// </summary>
+    public const string CreatorPrefix = "creator:";
+
+    /// <summary>
     /// Gets or sets the dismissal kind. Null (the common case, also entries saved before kinds existed)
     /// means <see cref="Resolved"/>; it is omitted from the stored JSON and API responses so the default
     /// carries no overhead. Only <see cref="NotInterested"/> and <see cref="Snoozed"/> are written.
