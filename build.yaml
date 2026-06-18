@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.12"
+version: "10.11.0.13"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -16,13 +16,11 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 changelog: >
-  10.11.0.12 - A relevance gate keeps Creator works and Recommendations actionable on a large library:
-  a TMDB vote floor (plus an optional cast-billing limit) drops obscure and bit-part credits, all
-  tunable in settings. Set completion now lays its collapsed series and collections out in responsive
-  columns instead of one very tall list, and a magnifying-glass icon opens a scoped Jellyfin search
-  for any title, series, collection, or creator. The Type filter now lists the media domains actually
-  present in each tab (so Music and Books gaps are reachable) and is a one-domain-at-a-time selector.
-  You can resolve or mark "not interested" every episode under a series or season in one batch. The Markdown export folds the domain into the heading
-  with a linked "Watch" and a link back to the same view. Fixes: the stale-list "Rescan now" button
-  gave no feedback, and some season links were missing. Background runners now claim their run flag
-  without locking the status counters.
+  10.11.0.13 - Report polish, accessibility, and a settings-link fix. The plugin's "Settings" button on
+  the Plugins page now opens the configuration page instead of the report, and the report shows the
+  installed plugin version next to the gear. Group headers use compact icons for resolve and not-interested,
+  ordered search, open in Jellyfin, resolve, not-interested; a collapsed entry shows just the coverage
+  percent (the full count on hover). The Markdown export now includes a search link for each gap. With one
+  media domain shown at a time, the redundant top-level Movies/Shows group is gone and the summary line
+  reads a little larger. Every icon control now has an accessible label so a screen reader announces the
+  action. Fixes: the Type filter stacking onto two lines, and collapsed grid cells reflowing on hover.
