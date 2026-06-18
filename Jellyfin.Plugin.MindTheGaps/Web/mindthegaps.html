@@ -71,6 +71,12 @@
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
                             <input type="checkbox" id="cgHideSpecials" /> Hide specials
                         </label>
+                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps whose release date is in the future.">
+                            <input type="checkbox" id="cgHideUpcoming" /> Hide upcoming
+                        </label>
+                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have marked resolved (not really missing). Their note and a Clear button appear on each.">
+                            <input type="checkbox" id="cgShowResolved" /> Show resolved
+                        </label>
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
                             <input type="checkbox" id="cgStreamable" /> Hide items with no sources
                         </label>
@@ -139,6 +145,8 @@
                 // are discovered from offers as availability is looked up (default-on, unchecked remembered).
                 var disabledProviders = {};
                 var knownProviders = [];
+                // gap id -> { Note, ResolvedUtc } for gaps the user marked "not really missing".
+                var resolvedMap = {};
 
                 function monAllowed(type) {
                     if (!type) { return true; }
@@ -217,6 +225,7 @@
                     var watchKind = item.TargetKindName === 'Episode' ? 'Series' : item.TargetKindName;
                     var watchable = !!watchTmdb && (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode');
                     var hasAvail = item.Availability && item.Availability.length;
+                    var res = resolvedMap[item.Id];
                     var actions = [];
                     // Offer the on-demand look-up only when we have not looked yet. Once checked, an empty
                     // result is shown as "no sources" instead (below), not a button that comes back empty.
@@ -227,15 +236,17 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons">eco</span>Mint</button>');
                     }
-
-                    // An "open in Jellyfin" icon when this gap is already a (virtual) item we hold.
-                    var openLink = openIcon(item.LibraryItemId);
+                    // Mark this gap as not really missing (with a note), or clear that.
+                    if (res) {
+                        actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the resolution (show as missing again)">Clear</button>');
+                    } else {
+                        actions.push('<button type="button" class="cgLink cgResolve" data-gapid="' + esc(item.Id) + '" title="Mark resolved (not really missing)"><span class="material-icons" style="font-size:1em;vertical-align:text-bottom;">done</span> Resolve</button>');
+                    }
 
                     // Provider links can run long because the host's own providers contribute too, so let them
                     // wrap on the left and keep the action buttons (Where to watch, Mint) flush right.
-                    var linksRow = (openLink || providerLinks || actions.length)
+                    var linksRow = (providerLinks || actions.length)
                         ? '<div class="cgLinks" style="display:flex;flex-wrap:wrap;align-items:center;gap:.25em;margin-top:.3em;">'
-                            + openLink
                             + providerLinks
                             + (actions.length ? '<span class="cgActions" style="margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:.25em;align-items:center;">' + actions.join('') + '</span>' : '')
                             + '</div>'
@@ -248,6 +259,10 @@
                     } else if (watchable && item.AvailabilityChecked && !hasAvail) {
                         avail = '<div class="fieldDescription" style="margin-top:.2em;opacity:.6;">No streaming sources found.</div>';
                     }
+
+                    var resolvedLine = res
+                        ? '<div class="fieldDescription" style="margin-top:.2em;color:#3ddc97;">Resolved' + (res.Note ? ': ' + esc(res.Note) : '') + '</div>'
+                        : '';
 
                     var detailParts = [];
                     if (item.PatternName === 'Recommendation' && item.SourceItemName) {
@@ -271,14 +286,15 @@
                         ? '<input type="checkbox" class="cgSel" data-gapid="' + esc(item.Id) + '" title="Select to mint" style="margin-right:.5em;flex:none;" />'
                         : '<span style="display:inline-block;width:1.4em;flex:none;"></span>';
 
-                    return '<div class="listItem cgRow" data-gapid="' + esc(item.Id) + '" style="display:flex;align-items:center;padding:.35em .25em;">'
+                    return '<div class="listItem cgRow" data-gapid="' + esc(item.Id) + '" style="display:flex;align-items:center;padding:.35em .25em;' + (res ? 'opacity:.55;' : '') + '">'
                         + selBox
                         + poster
                         + '<div style="flex:1;min-width:0;">'
-                        + '<div class="listItemBodyText">' + esc(item.Name) + '</div>'
+                        + '<div class="listItemBodyText">' + esc(item.Name) + openIcon(item.LibraryItemId) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
                         + details
                         + avail
+                        + resolvedLine
                         + linksRow
                         + '</div>'
                         + '</div>';
@@ -446,11 +462,15 @@
                     var type = page.querySelector('#cgTypeFilter').value;
                     var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
                     var hideSpecials = page.querySelector('#cgHideSpecials').checked;
+                    var hideUpcoming = page.querySelector('#cgHideUpcoming').checked;
+                    var showResolved = page.querySelector('#cgShowResolved').checked;
                     var streamable = page.querySelector('#cgStreamable').checked;
                     var items = (report.Items || []).filter(function (it) {
                         if (it.PatternName !== page._pattern) { return false; }
+                        if (resolvedMap[it.Id] && !showResolved) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
                         if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
+                        if (hideUpcoming && it.IsUpcoming) { return false; }
                         if (streamable && !filterOffers(it.Availability).length) { return false; }
                         if (term && it.Name.toLowerCase().indexOf(term) === -1) { return false; }
                         return true;
@@ -496,6 +516,8 @@
                         var state = {
                             type: page.querySelector('#cgTypeFilter').value,
                             hideSpecials: page.querySelector('#cgHideSpecials').checked,
+                            hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
+                            showResolved: page.querySelector('#cgShowResolved').checked,
                             streamable: page.querySelector('#cgStreamable').checked,
                             mon: {}
                         };
@@ -512,6 +534,8 @@
                     try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
                     if (state.type != null) { page.querySelector('#cgTypeFilter').value = state.type; }
                     if (state.hideSpecials != null) { page.querySelector('#cgHideSpecials').checked = !!state.hideSpecials; }
+                    if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
+                    if (state.showResolved != null) { page.querySelector('#cgShowResolved').checked = !!state.showResolved; }
                     if (state.streamable != null) { page.querySelector('#cgStreamable').checked = !!state.streamable; }
                     if (state.mon) {
                         var cbs = page.querySelectorAll('.cgMon');
@@ -535,11 +559,21 @@
                                 : 'never';
                             page.querySelector('#cgSummary').textContent =
                                 (report.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
-                            renderTabs(page);
-                            applyAndRender(page);
-                            checkStale(page, report);
-                            Dashboard.hideLoadingMsg();
+                            fetchResolved().then(function () {
+                                renderTabs(page);
+                                applyAndRender(page);
+                                checkStale(page, report);
+                                Dashboard.hideLoadingMsg();
+                            });
                         });
+                }
+
+                // Load the gap-resolution map (gaps marked not-really-missing). Best-effort: the returned
+                // promise always resolves with resolvedMap set (empty on failure), so the caller can chain
+                // .then() to decide what to do next (initial render, or re-render after a resolve/clear).
+                function fetchResolved() {
+                    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Resolutions'), dataType: 'json' })
+                        .then(function (res) { resolvedMap = res || {}; }, function () { resolvedMap = {}; });
                 }
 
                 // Nudge for a rescan when the saved report was built by a different plugin version (after
@@ -717,6 +751,14 @@
                         saveFilters(page);
                         if (page._report) { applyAndRender(page); }
                     });
+                    page.querySelector('#cgHideUpcoming').addEventListener('change', function () {
+                        saveFilters(page);
+                        if (page._report) { applyAndRender(page); }
+                    });
+                    page.querySelector('#cgShowResolved').addEventListener('change', function () {
+                        saveFilters(page);
+                        if (page._report) { applyAndRender(page); }
+                    });
                     page.querySelector('#cgStreamable').addEventListener('change', function () {
                         saveFilters(page);
                         if (page._report) { applyAndRender(page); }
@@ -747,6 +789,35 @@
                         var enableAvail = e.target.closest('#cgEnableAvail');
                         if (enableAvail) {
                             startAvailability(page, enableAvail);
+                            return;
+                        }
+
+                        var resolveBtn = e.target.closest('.cgResolve');
+                        if (resolveBtn) {
+                            var rid = resolveBtn.getAttribute('data-gapid');
+                            var rItems = (page._report && page._report.Items) || [];
+                            var rName = 'this item';
+                            for (var ri = 0; ri < rItems.length; ri++) { if (rItems[ri].Id === rid) { rName = rItems[ri].Name; break; } }
+                            var note = window.prompt('Resolve "' + rName + '" (not really missing).\nOptional note (e.g. why):', '');
+                            if (note === null) { return; }
+                            note = note.trim().slice(0, 100);
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Resolve'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Id: rid, Note: note })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not save the resolution. Check the server logs.'); });
+                            return;
+                        }
+
+                        var clearResBtn = e.target.closest('.cgClearResolve');
+                        if (clearResBtn) {
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: clearResBtn.getAttribute('data-gapid') })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not clear the resolution. Check the server logs.'); });
                             return;
                         }
 

@@ -24,6 +24,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<GapStore>();
+        serviceCollection.AddSingleton<ResolutionStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();

@@ -30,6 +30,7 @@ public class GapsController : ControllerBase
     private readonly AvailabilityRunner _availabilityRunner;
     private readonly VirtualMovieMinter _minter;
     private readonly MintRunner _mintRunner;
+    private readonly ResolutionStore _resolutions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -40,7 +41,8 @@ public class GapsController : ControllerBase
     /// <param name="availabilityRunner">The background availability enrichment runner.</param>
     /// <param name="minter">The experimental virtual-movie minter.</param>
     /// <param name="mintRunner">The background mint runner.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner)
+    /// <param name="resolutions">The store of per-gap resolution notes.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -48,6 +50,7 @@ public class GapsController : ControllerBase
         _availabilityRunner = availabilityRunner;
         _minter = minter;
         _mintRunner = mintRunner;
+        _resolutions = resolutions;
     }
 
     /// <summary>
@@ -202,4 +205,38 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<AvailabilityStatus> GetAvailabilityStatus()
         => new AvailabilityStatus { Running = _availabilityRunner.IsRunning, Progress = _availabilityRunner.Progress, Message = _availabilityRunner.LastMessage ?? string.Empty };
+
+    /// <summary>
+    /// Gets every gap resolution (gaps marked as not really missing), keyed by gap id.
+    /// </summary>
+    /// <returns>The resolutions.</returns>
+    [HttpGet("Resolutions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyDictionary<string, GapResolution>> GetResolutions() => Ok(_resolutions.GetAll());
+
+    /// <summary>
+    /// Marks a gap resolved (not really missing) with a note. Persists across rescans.
+    /// </summary>
+    /// <param name="request">The gap id and note.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("Resolve")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult Resolve([FromBody] ResolveRequest request)
+    {
+        _resolutions.Resolve(request.Id, request.Note);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Clears a gap's resolution so it shows as missing again.
+    /// </summary>
+    /// <param name="id">The gap id.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("Unresolve")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult Unresolve([FromQuery] string id)
+    {
+        _resolutions.Clear(id);
+        return NoContent();
+    }
 }
