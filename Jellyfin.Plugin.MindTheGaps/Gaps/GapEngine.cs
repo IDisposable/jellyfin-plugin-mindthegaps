@@ -62,7 +62,8 @@ public sealed class GapEngine
         var enabled = _sources.Where(s => s.IsEnabled(config)).ToList();
         var context = BuildContext(enabled, config);
 
-        var priorIds = new HashSet<string>(_store.Load().Items.Select(i => i.Id), StringComparer.Ordinal);
+        var priorReport = _store.Load();
+        var priorIds = new HashSet<string>(priorReport.Items.Select(i => i.Id), StringComparer.Ordinal);
 
         var gaps = new List<GapItem>();
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
@@ -115,6 +116,15 @@ public sealed class GapEngine
         // up genuinely new gaps. Do this before the host link pass so carried ids produce their links.
         CarryForward(gaps);
 
+        // Backfill: filmography only scans a slice of the cast and crew each run, so carry forward prior
+        // CreatorWorks gaps that were not re-emitted this run and are still unowned. Coverage then
+        // accumulates across runs instead of the un-scanned creators' gaps vanishing. Gated on a
+        // filmography source being enabled, so disabling it lets the accumulation drain on the next scan.
+        if (config.ScanPeople || config.TraktEnabled)
+        {
+            AccumulateCreatorWorks(gaps, byId, priorReport.Items, context.Ownership);
+        }
+
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
         // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
         _externalLinks.Enrich(gaps);
@@ -142,6 +152,46 @@ public sealed class GapEngine
             cancellationToken).ConfigureAwait(false);
 
         return report;
+    }
+
+    // Carry prior CreatorWorks gaps forward across scans so filmography coverage accumulates: a gap that
+    // was found before, is still not owned, and was not re-found this run (its creator was not in this
+    // run's batch) is kept rather than dropped. Bounded so a huge library cannot grow the report without
+    // limit. The carried gap object keeps its prior enrichment (availability, resolved ids).
+    private void AccumulateCreatorWorks(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership)
+    {
+        const int maxAccumulated = 50000;
+
+        var creatorWorks = gaps.Count(g => g.Pattern == GapPattern.CreatorWorks);
+        var carried = 0;
+        foreach (var item in prior)
+        {
+            if (item.Pattern != GapPattern.CreatorWorks || byId.ContainsKey(item.Id))
+            {
+                continue;
+            }
+
+            if (ownership.OwnsAny(item.TargetKind, item.ProviderIds))
+            {
+                continue;
+            }
+
+            if (creatorWorks >= maxAccumulated)
+            {
+                _logger.LogInformation("Filmography backfill: reached the {Max} accumulated cap; older gaps not carried", maxAccumulated);
+                break;
+            }
+
+            byId[item.Id] = item;
+            gaps.Add(item);
+            creatorWorks++;
+            carried++;
+        }
+
+        if (carried > 0)
+        {
+            _logger.LogInformation("Filmography backfill: carried {Carried} unowned creator-works gaps forward from the previous scan", carried);
+        }
     }
 
     // A recommendation target can be surfaced by several owned titles, but they collapse to one gap (the

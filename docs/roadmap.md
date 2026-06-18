@@ -156,24 +156,17 @@ targeted deletes), so it does not need its own progress. Availability is its own
   cap so a broad studio does not flood the list). Two pieces remain: (a) TMDB Lists, paste a list id and
   complete it the same way (TMDbLib `GetListAsync`); and (b) auto-seeding, derive the studios/keywords to
   track from those most common on owned items instead of requiring the user to look up TMDB ids.
-- **Incremental, "fill up" scanning that scales past the per-run caps.** Each source caps its work per
-  run (`PeopleGapSource` scans at most `MaxPeople` = 500 owned people; recommendations cap seeds; the
-  series sources cap too). Worse, those caps apply to the library's default order, which is `SortName`
-  (alphabetical), so on a large library the filmography scan only ever reaches the "A" names: every
-  creator in the report has a first name starting with A, and no one later in the alphabet is found. Two
-  parts to fix: (1) make a single run unbiased by ordering the work by relevance rather than
-  alphabetically (for people, by how many owned titles credit them, so the cap keeps the creators you
-  have the most work from, not just the alphabetically-first); and (2) make coverage accumulate across
-  runs so the whole library eventually gets scanned, the way availability already fills in over repeated
-  background passes. Carry a per-source cursor forward (last person/seed/series processed) and resume
-  from it next run, and/or partition the work into bounded rotating slices (for example one alphabetical
-  bucket and one axis/pattern tab per run) so each scan covers a different slice and the set fills up over
-  time. Part (1) is DONE: `PeopleGapSource` now orders people most-credited-first and the cap is
-  configurable (`MaxFilmographyPeople`), so a single run covers the prominent creators across all names
-  instead of only the "A" names. Part (2), cross-run accumulation, is still open and is the harder half:
-  the report is rebuilt from scratch each scan, so a rotating cursor alone would make a previous run's
-  gaps vanish; true fill-up needs the engine to carry forward prior still-missing gaps from incremental
-  sources (re-checking ownership) rather than dropping any gap a source did not re-emit this run.
+- **Extend fill-up scanning to recommendations and series.** Filmography now fills up over runs:
+  `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
+  the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run
+  (starting a fresh cycle once everyone is covered); the engine then carries prior CreatorWorks gaps
+  forward across scans when they are still unowned and were not re-emitted (bounded, gated on a
+  filmography source being enabled), so the whole cast and crew accumulates instead of the un-scanned
+  creators' gaps vanishing. The same cursor-plus-carry-forward pattern could be applied to recommendation
+  seeds and the series cross-checks so those caps also fill up over runs rather than rescanning the same
+  slice. Watch report growth: full filmography coverage of a large library can be tens of thousands of
+  gaps (bounded by the 50k accumulation cap), which the flat dashboard render may eventually want
+  virtualizing.
 - **Send a gap to Radarr/Sonarr.** The report dead-ends at a link; power users running the arr stack
   want one click from "missing" to "queued". Gaps already carry the ids these need: a movie gap has a
   TMDB id (Radarr `POST /api/v3/movie` takes a tmdbId), a missing episode carries its series' TheTVDB id

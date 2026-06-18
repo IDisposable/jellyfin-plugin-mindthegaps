@@ -27,6 +27,7 @@ public sealed class PeopleGapSource : IGapSource
 
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
+    private readonly ScanCursorStore _cursors;
     private readonly ILogger<PeopleGapSource> _logger;
 
     /// <summary>
@@ -34,14 +35,17 @@ public sealed class PeopleGapSource : IGapSource
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="tmdb">The TMDB client.</param>
+    /// <param name="cursors">Tracks which people have been scanned this cycle, for cross-run backfill.</param>
     /// <param name="logger">The logger.</param>
     public PeopleGapSource(
         ILibraryManager libraryManager,
         TmdbClient tmdb,
+        ScanCursorStore cursors,
         ILogger<PeopleGapSource> logger)
     {
         _libraryManager = libraryManager;
         _tmdb = tmdb;
+        _cursors = cursors;
         _logger = logger;
     }
 
@@ -69,27 +73,52 @@ public sealed class PeopleGapSource : IGapSource
             Recursive = true
         });
 
-        // Order people by how many owned movies/series credit them, so the per-run cap keeps the creators
-        // the library has the most work from. The default item order is SortName (alphabetical), so a flat
-        // cap on that order would only ever reach the "A" names on a large library.
+        // Order people by how many owned movies/series credit them, so each run's batch is the most
+        // relevant un-scanned creators, not the alphabetically-first names.
         var ordered = OrderByRelevance(people, cancellationToken);
 
-        var processed = 0;
-        for (var index = 0; index < ordered.Count; index++)
+        // Resume where the last run left off: take the next batch of people not yet scanned this cycle, so
+        // over repeated runs the whole cast and crew is covered (the engine carries unowned filmography
+        // gaps forward between runs). When everyone has been scanned, start a fresh cycle to refresh.
+        var done = new HashSet<string>(_cursors.GetProcessed(Name), StringComparer.Ordinal);
+        var batch = new List<BaseItem>();
+        foreach (var candidate in ordered)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            context.ReportProgress((double)index / Math.Max(1, ordered.Count));
-
-            if (processed >= cap)
+            if (batch.Count >= cap)
             {
-                _logger.LogInformation(
-                    "Filmography: reached people cap ({Cap}); {Remaining} less-credited people not scanned this run",
-                    cap,
-                    ordered.Count - processed);
                 break;
             }
 
-            var person = ordered[index];
+            if (!done.Contains(candidate.Id.ToString("N", CultureInfo.InvariantCulture)))
+            {
+                batch.Add(candidate);
+            }
+        }
+
+        if (batch.Count == 0 && ordered.Count > 0)
+        {
+            _logger.LogInformation("Filmography: all {Count} people scanned this cycle; starting a fresh cycle", ordered.Count);
+            _cursors.StartNewCycle(Name);
+            foreach (var candidate in ordered)
+            {
+                if (batch.Count >= cap)
+                {
+                    break;
+                }
+
+                batch.Add(candidate);
+            }
+        }
+
+        var scannedKeys = new List<string>(batch.Count);
+        for (var index = 0; index < batch.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            context.ReportProgress((double)index / Math.Max(1, batch.Count));
+
+            var person = batch[index];
+            scannedKeys.Add(person.Id.ToString("N", CultureInfo.InvariantCulture));
+
             if (!person.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var personTmdbId))
             {
@@ -108,7 +137,6 @@ public sealed class PeopleGapSource : IGapSource
                 _logger.LogWarning(ex, "Filmography: failed to fetch TMDB person {Id} ({Name})", personTmdbId, person.Name);
             }
 
-            processed++;
             if (tmdbPerson is null)
             {
                 continue;
@@ -126,6 +154,8 @@ public sealed class PeopleGapSource : IGapSource
                 yield return gap;
             }
         }
+
+        _cursors.MarkProcessed(Name, scannedKeys);
     }
 
     // Order owned people most-credited-first. Counts how many owned movies/series list each person, then
