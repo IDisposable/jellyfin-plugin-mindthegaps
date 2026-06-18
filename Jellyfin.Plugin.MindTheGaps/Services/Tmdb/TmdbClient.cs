@@ -188,6 +188,33 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Resolves a studio/company name to its best-match TMDB company id and canonical name (cached, and a
+    /// null result is cached too). Returns null when there is no match.
+    /// </summary>
+    /// <param name="name">The studio name to search for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matched company id and name, or null.</returns>
+    public async Task<(int Id, string Name)?> SearchCompanyAsync(string name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var key = string.Create(CultureInfo.InvariantCulture, $"company-search-{name.ToUpperInvariant()}");
+        if (_cache.TryGetValue(key, out (int Id, string Name)? cached))
+        {
+            return cached;
+        }
+
+        var results = await _client.SearchCompanyAsync(name, 0, cancellationToken).ConfigureAwait(false);
+        var first = results?.Results is { Count: > 0 } list ? list[0] : null;
+        (int Id, string Name)? match = first is null ? null : (first.Id, string.IsNullOrEmpty(first.Name) ? name : first.Name);
+        _cache.Set(key, match, TimeSpan.FromHours(CacheDurationHours));
+        return match;
+    }
+
+    /// <summary>
     /// Gets a company's (studio's) display name by its TMDB id, for labelling a curated set.
     /// </summary>
     /// <param name="companyId">The TMDB company id.</param>

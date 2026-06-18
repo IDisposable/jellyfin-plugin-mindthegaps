@@ -149,13 +149,12 @@ targeted deletes), so it does not need its own progress. Availability is its own
 
 ## Backlog
 
-- **Curated-list and owned-derived set widening (continues the studio/keyword work).** Studio and
-  keyword widening shipped: `CuratedSetGapSource` runs `discover/movie` for the TMDB company and keyword
-  ids configured under `CuratedCompanyIds` / `CuratedKeywordIds`, diffs against ownership, and emits
-  SetCompletion gaps grouped by the set name (studios labelled from TMDB, with a per-set page and gap
-  cap so a broad studio does not flood the list). Two pieces remain: (a) TMDB Lists, paste a list id and
-  complete it the same way (TMDbLib `GetListAsync`); and (b) auto-seeding, derive the studios/keywords to
-  track from those most common on owned items instead of requiring the user to look up TMDB ids.
+- **Curated TMDB Lists (continues the studio/keyword work).** Studio and keyword widening shipped:
+  `CuratedSetGapSource` completes the movies of a studio or keyword, configured by **name** (resolved to
+  TMDB via `SearchCompanyAsync`), by TMDB id, or **auto-seeded** from the studios most common on owned
+  movies and series (`AutoSeedStudios`), grouped by the set name with per-set page and gap caps. The one
+  remaining input type is TMDB Lists: paste a list id and complete it the same way (TMDbLib `GetListAsync`).
+  Keyword auto-seeding (from keywords on owned items) is also possible but lower value than studios.
 - **Extend fill-up scanning to recommendations and series.** Filmography now fills up over runs:
   `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
   the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run

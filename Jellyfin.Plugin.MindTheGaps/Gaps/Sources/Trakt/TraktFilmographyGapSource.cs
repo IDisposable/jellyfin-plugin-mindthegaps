@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -105,7 +106,7 @@ public sealed class TraktFilmographyGapSource : IGapSource
         }
     }
 
-    private async System.Threading.Tasks.Task<string?> ResolveTraktIdAsync(string clientId, BaseItem person, CancellationToken cancellationToken)
+    private async Task<string?> ResolveTraktIdAsync(string clientId, BaseItem person, CancellationToken cancellationToken)
     {
         if (person.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb) && !string.IsNullOrEmpty(tmdb))
         {

@@ -54,10 +54,21 @@
                                 <span>Track curated sets (studios and keywords below)</span>
                             </label>
                         </div>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="AutoSeedStudios" name="AutoSeedStudios" type="checkbox" is="emby-checkbox" />
+                                <span>Auto-seed studios from your library (the studios most common on owned items)</span>
+                            </label>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyNames">Studio names</label>
+                            <input id="CuratedCompanyNames" name="CuratedCompanyNames" type="text" is="emby-input" />
+                            <div class="fieldDescription">Comma-separated studio names to complete, for example A24, Studio Ghibli. Resolved to TMDB at scan time.</div>
+                        </div>
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyIds">TMDB studio (company) ids</label>
                             <input id="CuratedCompanyIds" name="CuratedCompanyIds" type="text" is="emby-input" />
-                            <div class="fieldDescription">Comma-separated TMDB company ids to complete, for example 41077 (A24), 10342 (Studio Ghibli).</div>
+                            <div class="fieldDescription">Alternative to names: comma-separated TMDB company ids, for example 41077 (A24), 10342 (Studio Ghibli).</div>
                         </div>
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="CuratedKeywordIds">TMDB keyword ids</label>
@@ -209,6 +220,8 @@
                     page.querySelector('#ScanPeople').checked = config.ScanPeople;
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
+                    page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
+                    page.querySelector('#CuratedCompanyNames').value = config.CuratedCompanyNames || '';
                     page.querySelector('#CuratedCompanyIds').value = config.CuratedCompanyIds || '';
                     page.querySelector('#CuratedKeywordIds').value = config.CuratedKeywordIds || '';
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
@@ -312,6 +325,8 @@
                         config.ScanPeople = form.querySelector('#ScanPeople').checked;
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
+                        config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
+                        config.CuratedCompanyNames = form.querySelector('#CuratedCompanyNames').value;
                         config.CuratedCompanyIds = form.querySelector('#CuratedCompanyIds').value;
                         config.CuratedKeywordIds = form.querySelector('#CuratedKeywordIds').value;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;

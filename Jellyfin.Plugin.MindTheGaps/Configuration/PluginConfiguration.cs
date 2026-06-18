@@ -17,8 +17,10 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanPeople = true;
         ScanRecommendations = false;
         ScanCuratedSets = false;
+        CuratedCompanyNames = string.Empty;
         CuratedCompanyIds = string.Empty;
         CuratedKeywordIds = string.Empty;
+        AutoSeedStudios = false;
         IncludeAvailability = true;
         MaxRelatedPerItem = 20;
         MaxMissingEpisodesPerShow = 200;
@@ -61,10 +63,22 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanCuratedSets { get; set; }
 
     /// <summary>
+    /// Gets or sets a comma-separated list of studio names to track as curated sets, for example
+    /// "A24, Studio Ghibli". Each is resolved to a TMDB company at scan time.
+    /// </summary>
+    public string CuratedCompanyNames { get; set; }
+
+    /// <summary>
     /// Gets or sets a comma-separated list of TMDB company (studio) ids to track as curated sets, for
-    /// example "41077" for A24 or "10342" for Studio Ghibli.
+    /// example "41077" for A24 or "10342" for Studio Ghibli (an alternative to entering names).
     /// </summary>
     public string CuratedCompanyIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to auto-seed curated studio sets from the studios most
+    /// common on owned movies and series, so studios are tracked without entering anything.
+    /// </summary>
+    public bool AutoSeedStudios { get; set; }
 
     /// <summary>
     /// Gets or sets a comma-separated list of TMDB keyword ids to track as curated sets.
