@@ -110,13 +110,16 @@ public class GapsController : ControllerBase
             }
         }
 
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         return new GapSummary
         {
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
             PatternCounts = counts,
-            Providers = providers.ToArray()
+            Providers = providers.ToArray(),
+            AvailabilityEnabled = config.IncludeAvailability,
+            AvailabilityPending = config.IncludeAvailability ? AvailabilityRunner.PendingTitleCount(report) : 0
         };
     }
 
@@ -305,7 +308,14 @@ public class GapsController : ControllerBase
     [HttpGet("Availability/Status")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<AvailabilityStatus> GetAvailabilityStatus()
-        => new AvailabilityStatus { Running = _availabilityRunner.IsRunning, Progress = _availabilityRunner.Progress, Message = _availabilityRunner.LastMessage ?? string.Empty };
+        => new AvailabilityStatus
+        {
+            Running = _availabilityRunner.IsRunning,
+            Progress = _availabilityRunner.Progress,
+            Processed = _availabilityRunner.Processed,
+            Total = _availabilityRunner.Total,
+            Message = _availabilityRunner.LastMessage ?? string.Empty
+        };
 
     /// <summary>
     /// Gets every gap resolution (gaps marked as not really missing), keyed by gap id.

@@ -1094,6 +1094,7 @@
                             // Seed the provider filter from the providers seen across the whole report, so it is
                             // populated before any one tab (or "Where to watch" click) loads.
                             noteProviders(page, (summary.Providers || []).map(function (n) { return { Provider: n }; }));
+                            updateAvailButton(page);
                             var when = summary.GeneratedUtc && summary.GeneratedUtc.indexOf('0001') !== 0
                                 ? new Date(summary.GeneratedUtc).toLocaleString()
                                 : 'never';
@@ -1159,6 +1160,31 @@
                     return !!page && document.body.contains(page) && !page.classList.contains('hide');
                 }
 
+                // Reflect the where-to-watch backlog on the toolbar button from the summary: how many titles
+                // still need a lookup, or that the backlog is cleared, or that availability is off in settings.
+                function updateAvailButton(page) {
+                    var btn = page.querySelector('#cgLookupAvail');
+                    if (!btn) { return; }
+                    var span = btn.querySelector('span');
+                    var s = page._summary || {};
+                    if (!s.AvailabilityEnabled) {
+                        if (span) { span.textContent = 'Look up where to watch'; }
+                        btn.disabled = true;
+                        btn.title = 'Availability is turned off in settings.';
+                        return;
+                    }
+                    var pending = s.AvailabilityPending || 0;
+                    if (pending > 0) {
+                        if (span) { span.textContent = 'Look up where to watch (' + pending + ')'; }
+                        btn.disabled = false;
+                        btn.title = pending + ' title' + (pending === 1 ? '' : 's') + ' still need a where-to-watch lookup. Runs in the background; results fill in as it goes.';
+                    } else {
+                        if (span) { span.textContent = 'Where to watch: all checked'; }
+                        btn.disabled = true;
+                        btn.title = 'Every watchable gap has been looked up. Rescan to find new ones.';
+                    }
+                }
+
                 // Kick off the background "where to watch" pass and poll until it finishes, then reload so
                 // newly-enriched rows appear. The pass saves incrementally, so a reload mid-run shows partial
                 // results too. Shared by the toolbar button and the empty-state nudge.
@@ -1177,7 +1203,11 @@
                         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Availability/Status'), dataType: 'json' })
                             .then(function (s) {
                                 if (s && s.Running) {
-                                    if (span) { span.textContent = 'Looking up… ' + Math.round(s.Progress || 0) + '%'; }
+                                    if (span) {
+                                        span.textContent = s.Total
+                                            ? 'Looking up… ' + (s.Processed || 0) + '/' + s.Total
+                                            : 'Looking up… ' + Math.round(s.Progress || 0) + '%';
+                                    }
                                     setTimeout(poll, 2000);
                                 } else {
                                     done();

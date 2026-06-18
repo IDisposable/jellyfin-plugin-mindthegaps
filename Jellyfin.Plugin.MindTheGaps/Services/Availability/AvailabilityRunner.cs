@@ -40,6 +40,8 @@ public sealed class AvailabilityRunner
     private readonly object _lock = new();
     private bool _running;
     private double _progress;
+    private int _processed;
+    private int _total;
     private string? _lastMessage;
 
     /// <summary>
@@ -92,6 +94,34 @@ public sealed class AvailabilityRunner
     }
 
     /// <summary>
+    /// Gets how many titles the running pass has looked up so far.
+    /// </summary>
+    public int Processed
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _processed;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets how many titles the running pass will look up in total.
+    /// </summary>
+    public int Total
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _total;
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets the message from the last completed pass.
     /// </summary>
     public string? LastMessage
@@ -103,6 +133,27 @@ public sealed class AvailabilityRunner
                 return _lastMessage;
             }
         }
+    }
+
+    /// <summary>
+    /// Counts the distinct watch targets (titles) in the report that still need a "where to watch"
+    /// lookup, so the dashboard can show how much of the backlog remains and whether it is cleared. This
+    /// matches the unit the pass works in (one lookup per title, shared across an episode's siblings).
+    /// </summary>
+    /// <param name="report">The report to inspect.</param>
+    /// <returns>The number of distinct unchecked watch targets.</returns>
+    public static int PendingTitleCount(GapReport report)
+    {
+        var targets = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var gap in report.Items)
+        {
+            if (NeedsLookup(gap))
+            {
+                targets.Add(WatchKey(gap));
+            }
+        }
+
+        return targets.Count;
     }
 
     /// <summary>
@@ -177,6 +228,12 @@ public sealed class AvailabilityRunner
 
             _logger.LogInformation("Availability enrichment started: {Batch} titles to look up ({Pending} gaps pending)", batch.Count, pending.Count);
 
+            lock (_lock)
+            {
+                _processed = 0;
+                _total = batch.Count;
+            }
+
             var enriched = 0;
             for (var i = 0; i < batch.Count; i++)
             {
@@ -237,6 +294,7 @@ public sealed class AvailabilityRunner
 
                 lock (_lock)
                 {
+                    _processed = i + 1;
                     _progress = (i + 1) * 100.0 / batch.Count;
                 }
 

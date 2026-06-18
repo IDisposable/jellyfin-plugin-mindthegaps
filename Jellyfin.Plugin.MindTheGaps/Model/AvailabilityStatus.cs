@@ -22,6 +22,16 @@ public class AvailabilityStatus
     public double Progress { get; set; }
 
     /// <summary>
+    /// Gets or sets how many titles the running pass has looked up so far.
+    /// </summary>
+    public int Processed { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the running pass will look up in total.
+    /// </summary>
+    public int Total { get; set; }
+
+    /// <summary>
     /// Gets or sets the message from the last completed pass (how many were looked up and how many remain).
     /// </summary>
     public string Message { get; set; } = string.Empty;

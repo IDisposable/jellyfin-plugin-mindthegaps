@@ -36,4 +36,15 @@ public class GapSummary
     /// so the provider filter is fully populated before the per-pattern items load.
     /// </summary>
     public IReadOnlyList<string> Providers { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets or sets a value indicating whether availability ("where to watch") is enabled in config.
+    /// </summary>
+    public bool AvailabilityEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many distinct watch targets still need a "where to watch" lookup, so the
+    /// dashboard can show the remaining backlog on its button and indicate when it is cleared.
+    /// </summary>
+    public int AvailabilityPending { get; set; }
 }

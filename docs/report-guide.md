@@ -84,7 +84,7 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 | **Hide upcoming** | Drop gaps whose release date is in the future (not yet acquirable). |
 | **Show dismissed** | Reveal gaps you dismissed; each appears greyed with its status (resolved / not interested / snoozed) and a **Clear** button. Off by default, so dismissed rows stay hidden. |
 | **Hide items with no sources** | Hide gaps with no "where to watch" match for your provider filter. Needs availability data first (see below). |
-| **Look up where to watch** | Kicks off the background availability pass: fetches streaming providers for the gaps that do not have them yet, in batches, filling in as it goes. Grouped by watch target, so every episode of a series shares one lookup. Requires **Availability** enabled in settings. |
+| **Look up where to watch** | Kicks off the background availability pass: fetches streaming providers for the gaps that do not have them yet, in batches, filling in as it goes. Grouped by watch target, so every episode of a series shares one lookup. The button shows how many titles still need a lookup ("Look up where to watch (N)"), reports live progress while running ("Looking up... 45/320"), and reads "Where to watch: all checked" (disabled) once the backlog is cleared. Requires **Availability** enabled in settings. |
 | **Provider filter** | When availability data is present, filter to specific streaming providers. |
 | **Export Markdown** | Download the current tab, as filtered, as a Markdown file with links. |
 | **Search** | Free-text filter on the title. |
