@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.13",
+                "changelog": "10.11.0.13 - Report polish, accessibility, and a settings-link fix. The plugin's \"Settings\" button on the Plugins page now opens the configuration page instead of the report, and the report shows the installed plugin version next to the gear. Group headers use compact icons for resolve and not-interested, ordered search, open in Jellyfin, resolve, not-interested; a collapsed entry shows just the coverage percent (the full count on hover). The Markdown export now includes a search link for each gap. With one media domain shown at a time, the redundant top-level Movies/Shows group is gone and the summary line reads a little larger. Every icon control now has an accessible label so a screen reader announces the action. Fixes: the Type filter stacking onto two lines, and collapsed grid cells reflowing on hover.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.13/mind-the-gaps_10.11.0.13.zip",
+                "checksum": "3938ec9c7b5fd46e867881e4862d3875",
+                "timestamp": "2026-06-18T22:40:33Z"
+            },
+            {
                 "version": "10.11.0.12",
                 "changelog": "10.11.0.12 - A relevance gate keeps Creator works and Recommendations actionable on a large library: a TMDB vote floor (plus an optional cast-billing limit) drops obscure and bit-part credits, all tunable in settings. Set completion now lays its collapsed series and collections out in responsive columns instead of one very tall list, and a magnifying-glass icon opens a scoped Jellyfin search for any title, series, collection, or creator. The Type filter now lists the media domains actually present in each tab (so Music and Books gaps are reachable) and is a one-domain-at-a-time selector. You can resolve or mark \"not interested\" every episode under a series or season in one batch. The Markdown export folds the domain into the heading with a linked \"Watch\" and a link back to the same view. Fixes: the stale-list \"Rescan now\" button gave no feedback, and some season links were missing. Background runners now claim their run flag without locking the status counters.\n",
                 "targetAbi": "10.11.0.0",
