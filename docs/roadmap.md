@@ -188,14 +188,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   config pair (URL plus API key), and it covers both movies and series with no profile/root-folder
   plumbing. Both integrations are opt-in and config-gated like the Trakt/TheTVDB cross-checks: the
   "Send to ..." button only appears when that service is configured, so nothing assumes one is installed.
-- **Better dismissal: not-interested and snooze-until-release.** The resolve feature marks a gap "not
-  really missing"; dismissal is the sibling for "real gap, do not want it" and "want it, but not yet".
-  Two states are enough (no free-form taxonomy of reasons): *not interested* permanently drops a gap you
-  deliberately do not want, and *snooze until release* hides an upcoming/unreleased gap and
-  auto-resurfaces it after its release date. They differ because snooze expires on a date; everything
-  else is covered by the existing optional note. Small extension of `ResolutionStore` (add a state and an
-  optional snoozed-until date to the stored record) and the report filter; the persistence and overlay
-  plumbing already exist.
 - **Bulk mint across all enabled patterns.** Minting today is per-row and multi-select from the report.
   A one-click "mint every gap of a pattern" (or every gap in a domain) needs the per-cell container
   strategy (collections use a BoxSet, episodes are native in core, CreatorWorks/Recommendation use the

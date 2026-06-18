@@ -223,7 +223,7 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public ActionResult Resolve([FromBody] ResolveRequest request)
     {
-        _resolutions.Resolve(request.Id, request.Note);
+        _resolutions.SetState(request.Id, request.Kind, request.Note, request.SnoozedUntil);
         return NoContent();
     }
 

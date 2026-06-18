@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -107,6 +108,43 @@ public class ResolutionStoreTests
 
             // The earlier snapshot is unaffected by the later clear.
             Assert.True(snapshot.ContainsKey("ep:1"));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void Resolve_DefaultKind_IsNull_SoItIsOmitted()
+    {
+        var dir = TempDir();
+        try
+        {
+            Store(dir).Resolve("ep:1", "note");
+            Assert.Null(Store(dir).GetAll()["ep:1"].Kind);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void SetState_NotInterested_AndSnooze_PersistKindAndDate()
+    {
+        var dir = TempDir();
+        try
+        {
+            var until = new DateTime(2027, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+            Store(dir).SetState("m:1", GapResolution.NotInterested, "nope", null);
+            Store(dir).SetState("m:2", GapResolution.Snoozed, null, until);
+
+            var all = Store(dir).GetAll();
+            Assert.Equal(GapResolution.NotInterested, all["m:1"].Kind);
+            Assert.Null(all["m:1"].SnoozedUntil);
+            Assert.Equal(GapResolution.Snoozed, all["m:2"].Kind);
+            Assert.Equal(until, all["m:2"].SnoozedUntil);
         }
         finally
         {

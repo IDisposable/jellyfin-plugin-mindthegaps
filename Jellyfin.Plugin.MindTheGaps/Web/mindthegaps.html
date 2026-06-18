@@ -83,8 +83,8 @@
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps whose release date is in the future.">
                             <input type="checkbox" id="cgHideUpcoming" /> Hide upcoming
                         </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have marked resolved (not really missing). Their note and a Clear button appear on each.">
-                            <input type="checkbox" id="cgShowResolved" /> Show resolved
+                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have dismissed (resolved, not interested, or snoozed). Each appears greyed with its status and a Clear button.">
+                            <input type="checkbox" id="cgShowResolved" /> Show dismissed
                         </label>
                         <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
                             <input type="checkbox" id="cgStreamable" /> Hide items with no sources
@@ -160,8 +160,28 @@
                 var knownProviders = [];
                 // The provider list is long (one entry per streaming service), so it collapses by default.
                 var providersExpanded = false;
-                // gap id -> { Note, ResolvedUtc } for gaps the user marked "not really missing".
+                // gap id -> { Kind?, Note, ResolvedUtc, SnoozedUntil? } for dismissed gaps (resolved /
+                // not interested / snoozed). A missing Kind means "resolved".
                 var resolvedMap = {};
+
+                // The active dismissal for a gap, or null. A snooze whose date has passed is treated as
+                // gone (the gap resurfaces) without needing the server to clear it.
+                function activeDismissal(it) {
+                    var r = resolvedMap[it.Id];
+                    if (!r) { return null; }
+                    if (r.Kind === 'snoozed') {
+                        var until = r.SnoozedUntil ? new Date(r.SnoozedUntil).getTime() : 0;
+                        if (until && Date.now() >= until) { return null; }
+                    }
+                    return r;
+                }
+
+                // The greyed status line for a dismissed gap.
+                function dismissalLabel(r) {
+                    if (r.Kind === 'notinterested') { return 'Not interested' + (r.Note ? ': ' + esc(r.Note) : ''); }
+                    if (r.Kind === 'snoozed') { return 'Snoozed until ' + (r.SnoozedUntil ? new Date(r.SnoozedUntil).toLocaleDateString() : 'release'); }
+                    return 'Resolved' + (r.Note ? ': ' + esc(r.Note) : '');
+                }
 
                 function monAllowed(type) {
                     if (!type) { return true; }
@@ -263,7 +283,7 @@
                     var watchKind = item.TargetKindName === 'Episode' ? 'Series' : item.TargetKindName;
                     var watchable = !!watchTmdb && (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode');
                     var hasAvail = item.Availability && item.Availability.length;
-                    var res = resolvedMap[item.Id];
+                    var res = activeDismissal(item);
                     var actions = [];
                     // Offer the on-demand look-up only when we have not looked yet. Once checked, an empty
                     // result is shown as "no sources" instead (below), not a button that comes back empty.
@@ -274,11 +294,15 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons">eco</span>Mint</button>');
                     }
-                    // Mark this gap as not really missing (with a note), or clear that.
+                    // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
-                        actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the resolution (show as missing again)">Clear</button>');
+                        actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the dismissal (show as missing again)">Clear</button>');
                     } else {
                         actions.push('<button type="button" class="cgLink cgResolve" data-gapid="' + esc(item.Id) + '" title="Mark resolved (not really missing)"><span class="material-icons" style="font-size:1em;vertical-align:text-bottom;">done</span> Resolve</button>');
+                        actions.push('<button type="button" class="cgLink cgNotInterested" data-gapid="' + esc(item.Id) + '" title="Not interested (a real gap you do not want)">Not interested</button>');
+                        if (item.IsUpcoming && item.ReleaseDate) {
+                            actions.push('<button type="button" class="cgLink cgSnooze" data-gapid="' + esc(item.Id) + '" data-until="' + esc(item.ReleaseDate) + '" title="Hide until it is released">Snooze</button>');
+                        }
                     }
 
                     // Provider links can run long because the host's own providers contribute too, so let them
@@ -299,7 +323,7 @@
                     }
 
                     var resolvedLine = res
-                        ? '<div class="fieldDescription" style="margin-top:.2em;color:#3ddc97;">Resolved' + (res.Note ? ': ' + esc(res.Note) : '') + '</div>'
+                        ? '<div class="fieldDescription" style="margin-top:.2em;color:#3ddc97;">' + dismissalLabel(res) + '</div>'
                         : '';
 
                     var detailParts = [];
@@ -489,7 +513,7 @@
                     var showResolved = page.querySelector('#cgShowResolved').checked;
                     var streamable = page.querySelector('#cgStreamable').checked;
                     return function (it) {
-                        if (resolvedMap[it.Id] && !showResolved) { return false; }
+                        if (activeDismissal(it) && !showResolved) { return false; }
                         if (type && categoryOf(it) !== type) { return false; }
                         if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
                         if (hideUpcoming && it.IsUpcoming) { return false; }
@@ -564,8 +588,11 @@
                         if (provs.length) { parts.push('Watch: ' + provs.map(mdEsc).join(', ')); }
                     }
                     if (it.LibraryItemId) { parts.push('[Open in Jellyfin](' + itemUrl(it.LibraryItemId) + ')'); }
-                    var res = resolvedMap[it.Id];
-                    if (res) { parts.push('_(resolved' + (res.Note ? ': ' + mdEsc(res.Note) : '') + ')_'); }
+                    var res = activeDismissal(it);
+                    if (res) {
+                        var lbl = res.Kind === 'notinterested' ? 'not interested' : (res.Kind === 'snoozed' ? 'snoozed' : 'resolved');
+                        parts.push('_(' + lbl + (res.Note ? ': ' + mdEsc(res.Note) : '') + ')_');
+                    }
                     return parts.join(' | ');
                 }
 
@@ -1055,6 +1082,30 @@
                                 data: JSON.stringify({ Id: rid, Note: note })
                             }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
                                 .catch(function () { Dashboard.alert('Could not save the resolution. Check the server logs.'); });
+                            return;
+                        }
+
+                        var niBtn = e.target.closest('.cgNotInterested');
+                        if (niBtn) {
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Resolve'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Id: niBtn.getAttribute('data-gapid'), Kind: 'notinterested', Note: '' })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not save. Check the server logs.'); });
+                            return;
+                        }
+
+                        var snoozeBtn = e.target.closest('.cgSnooze');
+                        if (snoozeBtn) {
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/Resolve'),
+                                contentType: 'application/json',
+                                data: JSON.stringify({ Id: snoozeBtn.getAttribute('data-gapid'), Kind: 'snoozed', SnoozedUntil: snoozeBtn.getAttribute('data-until') })
+                            }).then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
+                                .catch(function () { Dashboard.alert('Could not snooze. Check the server logs.'); });
                             return;
                         }
 

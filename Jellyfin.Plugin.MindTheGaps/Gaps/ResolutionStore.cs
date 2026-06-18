@@ -76,7 +76,17 @@ public sealed class ResolutionStore
     /// </summary>
     /// <param name="id">The gap id.</param>
     /// <param name="note">The note.</param>
-    public void Resolve(string id, string? note)
+    public void Resolve(string id, string? note) => SetState(id, GapResolution.Resolved, note, null);
+
+    /// <summary>
+    /// Dismisses a gap with the given kind (resolved, not-interested, or snoozed), note, and optional
+    /// resurface date (or updates an existing one).
+    /// </summary>
+    /// <param name="id">The gap id.</param>
+    /// <param name="kind">The dismissal kind.</param>
+    /// <param name="note">The note.</param>
+    /// <param name="snoozedUntil">When a snoozed gap should resurface (null for the other kinds).</param>
+    public void SetState(string id, string? kind, string? note, DateTime? snoozedUntil)
     {
         // Gap ids are short, structured keys (see ADR-0008); reject anything implausibly long so a
         // malformed request cannot bloat the store.
@@ -85,10 +95,24 @@ public sealed class ResolutionStore
             return;
         }
 
+        // Null for the default (resolved) so it is omitted from the persisted JSON.
+        var normalizedKind = kind switch
+        {
+            GapResolution.NotInterested => GapResolution.NotInterested,
+            GapResolution.Snoozed => GapResolution.Snoozed,
+            _ => null
+        };
+
         lock (_lock)
         {
             var map = Load();
-            map[id] = new GapResolution { Note = Sanitize(note), ResolvedUtc = DateTime.UtcNow };
+            map[id] = new GapResolution
+            {
+                Kind = normalizedKind,
+                Note = Sanitize(note),
+                ResolvedUtc = DateTime.UtcNow,
+                SnoozedUntil = normalizedKind == GapResolution.Snoozed ? snoozedUntil : null
+            };
             Flush(map);
         }
     }
