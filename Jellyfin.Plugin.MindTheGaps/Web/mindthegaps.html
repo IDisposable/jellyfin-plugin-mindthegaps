@@ -670,23 +670,33 @@
                 // Escape the markdown control characters so a title cannot break the output.
                 function mdEsc(s) { return (s == null ? '' : String(s)).replace(/([\\`*_\[\]()<>#|])/g, '\\$1'); }
 
-                // One gap as a markdown bullet body: a linked title, its meta, its provider links, where to
-                // watch, an open-in-Jellyfin link for held items, and a resolved note.
-                function gapMarkdown(it) {
+                // A gap's H2 heading text (no leading "##"): the linked title and its year/kind.
+                function gapHeading(it) {
                     var links = it.Links || [];
-                    var name = links.length ? '[' + mdEsc(it.Name) + '](' + safeUrl(links[0].Url) + ')' : '**' + mdEsc(it.Name) + '**';
-                    var parts = [name];
+                    var title = links.length ? '[' + mdEsc(it.Name) + '](' + safeUrl(links[0].Url) + ')' : mdEsc(it.Name);
                     var meta = [];
                     if (it.Year) { meta.push(it.Year); }
                     if (it.TargetKindName) { meta.push(it.TargetKindName); }
-                    if (meta.length) { parts.push('(' + meta.join(', ') + ')'); }
+                    return title + (meta.length ? ' (' + meta.join(', ') + ')' : '');
+                }
+
+                // The detail line under a gap heading: its provider links, a linked "Watch" (to the same watch
+                // page the UI opens) with the providers, an open-in-Jellyfin link for held items, the owning
+                // source (collection, creator, or recommending title), and a dismissal note. Empty when none.
+                function gapDetail(it) {
+                    var parts = [];
+                    var links = it.Links || [];
                     if (links.length) { parts.push(links.map(function (l) { return '[' + mdEsc(l.Name) + '](' + safeUrl(l.Url) + ')'; }).join(' ')); }
                     var offers = filterOffers(it.Availability);
                     if (offers.length) {
                         var provs = offers.map(function (o) { return o.Provider; }).filter(function (p, i, a) { return p && a.indexOf(p) === i; });
-                        if (provs.length) { parts.push('Watch: ' + provs.map(mdEsc).join(', ')); }
+                        var watchUrl = '';
+                        for (var i = 0; i < offers.length; i++) { if (offers[i].Url) { watchUrl = offers[i].Url; break; } }
+                        var watch = watchUrl ? '[Watch](' + safeUrl(watchUrl) + ')' : 'Watch';
+                        parts.push(watch + (provs.length ? ': ' + provs.map(mdEsc).join(', ') : ''));
                     }
                     if (it.LibraryItemId) { parts.push('[Open in Jellyfin](' + itemUrl(it.LibraryItemId) + ')'); }
+                    if (it.SourceItemName) { parts.push('from ' + mdEsc(it.SourceItemName)); }
                     var res = activeDismissal(it);
                     if (res) {
                         var lbl = res.Kind === 'notinterested' ? 'not interested' : (res.Kind === 'snoozed' ? 'snoozed' : 'resolved');
@@ -695,22 +705,28 @@
                     return parts.join(' | ');
                 }
 
-                // Build a markdown document for the current tab as filtered, grouped by domain then source.
+                // Build a markdown document for the current tab as filtered. One H1 per domain (the axis), with
+                // the domain folded into the title ("Mind the Gaps: Movies Set completion") and each gap as an
+                // H2 with a detail line. The summary line links to a shareable view of this exact export.
                 function buildMarkdown(page) {
                     var report = page._report || { Items: [] };
                     var pass = buildFilter(page);
                     var items = (report.Items || []).filter(function (it) { return it.PatternName === page._pattern && pass(it); });
-                    var out = ['# Mind the Gaps: ' + PATTERN_LABELS[page._pattern], '', '_' + items.length + ' gaps, exported ' + new Date().toLocaleString() + '_', ''];
+                    var label = PATTERN_LABELS[page._pattern];
+                    // Angle brackets around the URL so encoded filter values cannot break the markdown link.
+                    var out = ['_[' + items.length + ' gaps, exported ' + new Date().toLocaleString() + '](<' + shareUrl(page) + '>)_', ''];
                     var byCat = groupBy(items, categoryOf);
                     byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
                     byCat.order.forEach(function (cat) {
-                        out.push('## ' + mdEsc(cat), '');
-                        var bySrc = groupBy(byCat.map[cat], function (it) { return it.SourceItemName || '(no source)'; });
-                        bySrc.order.sort(ci);
-                        bySrc.order.forEach(function (src) {
-                            out.push('### ' + mdEsc(src), '');
-                            bySrc.map[src].slice().sort(function (a, b) { return ci(a.Name || '', b.Name || ''); })
-                                .forEach(function (it) { out.push('- ' + gapMarkdown(it)); });
+                        out.push('# Mind the Gaps: ' + mdEsc(cat) + ' ' + label, '');
+                        // No source heading now, so sort by source then title to keep one source's gaps adjacent.
+                        byCat.map[cat].slice().sort(function (a, b) {
+                            var s = ci(a.SourceItemName || '', b.SourceItemName || '');
+                            return s !== 0 ? s : ci(a.Name || '', b.Name || '');
+                        }).forEach(function (it) {
+                            out.push('## ' + gapHeading(it));
+                            var detail = gapDetail(it);
+                            if (detail) { out.push(detail); }
                             out.push('');
                         });
                     });
@@ -1223,6 +1239,41 @@
                         .catch(function () { done('Could not start the look-up. Check the server logs.'); });
                 }
 
+                // Start a background scan and poll to completion, showing progress on whichever button started
+                // it. Shared by the toolbar "Rescan now" and the stale-banner "Rescan now" (the latter's bar is
+                // hidden while the banner shows, so it must drive its own button, not the toolbar's).
+                function startScan(page, btn) {
+                    var span = btn ? btn.querySelector('span') : null;
+                    var orig = span ? span.textContent : null;
+                    if (btn) { btn.disabled = true; }
+                    if (span) { span.textContent = 'Scanning…'; }
+
+                    function finish(msg) {
+                        if (btn) { btn.disabled = false; }
+                        if (span && orig != null) { span.textContent = orig; }
+                        if (msg) { Dashboard.alert(msg); }
+                    }
+
+                    function poll() {
+                        if (!pageActive(page)) { return; }
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/ScanStatus'), dataType: 'json' })
+                            .then(function (s) {
+                                if (s && s.Running) {
+                                    if (span) { span.textContent = 'Scanning… ' + Math.round(s.Progress || 0) + '%'; }
+                                    setTimeout(poll, 2000);
+                                } else {
+                                    finish();
+                                    load(page);
+                                }
+                            })
+                            .catch(function () { finish('Lost contact while scanning. Refresh to see results.'); });
+                    }
+
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Scan'), dataType: 'json' })
+                        .then(function () { setTimeout(poll, 1000); })
+                        .catch(function () { finish('Could not start the scan. Check the server logs.'); });
+                }
+
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
                     // Jellyfin keeps this page element and re-fires pageshow on every navigation, so attach
@@ -1237,7 +1288,7 @@
                         load(page);
                     });
                     page.querySelector('#cgStaleRescan').addEventListener('click', function () {
-                        page.querySelector('#cgRescan').click();
+                        startScan(page, this);
                     });
                     page.querySelector('#cgSettings').addEventListener('click', function () {
                         Dashboard.navigate('configurationpage?name=MindTheGaps');
@@ -1296,38 +1347,7 @@
                         });
                     });
                     page.querySelector('#cgRescan').addEventListener('click', function () {
-                        // The scan runs in the background (large libraries would otherwise time out the
-                        // request), so kick it off and poll for completion instead of awaiting it.
-                        var btn = this;
-                        var span = btn.querySelector('span');
-                        var orig = span.textContent;
-                        btn.disabled = true;
-                        span.textContent = 'Scanning…';
-
-                        function finish(msg) {
-                            btn.disabled = false;
-                            span.textContent = orig;
-                            if (msg) { Dashboard.alert(msg); }
-                        }
-
-                        function poll() {
-                            if (!pageActive(page)) { return; }
-                            ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/ScanStatus'), dataType: 'json' })
-                                .then(function (s) {
-                                    if (s && s.Running) {
-                                        span.textContent = 'Scanning… ' + Math.round(s.Progress || 0) + '%';
-                                        setTimeout(poll, 2000);
-                                    } else {
-                                        finish();
-                                        load(page);
-                                    }
-                                })
-                                .catch(function () { finish('Lost contact while scanning. Refresh to see results.'); });
-                        }
-
-                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Scan'), dataType: 'json' })
-                            .then(function () { setTimeout(poll, 1000); })
-                            .catch(function () { finish('Could not start the scan. Check the server logs.'); });
+                        startScan(page, this);
                     });
                     page.querySelector('#cgTabs').addEventListener('click', function (e) {
                         var tab = e.target.closest ? e.target.closest('.cgTab') : null;
