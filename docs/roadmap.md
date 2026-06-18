@@ -215,6 +215,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   a named preset in `localStorage`, re-applied in one click. What remains is the shareable part: encode a
   view into the page URL so it survives a bookmark or a paste to another browser/user, which the saved
   presets (per browser) do not. Fiddly inside Jellyfin's hash router, hence deferred.
+- **Native in-page polish via the frontend-customization ecosystem (alternative to the upstream PRs).**
+  The community JavaScript Injector and File Transformation plugins (the same stack CineHover uses) let a
+  plugin push CSS/JS into jellyfin-web without forking it. That gives a non-upstream path to the two
+  things currently gated on jellyfin-web changes: (a) render our minted virtual items as greyed "Missing"
+  placeholders (otherwise waiting on jellyfin-web PR A / #8049), and (b) add a dedicated "Gaps" shelf to
+  the native person page so Creator Works gaps appear there as their own section. The minting that creates
+  and reconciles the items is already done; this is only the presentation layer. Trade-offs: it adds a
+  soft dependency on two third-party plugins the user must install, and injected JS targets jellyfin-web's
+  DOM, so it is version-fragile and needs upkeep across web releases. Best shipped as an optional
+  enhancement (ship the injectable assets, document the dependency), not a core requirement.
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
