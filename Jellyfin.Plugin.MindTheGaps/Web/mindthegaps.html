@@ -789,6 +789,11 @@
                     var parts = [];
                     var links = it.Links || [];
                     if (links.length) { parts.push(links.map(function (l) { return '[' + mdEsc(l.Name) + '](' + safeUrl(l.Url) + ')'; }).join(' ')); }
+                    // A Jellyfin search link, scoped like the report's search icon (an episode searches its
+                    // series). Angle brackets so the encoded collectionType/query cannot break the link.
+                    var sName = (it.TargetKindName === 'Episode' && it.SourceItemName) ? it.SourceItemName : it.Name;
+                    var sScope = it.TargetKindName === 'Episode' ? 'tvshows' : domainScope(it.DomainName);
+                    parts.push('[Search](<' + searchUrl(sName, sScope) + '>)');
                     var offers = filterOffers(it.Availability);
                     if (offers.length) {
                         var provs = offers.map(function (o) { return o.Provider; }).filter(function (p, i, a) { return p && a.indexOf(p) === i; });

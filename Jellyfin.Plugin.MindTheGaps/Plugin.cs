@@ -46,25 +46,27 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         var ns = GetType().Namespace;
 
-        // Admin configuration page.
+        // Admin configuration page. It must be EnableInMainMenu too: jellyfin-web's
+        // findBestConfigurationPage (apps/dashboard/features/plugins) resolves the plugin-details
+        // "Settings" button to the first candidate that has EnableInMainMenu (DisplayName is not
+        // consulted). With only the report page flagged, Settings would open the report; flagging this
+        // page and yielding it first makes Settings open the config. The side effect is that this page
+        // also appears in the admin dashboard drawer alongside the report, which is a normal place for
+        // plugin settings. The name must NOT collide case-insensitively with the report below: the host
+        // resolves pages by name with OrdinalIgnoreCase (DashboardController.GetDashboardConfigurationPage).
         yield return new PluginPageInfo
         {
             Name = "MindTheGaps",
-            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns)
+            DisplayName = "Mind the Gaps",
+            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns),
+            EnableInMainMenu = true,
+            MenuIcon = "settings"
         };
 
-        // The todo-list dashboard page, surfaced in the main menu. The name must NOT collide
-        // case-insensitively with the config page above: the host resolves pages by name with
-        // OrdinalIgnoreCase (DashboardController.GetDashboardConfigurationPage), so "mindthegaps"
-        // would be shadowed by "MindTheGaps" and never load.
+        // The todo-list dashboard page, surfaced in the main menu.
         yield return new PluginPageInfo
         {
             Name = "MindTheGapsReport",
-            // The config page above has no DisplayName, so the host shows it under the plugin name
-            // ("Mind the Gaps"). The plugin-details "Settings" button resolves to the first config page
-            // ordered by DisplayName, so this one must sort AFTER "Mind the Gaps" or it gets opened
-            // instead. "Mind the Gaps ToDo List" has the plugin name as a prefix, so it sorts after it
-            // and the config page stays the Settings target.
             DisplayName = "Mind the Gaps ToDo List",
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
             EnableInMainMenu = true,
