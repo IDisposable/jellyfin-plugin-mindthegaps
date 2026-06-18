@@ -222,9 +222,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   report (gaps are counted against owned containers); this is a presentation layer that turns the todo
   list into a progress view, and it gives the dashboard a headline number per group rather than only a
   flat list. Small, report-only.
-- **Finer alphabetical hierarchy (low priority).** Single-letter buckets get large on big libraries (an
-  "A" group can hold 100+ creators or titles). A second level (for example "Ab", "Ad", "Al") or a sticky
-  A-Z jump bar would make a long group navigable. Dashboard-only grouping change, low priority.
 - **Saved views.** Remember named filter/sort combinations (for example "movies with sources, hide
   upcoming, sorted by year") and let the report deep-link to one via the URL, so a particular slice is one
   click or one bookmark away instead of re-toggling filters each visit. The filters already live in

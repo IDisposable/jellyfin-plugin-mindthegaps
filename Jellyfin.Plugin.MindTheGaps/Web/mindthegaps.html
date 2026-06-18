@@ -37,6 +37,11 @@
             .cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
             .cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }
             .cgProvToggle .cgCaret { border-left-color: currentColor; }
+            /* A-Z jump bar for the letter-grouped tabs (Creator works, Recommendations). */
+            #cgJump { position: sticky; top: 0; z-index: 5; background: rgba(16,16,16,.95); flex-wrap: wrap; gap: .1em; padding: .25em 0; margin-bottom: .2em; }
+            #cgJump.cgJumpShown { display: flex; }
+            .cgJumpL { cursor: pointer; padding: .05em .4em; border-radius: 3px; font-size: .85em; opacity: .85; }
+            .cgJumpL:hover { background: rgba(255,255,255,.14); opacity: 1; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -116,6 +121,7 @@
                     </button>
                 </div>
 
+                <div id="cgJump" style="display:none;"></div>
                 <div id="cgList" class="itemsContainer vertical-list"></div>
             </div>
         </div>
@@ -590,6 +596,22 @@
                     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
                 }
 
+                // Populate the A-Z jump bar from the letter groups in the current tree (the letter-grouped
+                // tabs only). Each entry scrolls to and expands that letter's group.
+                function renderJumpBar(page) {
+                    var bar = page.querySelector('#cgJump');
+                    if (page._pattern === 'SetCompletion') { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+                    var seen = {}, letters = [];
+                    var groups = page.querySelectorAll('#cgList .cgGroup.cgL2');
+                    for (var i = 0; i < groups.length; i++) {
+                        var L = groups[i].getAttribute('data-cglabel');
+                        if (L && !seen[L]) { seen[L] = true; letters.push(L); }
+                    }
+                    if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+                    bar.innerHTML = letters.map(function (L) { return '<a class="cgJumpL" data-l="' + esc(L) + '">' + esc(L) + '</a>'; }).join('');
+                    bar.style.display = 'flex';
+                }
+
                 function applyAndRender(page) {
                     var report = page._report || { Items: [] };
                     renderTabs(page);
@@ -641,6 +663,7 @@
                     for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
                     scroller.scrollTop = scrollY;
 
+                    renderJumpBar(page);
                     page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
                     updateSelection(page);
                 }
@@ -947,6 +970,20 @@
                     page.querySelector('#cgExport').addEventListener('click', function () {
                         if (!page._report) { return; }
                         downloadText('mind-the-gaps-' + (page._pattern || 'report') + '.md', buildMarkdown(page));
+                    });
+                    page.querySelector('#cgJump').addEventListener('click', function (e) {
+                        var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
+                        if (!a) { return; }
+                        var letter = a.getAttribute('data-l');
+                        var groups = page.querySelectorAll('#cgList .cgGroup.cgL2');
+                        for (var i = 0; i < groups.length; i++) {
+                            if (groups[i].getAttribute('data-cglabel') === letter) {
+                                // Expand the target letter group and its ancestors, then scroll to it.
+                                for (var n = groups[i]; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) { n.classList.remove('cgCollapsed'); }
+                                groups[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                break;
+                            }
+                        }
                     });
                     page.querySelector('#cgMonFilter').addEventListener('change', function () {
                         saveFilters(page);
