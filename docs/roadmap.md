@@ -212,14 +212,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   cadence as the scan. It would reuse `MintRunner` and the same per-cell container strategy as the bulk
   item above; the open question is the selection UI (which patterns to auto-mint) and guardrails so it
   cannot flood a library.
-- **Synthesize parent hierarchy for season/episode host links.** `ExternalLinkEnricher` hands the host a
-  throwaway `BaseItem` carrying the gap's own provider ids. That satisfies the movie/series/person
-  branches of core's url providers, but their season/episode branches reach through `season.Series` /
-  `episode.Series` to read the *series* id, which a bare synthetic item lacks, so those yield nothing and
-  the `ProviderLinks` fallback covers them. We could set a minimal parent (a `Series` with the owning
-  item's ids, plus index numbers) so the host emits proper season/episode urls, but the series ids live
-  on the owning item (`SourceItemId`), not the gap's `ProviderIds`, so it needs a library lookup per
-  episode gap. Low value (the fallback already builds these), so deferred.
 - **Discover installed providers' credentials.** We already reuse the host's *link* providers
   (`IExternalUrlProvider`) with no credentials. Reusing other plugins' *credentialed* clients (the
   TheTVDB/Trakt metadata plugins' configured keys) the way we lean on the in-box TMDB provider has no

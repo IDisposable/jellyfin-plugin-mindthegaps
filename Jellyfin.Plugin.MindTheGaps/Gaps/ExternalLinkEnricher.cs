@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -166,6 +167,11 @@ public sealed class ExternalLinkEnricher
             return Array.Empty<ExternalLink>();
         }
 
+        // For a missing season/episode, point the synthetic item at its owning series (an owned library
+        // item) so core's url providers, which reach through Series for the series id and read the
+        // season/episode numbers off the item, can emit proper season/episode urls instead of nothing.
+        TryLinkParentSeries(item, gap);
+
         var links = new List<ExternalLink>();
         try
         {
@@ -184,5 +190,70 @@ public sealed class ExternalLinkEnricher
         }
 
         return links;
+    }
+
+    // Set the synthetic season/episode's owning series id (and season/episode numbers) so core can
+    // resolve the real owned Series via the host library manager and build the right url. The owning
+    // series' guid is on the gap (SourceItemId); the episode number comes from the gap id (see ADR-0008).
+    // Fully guarded: any failure leaves the item as it was and the gap keeps its fallback links.
+    private void TryLinkParentSeries(BaseItem item, GapItem gap)
+    {
+        try
+        {
+            if (item is not (Episode or Season))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(gap.SourceItemId) || !Guid.TryParseExact(gap.SourceItemId, "N", out var seriesId))
+            {
+                return;
+            }
+
+            if (item is Episode episode)
+            {
+                episode.SeriesId = seriesId;
+                if (gap.Season is int season)
+                {
+                    episode.ParentIndexNumber = season;
+                }
+
+                if (ParseEpisodeNumber(gap.Id) is int number)
+                {
+                    episode.IndexNumber = number;
+                }
+            }
+            else if (item is Season seasonItem)
+            {
+                seasonItem.SeriesId = seriesId;
+                if (gap.Season is int season)
+                {
+                    seasonItem.IndexNumber = season;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not link synthetic item to its series for '{Name}'", gap.Name);
+        }
+    }
+
+    // The episode gap id ends with "...eNN" (SeriesGapKey.Episode), so the trailing digits after the last
+    // 'e' are the episode number. Returns null for any id that does not match that shape.
+    private static int? ParseEpisodeNumber(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        var idx = id.LastIndexOf('e');
+        if (idx < 0 || idx == id.Length - 1)
+        {
+            return null;
+        }
+
+        var tail = id[(idx + 1)..];
+        return int.TryParse(tail, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
     }
 }
