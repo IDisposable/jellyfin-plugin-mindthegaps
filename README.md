@@ -22,6 +22,10 @@ A scheduled task scans your library; a dashboard page (**Dashboard > Mind the Ga
 results: filterable by pattern and domain, searchable, with TMDB/IMDb/etc. links and an on-demand
 "Where to watch" for each item.
 
+![Mind the Gaps report](assets/screenshots/report-overview.png)
+<!-- Capture: the report open with a healthy number of gaps, a pattern tab active and the toolbar
+     visible. The hero shot. See assets/screenshots/README.md for the full capture list. -->
+
 Gaps are modelled as three patterns across N media domains, so new sources slot in without engine
 changes (only Video is implemented today):
 
@@ -36,8 +40,8 @@ changes (only Video is implemented today):
 - **Collection gaps**: missing movies in a partially-owned TMDB collection or BoxSet. Movie-franchise
   only by design (TMDB collections don't model shows).
 - **Filmography gaps (TMDB)**: an owned person's movie credits (cast plus directing/writing crew) that
-  aren't in the library. People are scanned most-credited-first, so the per-run cap keeps the creators you
-  have the most work from (raise the cap to cover more of a large cast and crew).
+  aren't in the library. People are scanned stalest-first, so coverage accumulates over runs (and the
+  per-run cap, raised, covers a large cast and crew faster); most-owned-credits breaks ties.
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
@@ -168,7 +172,7 @@ build.yaml                              # plugin manifest (catalog metadata)
 manifest.json                           # catalog/repository manifest
 Directory.Packages.props                # central NuGet versions (single source)
 LICENSE
-assets/                                 # social card
+assets/                                 # social card + doc screenshots (assets/screenshots/README.md)
 docs/                                   # ADRs + upstream drafts + design notes
   configuration.md                      # every setting and its implications
   report-guide.md                       # how to read and work the report

@@ -10,6 +10,10 @@ For how to read the results, see the [report guide](report-guide.md).
 
 ## What to scan
 
+![What to scan settings](../assets/screenshots/config-what-to-scan.png)
+<!-- Capture: the settings page "What to scan" section with the source toggles and the curated-set
+     inputs. See assets/screenshots/README.md for the full capture list. -->
+
 These toggles decide which gap sources run. Turning one off removes its gaps from the next report; it
 does not delete anything from your library. Leaving everything off produces an empty report.
 
@@ -42,6 +46,10 @@ These only matter when **Curated studio / keyword sets** is on.
 
 ## Data sources
 
+![Data sources settings](../assets/screenshots/config-data-sources.png)
+<!-- Capture: the "Data sources" section (TMDB key, webhook, Trakt/TVmaze/TheTVDB cross-checks). Keys
+     blank or fake. -->
+
 TMDB is always on (it powers collections, people, recommendations, and availability). The rest are
 opt-in cross-checks that need your own credentials.
 
@@ -64,6 +72,10 @@ opt-in cross-checks that need your own credentials.
 
 ## Limits
 
+![Limits settings](../assets/screenshots/config-limits.png)
+<!-- Capture: the "Limits" section including the Max-per-run fields and the "Reset scan rotation"
+     button. -->
+
 These bound how much each scan produces, so one prolific show or a huge cast does not flood the list.
 
 | Setting | Default | Effect |
@@ -79,6 +91,9 @@ library, so the table stays the size of the library on its own. Use it after rai
 suspect the rotation is stuck.
 
 ## Experimental: virtual items
+
+![Virtual items settings](../assets/screenshots/config-virtual-items.png)
+<!-- Capture: the "Experimental: virtual items" section with the Remove buttons. -->
 
 Off by default and clearly marked. Lets the plugin mint pathless "virtual" placeholder items so a gap
 renders greyed-out in place, and reconcile/remove them. This is a stand-in for proper server support;
