@@ -228,11 +228,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   upcoming, sorted by year") and let the report deep-link to one via the URL, so a particular slice is one
   click or one bookmark away instead of re-toggling filters each visit. The filters already live in
   `localStorage`; this promotes them to named, shareable presets. Small, dashboard-only.
-- **Webhook and notification on scan or availability completion (bottom, luxury).** Fire a webhook
-  (Discord/Gotify/generic JSON) when a scan or the background "where to watch" pass finishes, with a small
-  summary payload (counts, new gaps). Hangs off the existing `MintRunner`/`AvailabilityRunner` completion
-  points; config is a URL plus which events. Genuinely a nice-to-have, lowest priority.
-
 Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
 with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
 past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with

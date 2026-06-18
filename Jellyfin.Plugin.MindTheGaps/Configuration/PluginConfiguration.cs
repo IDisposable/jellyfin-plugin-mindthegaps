@@ -31,6 +31,7 @@ public class PluginConfiguration : BasePluginConfiguration
         TvdbEnabled = false;
         TvdbApiKey = string.Empty;
         TmdbApiKey = string.Empty;
+        WebhookUrl = string.Empty;
     }
 
     /// <summary>
@@ -133,4 +134,10 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets an optional TMDB API key. When empty, the public default key is used.
     /// </summary>
     public string TmdbApiKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets an optional webhook URL posted to when a scan or the background availability pass
+    /// finishes. The payload leads with a Discord-friendly "content" string. Empty disables it.
+    /// </summary>
+    public string WebhookUrl { get; set; }
 }

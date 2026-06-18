@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ public sealed class GapEngine
     private readonly IEnumerable<IGapSource> _sources;
     private readonly GapStore _store;
     private readonly ExternalLinkEnricher _externalLinks;
+    private readonly Services.Webhook.WebhookNotifier _webhook;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -30,18 +32,21 @@ public sealed class GapEngine
     /// <param name="sources">The registered gap sources.</param>
     /// <param name="store">The gap store.</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
+    /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
         IEnumerable<IGapSource> sources,
         GapStore store,
         ExternalLinkEnricher externalLinks,
+        Services.Webhook.WebhookNotifier webhook,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
         _sources = sources;
         _store = store;
         _externalLinks = externalLinks;
+        _webhook = webhook;
         _logger = logger;
     }
 
@@ -56,6 +61,8 @@ public sealed class GapEngine
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var enabled = _sources.Where(s => s.IsEnabled(config)).ToList();
         var context = BuildContext(enabled, config);
+
+        var priorIds = new HashSet<string>(_store.Load().Items.Select(i => i.Id), StringComparer.Ordinal);
 
         var gaps = new List<GapItem>();
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
@@ -121,6 +128,19 @@ public sealed class GapEngine
         };
 
         _store.Save(report);
+
+        var newCount = gaps.Count(g => !priorIds.Contains(g.Id));
+        await _webhook.NotifyAsync(
+            "scan",
+            string.Create(CultureInfo.InvariantCulture, $"Mind the Gaps scan finished: {gaps.Count} gaps ({newCount} new)."),
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["totalGaps"] = gaps.Count,
+                ["newGaps"] = newCount,
+                ["generatedUtc"] = report.GeneratedUtc
+            },
+            cancellationToken).ConfigureAwait(false);
+
         return report;
     }
 

@@ -90,6 +90,11 @@
                             <input id="TmdbApiKey" name="TmdbApiKey" type="text" is="emby-input" />
                             <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
                         </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="WebhookUrl">Webhook URL (optional)</label>
+                            <input id="WebhookUrl" name="WebhookUrl" type="text" is="emby-input" />
+                            <div class="fieldDescription">Posted to when a scan or the "where to watch" pass finishes (a summary, Discord-compatible). Leave blank to disable.</div>
+                        </div>
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label class="emby-checkbox-label">
                                 <input id="TraktEnabled" name="TraktEnabled" type="checkbox" is="emby-checkbox" />
@@ -215,6 +220,7 @@
                     page.querySelector('#MetadataCountryCode').value = config.MetadataCountryCode || '';
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                    page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
                     page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
@@ -313,6 +319,7 @@
                         config.MetadataCountryCode = form.querySelector('#MetadataCountryCode').value;
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
+                        config.WebhookUrl = form.querySelector('#WebhookUrl').value;
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
                         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);

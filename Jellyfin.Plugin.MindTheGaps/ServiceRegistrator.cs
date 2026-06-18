@@ -8,6 +8,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
+using Jellyfin.Plugin.MindTheGaps.Services.Webhook;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
@@ -29,6 +30,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
+        serviceCollection.AddSingleton<WebhookNotifier>();
         serviceCollection.AddSingleton<TraktClient>();
         serviceCollection.AddSingleton<TvMazeClient>();
         serviceCollection.AddSingleton<TvdbClient>();

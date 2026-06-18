@@ -34,6 +34,7 @@ public sealed class AvailabilityRunner
     private readonly AvailabilityService _availabilityService;
     private readonly TmdbClient _tmdb;
     private readonly ExternalLinkEnricher _externalLinks;
+    private readonly Webhook.WebhookNotifier _webhook;
     private readonly ILogger<AvailabilityRunner> _logger;
     private readonly object _lock = new();
     private bool _running;
@@ -47,13 +48,15 @@ public sealed class AvailabilityRunner
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="tmdb">The TMDB client (used to resolve external ids).</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
+    /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="logger">The logger.</param>
-    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, ILogger<AvailabilityRunner> logger)
+    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, Webhook.WebhookNotifier webhook, ILogger<AvailabilityRunner> logger)
     {
         _store = store;
         _availabilityService = availabilityService;
         _tmdb = tmdb;
         _externalLinks = externalLinks;
+        _webhook = webhook;
         _logger = logger;
     }
 
@@ -243,6 +246,17 @@ public sealed class AvailabilityRunner
                 : string.Create(CultureInfo.InvariantCulture, $"Looked up {batch.Count} titles ({enriched} have sources). All caught up.");
             SetMessage(message);
             _logger.LogInformation("Availability enrichment finished: {Message}", message);
+
+            await _webhook.NotifyAsync(
+                "availability",
+                "Mind the Gaps: " + message,
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["titlesLookedUp"] = batch.Count,
+                    ["withSources"] = enriched,
+                    ["remaining"] = remaining
+                },
+                CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
