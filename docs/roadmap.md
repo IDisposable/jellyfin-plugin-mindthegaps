@@ -159,6 +159,20 @@ targeted deletes), so it does not need its own progress. Availability is its own
   it is another `IGapSource` producing the existing `GapItem` shape, grouped like collections. Needs a
   config surface for which studios/keywords/lists to track and a per-set cap so a broad studio does not
   flood the list.
+- **Incremental, "fill up" scanning that scales past the per-run caps.** Each source caps its work per
+  run (`PeopleGapSource` scans at most `MaxPeople` = 500 owned people; recommendations cap seeds; the
+  series sources cap too). Worse, those caps apply to the library's default order, which is `SortName`
+  (alphabetical), so on a large library the filmography scan only ever reaches the "A" names: every
+  creator in the report has a first name starting with A, and no one later in the alphabet is found. Two
+  parts to fix: (1) make a single run unbiased by ordering the work by relevance rather than
+  alphabetically (for people, by how many owned titles credit them, so the cap keeps the creators you
+  have the most work from, not just the alphabetically-first); and (2) make coverage accumulate across
+  runs so the whole library eventually gets scanned, the way availability already fills in over repeated
+  background passes. Carry a per-source cursor forward (last person/seed/series processed) and resume
+  from it next run, and/or partition the work into bounded rotating slices (for example one alphabetical
+  bucket and one axis/pattern tab per run) so each scan covers a different slice and the set fills up over
+  time. Interim mitigation available now without the full design: the relevance ordering in (1) alone
+  removes the alphabetical bias cheaply.
 - **Send a gap to Radarr/Sonarr.** The report dead-ends at a link; power users running the arr stack
   want one click from "missing" to "queued". Gaps already carry the ids these need: a movie gap has a
   TMDB id (Radarr `POST /api/v3/movie` takes a tmdbId), a missing episode carries its series' TheTVDB id
@@ -212,11 +226,6 @@ targeted deletes), so it does not need its own progress. Availability is its own
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
-- **Preserve scroll and expansion across row actions.** Resolving/clearing (and any action that calls
-  `applyAndRender`) rebuilds `#cgList`, so scroll position and which groups were expanded are lost. Two
-  ways: snapshot the scroll offset and the set of collapsed group keys before re-render and restore them
-  after, or (cleaner) update just the affected row in place (remove it, or grey it and swap Resolve for
-  Clear plus the note) without a full re-render. The in-place update also avoids the resolutions re-fetch.
 - **Show every recommending source per target.** The engine dedupes recommendations by target, so each
   recommended title keeps only the one seed that first surfaced it; the report pivot shows that single
   source. Listing all owned titles that recommend a target needs the engine to aggregate sources per
