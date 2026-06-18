@@ -1,9 +1,13 @@
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Library;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
+using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
+using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
@@ -32,6 +36,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TraktClient>();
         serviceCollection.AddSingleton<TvMazeClient>();
         serviceCollection.AddSingleton<TvdbClient>();
+        serviceCollection.AddSingleton<MusicBrainzClient>();
+        serviceCollection.AddSingleton<OpenLibraryClient>();
         serviceCollection.AddSingleton<VirtualMovieMinter>();
         serviceCollection.AddSingleton<MintRunner>();
 
@@ -48,5 +54,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, PeopleGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktFilmographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, RecommendationsGapSource>();
+        serviceCollection.AddSingleton<IGapSource, MusicDiscographyGapSource>();
+        serviceCollection.AddSingleton<IGapSource, BooksBibliographyGapSource>();
     }
 }
