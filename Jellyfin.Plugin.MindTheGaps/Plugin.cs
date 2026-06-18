@@ -60,10 +60,12 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         yield return new PluginPageInfo
         {
             Name = "MindTheGapsReport",
-            // Distinct from the plugin name ("Mind the Gaps") on purpose: when a plugin's DisplayName
-            // collides with the plugin name, the host's plugin-details "Settings" button can resolve to
-            // this page instead of the config page above.
-            DisplayName = "Mind the Gap ToDo List",
+            // The config page above has no DisplayName, so the host shows it under the plugin name
+            // ("Mind the Gaps"). The plugin-details "Settings" button resolves to the first config page
+            // ordered by DisplayName, so this one must sort AFTER "Mind the Gaps" or it gets opened
+            // instead. "Mind the Gaps ToDo List" has the plugin name as a prefix, so it sorts after it
+            // and the config page stays the Settings target.
+            DisplayName = "Mind the Gaps ToDo List",
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
             EnableInMainMenu = true,
             MenuIcon = "playlist_add_check"
