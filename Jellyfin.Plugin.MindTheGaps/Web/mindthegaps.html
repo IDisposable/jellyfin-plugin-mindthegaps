@@ -204,6 +204,23 @@
                 // Monotonic counter for per-render group body ids (aria-controls targets).
                 var cgGroupSeq = 0;
 
+                // Deferred group bodies: a creator-works group starts collapsed with an empty body and a
+                // builder registered here under a token, so a tab with tens of thousands of rows only builds
+                // the rows for groups the user actually opens. Reset each render (tokens are per-render).
+                var lazyBodies = {};
+
+                // Builds a group's body the first time it is expanded (if it was registered as deferred),
+                // then drops the marker so it is not rebuilt. A no-op for eager (already-built) groups.
+                function ensureGroupBody(groupEl) {
+                    if (!groupEl) { return; }
+                    var token = groupEl.getAttribute('data-cglazy');
+                    if (!token) { return; }
+                    groupEl.removeAttribute('data-cglazy');
+                    var build = lazyBodies[token];
+                    var body = groupEl.querySelector('.cgBody');
+                    if (build && body) { body.innerHTML = build(); }
+                }
+
                 // Sort a leaf group's rows by the active mode (popularity desc, then title; or just title).
                 function sortRows(items) {
                     var byTitle = function (a, b) { return ci(a.Name || '', b.Name || ''); };
@@ -512,11 +529,13 @@
                     return ' <a class="cgLink cgSearch" href="' + esc(searchUrl(name, collectionType)) + '" target="_blank" rel="noopener" title="Search this Jellyfin for &ldquo;' + esc(name) + '&rdquo;" aria-label="Search Jellyfin for ' + esc(name) + '"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">search</span></a>';
                 }
 
-                function groupHtml(level, label, count, collapsed, inner, itemId, extra) {
+                function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyToken) {
                     // A per-render id ties the header to its body for assistive tech (aria-controls), and
                     // aria-expanded mirrors the collapse state (kept in sync on toggle and re-render).
                     var bodyId = 'cgBody' + (++cgGroupSeq);
-                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '">'
+                    // A deferred group ships an empty body plus a token; ensureGroupBody fills it on expand.
+                    var lazyAttr = lazyToken ? ' data-cglazy="' + esc(lazyToken) + '"' : '';
+                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '"' + lazyAttr + '>'
                         + '<div class="cgHdr cgHdr' + level + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? 'false' : 'true') + '" aria-controls="' + bodyId + '">'
                         + '<span class="cgCaret"></span><span class="cgLabel">' + esc(label) + '</span>'
                         + ' <span class="cgCount">(' + count + ')</span>' + (extra || '') + openIcon(itemId) + '</div>'
@@ -627,6 +646,7 @@
                 function buildTree(items) {
                     if (!items.length) { return ''; }
                     var pattern = items[0].PatternName;
+                    lazyBodies = {}; // tokens are per-render; drop the previous render's builders
 
                     if (pattern === 'Recommendation') {
                         return sortRows(items).map(renderRow).join('');
@@ -637,7 +657,11 @@
                         byCreator.order.sort(ci);
                         return byCreator.order.map(function (src) {
                             var cItems = byCreator.map[src];
-                            return groupHtml(2, src, cItems.length, true, sortRows(cItems).map(renderRow).join(''), cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src));
+                            // Defer the rows: a creator's body is built only when its header is expanded, so a
+                            // tab with tens of thousands of rows renders just the headers up front.
+                            var token = 'lz' + (++cgGroupSeq);
+                            lazyBodies[token] = function () { return sortRows(cItems).map(renderRow).join(''); };
+                            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src), token);
                         }).join('');
                     }
 
@@ -983,6 +1007,9 @@
                     for (var ngi = 0; ngi < ng.length; ngi++) {
                         var k = groupKey(ng[ngi]);
                         if (k in collapsed) { ng[ngi].classList.toggle('cgCollapsed', collapsed[k]); }
+                        // A group restored to expanded needs its deferred body built now, so its rows are
+                        // present for the open-row and selection restore (and visible) after the rebuild.
+                        if (!ng[ngi].classList.contains('cgCollapsed')) { ensureGroupBody(ng[ngi]); }
                     }
                     syncGroupAria(listEl);
                     var nr = listEl.querySelectorAll('.cgRow');
@@ -999,7 +1026,7 @@
                     rollup.innerHTML = rh;
                     rollup.style.display = rh ? 'block' : 'none';
                     renderHiddenCreators(page);
-                    page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
+                    refreshSelectBar(page);
                     updateSelection(page);
                 }
 
@@ -1007,6 +1034,12 @@
                     var n = page.querySelectorAll('#cgList .cgSel:checked').length;
                     page.querySelector('#cgSelCount').textContent = n;
                     page.querySelector('#cgMintSelected').disabled = n === 0;
+                }
+
+                // Show the multi-select bar once any selectable row exists. Deferred creator-works bodies have
+                // no rows until expanded, so the bar is re-evaluated when a group is opened, not just on render.
+                function refreshSelectBar(page) {
+                    page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
                 }
 
                 // The ids of the checked rows. Mint rehydrates each from the stored report server-side, so the
@@ -1442,8 +1475,15 @@
                         Dashboard.navigate('configurationpage?name=MindTheGaps');
                     });
                     function setAllSelected(checked) {
+                        // "Select all" should reach every row, including those in still-deferred creator-works
+                        // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups).
+                        if (checked) {
+                            var deferred = page.querySelectorAll('#cgList .cgGroup[data-cglazy]');
+                            for (var d = 0; d < deferred.length; d++) { ensureGroupBody(deferred[d]); }
+                        }
                         var cbs = page.querySelectorAll('#cgList .cgSel');
                         for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }
+                        refreshSelectBar(page);
                         updateSelection(page);
                     }
                     page.querySelector('#cgSelectAll').addEventListener('click', function () { setAllSelected(true); });
@@ -1629,6 +1669,7 @@
                             e.preventDefault();
                             var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
                             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+                            if (!nowCollapsed) { ensureGroupBody(hdr.parentElement); refreshSelectBar(page); }
                         }
                     });
                     page.querySelector('#cgList').addEventListener('click', function (e) {
@@ -1816,6 +1857,7 @@
                         if (hdr && hdr.parentElement) {
                             var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
                             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+                            if (!nowCollapsed) { ensureGroupBody(hdr.parentElement); refreshSelectBar(page); }
                             return;
                         }
 
