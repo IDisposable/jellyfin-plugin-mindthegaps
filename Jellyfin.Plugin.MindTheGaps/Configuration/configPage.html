@@ -97,7 +97,12 @@
                                 <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
                                 <span>Enrich with streaming availability (TMDB / JustWatch)</span>
                             </label>
-                            <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan.</div>
+                            <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan. The "Refresh where to watch" scheduled task keeps it current.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AvailabilityCacheHours">Availability cache (hours)</label>
+                            <input id="AvailabilityCacheHours" name="AvailabilityCacheHours" type="number" is="emby-input" min="1" max="720" />
+                            <div class="fieldDescription">How long a looked-up "where to watch" result stays fresh before it is refreshed. A stale result is still shown instantly while a refresh runs behind the scenes, so this only trades how current the data is against how often TMDB is hit. Default 24.</div>
                         </div>
                     </div>
 
@@ -264,6 +269,7 @@
                     page.querySelector('#ScanMusic').checked = config.ScanMusic;
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
+                    page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
                     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
                     page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
@@ -426,6 +432,7 @@
                         config.ScanMusic = form.querySelector('#ScanMusic').checked;
                         config.ScanBooks = form.querySelector('#ScanBooks').checked;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
+                        config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
                         config.TraktClientId = form.querySelector('#TraktClientId').value;
                         config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;

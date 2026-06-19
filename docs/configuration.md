@@ -42,7 +42,8 @@ These only matter when **Curated studio / keyword sets** is on.
 
 | Setting | Default | When set | When cleared |
 |---|---|---|---|
-| **Availability ("where to watch")** (`IncludeAvailability`) | On | Enables streaming-availability lookups: the per-row **Where to watch** button, the report's background **Look up where to watch** pass, and the report's **Hide items with no sources** / per-provider filters. Lookups use TMDB `watch/providers` (cached 12h) and never run during the scan itself. | The button and the availability filters do nothing; no provider data is fetched. |
+| **Availability ("where to watch")** (`IncludeAvailability`) | On | Enables streaming-availability lookups: the per-row **Where to watch** button, the report's background **Look up where to watch** pass, the **Refresh where to watch** scheduled task, and the report's **Hide items with no sources** / per-provider filters. Lookups use TMDB `watch/providers` and never run during the scan itself. | The button and the availability filters do nothing; no provider data is fetched. |
+| **Availability cache (hours)** (`AvailabilityCacheHours`) | 24 | How long a looked-up "where to watch" result stays fresh before it is refreshed. A stale result is still served instantly while a refresh runs in the background, so this only trades how current the data is against how often TMDB is hit, never responsiveness. Minimum 1. | (Used only when availability is on.) |
 
 ## Data sources
 

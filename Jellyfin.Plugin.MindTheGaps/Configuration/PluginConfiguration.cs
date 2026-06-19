@@ -24,6 +24,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanMusic = false;
         ScanBooks = false;
         IncludeAvailability = true;
+        AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
         MinRecommendationVotes = 100;
         MaxMissingEpisodesPerShow = 200;
@@ -107,6 +108,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// to watch"), both the per-item lookups and the background enrichment pass.
     /// </summary>
     public bool IncludeAvailability { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many hours a cached "where to watch" lookup stays fresh before it is refreshed.
+    /// A stale entry is still served immediately while a refresh runs behind the scenes, so this trades
+    /// how current the data is against how often TMDB is hit, never against responsiveness. Minimum 1.
+    /// </summary>
+    public int AvailabilityCacheHours { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of related titles to surface per source item.
