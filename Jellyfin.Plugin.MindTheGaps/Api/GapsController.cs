@@ -9,6 +9,7 @@ using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
+using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -33,6 +34,7 @@ public class GapsController : ControllerBase
     private readonly MintRunner _mintRunner;
     private readonly ResolutionStore _resolutions;
     private readonly ScanCursorStore _cursors;
+    private readonly GapDiagnostics _diagnostics;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -45,7 +47,8 @@ public class GapsController : ControllerBase
     /// <param name="mintRunner">The background mint runner.</param>
     /// <param name="resolutions">The store of per-gap resolution notes.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors)
+    /// <param name="diagnostics">The gap identification diagnostics.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -55,6 +58,7 @@ public class GapsController : ControllerBase
         _mintRunner = mintRunner;
         _resolutions = resolutions;
         _cursors = cursors;
+        _diagnostics = diagnostics;
     }
 
     /// <summary>
@@ -232,6 +236,37 @@ public class GapsController : ControllerBase
 
         var started = _mintRunner.TryStart((progress, ct) => _minter.MintGapsAsync(gaps, dryRun, progress, ct));
         return new MintStatus { Running = true, Started = started };
+    }
+
+    /// <summary>
+    /// Diagnoses why a gap is reported missing: most often a metadata mismatch where the library already
+    /// holds the title under a different (or absent) provider id. Library-only, so it returns immediately.
+    /// </summary>
+    /// <param name="id">The stable id of the gap to diagnose (rehydrated from the stored report).</param>
+    /// <returns>The diagnosis.</returns>
+    [HttpGet("Diagnose")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<GapDiagnosis> Diagnose([FromQuery] string? id)
+    {
+        var gap = RehydrateGap(id);
+        if (gap is null)
+        {
+            return new GapDiagnosis { Summary = "That gap is no longer in the current report; rescan and try again." };
+        }
+
+        return _diagnostics.Diagnose(gap);
+    }
+
+    /// <summary>
+    /// Audits the whole library for identification problems (gaps you likely own under a different id, and
+    /// owned items sharing a provider id), for the report's downloadable Markdown audit. Library-only.
+    /// </summary>
+    /// <returns>The audit.</returns>
+    [HttpGet("DiagnoseAudit")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IdentificationAudit> DiagnoseAudit()
+    {
+        return _diagnostics.BuildAudit(_store.LoadSnapshot());
     }
 
     // Look a gap up by its stable id in the current stored report. Returns null for a missing/unknown id.

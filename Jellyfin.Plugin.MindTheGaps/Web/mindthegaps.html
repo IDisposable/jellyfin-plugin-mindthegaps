@@ -377,6 +377,22 @@
                             </div>
                         </div>
 
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Diagnostics</h2>
+                            <p class="fieldDescription">
+                                Audit the library for identification problems and download the result as Markdown: gaps
+                                you appear to own under a different TheMovieDb id (the usual cause of a false "missing"),
+                                and owned items that share a provider id (so one is misidentified). Read-only; nothing is
+                                changed. Per gap, the <strong>Diagnose</strong> button on a movie or show row does the same
+                                check for that one title.
+                            </p>
+                            <div style="margin: 0.5em 0 1.5em 0;">
+                                <button id="cgAuditBtn" is="emby-button" type="button" class="raised emby-button">
+                                    <span>Download identification audit</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div>
                             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                                 <span>Save</span>
@@ -391,6 +407,20 @@
             style="position:fixed;right:1.4em;bottom:1.4em;z-index:1000;display:none;background:#00a4dc;color:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.45);">
             <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
         </button>
+
+        <div id="cgDiagModal" role="dialog" aria-modal="true" aria-labelledby="cgDiagTitle"
+            style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+            <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                    <span class="material-icons" aria-hidden="true">troubleshoot</span>
+                    <h2 id="cgDiagTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Diagnose</h2>
+                    <button is="paper-icon-button-light" type="button" id="cgDiagClose" title="Close" aria-label="Close">
+                        <span class="material-icons" aria-hidden="true">close</span>
+                    </button>
+                </div>
+                <div id="cgDiagBody"></div>
+            </div>
+        </div>
 
         <script type="text/javascript">
             (function () {
@@ -633,6 +663,10 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
                     }
+                    // Diagnose why a movie/show is reported missing (usually a provider-id mismatch on an owned item).
+                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
+                        actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
+                    }
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
                         actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the dismissal (show as missing again)">Clear</button>');
@@ -724,6 +758,74 @@
                 function openIcon(id) {
                     if (!id) { return ''; }
                     return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin" aria-label="Open in Jellyfin"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
+                }
+
+                // The "Diagnose" popup: ask the server why a movie/show is reported missing (usually an owned
+                // item carrying a different or missing provider id) and show the plain-language findings.
+                function openDiagnose(gapId, name) {
+                    if (!gapId) { return; }
+                    var modal = document.getElementById('cgDiagModal');
+                    var body = document.getElementById('cgDiagBody');
+                    document.getElementById('cgDiagTitle').textContent = 'Why is “' + name + '” missing?';
+                    body.innerHTML = '<p class="fieldDescription">Checking your library&hellip;</p>';
+                    modal.style.display = 'flex';
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Diagnose', { id: gapId }), dataType: 'json' })
+                        .then(function (res) { body.innerHTML = renderDiagnosis(res); })
+                        .catch(function () { body.innerHTML = '<p class="fieldDescription">Could not run the diagnosis. Check the server logs.</p>'; });
+                }
+
+                function closeDiagnose() {
+                    var modal = document.getElementById('cgDiagModal');
+                    if (modal && modal.style.display !== 'none') {
+                        modal.style.display = 'none';
+                        document.getElementById('cgDiagBody').innerHTML = '';
+                    }
+                }
+
+                // An id cell that links out to the provider's page in a new tab, or "-" when absent.
+                function diagIdLink(kind, provider, id) {
+                    if (!id) { return '<span style="opacity:.4;">-</span>'; }
+                    var url;
+                    if (provider === 'tmdb') { url = 'https://www.themoviedb.org/' + (kind === 'Series' ? 'tv' : 'movie') + '/' + encodeURIComponent(id); }
+                    else if (provider === 'imdb') { url = 'https://www.imdb.com/title/' + encodeURIComponent(id) + '/'; }
+                    else if (provider === 'tvdb') { url = 'https://thetvdb.com/?tab=series&id=' + encodeURIComponent(id); }
+                    else { return esc(id); }
+                    return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(id) + '</a>';
+                }
+
+                function renderDiagnosis(res) {
+                    res = res || {};
+                    var kind = res.TargetKindName || 'Movie';
+                    var showTvdb = kind === 'Series';
+                    var rows = [];
+                    if (res.Target) { rows.push(res.Target); }
+                    (res.Candidates || []).forEach(function (c) { rows.push(c); });
+
+                    var html = '<p style="margin:.2em 0 .8em 0;">' + esc(res.Summary || '') + '</p>';
+                    if (rows.length) {
+                        var th = function (t) { return '<th style="padding:.3em .45em;font-weight:600;">' + t + '</th>'; };
+                        html += '<table style="width:100%;border-collapse:collapse;font-size:.92em;">'
+                            + '<thead><tr style="text-align:left;border-bottom:1px solid #444;">'
+                            + th('Title') + th('Year') + th('TheMovieDb') + th('IMDb') + (showTvdb ? th('TheTVDB') : '') + th('In library')
+                            + '</tr></thead><tbody>';
+                        rows.forEach(function (r) {
+                            var isTarget = r.Relation === 'target';
+                            var inLib = isTarget
+                                ? '<span style="opacity:.7;">Missing</span>'
+                                : (r.JellyfinItemId ? '<a href="' + esc(itemUrl(r.JellyfinItemId)) + '" target="_blank" rel="noopener">Open</a>' : 'Owned');
+                            var td = function (c) { return '<td style="padding:.3em .45em;vertical-align:top;">' + c + '</td>'; };
+                            html += '<tr style="border-bottom:1px solid #2a2a2a;' + (isTarget ? 'background:rgba(74,163,223,.1);' : '') + '">'
+                                + td('<b>' + esc(r.Name || '') + '</b>' + (r.Note ? '<br><span style="opacity:.65;font-size:.85em;">' + esc(r.Note) + '</span>' : ''))
+                                + td(r.Year ? esc(r.Year) : '<span style="opacity:.4;">-</span>')
+                                + td(diagIdLink(kind, 'tmdb', r.Tmdb))
+                                + td(diagIdLink(kind, 'imdb', r.Imdb))
+                                + (showTvdb ? td(diagIdLink(kind, 'tvdb', r.Tvdb)) : '')
+                                + td(inLib)
+                                + '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+                    return html;
                 }
 
                 // The Jellyfin collectionType to scope a search to, from a gap's media domain. Empty means an
@@ -1099,6 +1201,62 @@
                             out.push('');
                         });
                     });
+                    return out.join('\n');
+                }
+
+                // Format a library identification audit (from MindTheGaps/DiagnoseAudit) as Markdown, with each
+                // provider id linked out and an "open in Jellyfin" link for owned items.
+                function buildAuditMarkdown(audit) {
+                    audit = audit || {};
+                    var tmdbUrl = function (kind, id) { return 'https://www.themoviedb.org/' + (kind === 'Series' ? 'tv' : 'movie') + '/' + id; };
+                    var ids = function (kind, it) {
+                        var parts = [];
+                        if (it.Tmdb) { parts.push('TheMovieDb [' + it.Tmdb + '](' + tmdbUrl(kind, it.Tmdb) + ')'); }
+                        if (it.Imdb) { parts.push('IMDb [' + it.Imdb + '](https://www.imdb.com/title/' + it.Imdb + '/)'); }
+                        if (kind === 'Series' && it.Tvdb) { parts.push('TheTVDB [' + it.Tvdb + '](https://thetvdb.com/?tab=series&id=' + it.Tvdb + ')'); }
+                        return parts.length ? parts.join(', ') : '(no ids)';
+                    };
+                    var jf = function (it) { return it.JellyfinItemId ? ' - [open in Jellyfin](<' + itemUrl(it.JellyfinItemId) + '>)' : ''; };
+                    var yr = function (it) { return it.Year ? ' (' + it.Year + ')' : ''; };
+
+                    var out = ['# Mind the Gaps: identification audit', ''];
+                    out.push('_Based on the gap scan from ' + new Date(audit.GeneratedUtc).toLocaleString()
+                        + '. Library: ' + (audit.OwnedMovies || 0) + ' movies, ' + (audit.OwnedShows || 0)
+                        + ' shows; ' + (audit.GapsChecked || 0) + ' gaps checked._', '');
+
+                    var mismatches = audit.Mismatches || [];
+                    out.push('## Likely false "missing" (' + mismatches.length + ')', '');
+                    if (!mismatches.length) {
+                        out.push('None found: every checked gap looks like a genuine miss.', '');
+                    } else {
+                        out.push('Reported missing, but you appear to own them under a different (or missing) id.', '');
+                        mismatches.forEach(function (d) {
+                            var t = d.Target || {};
+                            var kind = d.TargetKindName || 'Movie';
+                            out.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(kind, t));
+                            (d.Candidates || []).forEach(function (c) {
+                                out.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(kind, c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
+                            });
+                            if (t.Tmdb) { out.push('  - Fix: set the owned item to TheMovieDb ' + t.Tmdb + ', then rescan.'); }
+                        });
+                        out.push('');
+                    }
+
+                    var dups = audit.Duplicates || [];
+                    out.push('## Duplicate TheMovieDb ids (' + dups.length + ')', '');
+                    if (!dups.length) {
+                        out.push('None found: no two owned items share a TheMovieDb id.', '');
+                    } else {
+                        out.push('Each id below is on more than one owned item, so at least one is misidentified.', '');
+                        dups.forEach(function (g) {
+                            out.push('- TheMovieDb [' + g.Id + '](' + tmdbUrl(g.TargetKindName, g.Id) + ') is on ' + (g.Items || []).length + ' items:');
+                            (g.Items || []).forEach(function (c) {
+                                out.push('  - "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c));
+                            });
+                        });
+                        out.push('');
+                    }
+
                     return out.join('\n');
                 }
 
@@ -1846,6 +2004,24 @@
                     }
                     page.querySelector('#RemovePreview').addEventListener('click', function () { runRemoval('RemoveMintedMovies?dryRun=true', null); });
                     page.querySelector('#RemoveMinted').addEventListener('click', function () { runRemoval('RemoveMintedMovies', null); });
+                    page.querySelector('#cgAuditBtn').addEventListener('click', function () {
+                        var btn = this;
+                        var label = btn.querySelector('span');
+                        var orig = label ? label.textContent : '';
+                        btn.disabled = true;
+                        if (label) { label.textContent = 'Auditing…'; }
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/DiagnoseAudit'), dataType: 'json' })
+                            .then(function (audit) {
+                                downloadText('mind-the-gaps-identification-audit.md', buildAuditMarkdown(audit));
+                                if (label) { label.textContent = orig; }
+                                btn.disabled = false;
+                            })
+                            .catch(function () {
+                                Dashboard.alert('Could not run the audit. Check the server logs.');
+                                if (label) { label.textContent = orig; }
+                                btn.disabled = false;
+                            });
+                    });
                     page.querySelector('#ResetRotation').addEventListener('click', function () {
                         if (!window.confirm('Forget which items were scanned recently and start a fresh coverage cycle on the next scan?')) { return; }
                         Dashboard.showLoadingMsg();
@@ -1883,6 +2059,10 @@
                         toggleSettings(page, page.querySelector('#cgSettingsPanel').style.display === 'none');
                     });
                     bindSettings(page);
+                    // Diagnose popup: close via the button, a backdrop click, or Escape.
+                    document.getElementById('cgDiagClose').addEventListener('click', closeDiagnose);
+                    document.getElementById('cgDiagModal').addEventListener('click', function (e) { if (e.target === this) { closeDiagnose(); } });
+                    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); } });
                     function setAllSelected(checked) {
                         // "Select all" should reach every row, including those in still-deferred creator-works
                         // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups).
@@ -2234,6 +2414,12 @@
                                 mintBtn.innerHTML = mintHtml;
                                 mintBtn.disabled = false;
                             });
+                            return;
+                        }
+
+                        var diagBtn = e.target.closest('.cgDiagnose');
+                        if (diagBtn) {
+                            openDiagnose(diagBtn.getAttribute('data-gapid'), diagBtn.getAttribute('data-name') || 'this title');
                             return;
                         }
 
