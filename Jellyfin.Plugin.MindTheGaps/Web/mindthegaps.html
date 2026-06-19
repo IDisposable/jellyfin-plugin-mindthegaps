@@ -451,6 +451,12 @@
                 // The gap's media domain (Movies/Shows/Music/Books) straight from the model.
                 function categoryOf(item) { return item.DomainName || 'Other'; }
 
+                // JustWatch search needs a locale in the path; take the region from the browser, default US.
+                function jwLocale() {
+                    var m = (navigator.language || 'en-US').match(/-([a-z]{2})$/i);
+                    return m ? m[1].toLowerCase() : 'us';
+                }
+
                 function ci(a, b) { a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
 
                 // The active row sort, set from the Sort dropdown before each render.
@@ -658,6 +664,14 @@
                     // result is shown as "no sources" instead (below), not a button that comes back empty.
                     if (watchable && !hasAvail && !item.AvailabilityChecked) {
                         actions.push('<button type="button" class="cgLink cgWatch" data-tmdb="' + esc(watchTmdb) + '" data-type="' + esc(watchKind) + '">Where to watch</button>');
+                    }
+                    // A JustWatch search for movies/shows that have no JustWatch link of their own (the JustWatch
+                    // plugin only links owned items), so there is always a quick "where can I watch this" path.
+                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
+                        var hasJw = (item.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
+                        if (!hasJw) {
+                            actions.push('<a class="cgLink" href="' + esc('https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name)) + '" target="_blank" rel="noopener" title="Search JustWatch for where to watch">JustWatch search</a>');
+                        }
                     }
                     // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
