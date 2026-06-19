@@ -200,18 +200,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   reported missing even though it is owned (seen with "Jack Reacher: Never Go Back"). Fix: also treat a part
   as owned when the owned BoxSet already contains a child matching it by normalized title and year (a fuzzy
   fallback to provider-id matching), so a thin-metadata owned movie is not flagged.
-- **"Diagnose identification" action.** Automate the manual triage that found the mis-tagged "Never Go Back"
-  (its library item carried the 2012 film's TMDB id 75780 and IMDb tt0790724, so the collection's part 343611
-  had no owned match and was reported missing). A button (per-gap "Why is this missing?" and/or a library-wide
-  audit) that flags identification problems on owned items: (a) **duplicate provider ids** (two owned movies
-  sharing one TMDB or IMDb id, so one is mis-identified); (b) a "missing" collection part that **matches an
-  owned BoxSet child by title and year** but carries a different id (the likely-correct id to set); (c)
-  **cross-provider disagreement** (resolve the item's TMDB id to its external ids via
-  `TmdbClient.GetExternalIdsAsync` and compare to the item's own IMDb/TheTVDB ids). Output a plain-language
-  diagnosis and the suggested correction ("set TheMovieDb id to 343611, IMDb to tt3393786, then rescan"),
-  exactly as a human would. Reuses the ownership index, the collection source's parts, and the existing
-  external-id resolver; pairs with the collection-ownership fallback above (the fallback silently prevents the
-  false gap, this explains it and points at the bad metadata).
+- **Deepen the "Diagnose" action.** Both the per-gap **Diagnose** popup and a **library-wide audit** are
+  built (`GapDiagnostics`, the `GET Diagnose` and `GET DiagnoseAudit` endpoints). For a movie or show gap
+  the popup finds the owned items that match by title or already carry the gap's id and lays the gap and
+  those candidates out as a comparison table with linked TheMovieDb/IMDb/TheTVDB ids, so the mis-tagged
+  "Never Go Back" case (an owned item carrying a different film's id) is obvious and fixable; the audit runs
+  the same check across the whole library and downloads it as Markdown (the mismatches plus every duplicate
+  TheMovieDb id). Both are library-only. What remains: (a) using the owned BoxSet's actual children for
+  collection gaps, which pairs with the collection-ownership fallback below; (b) **cross-provider
+  disagreement** via `TmdbClient.GetExternalIdsAsync` (resolve the gap's TMDB id to its external ids and
+  compare), which would add a network call the current synchronous diagnosis avoids.
 
 - **Curated TMDB Lists (extends the studio/keyword sets).** `CuratedSetGapSource` completes the movies of
   a studio or keyword, configured by **name** (resolved to TMDB via `SearchCompanyAsync`), by TMDB id, or
