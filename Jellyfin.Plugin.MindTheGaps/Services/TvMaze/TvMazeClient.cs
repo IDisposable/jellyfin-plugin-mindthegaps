@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
@@ -67,9 +68,14 @@ public sealed class TvMazeClient
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.SendAsync(
+                client,
+                () => new HttpRequestMessage(HttpMethod.Get, BaseUrl + path),
+                _logger,
+                "TVmaze",
+                path,
+                cancellationToken).ConfigureAwait(false);
 
             // A lookup miss is a normal 404, not an error worth logging.
             if (response.StatusCode == HttpStatusCode.NotFound)

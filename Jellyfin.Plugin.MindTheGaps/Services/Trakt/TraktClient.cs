@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
@@ -76,12 +77,20 @@ public sealed class TraktClient
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
-            request.Headers.Add("trakt-api-key", clientId);
-            request.Headers.Add("trakt-api-version", "2");
-
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.SendAsync(
+                client,
+                () =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
+                    request.Headers.Add("trakt-api-key", clientId);
+                    request.Headers.Add("trakt-api-version", "2");
+                    return request;
+                },
+                _logger,
+                "Trakt",
+                path,
+                cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Trakt GET {Path} returned {Status}", path, response.StatusCode);

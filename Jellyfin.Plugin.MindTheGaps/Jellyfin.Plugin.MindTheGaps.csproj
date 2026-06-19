@@ -32,4 +32,8 @@
     <EmbeddedResource Include="Web\mindthegaps.html" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.MindTheGaps.Tests" />
+  </ItemGroup>
+
 </Project>

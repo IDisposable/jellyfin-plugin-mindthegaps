@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Caching.Memory;
@@ -162,7 +163,13 @@ public sealed class TmdbAvailabilitySource : IAvailabilitySource
             $"https://api.themoviedb.org/3/{path}/{tmdbId}/watch/providers?api_key={TmdbClient.ResolveApiKey()}");
 
         var client = _httpClientFactory.CreateClient(NamedClient.Default);
-        using var http = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        using var http = await HttpRetry.SendAsync(
+            client,
+            () => new HttpRequestMessage(HttpMethod.Get, url),
+            _logger,
+            "TMDB",
+            string.Create(CultureInfo.InvariantCulture, $"{path}/{tmdbId}/watch/providers"),
+            cancellationToken).ConfigureAwait(false);
         if (!http.IsSuccessStatusCode)
         {
             _logger.LogWarning("TMDB watch/providers for {Id} returned {Status}", tmdbId, http.StatusCode);

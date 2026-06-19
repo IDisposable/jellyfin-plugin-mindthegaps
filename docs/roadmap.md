@@ -129,9 +129,14 @@ Confirmed against the server source: `CreateItem` already batches its own save, 
 missing movie. For large collections it should collect a BoxSet's movies and call `CreateItems` plus a
 single `AddToCollectionAsync` per BoxSet. The scan's external clients cache TMDB collection and person
 lookups but do not throttle; recommendations and the series clients (TVmaze, TheTVDB, Trakt) are
-uncached and unthrottled, bounded only by the caps in `GapScanLimits`. A large library could burst past
-the Trakt and TVmaze limits. Adding a per-client delay or backoff is the fix. Neither is urgent at
-typical library sizes; both matter before a wide release.
+uncached, bounded only by the caps in `GapScanLimits`. Every hand-rolled client (Trakt, TVmaze, TheTVDB,
+MusicBrainz, OpenLibrary) and the TMDB availability fetch now send through `Services/Http/HttpRetry`, which
+retries 429/502/503/504 and transient connection failures, honours `Retry-After`, and backs off (capped so
+a scan never stalls long); TMDB-via-TMDbLib uses that library's own `MaxRetryCount` for 429. That is the
+**reactive** half. The **proactive** half (a per-client minimum interval between requests) is still open and
+matters most for MusicBrainz, which asks for no more than one request per second and is currently paged with
+no inter-request delay; today a burst there is caught only by the reactive 503 retry. Adding a small per-client
+pacing gate is the remaining fix; not urgent at typical library sizes.
 
 The mint paths run in the background like the scan: `MintRunner` runs multi-select `MintGaps`,
 per-row `MintGap`, and "Remove minted" off the request thread (reporting 0-100 progress), and the UIs

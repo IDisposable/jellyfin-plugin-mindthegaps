@@ -37,7 +37,11 @@ public sealed class TmdbClient : IDisposable
     public TmdbClient(IMemoryCache cache)
     {
         _cache = cache;
-        _client = new TMDbClient(ResolveApiKey()) { ThrowApiExceptions = false };
+
+        // MaxRetryCount turns on TMDbLib's own handling of TMDB rate limiting (HTTP 429): it waits for the
+        // response's Retry-After and retries, up to this many times, which is the TMDB analogue of the
+        // HttpRetry policy the hand-rolled clients use.
+        _client = new TMDbClient(ResolveApiKey()) { ThrowApiExceptions = false, MaxRetryCount = 3 };
     }
 
     /// <summary>

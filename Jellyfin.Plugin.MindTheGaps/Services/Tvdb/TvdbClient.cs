@@ -9,6 +9,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
@@ -165,10 +166,19 @@ public sealed class TvdbClient : IDisposable
 
     private async Task<HttpResponseMessage> SendAsync(string token, string path, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var client = _httpClientFactory.CreateClient(NamedClient.Default);
-        return await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await HttpRetry.SendAsync(
+            client,
+            () =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                return request;
+            },
+            _logger,
+            "TheTVDB",
+            path,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<string?> EnsureTokenAsync(string apiKey, CancellationToken cancellationToken, bool forceRefresh = false)
@@ -186,13 +196,17 @@ public sealed class TvdbClient : IDisposable
                 return _token;
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl + "/login")
-            {
-                Content = JsonContent.Create(new Dictionary<string, string> { ["apikey"] = apiKey })
-            };
-
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.SendAsync(
+                client,
+                () => new HttpRequestMessage(HttpMethod.Post, BaseUrl + "/login")
+                {
+                    Content = JsonContent.Create(new Dictionary<string, string> { ["apikey"] = apiKey })
+                },
+                _logger,
+                "TheTVDB",
+                "/login",
+                cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("TheTVDB login failed with {Status}; check the API key", response.StatusCode);

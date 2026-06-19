@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
@@ -71,11 +72,19 @@ public sealed class OpenLibraryClient
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
-            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Jellyfin.Plugin.MindTheGaps", "1.0"));
-
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await HttpRetry.SendAsync(
+                client,
+                () =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
+                    request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Jellyfin.Plugin.MindTheGaps", "1.0"));
+                    return request;
+                },
+                _logger,
+                "OpenLibrary",
+                path,
+                cancellationToken).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
