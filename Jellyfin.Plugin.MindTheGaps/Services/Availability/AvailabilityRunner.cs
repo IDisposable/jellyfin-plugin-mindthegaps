@@ -200,6 +200,78 @@ public sealed class AvailabilityRunner
         return string.Create(CultureInfo.InvariantCulture, $"{target.Kind}:{target.TmdbId}");
     }
 
+    /// <summary>
+    /// Enriches every watchable gap still pending a "where to watch" lookup, draining the whole backlog in
+    /// one run rather than the button's single capped batch, so a scheduled task keeps the report current
+    /// without anyone clicking. Shares the same run claim as the button (a no-op if a pass is already
+    /// running) and the same progress/status fields, so the dashboard reflects it too. Cancellation
+    /// (the task being stopped, or the plugin shutting down) propagates so the host marks the task cancelled.
+    /// </summary>
+    /// <param name="progress">Reports 0-100 progress to the scheduled-task host.</param>
+    /// <param name="cancellationToken">The scheduled task's cancellation token.</param>
+    /// <returns>A task that completes when the backlog is drained.</returns>
+    public async Task EnrichAllAsync(IProgress<double> progress, CancellationToken cancellationToken)
+    {
+        // Claim the runner atomically; if the button (or another pass) already holds it, leave it be.
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
+        {
+            return;
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Stopping);
+        var ct = linked.Token;
+        try
+        {
+            lock (_lock)
+            {
+                _progress = 0;
+            }
+
+            var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var report = _store.Load();
+            var groups = report.Items.Where(NeedsLookup).GroupBy(WatchKey).ToList();
+
+            if (groups.Count == 0)
+            {
+                SetMessage("Every watchable gap has been checked for 'where to watch'.");
+                return;
+            }
+
+            _logger.LogInformation("Availability refresh started: {Count} titles to look up", groups.Count);
+            var enriched = await ProcessGroupsAsync(groups, report, config, progress, ct).ConfigureAwait(false);
+
+            var message = string.Create(CultureInfo.InvariantCulture, $"Looked up {groups.Count} titles ({enriched} have sources). All caught up.");
+            SetMessage(message);
+            _logger.LogInformation("Availability refresh finished: {Message}", message);
+
+            await _webhook.NotifyAsync(
+                "availability",
+                "Mind the Gaps: " + message,
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["titlesLookedUp"] = groups.Count,
+                    ["withSources"] = enriched,
+                    ["remaining"] = 0
+                },
+                ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Availability refresh cancelled");
+            SetMessage("Availability lookup was cancelled.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Availability refresh failed");
+            SetMessage("Availability lookup failed. Check the server logs.");
+        }
+        finally
+        {
+            Volatile.Write(ref _running, 0);
+        }
+    }
+
     private async Task RunAsync()
     {
         var ct = _lifetime.Stopping;
@@ -222,85 +294,7 @@ public sealed class AvailabilityRunner
 
             _logger.LogInformation("Availability enrichment started: {Batch} titles to look up ({Pending} gaps pending)", batch.Count, pending.Count);
 
-            lock (_lock)
-            {
-                _processed = 0;
-                _total = batch.Count;
-            }
-
-            var enriched = 0;
-            for (var i = 0; i < batch.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var group = batch[i];
-                var first = group.First();
-                var target = WatchTarget(first)!.Value;
-
-                IReadOnlyList<AvailabilityOffer> offers = Array.Empty<AvailabilityOffer>();
-                var looked = false;
-                try
-                {
-                    offers = await _availabilityService.GetOffersAsync(
-                        new AvailabilityQuery
-                        {
-                            TargetKind = target.Kind,
-                            ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = target.TmdbId },
-                            Title = first.Name,
-                            Year = first.Year,
-                            Country = config.MetadataCountryCode
-                        },
-                        config,
-                        ct).ConfigureAwait(false);
-                    looked = true;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Availability lookup failed for '{Name}'", first.Name);
-                }
-
-                if (looked)
-                {
-                    if (offers.Count > 0)
-                    {
-                        enriched++;
-                    }
-
-                    foreach (var gap in group)
-                    {
-                        // Movie/Series gaps also pick up their IMDb/TheTVDB ids here; episodes already carry theirs.
-                        await ResolveExternalIdsAsync(gap, ct).ConfigureAwait(false);
-
-                        // Marked checked on a successful lookup even with no offers, so the row shows "no
-                        // sources" rather than a look-up button that comes back empty. A failed lookup leaves
-                        // the gap unchecked, so it retries on the next pass.
-                        gap.AvailabilityChecked = true;
-                        if (offers.Count > 0)
-                        {
-                            gap.Availability = offers;
-                        }
-                    }
-                }
-
-                lock (_lock)
-                {
-                    _processed = i + 1;
-                    _progress = (i + 1) * 100.0 / batch.Count;
-                }
-
-                if ((i + 1) % SaveEvery == 0)
-                {
-                    _store.SaveAvailabilityMerge(report, throttle: true);
-                }
-
-                await Task.Delay(ThrottleMilliseconds, ct).ConfigureAwait(false);
-            }
-
-            _store.SaveAvailabilityMerge(report, throttle: false);
+            var enriched = await ProcessGroupsAsync(batch, report, config, null, ct).ConfigureAwait(false);
 
             var remaining = groups.Count - batch.Count;
             var message = remaining > 0
@@ -336,6 +330,104 @@ public sealed class AvailabilityRunner
             // poller that sees the pass idle reads that message.
             Volatile.Write(ref _running, 0);
         }
+    }
+
+    // Looks up "where to watch" for each group of gaps (one lookup per title, shared across an episode's
+    // siblings), folding offers and external ids into every gap and saving the report as it goes. Updates
+    // the internal status fields and, when given, an external progress sink. Returns how many titles had offers.
+    private async Task<int> ProcessGroupsAsync(List<IGrouping<string, GapItem>> batch, GapReport report, PluginConfiguration config, IProgress<double>? progress, CancellationToken ct)
+    {
+        lock (_lock)
+        {
+            _processed = 0;
+            _total = batch.Count;
+        }
+
+        var enriched = 0;
+        for (var i = 0; i < batch.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (await ProcessGroupAsync(batch[i], config, ct).ConfigureAwait(false))
+            {
+                enriched++;
+            }
+
+            var pct = (i + 1) * 100.0 / batch.Count;
+            lock (_lock)
+            {
+                _processed = i + 1;
+                _progress = pct;
+            }
+
+            progress?.Report(pct);
+
+            if ((i + 1) % SaveEvery == 0)
+            {
+                _store.SaveAvailabilityMerge(report, throttle: true);
+            }
+
+            await Task.Delay(ThrottleMilliseconds, ct).ConfigureAwait(false);
+        }
+
+        _store.SaveAvailabilityMerge(report, throttle: false);
+        return enriched;
+    }
+
+    // Looks up one watch target and writes the result onto every gap in the group. Returns whether the
+    // lookup found any offers.
+    private async Task<bool> ProcessGroupAsync(IGrouping<string, GapItem> group, PluginConfiguration config, CancellationToken ct)
+    {
+        var first = group.First();
+        var target = WatchTarget(first)!.Value;
+
+        IReadOnlyList<AvailabilityOffer> offers = Array.Empty<AvailabilityOffer>();
+        var looked = false;
+        try
+        {
+            offers = await _availabilityService.GetOffersAsync(
+                new AvailabilityQuery
+                {
+                    TargetKind = target.Kind,
+                    ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = target.TmdbId },
+                    Title = first.Name,
+                    Year = first.Year,
+                    Country = config.MetadataCountryCode
+                },
+                config,
+                ct).ConfigureAwait(false);
+            looked = true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Availability lookup failed for '{Name}'", first.Name);
+        }
+
+        if (!looked)
+        {
+            return false;
+        }
+
+        foreach (var gap in group)
+        {
+            // Movie/Series gaps also pick up their IMDb/TheTVDB ids here; episodes already carry theirs.
+            await ResolveExternalIdsAsync(gap, ct).ConfigureAwait(false);
+
+            // Marked checked on a successful lookup even with no offers, so the row shows "no sources"
+            // rather than a look-up button that comes back empty. A failed lookup leaves the gap unchecked,
+            // so it retries on the next pass.
+            gap.AvailabilityChecked = true;
+            if (offers.Count > 0)
+            {
+                gap.Availability = offers;
+            }
+        }
+
+        return offers.Count > 0;
     }
 
     // Resolve the title's IMDb/TheTVDB ids from its TMDB id and fold them in, then rebuild the gap's
