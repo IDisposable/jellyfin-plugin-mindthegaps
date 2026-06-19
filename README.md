@@ -94,6 +94,19 @@ Movies and shows work out of the box; music and books are experimental, opt-in s
 
 New releases show up in the catalog automatically.
 
+### Beta channel (optional)
+
+To get pre-release builds before they reach the stable channel, add this repository URL instead of the one
+above:
+
+```
+https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/manifest-beta.json
+```
+
+The beta channel carries every release (stable and pre-release); the stable channel carries only stable
+releases. Both publish the same plugin, so Jellyfin always offers the highest version it sees and a stable
+release supersedes the betas that led up to it. Use one channel or the other, not both.
+
 ### Manual
 
 Download the `.zip` from the [latest release](https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases),

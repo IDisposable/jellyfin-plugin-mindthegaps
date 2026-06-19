@@ -1,5 +1,7 @@
 # Build/test on every push & PR; on a published Release, also package and publish to the catalog.
 # One matrix row per Jellyfin ABI — add more rows when new Jellyfin NuGet versions are shipped.
+# Two channels: a stable Release (revision .0) updates manifest.json (stable) and manifest-beta.json
+# (beta); a GitHub pre-release (revision >= .1) updates only manifest-beta.json.
 name: build
 
 on:
@@ -48,6 +50,28 @@ jobs:
             exit 1
           fi
           echo "Tag matches build.yaml version: $base_ver"
+
+      # Enforce the channel/version convention so the two channels stay strictly ordered (a stable always
+      # supersedes the betas before it): a stable Release must be a .0 revision; a GitHub pre-release must be
+      # a non-zero revision (a beta toward the next stable .0).
+      - name: Guard - version revision matches release channel
+        if: github.event_name == 'release'
+        run: |
+          base_ver=$(grep -m1 '^version:' build.yaml | cut -d'"' -f2)
+          rev=$(echo "$base_ver" | cut -d. -f4)
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            if [ "$rev" = "0" ]; then
+              echo "::error::Pre-release $base_ver ends in .0; a beta must use a non-zero revision (e.g. 10.11.1.1) toward the next stable .0."
+              exit 1
+            fi
+            echo "Pre-release revision ok: $base_ver"
+          else
+            if [ "$rev" != "0" ]; then
+              echo "::error::Stable release $base_ver ends in .$rev; a stable release must be a .0 revision. Mark it as a GitHub pre-release, or bump to a .0 version."
+              exit 1
+            fi
+            echo "Stable revision ok: $base_ver"
+          fi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -119,21 +143,26 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Attach zips and update manifest
+      - name: Attach zips and update manifests
         env:
           GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           pipx install jprm
           for zip in artifacts/*.zip; do
             url="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/$(basename "$zip")"
             gh release upload "${{ github.event.release.tag_name }}" "$zip" --clobber
-            jprm repo add --plugin-url "$url" ./manifest.json "$zip"
+            # The beta channel gets every release; the stable channel gets only non-prereleases.
+            jprm repo add --plugin-url "$url" ./manifest-beta.json "$zip"
+            if [ "$PRERELEASE" != "true" ]; then
+              jprm repo add --plugin-url "$url" ./manifest.json "$zip"
+            fi
           done
 
-      - name: Commit manifest
+      - name: Commit manifests
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git diff --cached --quiet || git commit -m "Publish manifest for ${{ github.event.release.tag_name }}"
+          git add manifest.json manifest-beta.json
+          git diff --cached --quiet || git commit -m "Publish manifests for ${{ github.event.release.tag_name }}"
           git push

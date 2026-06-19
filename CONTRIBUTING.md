@@ -38,20 +38,37 @@ repo follows are in [docs/standard-plugin.md](docs/standard-plugin.md).
 
 Versioning is single-source from `build.yaml`.
 
-1. Set `version` in `build.yaml` to the new version (for example `10.11.0.16`) and update its `changelog`.
+1. Set `version` in `build.yaml` to the new version and update its `changelog`.
 2. Push, and let CI go green.
-3. Publish a GitHub Release with the matching tag (`v10.11.0.16`).
+3. Publish a GitHub Release with the matching tag (`v<version>`). Tick **"Set as a pre-release"** for a beta.
 
 The `publish` workflow then packages the plugin with jprm, attaches the `.zip` to the release, and commits
-the `manifest.json` update, which the catalog serves over its raw URL and clients pick up automatically. A
-CI guard fails the release if the tag and `build.yaml`'s `version` disagree.
+the manifest update, which the catalog serves over its raw URL and clients pick up automatically.
+
+### Two channels (stable and beta)
+
+There are two catalog manifests: `manifest.json` (stable) and `manifest-beta.json` (beta). The release's
+GitHub **pre-release** flag routes which gets the new version:
+
+- **Stable release** (pre-release unticked): added to *both* manifests.
+- **Pre-release**: added to `manifest-beta.json` only.
+
+So the beta channel is a superset (every release); the stable channel carries only stable releases.
+
+**Version convention (important).** Plugin versions are 4-part numeric (`10.11.B.R`), and Jellyfin always
+offers the highest version it sees, so the channels must stay strictly ordered. A **stable** release uses
+revision `.0` (`10.11.1.0`); a **beta** uses a non-zero revision building toward the *next* stable's `.0`
+(betas `10.11.1.1`, `10.11.1.2`, ... lead to stable `10.11.2.0`). That way each stable supersedes the betas
+before it, and each beta supersedes the last stable. CI guards both halves: the tag must match
+`build.yaml`'s `version`, a stable release must be a `.0` revision, and a pre-release must not be.
 
 ## Project layout
 
 ```
 Jellyfin.Plugin.MindTheGaps.sln         # solution (both projects)
 build.yaml                              # plugin manifest (catalog metadata + changelog)
-manifest.json                           # catalog/repository manifest (served to clients)
+manifest.json                           # catalog/repository manifest, stable channel (served to clients)
+manifest-beta.json                      # catalog/repository manifest, beta channel (every release)
 Directory.Packages.props                # central NuGet versions (single source)
 CONTRIBUTING.md                         # this file
 assets/                                 # social card (social.png / social.svg)

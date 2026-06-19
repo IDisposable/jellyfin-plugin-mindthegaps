@@ -1,0 +1,149 @@
+[
+    {
+        "guid": "8c2a93cc-6cc5-493a-880a-2e67ae50e454",
+        "name": "Mind the Gaps (Beta)",
+        "description": "Beta channel: includes pre-release builds ahead of the stable channel; expect rougher edges. Scans your library for gaps (missing movies in partially-owned collections and franchises, missing series content, and unowned titles from actor and director filmographies) using TMDB, TheTVDB, and TVmaze. Presents an easy todo list for filling out your collection, surfaces where to watch each item, and can optionally mint native virtual placeholders for missing collection movies.\n",
+        "overview": "Beta channel (includes pre-release builds). Find what's missing and related in your library and build a todo list to complete it.",
+        "owner": "idisposable",
+        "category": "General",
+        "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
+        "versions": [
+            {
+                "version": "10.11.1.0",
+                "changelog": "10.11.1.0 - Initial release. Mind the Gaps scans your library and builds a dashboard todo list of what is missing or worth adding: movies missing from a collection or franchise; missing seasons and episodes (optionally cross-checked against TVmaze and TheTVDB); films from an owned actor or director's filmography (with an independent Trakt cross-check); curated studio and keyword sets; and TMDB recommendations. Experimental music and books sources are included too. It shows where to watch each gap, links out to TMDB, IMDb, TheTVDB, and JustWatch, and can optionally mint reversible virtual placeholders for missing collection movies.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.1.0/mind-the-gaps_10.11.1.0.zip",
+                "checksum": "0156d97c8694a1d3d6c278b9c52ef590",
+                "timestamp": "2026-06-19T04:13:51Z"
+            },
+            {
+                "version": "10.11.0.16",
+                "changelog": "10.11.0.16 - Sturdier scans against flaky APIs. Every external service call now retries rate-limit and transient failures (honouring Retry-After) instead of dropping the lookup, a service that keeps failing is set aside for a couple of minutes so the scan moves on to the others rather than stalling, the scan saves its progress to disk as it goes so a crash or restart no longer loses the batch, and every request now identifies the plugin (with its version) to the API.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.16/mind-the-gaps_10.11.0.16.zip",
+                "checksum": "d287d128ee5599663ad9a8470aaf35e2",
+                "timestamp": "2026-06-19T02:34:51Z"
+            },
+            {
+                "version": "10.11.0.15",
+                "changelog": "10.11.0.15 - Fixes the plugin failing to load. The package now also ships TMDbLib and Newtonsoft.Json.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.15/mind-the-gaps_10.11.0.15.zip",
+                "checksum": "289a9d3975b06b8b7151a64c723a5fc6",
+                "timestamp": "2026-06-19T01:25:08Z"
+            },
+            {
+                "version": "10.11.0.14",
+                "changelog": "10.11.0.14 (pre-release) - One page, faster big tabs, and self-updating \"where to watch\". Settings now live on the report page: the gear opens an inline settings panel (accordion) and closes the report, so the plugin has a single sidebar entry. The A-Z bar is now a selector that renders one letter group at a time (with a leading \"*\" for all), on every tab including Set completion, and Creator works builds each group's rows only when you expand it, so a tab with tens of thousands of rows opens quickly. A small green dot marks a collapsed group that has a streaming source. Music gaps split by how you own the artist: an album artist you collect yields a Set-completion discography, an artist you only own a track by yields a Creator-works \"artist works\" list. \"Where to watch\" stays current on its own: a new \"Refresh where to watch\" scheduled task drains the whole backlog, a looked-up result is served instantly while a refresh runs behind the scenes, and the cache lifetime is settable (default 24 hours). Fix: a music set's search button now searches music instead of box sets.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.14/mind-the-gaps_10.11.0.14.zip",
+                "checksum": "455ba35a917010b2cf03b617a0d5a4f9",
+                "timestamp": "2026-06-19T01:02:18Z"
+            },
+            {
+                "version": "10.11.0.13",
+                "changelog": "10.11.0.13 - Report polish, accessibility, and a settings-link fix. The plugin's \"Settings\" button on the Plugins page now opens the configuration page instead of the report, and the report shows the installed plugin version next to the gear. Group headers use compact icons for resolve and not-interested, ordered search, open in Jellyfin, resolve, not-interested; a collapsed entry shows just the coverage percent (the full count on hover). The Markdown export now includes a search link for each gap. With one media domain shown at a time, the redundant top-level Movies/Shows group is gone and the summary line reads a little larger. Every icon control now has an accessible label so a screen reader announces the action. Fixes: the Type filter stacking onto two lines, and collapsed grid cells reflowing on hover.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.13/mind-the-gaps_10.11.0.13.zip",
+                "checksum": "3938ec9c7b5fd46e867881e4862d3875",
+                "timestamp": "2026-06-18T22:40:33Z"
+            },
+            {
+                "version": "10.11.0.12",
+                "changelog": "10.11.0.12 - A relevance gate keeps Creator works and Recommendations actionable on a large library: a TMDB vote floor (plus an optional cast-billing limit) drops obscure and bit-part credits, all tunable in settings. Set completion now lays its collapsed series and collections out in responsive columns instead of one very tall list, and a magnifying-glass icon opens a scoped Jellyfin search for any title, series, collection, or creator. The Type filter now lists the media domains actually present in each tab (so Music and Books gaps are reachable) and is a one-domain-at-a-time selector. You can resolve or mark \"not interested\" every episode under a series or season in one batch. The Markdown export folds the domain into the heading with a linked \"Watch\" and a link back to the same view. Fixes: the stale-list \"Rescan now\" button gave no feedback, and some season links were missing. Background runners now claim their run flag without locking the status counters.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.12/mind-the-gaps_10.11.0.12.zip",
+                "checksum": "5a7e0ad49af24916f1aade24af2d9026",
+                "timestamp": "2026-06-18T21:23:57Z"
+            },
+            {
+                "version": "10.11.0.11",
+                "changelog": "10.11.0.11 - Faster loading, broader coverage, and hardening ahead of 1.0. The report now loads one tab at a time, so a large library opens quickly. Filmography, recommendations, and the TVmaze/TheTVDB series cross-checks rotate through your library over successive scans, so coverage builds up instead of re-checking the same first items every run; stale entries are pruned automatically and a \"Reset scan rotation\" button forces a fresh cycle. The \"Look up where to watch\" button shows how many titles remain, live progress while running, and when the backlog is cleared. Empty tabs now explain which filter to relax, search also matches the creator or recommending title, group headers are keyboard and screen-reader friendly, and the settings page shows a quick gap summary. You can copy a link that reopens the exact tab and filters in another browser or for someone else. API keys are masked with a reveal toggle. Under the hood, minting works from gap ids, report reads are snapshotted against the background pass, background tasks stop cleanly on shutdown, and links are limited to http(s).\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.11/mind-the-gaps_10.11.0.11.zip",
+                "checksum": "b5158189a53859fe2a0d3b665681d99d",
+                "timestamp": "2026-06-18T18:13:48Z"
+            },
+            {
+                "version": "10.11.0.10",
+                "changelog": "10.11.0.10 - Reliability and polish ahead of 1.0. The scan and the background \"where to watch\" pass no longer overwrite each other, so results from a scan that finishes mid-pass are kept. Tab counts now match the filtered list, and \"Hide items with no sources\" hides only titles already looked up and found empty, not ones not yet checked. Your scroll position, expanded groups, and selection are kept when a row is resolved or a filter changes. The provider filter is populated from the saved report and gains enable-all and disable-all controls. Concurrent minting can no longer create duplicate collections.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.10/mind-the-gaps_10.11.0.10.zip",
+                "checksum": "b4fee653e8388ca87cdec001179a4c2b",
+                "timestamp": "2026-06-18T06:50:33Z"
+            },
+            {
+                "version": "10.11.0.9",
+                "changelog": "10.11.0.9 - Resolve a gap you don't consider missing (for example two listed episodes that are one combined file): mark it with a note and it drops off the list. A \"Show resolved\" filter brings resolved rows back, greyed, with their note and a Clear button; resolutions persist across rescans. New \"Hide upcoming\" filter for gaps with a future release date. The Settings button on the plugin page now opens the settings, not the report. The \"open in Jellyfin\" icon now sits next to each row's title.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.9/mind-the-gaps_10.11.0.9.zip",
+                "checksum": "2eed772fdcf245a5aed0e7582e3eb030",
+                "timestamp": "2026-06-18T05:34:51Z"
+            },
+            {
+                "version": "10.11.0.8",
+                "changelog": "10.11.0.8 - Missing-episode rows now show where to watch the show. Availability look-ups are grouped by title (episodes of a series share one call) and remember when a title has no sources, showing \"No streaming sources found\" instead of a look-up that comes back empty. The report is version-stamped and nudges you to rescan after a plugin upgrade (rebuilds stale links). Fixed group headers not toggling after navigating away and back. Creator Works and Recommendations letter groups start collapsed, plus a back-to-top button. The watch-page link is now \"Watch\", next to \"Where to watch:\". Settings page reorganized into labelled sections.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.8/mind-the-gaps_10.11.0.8.zip",
+                "checksum": "f1ed269616fb8335470bcceced32a255",
+                "timestamp": "2026-06-17T21:28:54Z"
+            },
+            {
+                "version": "10.11.0.7",
+                "changelog": "10.11.0.7 - Availability now runs as a background \"Look up where to watch\" pass instead of slowing the scan. Rows link to IMDb/TheTVDB, not just TMDB; fixed TheTVDB episode/season 404s. New \"Open in Jellyfin\" icons (show/season/item, new tab). Recommendations show the recommending title's year and kind and link to it. Creator Works and Recommendations now group alphabetically (Unicode-aware). The report is saved atomically.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.7/mind-the-gaps_10.11.0.7.zip",
+                "checksum": "4ea1e97cc7a0c3f5bb599a7f219c0ada",
+                "timestamp": "2026-06-17T20:22:16Z"
+            },
+            {
+                "version": "10.11.0.5",
+                "changelog": "10.11.0.5 - Add report filters: a \"where to watch\" type filter (subscription, free, ads, rent, buy; flatrate now shows as Subscription) and a \"hide specials\" toggle that also drops shows left with no other gaps. Filter selections are remembered per browser.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.5/mind-the-gaps_10.11.0.5.zip",
+                "checksum": "cdbcf0dd8bd0c273e04c10a262c13e65",
+                "timestamp": "2026-06-17T00:30:13Z"
+            },
+            {
+                "version": "10.11.0.4",
+                "changelog": "10.11.0.4 - Fix the report styling (collapsible groups, carets, and buttons were dead because the stylesheet sat in the page head, which Jellyfin drops). Split the report into one tab per axis (Set completion, Creator works, Recommendations). Group show episodes by season (season 0 is Specials). Click a row to reveal its overview.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.4/mind-the-gaps_10.11.0.4.zip",
+                "checksum": "cadef23197446f9a3b8f1785572302e1",
+                "timestamp": "2026-06-16T23:55:27Z"
+            },
+            {
+                "version": "10.11.0.3",
+                "changelog": "10.11.0.3 - Split media domains into Movies and Shows (was one Video bucket). The dashboard now groups gaps in a collapsible Pattern > Movies/Shows > source tree, with link buttons and clickable JustWatch availability. Add a Refresh button (reload saved results without re-scanning) and finer-grained scan progress.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.3/mind-the-gaps_10.11.0.3.zip",
+                "checksum": "fd181e2c518be05f55ab2285630b09f0",
+                "timestamp": "2026-06-16T23:32:34Z"
+            },
+            {
+                "version": "10.11.0.2",
+                "changelog": "10.11.0.2 - Run scans in the background so large libraries no longer time out the request; the dashboard polls for progress. Make the per-show missing-episode cap configurable (0 lists them all). Clearer ownership-index logging.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.2/mind-the-gaps_10.11.0.2.zip",
+                "checksum": "8d4699e20ed1a4bb7f9c409b05bfb46f",
+                "timestamp": "2026-06-16T22:31:57Z"
+            },
+            {
+                "version": "10.11.0.1",
+                "changelog": "10.11.0.1 - Fix mint patterns not persisting (minting did nothing) and the report page being unreachable (page-name case collision). Add a per-row Mint button, dry-run previews, elapsed-time logging, and clickable key-signup links on the settings page.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.1/mind-the-gaps_10.11.0.1.zip",
+                "checksum": "17e8caa1aaa8ab34d759f70c5392fdd7",
+                "timestamp": "2026-06-16T21:55:37Z"
+            },
+            {
+                "version": "10.11.0.0",
+                "changelog": "10.11.0.0 - Initial release: gap scanning across collections, filmographies, series content, and recommendations, with a dashboard todo list and experimental virtual placeholders.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.0/mind-the-gaps_10.11.0.0.zip",
+                "checksum": "da400e57edb7817d48b7fb6316d1adf4",
+                "timestamp": "2026-06-16T21:19:10Z"
+            }
+        ]
+    }
+]
