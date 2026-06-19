@@ -19,31 +19,34 @@ your cast and crew made that you don't own, and related titles worth adding.
 ## What it does
 
 A scheduled task scans your library; a dashboard page (**Dashboard > Mind the Gaps**) shows the
-results: filterable by pattern and domain, searchable, with TMDB/IMDb/etc. links and an on-demand
-"Where to watch" for each item.
+results: filterable by tab and media type, searchable, with links out (TMDB, IMDb, and more) and an
+on-demand "Where to watch" for each item.
 
-![Mind the Gaps report](assets/screenshots/report-overview.png)
-<!-- Capture: the report open with a healthy number of gaps, a pattern tab active and the toolbar
-     visible. The hero shot. See assets/screenshots/README.md for the full capture list. -->
+<p align="center">
+  <a href="docs/screenshots/report-movies-set-completion.png"><img src="docs/screenshots/report-movies-set-completion.png" alt="The Mind the Gaps report: movie collections laid out in columns with their missing parts" width="860"></a>
+</p>
 
-Gaps are modelled as three patterns across N media domains, so new sources slot in without engine
-changes (only Video is implemented today):
+More screenshots throughout the [report guide](docs/report-guide.md) and the
+[configuration reference](docs/configuration.md).
 
-| Pattern | Today (Video) | Future (Music / Book) |
+Every gap is one of three kinds, surfaced as the report's three tabs:
+
+| Tab | What it finds | Examples |
 |---|---|---|
-| **SetCompletion** (a known member of an owned container is missing) | missing collection/franchise parts, missing series episodes | discography, book series |
-| **CreatorWorks** (a work by an owned creator is missing) | actor/director filmography | discography, bibliography |
-| **Recommendation** (related/discovery) | TMDB similar | n/a |
+| **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
+| **Creator works** | other work by a person or artist you own | a film an owned actor or director made; a music artist's wider catalogue; an author's other books |
+| **Recommendations** | related titles worth adding (discovery; off by default) | TMDB "similar" titles for things you own |
+
+Movies and shows work out of the box; music and books are experimental, opt-in sources.
 
 ## Features
 
 - **Collection gaps**: missing movies in a partially-owned TMDB collection or BoxSet. Movie-franchise
   only by design (TMDB collections don't model shows).
-- **Filmography gaps (TMDB)**: an owned person's movie credits (cast plus directing/writing crew) that
-  aren't in the library. People are scanned stalest-first, so coverage accumulates over runs (and the
-  per-run cap, raised, covers a large cast and crew faster); most-owned-credits breaks ties. A relevance
-  gate (a TMDB vote floor, plus an optional cast-billing limit) drops obscure and bit-part credits so the
-  list stays actionable on a large library.
+- **Filmography gaps (TMDB)**: an owned actor or director's films that aren't in your library. A big cast
+  and crew is covered a bit at a time across repeated scans, so the list builds up rather than arriving all
+  at once. A relevance filter (a minimum-votes threshold, plus an optional cast-billing limit) drops obscure
+  and bit-part credits so the list stays useful on a large library.
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
@@ -141,67 +144,26 @@ metadata refresh, and at the end of every scan a reconcile pass drops any minted
 owns for real. The settings page keeps only **Remove minted movies** (with a dry-run preview) to undo
 everything at once. Missing episodes are not minted here: the server already synthesizes those.
 
-## How it integrates
+## Works alongside your other plugins
 
-Mind the Gaps is self-contained. It carries its own TMDB client (over `TMDbLib`) and hand-rolled
-Trakt/TVmaze/TheTVDB HTTP clients, so it has no dependency on `MediaBrowser.Providers` or on any other
-plugin. External links are also extensible without a hard dependency: it merges in whatever the host's
-own link providers emit, so a TMDB/IMDb link comes from core and a JustWatch link lights up if the
+Mind the Gaps is self-contained, so it does not depend on any other plugin and will not clash with them.
+Its links are still extensible without any setup: it folds in whatever your server's own link providers
+emit, so TMDB and IMDb links come from core, and a **JustWatch** link lights up automatically if the
 separate [Jellyfin.Plugin.JustWatch](https://github.com/IDisposable/jellyfin-plugin-justwatch) is
-installed, with no code dependency between the two.
+installed. For the architecture behind this, see [CONTRIBUTING](CONTRIBUTING.md).
 
-## Building
+## Documentation
 
-```bash
-dotnet build Jellyfin.Plugin.MindTheGaps.sln
-dotnet test  Jellyfin.Plugin.MindTheGaps.sln
-```
-
-The projects reference the published `Jellyfin.Controller` / `Jellyfin.Model` NuGet packages
-(compile-only via `ExcludeAssets="runtime"`), so the repo builds standalone, no Jellyfin server
-checkout required. The CI matrix in [.github/workflows/build.yaml](.github/workflows/build.yaml) builds
-each supported ABI; a 12.x row is ready to enable once a 12.x Jellyfin NuGet ships. The full build and
-release pattern is documented in
-[this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd).
-
-### Releasing
-
-1. Set `version` in `build.yaml` to the new version (e.g. `10.11.0.1`).
-2. Publish a GitHub Release with the matching tag (`v10.11.0.1`).
-
-The `publish` workflow packages the plugin, attaches the `.zip` to the release, and updates
-`manifest.json`, which the catalog picks up automatically.
-
-## Repository layout
-
-```
-Jellyfin.Plugin.MindTheGaps.sln         # solution (both projects)
-build.yaml                              # plugin manifest (catalog metadata)
-manifest.json                           # catalog/repository manifest
-Directory.Packages.props                # central NuGet versions (single source)
-LICENSE
-assets/                                 # social card + doc screenshots (assets/screenshots/README.md)
-docs/                                   # ADRs + upstream drafts + design notes
-  configuration.md                      # every setting and its implications
-  report-guide.md                       # how to read and work the report
-Jellyfin.Plugin.MindTheGaps/            # the plugin
-  Plugin.cs, ServiceRegistrator.cs, ProviderLinks.cs
-  Gaps/                                 # engine + IGapSource + sources
-  Services/                             # TMDB, Trakt, TVmaze, TheTVDB, availability clients
-  ScheduledTasks/GapScanTask.cs, AvailabilityRefreshTask.cs
-  Api/GapsController.cs
-  Web/mindthegaps.html                  # dashboard + settings (gear toggles an inline settings panel)
-  Configuration/PluginConfiguration.cs
-  VirtualItems/VirtualMovieMinter.cs    # experimental, opt-in
-.editorconfig                           # code style + analyzer severities
-Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures
-```
+- **[Configuration reference](docs/configuration.md)** - every setting, what it does, and what changes
+  when you set or clear it.
+- **[Report guide](docs/report-guide.md)** - the three tabs, the filters and saved views, and the per-row
+  actions.
+- **[Roadmap and status](docs/roadmap.md)** - what is built, what is experimental, and what is not.
 
 ## Contributing
 
-Build and tests must stay green; StyleCop and the analyzers run as errors. Add tests for new behavior.
-Parsers and mappers are tested against real captured API responses under
-`Jellyfin.Plugin.MindTheGaps.Tests/TestData/`.
+Bug reports, ideas, and pull requests are welcome. See **[CONTRIBUTING](CONTRIBUTING.md)** for how to
+build, test, release, and find your way around the code.
 
 ## License
 

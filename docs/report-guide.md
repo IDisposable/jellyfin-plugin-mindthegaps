@@ -7,9 +7,7 @@ it, see the [configuration reference](configuration.md).
 
 ## Layout at a glance
 
-![Report overview](../assets/screenshots/report-overview.png)
-<!-- Capture: the report open with a healthy number of gaps, a pattern tab active and the toolbar
-     visible. See assets/screenshots/README.md for the full capture list. -->
+![Report overview](screenshots/report-movies-set-completion.png)
 
 - **Summary line** at the top: how many gaps, when the report was generated, and a reload button that
   re-reads the last saved results without rescanning.
@@ -23,6 +21,14 @@ it, see the [configuration reference](configuration.md).
 - **Pattern tabs**: Set completion, Creator works, Recommendations (below). Only tabs with gaps show.
 - **A-Z jump bar** and **rollup**: on the letter-grouped tabs, for quick navigation.
 - **Back to top** button, bottom-right.
+
+A scan runs in the background with live progress:
+
+![A scan in progress](screenshots/report-scanning.png)
+
+Scans also run on a schedule, alongside a "Refresh where to watch" pass, under **Dashboard > Scheduled Tasks**:
+
+![The plugin's scheduled tasks](screenshots/scheduled-tasks.png)
 
 ## The three pattern tabs (axes)
 
@@ -44,9 +50,14 @@ The collapsed series and collections lay out in responsive columns, so a large l
 tall list; expanding one widens it to full width in place to show its seasons and episodes. On a
 collapsed series, the batch controls appear on hover.
 
-![Set completion tab](../assets/screenshots/report-set-completion.png)
-<!-- Capture: Set completion tab, a collection or series group with a few missing entries and the
-     "N of M owned" coverage badge. -->
+![Set completion, collapsed into columns](screenshots/report-shows-set-completion-collapsed.png)
+
+![Set completion, a series expanded to its seasons and episodes](screenshots/report-shows-set-completion-expanded.png)
+
+With the experimental **music** source on, an album artist you collect is a Set-completion gap too: their
+missing studio albums (a "discography").
+
+![A music artist's missing discography](screenshots/report-music-set-completion.png)
 
 ### Creator works
 
@@ -57,9 +68,15 @@ Because filmographies are scanned stalest-first in capped batches, this list **a
 several scans rather than appearing all at once. A creator you are not collecting can be muted wholesale
 (see [Muting a whole creator or source](#muting-a-whole-creator-or-source)).
 
-![Creator works tab](../assets/screenshots/report-creator-works.png)
-<!-- Capture: Creator works tab, the A-Z letter grouping with a creator expanded to show a few missing
-     films. -->
+![Creator works tab](screenshots/report-movie-creator-works.png)
+
+The A-Z bar across the top selects one initial at a time, so even a very large filmography opens quickly.
+
+![The A-Z letter selector](screenshots/report-alphabet-bar.png)
+
+With the **music** source on, a track-only artist's wider catalogue ("artist works") appears here too.
+
+![A music artist's wider catalogue](screenshots/report-music-creator-works.png)
 
 ### Recommendations
 
@@ -68,15 +85,15 @@ so it is off by default and can be noisy. Grouped by domain, then alphabetically
 seed title shown so you know why something was suggested. A seed you do not want suggestions from can be
 muted (the small x on a recommendation, or the picker described below).
 
-![Recommendations tab](../assets/screenshots/report-recommendations.png)
-<!-- Capture: Recommendations tab, results grouped by title with the owning seed title(s) shown on a
-     row. -->
+![Recommendations tab](screenshots/report-movie-recommendations.png)
+
+Shows work the same way:
+
+![Series recommendations](screenshots/report-shows-recommendations.png)
 
 ## Toolbar: filters, search, views
 
-![Report toolbar](../assets/screenshots/report-toolbar.png)
-<!-- Capture: close crop of the toolbar (type/sort filters, the checkboxes, search, saved-views row,
-     and on a Creator/Recommendations tab the "Muted creators/sources" picker). -->
+![Report toolbar](screenshots/report-toolbar.png)
 
 The toolbar applies to the current tab. Filters combine (a row must pass all of them).
 
@@ -95,15 +112,11 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 | **Saved views** | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser. |
 | **Copy link** | Copy a URL that re-opens this exact view (active tab plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser. |
 
-![Where to watch](../assets/screenshots/report-where-to-watch.png)
-<!-- Capture: a row (or rows) with streaming-provider chips populated, and the per-provider
-     availability filter visible. -->
+![Where to watch](screenshots/report-streaming-providers.png)
 
 ## Per-row actions
 
-![Row actions](../assets/screenshots/report-row-actions.png)
-<!-- Capture: one gap row close up, showing its external links, the open-in-Jellyfin jump, a Mint
-     button (virtual items enabled), and the Resolve / Not interested / Snooze actions. -->
+![Row actions](screenshots/report-row-actions.png)
 
 Each gap row carries links and actions. Which appear depends on the gap's kind and your settings.
 
@@ -126,6 +139,10 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
 - **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group
   header carries **Resolve all** / **Not interested in all**, which dismiss every listed episode under that
   group in one step (after a confirm). They act on the episodes currently shown, so any filter applies.
+
+Resolving a gap can carry an optional note (for example why it is not really missing):
+
+![Dismissing a gap with an optional note](screenshots/report-resolve-modal.png)
 
 ## Minting several at once
 

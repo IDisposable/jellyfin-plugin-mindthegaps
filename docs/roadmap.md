@@ -1,8 +1,8 @@
 # Mind the Gaps: roadmap and status
 
-> A promised-versus-actual map of the plugin. Written to keep the difference between what the plugin
-> detects and what it materializes from drifting into tribal knowledge. Status reflects the code as it
-> stands, not the marketing.
+> A map of what the plugin does today and what it deliberately does not (yet). Written to keep the
+> difference between what the plugin *detects* and what it *materializes* clear, since that is the one
+> distinction that trips people up.
 
 ## The one distinction that explains everything
 
@@ -10,7 +10,7 @@ There are two separate layers, and only one of them is narrow:
 
 | Layer | What it is | Scope today |
 |---|---|---|
-| Detection | The gap engine plus its sources scan the library and produce the dashboard todo list of what is missing or related | Broad: all three patterns, movies and series episodes, four providers |
+| Detection | The gap engine plus its sources scan the library and produce the dashboard todo list of what is missing or related | Broad: all three patterns across movies and shows (plus experimental music and books), via six providers (TMDB, Trakt, TVmaze, TheTVDB, MusicBrainz, OpenLibrary) |
 | Materialization | The minter creates pathless virtual placeholder items inside the library so a gap renders in place | Narrow: movie gaps only, one at a time from the report (BoxSet for collection gaps, a catch-all collection otherwise) |
 
 Most assumptions that "the plugin only handles BoxSet movies" are really about the materialization
@@ -29,6 +29,10 @@ Every source is wired in DI and its mapper is covered by captured-data tests.
 | PeopleGapSource (TMDB) | CreatorWorks | unowned films from owned actors and directors | Done |
 | TraktFilmographyGapSource | CreatorWorks | the same, independently cross-checked via Trakt | Done |
 | RecommendationsGapSource (TMDB) | Recommendation | similar movies and series | Done |
+| CuratedSetGapSource (TMDB) | SetCompletion | missing films from a studio or keyword set (named, by id, or auto-seeded) | Done (opt-in) |
+| MusicDiscographyGapSource (MusicBrainz) | SetCompletion | missing studio albums in the discography of an album artist you collect | Done (experimental) |
+| MusicArtistWorksGapSource (MusicBrainz) | CreatorWorks | the wider catalogue of an artist you only own a track by | Done (experimental) |
+| BooksBibliographyGapSource (OpenLibrary) | CreatorWorks | other works in an owned author's bibliography | Done (experimental) |
 | AvailabilityService (TMDB) | n/a | "where to watch", lazily per item or via the background "Look up where to watch" pass (never during the scan) | Done |
 
 Supporting pieces that are done: the dashboard todo list (pattern tabs, Movies/Shows grouping with
@@ -54,30 +58,48 @@ provider for (TheTVDB, and the season/episode urls a bare synthetic item cannot 
 | missing series episodes | SetCompletion | Not needed here: the server already synthesizes virtual missing episodes |
 
 Minting is request-only and driven entirely from the report's per-row and multi-select Mint buttons;
-the settings page no longer fires any minting (it keeps only "Remove minted" and its preview). The
-minter is idempotent, tags everything with the `MindTheGapsMinted` provider id, never deletes files,
-queues a metadata + image refresh on each minted item, and is fully reversible. Reconciliation (drop a
-minted placeholder once the library owns the real file) runs automatically at the end of every scan,
-on both the scheduled task and the background runner. A whole collection is minted by selecting its
-missing rows and hitting "Mint selected"; there is no separate SetCompletion-only bulk button anymore.
+the settings page fires no minting (it keeps only "Remove minted" and its preview). The minter is
+idempotent, tags everything with the `MindTheGapsMinted` provider id, never deletes files, queues a
+metadata + image refresh on each minted item, and is fully reversible. Reconciliation (drop a minted
+placeholder once the library owns the real file) runs automatically at the end of every scan, on both
+the scheduled task and the background runner. A whole collection is minted by selecting its missing
+rows and hitting "Mint selected".
 
-## Promised but not built
+## Not built (and why)
 
-| Promise (README / CLAUDE / ADRs) | Status |
+| Capability | Where it stands |
 |---|---|
 | Music, Books, MusicVideos domains (`MediaDomain`; discography, book series, bibliography) | Music and Books have experimental sources (opt-in, off by default). Music: an album artist you collect yields a Set-completion discography, a track-only artist yields Creator-works "artist works". Books: author bibliography as Creator works. The symmetric **book series -> Set completion** is not built: OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to diff. MusicVideos is still enum-only. |
 | Materialize CreatorWorks or Recommendation gaps in bulk | Per-row and multi-select mint do it one batch at a time; no one-click "mint every gap of a pattern" |
-| Native virtual items in core (the three upstream asks) | PR A filed as jellyfin-web 8049; Discussions B and C are drafts |
+| Native virtual items in core (the three upstream asks A/B/C) | A is filed as a PR; B and C are local drafts, not yet filed upstream. See [Upstream asks](#upstream-asks-a-b-c) below. |
 | Per-user display gate for minted items | Not possible from a plugin; minted items show for everyone |
 | `IGapSource` as a core SPI so third-party gap plugins can exist | Deferred on purpose (ADR-0002); every source ships in this plugin |
-| Greyed "Missing" badge on minted movies | Needs jellyfin-web PR A merged |
+| Greyed "Missing" badge on minted movies | Needs upstream ask A ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)) merged |
+
+## Upstream asks (A, B, C)
+
+Three independent upstream changes would let the experience go fully native. The plugin works without
+any of them; they are progressive enhancements, tracked in detail under [docs/upstream/](upstream/).
+
+- **A - relax the "Missing" indicator (jellyfin-web).** Let virtual items render the greyed-out "Missing"
+  treatment in more contexts than just episodes. This is the only one actually filed upstream: it is open
+  as **[jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)**. Once it merges, the
+  collection movies the plugin already mints would show the native greyed badge.
+- **B - mint and reconcile virtual items for any type (server).** Not just show seasons and episodes,
+  ideally behind a host `IVirtualItemManager` with a `DisplayMissingMovies` gate. This is the substantive
+  feature. It is **not filed upstream yet** (there is no GitHub discussion or PR); the worked-out proposal
+  lives in [docs/upstream/discussion-mint-virtual-items.md](upstream/discussion-mint-virtual-items.md),
+  with the background analysis in [docs/virtual-movies-analysis.md](virtual-movies-analysis.md).
+- **C - expose the shared TMDB client and key via the published NuGet (server).** So a plugin can reuse
+  the host's cache and key instead of carrying its own. Pure plumbing cleanup; the plugin ships fine
+  without it. **Not filed upstream yet**; the proposal is in
+  [docs/upstream/discussion-tmdb-nuget-surface.md](upstream/discussion-tmdb-nuget-surface.md).
 
 ## Filling CreatorWorks and Recommendation gaps
 
-Detecting these is done, and they are now materialized one at a time (the per-row and multi-select
-Mint buttons) into the catch-all "Mind the Gaps (minted)" collection, with the person attached for
-filmography gaps. What is still open is a *nicer home than the catch-all collection* and bulk
-materialization. SetCompletion is the clean case because a BoxSet is a real owned container with
+Detecting these is done, and they materialize one at a time (the per-row and multi-select Mint buttons)
+into the catch-all "Mind the Gaps (minted)" collection, with the person attached for filmography gaps.
+What is still open is a *nicer home than the catch-all collection* and bulk materialization. SetCompletion is the clean case because a BoxSet is a real owned container with
 LinkedChild membership, so a virtual movie renders where it belongs; CreatorWorks (an owned person's
 unowned films) and Recommendation (similar titles) have no such natural container, hence the catch-all.
 
@@ -115,9 +137,10 @@ person's page and survive scans, with no server change.
 
 The one-off Mint button on the dashboard (filmography rows mint into a catch-all collection and attach
 the person) is the live probe for this. Remaining dependencies: the greyed "Missing" badge needs
-jellyfin-web PR A (8049), and there is still no per-user display gate (minted items show for everyone).
-Reconciling a minted film once the real file is owned is now handled: every scan ends with a reconcile
-pass that drops minted placeholders whose TMDB id the library now owns for real.
+upstream ask A ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)), and there is
+still no per-user display gate (minted items show for everyone).
+Reconciling a minted film once the real file is owned is handled: every scan ends with a reconcile
+pass that drops minted placeholders whose TMDB id the library owns for real.
 
 A fully native treatment (a distinct "Gaps" shelf on the person page) would need a jellyfin-web change
 on top of the minting. The plugin-only version leans on the existing query.
@@ -152,9 +175,10 @@ targeted deletes), so it does not need its own progress. Availability is its own
 
 ## Priorities (suggested, not committed)
 
-- Get jellyfin-web PR A (8049) merged so the collection movies already mintable today get their badge.
-- Decide whether Music and Book are real roadmap or should be trimmed from the docs to stop
-  over-promising.
+- Get upstream ask A ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)) merged so
+  the collection movies already mintable today get their native greyed "Missing" badge.
+- Harden the experimental Books source against real OpenLibrary data (author disambiguation, missing
+  years; see the backlog item) before promoting it out of experimental.
 - If in-place CreatorWorks rendering is wanted, prototype the person-page materialization above; it is
   a better container story than synthetic collections.
 
@@ -169,13 +193,7 @@ targeted deletes), so it does not need its own progress. Availability is its own
   compress the JSON (deflate plus URL-safe base64) before the param; or persist the view server-side under a
   short token and put only the token in the URL (a real short-link, the most robust against URL limits but it
   adds a store and an endpoint). Likely combine: omit/short-diff providers and drop defaults first, compress
-  if still large. Group headers already carry
-  `role=button`/`aria-expanded`/`aria-controls`, but the icon-only controls (the search, open-in-Jellyfin,
-  resolve, not-interested, mint, version, refresh, and gear glyphs) rely on `title` only. Material icons
-  render as text ligatures, so a screen reader can read the raw glyph name ("done", "close", "open_in_new").
-  Add `aria-label` to each icon control and `aria-hidden="true"` on the decorative icon span, and confirm the
-  settings form's inputs all have associated labels. A focused, low-risk accessibility pass over
-  `Web/mindthegaps.html` (which now holds both the report and the inline settings form).
+  if still large.
 - **Collection completion misses owned movies that lack a TMDB id.** `CollectionGapSource` diffs a TMDB
   collection's parts against the ownership index, which is keyed by provider id, and never inspects the owned
   BoxSet's children. A movie that is in the BoxSet but whose library item has no (or a mismatched) TMDB id is
@@ -195,13 +213,13 @@ targeted deletes), so it does not need its own progress. Availability is its own
   external-id resolver; pairs with the collection-ownership fallback above (the fallback silently prevents the
   false gap, this explains it and points at the bad metadata).
 
-- **Curated TMDB Lists (continues the studio/keyword work).** Studio and keyword widening shipped:
-  `CuratedSetGapSource` completes the movies of a studio or keyword, configured by **name** (resolved to
-  TMDB via `SearchCompanyAsync`), by TMDB id, or **auto-seeded** from the studios most common on owned
-  movies and series (`AutoSeedStudios`), grouped by the set name with per-set page and gap caps. The one
-  remaining input type is TMDB Lists: paste a list id and complete it the same way (TMDbLib `GetListAsync`).
+- **Curated TMDB Lists (extends the studio/keyword sets).** `CuratedSetGapSource` completes the movies of
+  a studio or keyword, configured by **name** (resolved to TMDB via `SearchCompanyAsync`), by TMDB id, or
+  **auto-seeded** from the studios most common on owned movies and series (`AutoSeedStudios`), grouped by
+  the set name with per-set page and gap caps. The one input type it does not cover is TMDB Lists: paste a
+  list id and complete it the same way (TMDbLib `GetListAsync`).
   Keyword auto-seeding (from keywords on owned items) is also possible but lower value than studios.
-- **Extend fill-up scanning to recommendations and series.** Filmography now fills up over runs:
+- **Extend fill-up scanning to recommendations and series.** Filmography fills up over runs:
   `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
   the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run
   (starting a fresh cycle once everyone is covered); the engine then carries prior CreatorWorks gaps
@@ -243,16 +261,11 @@ targeted deletes), so it does not need its own progress. Availability is its own
   version-coupled, effectively a soft dependency) or standardizing an upstream SPI. This pairs with
   upstream Discussion C (expose the host TMDB client/key via the NuGet); a broader "providers expose a
   credentialed client" ask would cover the rest. Until then the plugin keeps its own keys.
-- **Coverage on more sources (mostly done).** Coverage badges ("6 of 9 owned, 67%") show on
+- **Coverage on more sources.** Coverage badges ("6 of 9 owned, 67%") show on
   BoxSet/collection and series groups, and each tab has a domain rollup line summing gap counts, group
   counts, and the owned-of-total aggregate. Cross-check-only series (not in the server's missing list) and
   the open-ended curated studio/keyword sets carry no badge by design; giving cross-check series a count
   would mean counting their owned episodes the same way the library source now does.
-- **Shareable view URLs.** Named saved views shipped: a "Saved views" control snapshots the active tab
-  and every filter (type, specials, upcoming, dismissed, streamable, monetization, providers, search) as
-  a named preset in `localStorage`, re-applied in one click. What remains is the shareable part: encode a
-  view into the page URL so it survives a bookmark or a paste to another browser/user, which the saved
-  presets (per browser) do not. Fiddly inside Jellyfin's hash router, hence deferred.
 - **Native in-page polish via the frontend-customization ecosystem (alternative to the upstream PRs).**
   The community JavaScript Injector and File Transformation plugins (the same stack CineHover uses) let a
   plugin push CSS/JS into jellyfin-web without forking it. That gives a non-upstream path to the two
@@ -312,12 +325,12 @@ targeted deletes), so it does not need its own progress. Availability is its own
   the report links straight to them. **Albums** are the natural unit to mint for Music (a pathless virtual
   `MusicAlbum` tagged with the `MintedMarker`, placed in its artist or a catch-all, mirroring the movie
   minter); **books** likewise as virtual `Book` items. Individual **songs/tracks** are low value (the
-  album is the unit). The Music/Books gap sources are now merged, so the gaps display in the report; the
+  album is the unit). The Music and Books gap sources exist, so the gaps display in the report; the
   minting itself is deferred to post-1.0, to be built on top of the bulk-mint container refactor (branch
   B, a post-1.0 PR) where the minter can be generalized from movie-only to kind-aware and validated
   against a running server, rather than written as speculative, untestable code on main now.
-- **Harden the Books source against real OpenLibrary data.** Capturing real fixtures surfaced three gaps
-  the synthetic ones hid (now documented in `OpenLibraryCapturedDataTests`): (1) the author search's first
+- **Harden the Books source against real OpenLibrary data.** Real OpenLibrary responses have three rough
+  edges (covered by `OpenLibraryCapturedDataTests`): (1) the author search's first
   result is often the wrong namesake (searching "Frank Herbert" returns Frank Herbert Hayward first; the
   Dune author OL79034A is third) so a naive docs[0] pick resolves the wrong author; (2) the works-list
   endpoint carries no publish date, so book gaps get no year; (3) several works share a title. For (1) the
@@ -332,15 +345,8 @@ targeted deletes), so it does not need its own progress. Availability is its own
   by source: the dashboard already groups by domain and the cross-source de-dup that matters (the three
   series sources sharing episode ids) stays within the Shows shard, so it is not broken; a per-source
   split would break it. Touches `GapStore` (multi-file atomic writes), `GapEngine` (per-domain de-dup and
-  carry-forward), and `AvailabilityRunner`. The cheaper, higher-value first step is the transfer half: have
-  the API serve the report per pattern or domain so the browser loads only the active tab, without yet
-  splitting the persisted file. Pairs with the report-virtualization note. A welcome side effect: once the
-  dashboard loads per domain, the Type filter's "All" option goes away (a combined cross-domain view would
-  defeat the lazy load), so the domain becomes the primary selector and there is one fewer state to keep
-  coherent.
-Shipped from earlier backlog: the per-provider availability filter, multi-select mint, the "Hide items
-with no sources" filter, and the background "Look up where to watch" pass (the old "batch availability
-past the lookup cap" item: a standalone, resumable pass over the persisted report, grouped by title, with
-availability and resolved ids carried forward across rescans by gap id). Also shipped since: per-gap
-resolutions, the "Hide upcoming" filter, alphabetical grouping for Creator Works and Recommendations,
-open-in-Jellyfin links, the version-stamped report with a rescan nudge, and the settings-page reorg.
+  carry-forward), and `AvailabilityRunner`. The **transfer half is already in place**: the API serves the
+  report per pattern (`Gaps?pattern=X` plus a lightweight `Summary` for the tab counts), so the browser
+  loads only the active tab, and the Type filter is domain-primary with no "All" option. The open part is
+  the **storage half**: splitting the persisted `gaps.json` by domain so a scan and each availability
+  checkpoint do not rewrite one multi-MB file. Pairs with the report-virtualization note.

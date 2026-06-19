@@ -10,9 +10,7 @@ For how to read the results, see the [report guide](report-guide.md).
 
 ## What to scan
 
-![What to scan settings](../assets/screenshots/config-what-to-scan.png)
-<!-- Capture: the settings page "What to scan" section with the source toggles and the curated-set
-     inputs. See assets/screenshots/README.md for the full capture list. -->
+![What to scan settings](screenshots/config-what-to-scan.png)
 
 These toggles decide which gap sources run. Turning one off removes its gaps from the next report; it
 does not delete anything from your library. Leaving everything off produces an empty report.
@@ -40,6 +38,8 @@ These only matter when **Curated studio / keyword sets** is on.
 
 ## Where to watch
 
+![Where to watch settings](screenshots/config-where-to-watch.png)
+
 | Setting | Default | When set | When cleared |
 |---|---|---|---|
 | **Availability ("where to watch")** (`IncludeAvailability`) | On | Enables streaming-availability lookups: the per-row **Where to watch** button, the report's background **Look up where to watch** pass, the **Refresh where to watch** scheduled task, and the report's **Hide items with no sources** / per-provider filters. Lookups use TMDB `watch/providers` and never run during the scan itself. | The button and the availability filters do nothing; no provider data is fetched. |
@@ -47,9 +47,7 @@ These only matter when **Curated studio / keyword sets** is on.
 
 ## Data sources
 
-![Data sources settings](../assets/screenshots/config-data-sources.png)
-<!-- Capture: the "Data sources" section (TMDB key, webhook, Trakt/TVmaze/TheTVDB cross-checks). Keys
-     blank or fake. -->
+![Data sources settings](screenshots/config-data-sources.png)
 
 TMDB is always on (it powers collections, people, recommendations, and availability). The rest are
 opt-in cross-checks that need your own credentials.
@@ -67,6 +65,8 @@ opt-in cross-checks that need your own credentials.
 
 ## Region
 
+![Region settings](screenshots/config-region.png)
+
 | Setting | Default | Effect |
 |---|---|---|
 | **Country code** (`MetadataCountryCode`) | `US` | ISO 3166-1 alpha-2 (e.g. `US`, `GB`, `DE`). Drives release dates and which country's streaming providers "where to watch" reports. |
@@ -74,9 +74,7 @@ opt-in cross-checks that need your own credentials.
 
 ## Limits
 
-![Limits settings](../assets/screenshots/config-limits.png)
-<!-- Capture: the "Limits" section including the Max-per-run fields and the "Reset scan rotation"
-     button. -->
+![Limits settings](screenshots/config-limits.png)
 
 These bound how much each scan produces, so one prolific show or a huge cast does not flood the list.
 
@@ -97,8 +95,7 @@ suspect the rotation is stuck.
 
 ## Experimental: virtual items
 
-![Virtual items settings](../assets/screenshots/config-virtual-items.png)
-<!-- Capture: the "Experimental: virtual items" section with the Remove buttons. -->
+![Virtual items settings](screenshots/config-actions.png)
 
 Off by default and clearly marked. Lets the plugin mint pathless "virtual" placeholder items so a gap
 renders greyed-out in place, and reconcile/remove them. This is a stand-in for proper server support;
