@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.14"
+version: "10.11.0.15"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -15,15 +15,7 @@ category: "General"
 owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
+- "TMDbLib.dll"
+- "Newtonsoft.Json.dll"
 changelog: >
-  10.11.0.14 (pre-release) - One page, faster big tabs, and self-updating "where to watch". Settings now
-  live on the report page: the gear opens an inline settings panel (accordion) and closes the report, so the
-  plugin has a single sidebar entry. The A-Z bar is now a selector that renders one letter group at a time
-  (with a leading "*" for all), on every tab including Set completion, and Creator works builds each group's
-  rows only when you expand it, so a tab with tens of thousands of rows opens quickly. A small green dot marks
-  a collapsed group that has a streaming source. Music gaps split by how you own the artist: an album artist
-  you collect yields a Set-completion discography, an artist you only own a track by yields a Creator-works
-  "artist works" list. "Where to watch" stays current on its own: a new "Refresh where to watch" scheduled
-  task drains the whole backlog, a looked-up result is served instantly while a refresh runs behind the
-  scenes, and the cache lifetime is settable (default 24 hours). Fix: a music set's search button now searches
-  music instead of box sets.
+  10.11.0.15 - Fixes the plugin failing to load. The package now also ships TMDbLib and Newtonsoft.Json.

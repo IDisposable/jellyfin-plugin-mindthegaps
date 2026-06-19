@@ -12,8 +12,10 @@
 
   <!--
     Standalone build: reference the published Jellyfin.* NuGet packages instead of the server
-    projects. ExcludeAssets="runtime" keeps them compile-only, so the host's own copies load at
-    runtime and only Jellyfin.Plugin.MindTheGaps.dll ships. Versions resolve from the repo-level
+    projects. ExcludeAssets="runtime" keeps the Jellyfin.* assemblies compile-only, so the host's own
+    copies load at runtime. TMDbLib is a real runtime dependency (the host does not provide it), so it
+    and its Newtonsoft.Json dependency ship alongside the plugin: they are listed in build.yaml's
+    artifacts so jprm bundles them into the zip. Versions resolve from the repo-level
     Directory.Packages.props (Jellyfin.* tracks $(JellyfinVersion), the target ABI).
   -->
   <ItemGroup>
