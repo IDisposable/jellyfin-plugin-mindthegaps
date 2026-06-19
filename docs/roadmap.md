@@ -211,7 +211,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   disagreement** via `TmdbClient.GetExternalIdsAsync` (resolve the gap's TMDB id to its external ids and
   compare), which would add a network call the current synchronous diagnosis avoids.
 
-- **Curated TMDB Lists (extends the studio/keyword sets).** `CuratedSetGapSource` completes the movies of
+- **Extend the Diagnose action to Music and Books.** `GapDiagnostics` is already provider-agnostic on the
+  data side: a `DiagnosisItem` carries a full `ProviderIds` map and `ProviderLinks` builds its links, so the
+  popup table and the audit render whatever ids an item holds, not a fixed TheMovieDb/IMDb/TheTVDB set. The
+  matching, though, is still TheMovieDb-keyed (the `ByTmdb` index, plus title), so only movie and show gaps
+  are diagnosed. Extending it to a music discography or a book bibliography needs two pieces per domain: a
+  stable "set" identity to diff owned items on (a MusicBrainz release-group for an album, an OpenLibrary work
+  for a book) with the matching keyed on it instead of TMDB, and `ProviderLinks` cases for those providers so
+  the id cells link out. The blocker is less the code than the ids: until owned albums and books reliably
+  carry those provider ids, the diff has nothing to match against. Revisit once suitable set provider ids are
+  present. `CuratedSetGapSource` completes the movies of
   a studio or keyword, configured by **name** (resolved to TMDB via `SearchCompanyAsync`), by TMDB id, or
   **auto-seeded** from the studios most common on owned movies and series (`AutoSeedStudios`), grouped by
   the set name with per-set page and gap caps. The one input type it does not cover is TMDB Lists: paste a

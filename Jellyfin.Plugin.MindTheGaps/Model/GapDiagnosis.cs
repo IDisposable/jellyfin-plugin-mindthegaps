@@ -13,9 +13,30 @@ namespace Jellyfin.Plugin.MindTheGaps.Model;
 public sealed class GapDiagnosis
 {
     /// <summary>
+    /// Gets or sets the stable id of the diagnosed gap, so a report or audit can deep-link back to it.
+    /// </summary>
+    public string GapId { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the overall plain-language verdict.
     /// </summary>
     public string Summary { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the likely reason, so the dashboard can lead with a labeled verdict.
+    /// </summary>
+    public DiagnosisReason Reason { get; set; }
+
+    /// <summary>
+    /// Gets the reason name; the report serializer writes enums as numbers, so the dashboard reads this.
+    /// </summary>
+    public string ReasonName => Reason.ToString();
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the deeper (networked) pass ran, resolving ids against
+    /// TheMovieDb. False for the default library-only diagnosis.
+    /// </summary>
+    public bool Deepened { get; set; }
 
     /// <summary>
     /// Gets or sets the target kind (Movie or Series).

@@ -125,6 +125,9 @@
                         <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
                             <span>Export Markdown</span>
                         </button>
+                        <button is="emby-button" type="button" id="cgAuditBtn" class="raised" style="margin:0;" title="Audit the whole library for identification problems (false 'missing' and duplicate TheMovieDb ids) and download the result as Markdown. Read-only; nothing is changed.">
+                            <span>Identification audit</span>
+                        </button>
                         <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
                     </div>
                     <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
@@ -168,7 +171,7 @@
                     <form id="MindTheGapsConfigForm" onsubmit="return false;">
                         <div class="verticalSection">
                             <h2 class="sectionTitle">Settings</h2>
-                            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Close this panel with the gear to return to the report.</p>
+                            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Use the X at the top to close this panel and return to the report.</p>
                         </div>
 
                         <div class="verticalSection">
@@ -379,22 +382,6 @@
                             </div>
                         </div>
 
-                        <div class="verticalSection">
-                            <h2 class="sectionTitle">Diagnostics</h2>
-                            <p class="fieldDescription">
-                                Audit the library for identification problems and download the result as Markdown: gaps
-                                you appear to own under a different TheMovieDb id (the usual cause of a false "missing"),
-                                and owned items that share a provider id (so one is misidentified). Read-only; nothing is
-                                changed. Per gap, the <strong>Diagnose</strong> button on a movie or show row does the same
-                                check for that one title.
-                            </p>
-                            <div style="margin: 0.5em 0 1.5em 0;">
-                                <button id="cgAuditBtn" is="emby-button" type="button" class="raised emby-button">
-                                    <span>Download identification audit</span>
-                                </button>
-                            </div>
-                        </div>
-
                         <div>
                             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                                 <span>Save</span>
@@ -454,7 +441,10 @@
                 function categoryOf(item) { return item.DomainName || 'Other'; }
 
                 // JustWatch search needs a locale in the path; take the region from the browser, default US.
+                // The region for JustWatch and availability links. Prefer the configured country (the same
+                // MetadataCountryCode the availability lookups use), falling back to the browser's language.
                 function jwLocale() {
+                    if (cgRegion) { return cgRegion; }
                     var m = (navigator.language || 'en-US').match(/-([a-z]{2})$/i);
                     return m ? m[1].toLowerCase() : 'us';
                 }
@@ -463,6 +453,10 @@
 
                 // The active row sort, set from the Sort dropdown before each render.
                 var currentSort = 'title';
+
+                // The configured country (MetadataCountryCode), lowercased, for region-specific links. Loaded
+                // once on pageshow and refreshed on save; empty until then, so jwLocale falls back to the browser.
+                var cgRegion = '';
 
                 // Monotonic counter for per-render group body ids (aria-controls targets).
                 var cgGroupSeq = 0;
@@ -778,15 +772,30 @@
 
                 // The "Diagnose" popup: ask the server why a movie/show is reported missing (usually an owned
                 // item carrying a different or missing provider id) and show the plain-language findings.
-                function openDiagnose(gapId, name) {
+                // rawName is the decoded title from the button's data-name attribute (getAttribute undoes the
+                // esc() that made the attribute safe), so it is plain text. Only assign it via textContent,
+                // which re-escapes; never drop it into innerHTML.
+                function openDiagnose(gapId, rawName, deeper) {
                     if (!gapId) { return; }
                     var modal = document.getElementById('cgDiagModal');
                     var body = document.getElementById('cgDiagBody');
-                    document.getElementById('cgDiagTitle').textContent = 'Why is “' + name + '” missing?';
-                    body.innerHTML = '<p class="fieldDescription">Checking your library&hellip;</p>';
+                    // Remember the gap so the in-modal "Deeper analysis" button can re-run it.
+                    modal._gapId = gapId;
+                    modal._name = rawName || '';
+                    document.getElementById('cgDiagTitle').textContent = rawName ? ('Why is “' + rawName + '” missing?') : 'Diagnose';
+                    body.innerHTML = '<p class="fieldDescription">' + (deeper ? 'Confirming&hellip;' : 'Checking your library&hellip;') + '</p>';
                     modal.style.display = 'flex';
-                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Diagnose', { id: gapId }), dataType: 'json' })
-                        .then(function (res) { body.innerHTML = renderDiagnosis(res); })
+                    var args = { id: gapId };
+                    if (deeper) { args.deeper = true; }
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Diagnose', args), dataType: 'json' })
+                        .then(function (res) {
+                            // A deep-link may not carry the title, so fill it from the result.
+                            if (res && res.Target && res.Target.Name) {
+                                modal._name = res.Target.Name;
+                                document.getElementById('cgDiagTitle').textContent = 'Why is “' + res.Target.Name + '” missing?';
+                            }
+                            body.innerHTML = renderDiagnosis(res);
+                        })
                         .catch(function () { body.innerHTML = '<p class="fieldDescription">Could not run the diagnosis. Check the server logs.</p>'; });
                 }
 
@@ -798,49 +807,105 @@
                     }
                 }
 
-                // An id cell that links out to the provider's page in a new tab, or "-" when absent.
-                function diagIdLink(kind, provider, id) {
-                    if (!id) { return '<span style="opacity:.4;">-</span>'; }
-                    var url;
-                    if (provider === 'tmdb') { url = 'https://www.themoviedb.org/' + (kind === 'Series' ? 'tv' : 'movie') + '/' + encodeURIComponent(id); }
-                    else if (provider === 'imdb') { url = 'https://www.imdb.com/title/' + encodeURIComponent(id) + '/'; }
-                    else if (provider === 'tvdb') { url = 'https://thetvdb.com/?tab=series&id=' + encodeURIComponent(id); }
-                    else { return esc(id); }
-                    return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(id) + '</a>';
+                // The identity providers the diagnosis compares, in column order, with display labels. This is
+                // presentation only: which ids are stored is provider-agnostic (DiagnosisItem.ProviderIds), and
+                // the URLs come from the server (DiagnosisItem.Links). An unlisted provider just is not columned.
+                var DIAG_PROVIDER_ORDER = ['tmdb', 'imdb', 'tvdb', 'musicbrainz', 'openlibrary'];
+                var DIAG_PROVIDER_LABEL = { tmdb: 'TheMovieDb', imdb: 'IMDb', tvdb: 'TheTVDB', musicbrainz: 'MusicBrainz', openlibrary: 'OpenLibrary' };
+
+                // The verdict badge the modal leads with, keyed by GapDiagnosis.ReasonName.
+                var DIAG_REASON = {
+                    NotOwned: { label: 'Genuinely missing', color: '#888' },
+                    OwnedUnderWrongId: { label: 'Owned under the wrong id', color: '#d39e00' },
+                    CarriesAnothersId: { label: 'An owned item holds this id', color: '#d39e00' },
+                    Stale: { label: 'Analysis looks stale', color: '#4aa3df' },
+                    WrongIdClass: { label: 'Wrong kind of id', color: '#d39e00' }
+                };
+
+                // Normalize a ProviderIds key or a server link Name to one comparable token, so an id and its
+                // link line up ("Tvdb"/"TheTVDB" -> tvdb, "MusicBrainzReleaseGroup"/"MusicBrainz" -> musicbrainz).
+                function diagToken(s) {
+                    var t = (s || '').toLowerCase();
+                    if (t === 'thetvdb') { return 'tvdb'; }
+                    if (t.indexOf('musicbrainz') === 0) { return 'musicbrainz'; }
+                    return t;
+                }
+
+                // A row's ids keyed by token: { id (from ProviderIds), url (from the server-built Links) }.
+                function diagCells(item) {
+                    var out = {};
+                    var ids = item.ProviderIds || {};
+                    Object.keys(ids).forEach(function (k) {
+                        if (!ids[k]) { return; }
+                        var tok = diagToken(k);
+                        if (!out[tok]) { out[tok] = {}; }
+                        if (out[tok].id == null) { out[tok].id = ids[k]; }
+                    });
+                    (item.Links || []).forEach(function (l) {
+                        var tok = diagToken(l.Name);
+                        if (out[tok] && out[tok].url == null) { out[tok].url = l.Url; }
+                    });
+                    return out;
+                }
+
+                // The identity columns present across the given rows, in canonical order.
+                function diagColumns(rows) {
+                    var present = {};
+                    rows.forEach(function (r) {
+                        var c = diagCells(r);
+                        Object.keys(c).forEach(function (t) { present[t] = true; });
+                    });
+                    return DIAG_PROVIDER_ORDER.filter(function (t) { return present[t]; });
+                }
+
+                // One id cell both the modal table and the audit Markdown render from: the id linked to its
+                // provider page, or the absent marker. asMarkdown picks the output flavour.
+                function diagCell(cell, asMarkdown) {
+                    if (!cell || cell.id == null) { return asMarkdown ? '' : '<span style="opacity:.4;">-</span>'; }
+                    if (asMarkdown) { return cell.url ? '[' + cell.id + '](' + cell.url + ')' : String(cell.id); }
+                    return cell.url ? '<a href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
                 }
 
                 function renderDiagnosis(res) {
                     res = res || {};
-                    var kind = res.TargetKindName || 'Movie';
-                    var showTvdb = kind === 'Series';
                     var rows = [];
                     if (res.Target) { rows.push(res.Target); }
                     (res.Candidates || []).forEach(function (c) { rows.push(c); });
 
-                    var html = '<p style="margin:.2em 0 .8em 0;">' + esc(res.Summary || '') + '</p>';
+                    var verdict = DIAG_REASON[res.ReasonName];
+                    var html = verdict
+                        ? '<div style="margin:0 0 .5em 0;"><span style="display:inline-block;padding:.15em .6em;border-radius:.8em;background:' + verdict.color + ';color:#111;font-weight:600;font-size:.85em;">' + esc(verdict.label) + '</span></div>'
+                        : '';
+                    html += '<p style="margin:.2em 0 .8em 0;">' + esc(res.Summary || '') + '</p>';
                     if (rows.length) {
-                        var th = function (t) { return '<th style="padding:.3em .45em;font-weight:600;">' + t + '</th>'; };
+                        var cols = diagColumns(rows);
+                        var th = function (t) { return '<th style="padding:.3em .45em;font-weight:600;">' + esc(t) + '</th>'; };
                         html += '<table style="width:100%;border-collapse:collapse;font-size:.92em;">'
                             + '<thead><tr style="text-align:left;border-bottom:1px solid #444;">'
-                            + th('Title') + th('Year') + th('TheMovieDb') + th('IMDb') + (showTvdb ? th('TheTVDB') : '') + th('In library')
+                            + th('Title') + th('Year')
+                            + cols.map(function (t) { return th(DIAG_PROVIDER_LABEL[t] || t); }).join('')
+                            + th('In library')
                             + '</tr></thead><tbody>';
                         rows.forEach(function (r) {
                             var isTarget = r.Relation === 'target';
                             var inLib = isTarget
                                 ? '<span style="opacity:.7;">Missing</span>'
                                 : (r.JellyfinItemId ? '<a href="' + esc(itemUrl(r.JellyfinItemId)) + '" target="_blank" rel="noopener">Open</a>' : 'Owned');
+                            var cells = diagCells(r);
                             var td = function (c) { return '<td style="padding:.3em .45em;vertical-align:top;">' + c + '</td>'; };
                             html += '<tr style="border-bottom:1px solid #2a2a2a;' + (isTarget ? 'background:rgba(74,163,223,.1);' : '') + '">'
                                 + td('<b>' + esc(r.Name || '') + '</b>' + (r.Note ? '<br><span style="opacity:.65;font-size:.85em;">' + esc(r.Note) + '</span>' : ''))
                                 + td(r.Year ? esc(r.Year) : '<span style="opacity:.4;">-</span>')
-                                + td(diagIdLink(kind, 'tmdb', r.Tmdb))
-                                + td(diagIdLink(kind, 'imdb', r.Imdb))
-                                + (showTvdb ? td(diagIdLink(kind, 'tvdb', r.Tvdb)) : '')
+                                + cols.map(function (t) { return td(diagCell(cells[t], false)); }).join('')
                                 + td(inLib)
                                 + '</tr>';
                         });
                         html += '</tbody></table>';
                     }
+                    // Offer the networked confirmation, or note it already ran.
+                    html += res.Deepened
+                        ? '<div style="margin-top:.8em;opacity:.7;font-size:.85em;">Confirmed.</div>'
+                        : '<div style="margin-top:.8em;"><button is="emby-button" type="button" class="raised cgDeepen" title="Resolve ids against the source provider to confirm the verdict and catch matches your local metadata missed.">Deeper analysis</button></div>';
                     return html;
                 }
 
@@ -1246,16 +1311,22 @@
                     return out.join('\n');
                 }
 
+                // An absolute link back into this dashboard that opens a gap's diagnosis and runs the deeper
+                // pass (cgdiag/cgdeep, consumed on load by consumeUrlDiag).
+                function diagDeepLink(gapId) {
+                    var base = window.location.href.split('#')[0];
+                    return base + '#/configurationpage?name=MindTheGaps&cgdiag=' + encodeURIComponent(gapId) + '&cgdeep=1';
+                }
+
                 // Format a library identification audit (from MindTheGaps/DiagnoseAudit) as Markdown, with each
                 // provider id linked out and an "open in Jellyfin" link for owned items.
                 function buildAuditMarkdown(audit) {
                     audit = audit || {};
-                    var tmdbUrl = function (kind, id) { return 'https://www.themoviedb.org/' + (kind === 'Series' ? 'tv' : 'movie') + '/' + id; };
-                    var ids = function (kind, it) {
-                        var parts = [];
-                        if (it.Tmdb) { parts.push('TheMovieDb [' + it.Tmdb + '](' + tmdbUrl(kind, it.Tmdb) + ')'); }
-                        if (it.Imdb) { parts.push('IMDb [' + it.Imdb + '](https://www.imdb.com/title/' + it.Imdb + '/)'); }
-                        if (kind === 'Series' && it.Tvdb) { parts.push('TheTVDB [' + it.Tvdb + '](https://thetvdb.com/?tab=series&id=' + it.Tvdb + ')'); }
+                    // Same id links as the modal, from the shared map-driven cells, in Markdown form.
+                    var ids = function (it) {
+                        var cells = diagCells(it);
+                        var parts = DIAG_PROVIDER_ORDER.filter(function (t) { return cells[t] && cells[t].id != null; })
+                            .map(function (t) { return (DIAG_PROVIDER_LABEL[t] || t) + ' ' + diagCell(cells[t], true); });
                         return parts.length ? parts.join(', ') : '(no ids)';
                     };
                     var jf = function (it) { return it.JellyfinItemId ? ' - [open in Jellyfin](<' + itemUrl(it.JellyfinItemId) + '>)' : ''; };
@@ -1274,12 +1345,15 @@
                         out.push('Reported missing, but you appear to own them under a different (or missing) id.', '');
                         mismatches.forEach(function (d) {
                             var t = d.Target || {};
-                            var kind = d.TargetKindName || 'Movie';
-                            out.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(kind, t));
+                            out.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(t));
                             (d.Candidates || []).forEach(function (c) {
-                                out.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(kind, c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
+                                out.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
                             });
-                            if (t.Tmdb) { out.push('  - Fix: set the owned item to TheMovieDb ' + t.Tmdb + ', then rescan.'); }
+                            var tTmdb = t.ProviderIds && t.ProviderIds.Tmdb;
+                            if (tTmdb) { out.push('  - Fix: set the owned item to TheMovieDb ' + tTmdb + ', then rescan.'); }
+                            // The label is a magnifying glass (U+1F50D) plus "Deeper"; the surrogate-pair
+                            // escape keeps this file ASCII while the exported Markdown still shows the glyph.
+                            if (d.GapId) { out.push('  - [\uD83D\uDD0D Deeper](' + diagDeepLink(d.GapId) + ')'); }
                         });
                         out.push('');
                     }
@@ -1291,7 +1365,9 @@
                     } else {
                         out.push('Each id below is on more than one owned item, so at least one is misidentified.', '');
                         dups.forEach(function (g) {
-                            out.push('- TheMovieDb [' + g.Id + '](' + tmdbUrl(g.TargetKindName, g.Id) + ') is on ' + (g.Items || []).length + ' items:');
+                            var tmdbCell = diagCells((g.Items || [])[0] || {}).tmdb;
+                            var dl = tmdbCell && tmdbCell.url;
+                            out.push('- TheMovieDb ' + (dl ? '[' + g.Id + '](' + dl + ')' : g.Id) + ' is on ' + (g.Items || []).length + ' items:');
                             (g.Items || []).forEach(function (c) {
                                 out.push('  - "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c));
                             });
@@ -1609,6 +1685,33 @@
                     return view;
                 }
 
+                // Read and remove a deep-link to one diagnosis (cgdiag=<gapId>, optional cgdeep=1), so a link
+                // from an exported audit opens the modal on load. Consume-once, like consumeUrlView.
+                function consumeUrlDiag() {
+                    var hash = window.location.hash || '';
+                    var qIdx = hash.indexOf('?');
+                    if (qIdx === -1) { return null; }
+                    var parts = hash.slice(qIdx + 1).split('&');
+                    var id = null, deep = false, kept = [];
+                    for (var i = 0; i < parts.length; i++) {
+                        if (parts[i].indexOf('cgdiag=') === 0) {
+                            id = decodeURIComponent(parts[i].slice('cgdiag='.length));
+                        } else if (parts[i].indexOf('cgdeep=') === 0) {
+                            deep = parts[i].slice('cgdeep='.length) === '1';
+                        } else if (parts[i]) {
+                            kept.push(parts[i]);
+                        }
+                    }
+                    if (id) {
+                        try {
+                            var path = hash.slice(0, qIdx);
+                            var newHash = kept.length ? path + '?' + kept.join('&') : path;
+                            window.history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
+                        } catch (e) { /* replaceState may be blocked; harmless */ }
+                    }
+                    return id ? { id: id, deep: deep } : null;
+                }
+
                 function applyView(page, v) {
                     if (!v) { return; }
                     if (v.pattern) { page._pattern = v.pattern; }
@@ -1717,6 +1820,13 @@
                                 : 'never';
                             page.querySelector('#cgSummary').textContent =
                                 (summary.TotalGaps || 0) + ' gaps found. Last scan: ' + when + '.';
+                            // Fresh install with nothing scanned yet: land on settings once so the admin can
+                            // configure and run the first scan. Once a scan exists, the report leads. The flag
+                            // keeps this a one-time nudge, not a view it forces back to on every reload.
+                            if (when === 'never' && !page._autoSettingsDone) {
+                                page._autoSettingsDone = true;
+                                toggleSettings(page, true);
+                            }
                             // Pick a pattern that has gaps before loading its slice.
                             var counts = summary.PatternCounts || {};
                             if (!page._pattern || !counts[page._pattern]) {
@@ -1732,6 +1842,10 @@
                                 render.then(function () {
                                     checkStale(page, summary);
                                     Dashboard.hideLoadingMsg();
+                                    // A deep-link (cgdiag in the URL, e.g. from an exported audit) opens that
+                                    // gap's diagnosis straight away, optionally running the deeper pass.
+                                    var diag = consumeUrlDiag();
+                                    if (diag) { openDiagnose(diag.id, '', diag.deep); }
                                 });
                             });
                         });
@@ -1932,6 +2046,8 @@
                     page.querySelector('#MaxCastBillingOrder').value = config.MaxCastBillingOrder;
                     bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId');
                     bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey');
+                    // Freshly loaded values are not unsaved edits (assigning .value/.checked fires no events).
+                    page._settingsDirty = false;
                 }
 
                 // Poll the mint/remove background operation and report its result.
@@ -2001,6 +2117,8 @@
                         config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
                         config.MaxCastBillingOrder = parseInt(form.querySelector('#MaxCastBillingOrder').value || '0', 10);
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            page._settingsDirty = false;
+                            cgRegion = (config.MetadataCountryCode || '').trim().toLowerCase();
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
@@ -2030,6 +2148,11 @@
                 }
 
                 function bindSettings(page) {
+                    // Any edit to a settings field marks the form dirty, so closing it can warn about unsaved
+                    // changes. loadConfig/save reset the flag; programmatic value assignment fires no events.
+                    var markDirty = function () { page._settingsDirty = true; };
+                    page.querySelector('#MindTheGapsConfigForm').addEventListener('input', markDirty);
+                    page.querySelector('#MindTheGapsConfigForm').addEventListener('change', markDirty);
                     page.querySelector('#TraktEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId'); });
                     page.querySelector('#TvdbEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey'); });
                     // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
@@ -2098,12 +2221,29 @@
                         startScan(page, this);
                     });
                     page.querySelector('#cgSettings').addEventListener('click', function () {
-                        toggleSettings(page, page.querySelector('#cgSettingsPanel').style.display === 'none');
+                        var opening = page.querySelector('#cgSettingsPanel').style.display === 'none';
+                        // Closing with unsaved edits: warn before discarding. Cancel returns to the form to Save;
+                        // OK discards, reloading the saved config so reopening does not show the abandoned edits.
+                        if (!opening && page._settingsDirty) {
+                            if (!window.confirm('You have unsaved settings changes that will be lost. Click Cancel to go back and Save, or OK to discard them.')) {
+                                return;
+                            }
+                            ApiClient.getPluginConfiguration(pluginId).then(function (config) { loadConfig(page, config); });
+                        }
+                        toggleSettings(page, opening);
                     });
                     bindSettings(page);
+                    // Cache the configured region once so the JustWatch and availability links match the
+                    // availability lookups (which use MetadataCountryCode) rather than the browser language.
+                    ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
+                        cgRegion = (cfg.MetadataCountryCode || '').trim().toLowerCase();
+                    });
                     // Diagnose popup: close via the button, a backdrop click, or Escape.
                     document.getElementById('cgDiagClose').addEventListener('click', closeDiagnose);
-                    document.getElementById('cgDiagModal').addEventListener('click', function (e) { if (e.target === this) { closeDiagnose(); } });
+                    document.getElementById('cgDiagModal').addEventListener('click', function (e) {
+                        if (e.target === this) { closeDiagnose(); return; }
+                        if (e.target.closest('.cgDeepen')) { openDiagnose(this._gapId, this._name, true); }
+                    });
                     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); } });
                     function setAllSelected(checked) {
                         // "Select all" should reach every row, including those in still-deferred creator-works

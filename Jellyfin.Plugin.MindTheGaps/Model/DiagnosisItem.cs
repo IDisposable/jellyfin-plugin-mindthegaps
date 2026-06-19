@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Jellyfin.Plugin.MindTheGaps.Model;
 
 /// <summary>
@@ -6,6 +9,11 @@ namespace Jellyfin.Plugin.MindTheGaps.Model;
 /// </summary>
 public sealed class DiagnosisItem
 {
+    /// <summary>
+    /// Gets or sets the owned item's id (N-format guid) for an "open in Jellyfin" jump; null for the gap.
+    /// </summary>
+    public string? JellyfinItemId { get; set; }
+
     /// <summary>
     /// Gets or sets how this row relates to the gap: "target" (the gap itself), "titleMatch" (an owned
     /// item with the same title), or "idHolder" (an owned item already carrying the gap's id).
@@ -23,27 +31,19 @@ public sealed class DiagnosisItem
     public int? Year { get; set; }
 
     /// <summary>
-    /// Gets or sets the TheMovieDb id, if known.
-    /// </summary>
-    public string? Tmdb { get; set; }
-
-    /// <summary>
-    /// Gets or sets the IMDb id, if known.
-    /// </summary>
-    public string? Imdb { get; set; }
-
-    /// <summary>
-    /// Gets or sets the TheTVDB id, if known.
-    /// </summary>
-    public string? Tvdb { get; set; }
-
-    /// <summary>
-    /// Gets or sets the owned item's id (N-format guid) for an "open in Jellyfin" jump; null for the gap.
-    /// </summary>
-    public string? JellyfinItemId { get; set; }
-
-    /// <summary>
     /// Gets or sets a short note on this row (for example "no TheMovieDb id" or "probably misidentified").
     /// </summary>
     public string? Note { get; set; }
+
+    /// <summary>
+    /// Gets or sets the external ids this row carries (provider to id), mirroring <c>GapItem.ProviderIds</c>
+    /// so the diagnosis is provider-agnostic; the dashboard compares whatever ids are present, not a fixed set.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ProviderIds { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Gets or sets the external provider links for this row's ids, built by <c>ProviderLinks</c> so the
+    /// dashboard links each id out using the one canonical set of URLs (no hand-rolled links client-side).
+    /// </summary>
+    public IReadOnlyList<ExternalLink> Links { get; set; } = Array.Empty<ExternalLink>();
 }

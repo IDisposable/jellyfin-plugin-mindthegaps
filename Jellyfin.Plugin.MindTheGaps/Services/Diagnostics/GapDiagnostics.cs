@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -20,30 +23,117 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 /// </summary>
 public sealed class GapDiagnostics
 {
+    // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
+    private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
+
     private readonly ILibraryManager _libraryManager;
+    private readonly TmdbClient _tmdb;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapDiagnostics"/> class.
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
-    public GapDiagnostics(ILibraryManager libraryManager)
+    /// <param name="tmdb">The TheMovieDb client, for the deeper (networked) pass.</param>
+    public GapDiagnostics(ILibraryManager libraryManager, TmdbClient tmdb)
     {
         _libraryManager = libraryManager;
+        _tmdb = tmdb;
     }
 
     /// <summary>
-    /// Diagnoses a single gap, returning a verdict, the gap itself, and the owned candidate items.
+    /// Diagnoses a single gap, returning a verdict, the gap itself, and the owned candidate items. Library
+    /// only by default; when <paramref name="deeper"/> is set it also confirms against TheMovieDb, filling
+    /// the gap's (and each candidate's) IMDb/TheTVDB ids so a cross-id match can fire even when an item
+    /// carried only a TheMovieDb id locally (one networked pass, behind the dashboard's "Deeper analysis").
     /// </summary>
     /// <param name="gap">The gap to diagnose.</param>
+    /// <param name="deeper">When true, run the extra TheMovieDb confirmation pass.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The diagnosis.</returns>
-    public GapDiagnosis Diagnose(GapItem gap)
+    public async Task<GapDiagnosis> DiagnoseAsync(GapItem gap, bool deeper, CancellationToken cancellationToken)
+    {
+        var owned = LoadOwned(gap.TargetKind);
+        var isSeries = gap.TargetKind == BaseItemKind.Series;
+
+        if (deeper)
+        {
+            // Resolve the gap's external ids from the source provider first, so the cross-id match sees them
+            // even when the gap carried only a TheMovieDb id locally.
+            var enriched = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase);
+            await ResolveExternalIdsAsync(enriched, isSeries, cancellationToken).ConfigureAwait(false);
+            gap = new GapItem
+            {
+                Id = gap.Id,
+                TargetKind = gap.TargetKind,
+                Name = gap.Name,
+                Year = gap.Year,
+                ProviderIds = enriched
+            };
+        }
+
+        var diagnosis = DiagnoseAgainst(gap, owned);
+
+        if (deeper)
+        {
+            // The candidates, which come from owned items' local ids, need extra per-row resolution.
+            foreach (var candidate in diagnosis.Candidates)
+            {
+                var ids = new Dictionary<string, string>(candidate.ProviderIds, StringComparer.OrdinalIgnoreCase);
+                if (await ResolveExternalIdsAsync(ids, isSeries, cancellationToken).ConfigureAwait(false))
+                {
+                    candidate.ProviderIds = ids;
+                    candidate.Links = ProviderLinks.Build(gap.TargetKind, ids);
+                }
+            }
+
+            diagnosis.Deepened = true;
+        }
+
+        return diagnosis;
+    }
+
+    // Diagnose a gap against an explicit set of owned items: the testable seam, no library load. The public
+    // entry supplies the owned movies/shows; tests supply their own.
+    internal static GapDiagnosis DiagnoseAgainst(GapItem gap, IReadOnlyList<BaseItem> owned)
     {
         if (gap.TargetKind is not (BaseItemKind.Movie or BaseItemKind.Series))
         {
             return new GapDiagnosis { Summary = "Identification diagnosis is available for movie and show gaps only." };
         }
 
-        return Evaluate(gap, BuildIndex(new[] { gap.TargetKind }));
+        return Evaluate(gap, BuildIndex(owned));
+    }
+
+    // Resolve a TheMovieDb id to its IMDb/TheTVDB ids and fill any that are missing. Returns true when it
+    // added something. A no-op (false) when both are already present or there is no numeric TheMovieDb id.
+    private async Task<bool> ResolveExternalIdsAsync(Dictionary<string, string> ids, bool isSeries, CancellationToken cancellationToken)
+    {
+        // A movie only ever resolves an IMDb id from TheMovieDb (no TheTVDB), so it is complete with IMDb
+        // alone; a series needs both. Skipping when nothing more can be added avoids a wasted lookup (and the
+        // cache miss it would cost) for the common movie-with-IMDb case.
+        var haveAll = ids.ContainsKey("Imdb") && (!isSeries || ids.ContainsKey("Tvdb"));
+        if (haveAll
+            || !ids.TryGetValue("Tmdb", out var tmdb)
+            || !int.TryParse(tmdb, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        {
+            return false;
+        }
+
+        var (imdb, tvdb) = await _tmdb.GetExternalIdsAsync(tmdbId, isSeries, cancellationToken).ConfigureAwait(false);
+        var added = false;
+        if (!string.IsNullOrEmpty(imdb) && !ids.ContainsKey("Imdb"))
+        {
+            ids["Imdb"] = imdb;
+            added = true;
+        }
+
+        if (!string.IsNullOrEmpty(tvdb) && !ids.ContainsKey("Tvdb"))
+        {
+            ids["Tvdb"] = tvdb;
+            added = true;
+        }
+
+        return added;
     }
 
     /// <summary>
@@ -53,8 +143,12 @@ public sealed class GapDiagnostics
     /// <param name="report">The current gap report (its gaps are checked; its scan time stamps the audit).</param>
     /// <returns>The audit.</returns>
     public IdentificationAudit BuildAudit(GapReport report)
+        => AuditAgainst(report, LoadOwned(BaseItemKind.Movie, BaseItemKind.Series));
+
+    // Audit a report against an explicit set of owned items: the testable seam, no library load.
+    internal static IdentificationAudit AuditAgainst(GapReport report, IReadOnlyList<BaseItem> owned)
     {
-        var index = BuildIndex(new[] { BaseItemKind.Movie, BaseItemKind.Series });
+        var index = BuildIndex(owned);
 
         var mismatches = new List<GapDiagnosis>();
         var checkedCount = 0;
@@ -67,11 +161,10 @@ public sealed class GapDiagnostics
 
             checkedCount++;
             var diagnosis = Evaluate(gap, index);
-            gap.ProviderIds.TryGetValue("Tmdb", out var gapTmdb);
-            var isMismatch = diagnosis.Candidates.Any(c =>
-                (string.Equals(c.Relation, "titleMatch", StringComparison.Ordinal) && !string.Equals(c.Tmdb, gapTmdb, StringComparison.Ordinal))
-                || string.Equals(c.Relation, "idHolder", StringComparison.Ordinal));
-            if (isMismatch)
+
+            // The verdict already says whether this is a real misidentification (owned under the wrong id, or
+            // an owned item carrying this id under another title), so the audit just keys off it.
+            if (diagnosis.Reason is DiagnosisReason.OwnedUnderWrongId or DiagnosisReason.CarriesAnothersId)
             {
                 mismatches.Add(diagnosis);
             }
@@ -106,7 +199,7 @@ public sealed class GapDiagnostics
         };
     }
 
-    private GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)
+    private static GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)
     {
         gap.ProviderIds.TryGetValue("Tmdb", out var gapTmdb);
         gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
@@ -119,10 +212,9 @@ public sealed class GapDiagnostics
             Relation = "target",
             Name = gap.Name,
             Year = gap.Year,
-            Tmdb = gapTmdb,
-            Imdb = gapImdb,
-            Tvdb = gapTvdb,
-            Note = "reported missing"
+            ProviderIds = gap.ProviderIds,
+            Note = "reported missing",
+            Links = ProviderLinks.Build(kind, gap.ProviderIds)
         };
 
         var candidates = new List<DiagnosisItem>();
@@ -139,14 +231,14 @@ public sealed class GapDiagnostics
                     continue;
                 }
 
-                var sameId = owned.Tmdb is not null && string.Equals(owned.Tmdb, gapTmdb, StringComparison.Ordinal);
+                var ownedTmdb = Tmdb(owned);
                 string note;
-                if (owned.Tmdb is null)
+                if (ownedTmdb is null)
                 {
                     note = "same title, no TheMovieDb id";
                     titleMismatch = true;
                 }
-                else if (sameId)
+                else if (string.Equals(ownedTmdb, gapTmdb, StringComparison.Ordinal))
                 {
                     note = "same title and id (this gap may be stale)";
                     titleStale = true;
@@ -176,64 +268,117 @@ public sealed class GapDiagnostics
             }
         }
 
+        // B: corroborate by a secondary id. An owned item that shares the gap's IMDb or TheTVDB id but not
+        // its TheMovieDb id is owned under the wrong TheMovieDb id, even when its title was localized and so
+        // did not match above.
+        foreach (var (provider, label, gapId) in new[] { ("Imdb", "IMDb", gapImdb), ("Tvdb", "TheTVDB", gapTvdb) })
+        {
+            if (string.IsNullOrEmpty(gapId) || !index.BySecondaryId.TryGetValue((kind, provider, gapId), out var idMatches))
+            {
+                continue;
+            }
+
+            foreach (var owned in idMatches)
+            {
+                if (!seen.Add(owned.JellyfinId))
+                {
+                    continue;
+                }
+
+                titleMismatch = true;
+                candidates.Add(ToItem(owned, "idMatch", string.Create(CultureInfo.InvariantCulture, $"matched by {label} id; TheMovieDb id differs or is missing")));
+            }
+        }
+
+        // C1: a wrong-class id on the gap itself (a typed-provider check) means the match never had a chance.
+        var wrongClass = WrongClassId(gap.ProviderIds);
+
         var noun = kind == BaseItemKind.Series ? "show" : "movie";
         string summary;
+        DiagnosisReason reason;
         if (titleMismatch)
         {
+            reason = DiagnosisReason.OwnedUnderWrongId;
             summary = string.Create(CultureInfo.InvariantCulture, $"Likely a metadata mismatch: you appear to own this {noun} already, under a different or missing TheMovieDb id. Compare the ids below, fix the owned item, and rescan.");
         }
         else if (idHolderMismatch)
         {
+            reason = DiagnosisReason.CarriesAnothersId;
             summary = "An owned item carries this title's id but looks like a different title. Check the identification of the item below.";
         }
         else if (titleStale)
         {
+            reason = DiagnosisReason.Stale;
             summary = "An owned item already has this exact title and id, so this gap looks stale. A rescan should clear it.";
+        }
+        else if (wrongClass is not null)
+        {
+            reason = DiagnosisReason.WrongIdClass;
+            summary = string.Create(CultureInfo.InvariantCulture, $"This gap cannot match because {wrongClass}. Fix that id and rescan.");
         }
         else
         {
+            reason = DiagnosisReason.NotOwned;
             summary = string.Create(CultureInfo.InvariantCulture, $"No owned {noun} matches this by title, so it looks like a genuine gap: you do not own it.");
         }
 
         return new GapDiagnosis
         {
+            GapId = gap.Id,
             Summary = summary,
+            Reason = reason,
             TargetKind = kind,
             Target = target,
             Candidates = candidates
         };
     }
 
-    private OwnedIndex BuildIndex(IReadOnlyList<BaseItemKind> kinds)
+    private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
+    {
+        // Only movies and shows are diagnosable, so skip the load entirely for any other kind
+        if (kinds.Any(k => k is not (BaseItemKind.Movie or BaseItemKind.Series)))
+        {
+            return [];
+        }
+
+        return _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = kinds,
+            Recursive = true,
+
+            // Owned means a real file: exclude virtual placeholders (e.g. minted items, missing entries) so
+            // the diagnosis diffs against what is actually in the library.
+            IsVirtualItem = false
+        });
+    }
+
+    private static OwnedIndex BuildIndex(IReadOnlyList<BaseItem> owned)
     {
         var index = new OwnedIndex();
-        var owned = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            IncludeItemTypes = kinds.ToArray(),
-            Recursive = true
-        });
-
         foreach (var item in owned)
         {
-            item.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb);
-            item.TryGetProviderId(MetadataProvider.Imdb, out var imdb);
-            item.TryGetProviderId(MetadataProvider.Tvdb, out var tvdb);
-
             var entry = new OwnedItem(
                 item.GetBaseItemKind(),
                 item.Name ?? string.Empty,
                 Normalize(item.Name),
                 item.ProductionYear,
-                Blank(tmdb),
-                Blank(imdb),
-                Blank(tvdb),
+                ProviderIdsOf(item),
                 item.Id.ToString("N", CultureInfo.InvariantCulture));
 
             index.All.Add(entry);
             Add(index.ByTitle, (entry.Kind, entry.NormalizedName), entry);
-            if (entry.Tmdb is not null)
+            var tmdb = Tmdb(entry);
+            if (tmdb is not null)
             {
-                Add(index.ByTmdb, (entry.Kind, entry.Tmdb), entry);
+                Add(index.ByTmdb, (entry.Kind, tmdb), entry);
+            }
+
+            foreach (var provider in SecondaryIdProviders)
+            {
+                if (entry.ProviderIds.TryGetValue(provider, out var secondary))
+                {
+                    Add(index.BySecondaryId, (entry.Kind, provider, secondary), entry);
+                }
             }
         }
 
@@ -245,14 +390,44 @@ public sealed class GapDiagnostics
         Relation = relation,
         Name = owned.Name,
         Year = owned.Year,
-        Tmdb = owned.Tmdb,
-        Imdb = owned.Imdb,
-        Tvdb = owned.Tvdb,
+        ProviderIds = owned.ProviderIds,
         JellyfinItemId = owned.JellyfinId,
-        Note = note
+        Note = note,
+        Links = ProviderLinks.Build(owned.Kind, owned.ProviderIds)
     };
 
-    private static string? Blank(string? value) => string.IsNullOrEmpty(value) ? null : value;
+    // An item's external ids as a case-insensitive map (blanks dropped), mirroring GapItem.ProviderIds so
+    // the diagnosis stays provider-agnostic and ProviderLinks covers whatever ids the item carries.
+    private static IReadOnlyDictionary<string, string> ProviderIdsOf(BaseItem item)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in item.ProviderIds)
+        {
+            if (!string.IsNullOrEmpty(pair.Value))
+            {
+                map[pair.Key] = pair.Value;
+            }
+        }
+
+        return map;
+    }
+
+    // The TheMovieDb id, still the one key the matching indexes on (movie/show diagnosis); null when absent.
+    private static string? Tmdb(OwnedItem owned) => owned.ProviderIds.TryGetValue("Tmdb", out var id) ? id : null;
+
+    // A wrong-class id does not fit its provider slot. Only typed-id providers can be judged without a
+    // network call: IMDb here (an "nm" person id where a "tt" title belongs). Numeric TheMovieDb/TheTVDB ids
+    // are opaque, so that confirmation is left to the deeper (networked) pass. OpenLibrary keys ("...A"
+    // author, "...W" work) join this once the Books diagnosis lands.
+    private static string? WrongClassId(IReadOnlyDictionary<string, string> ids)
+    {
+        if (ids.TryGetValue("Imdb", out var imdb) && imdb.StartsWith("nm", StringComparison.OrdinalIgnoreCase))
+        {
+            return "its IMDb id is a person id (nm...), not a title id (tt...)";
+        }
+
+        return null;
+    }
 
     private static void Add<TKey>(Dictionary<TKey, List<OwnedItem>> map, TKey key, OwnedItem value)
         where TKey : notnull
@@ -287,7 +462,7 @@ public sealed class GapDiagnostics
         return sb.ToString();
     }
 
-    private readonly record struct OwnedItem(BaseItemKind Kind, string Name, string NormalizedName, int? Year, string? Tmdb, string? Imdb, string? Tvdb, string JellyfinId);
+    private readonly record struct OwnedItem(BaseItemKind Kind, string Name, string NormalizedName, int? Year, IReadOnlyDictionary<string, string> ProviderIds, string JellyfinId);
 
     private sealed class OwnedIndex
     {
@@ -296,5 +471,9 @@ public sealed class GapDiagnostics
         public Dictionary<(BaseItemKind Kind, string Name), List<OwnedItem>> ByTitle { get; } = new();
 
         public Dictionary<(BaseItemKind Kind, string Id), List<OwnedItem>> ByTmdb { get; } = new();
+
+        // Owned items keyed by a secondary id (provider + value), for corroborating a gap whose title was
+        // localized but whose IMDb/TheTVDB id still matches.
+        public Dictionary<(BaseItemKind Kind, string Provider, string Id), List<OwnedItem>> BySecondaryId { get; } = new();
     }
 }

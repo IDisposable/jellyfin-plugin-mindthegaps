@@ -243,10 +243,12 @@ public class GapsController : ControllerBase
     /// holds the title under a different (or absent) provider id. Library-only, so it returns immediately.
     /// </summary>
     /// <param name="id">The stable id of the gap to diagnose (rehydrated from the stored report).</param>
+    /// <param name="deeper">When true, confirm against TheMovieDb (one networked pass); otherwise library-only.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The diagnosis.</returns>
     [HttpGet("Diagnose")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<GapDiagnosis> Diagnose([FromQuery] string? id)
+    public async Task<ActionResult<GapDiagnosis>> Diagnose([FromQuery] string? id, [FromQuery] bool deeper, CancellationToken cancellationToken)
     {
         var gap = RehydrateGap(id);
         if (gap is null)
@@ -254,7 +256,7 @@ public class GapsController : ControllerBase
             return new GapDiagnosis { Summary = "That gap is no longer in the current report; rescan and try again." };
         }
 
-        return _diagnostics.Diagnose(gap);
+        return await _diagnostics.DiagnoseAsync(gap, deeper, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
