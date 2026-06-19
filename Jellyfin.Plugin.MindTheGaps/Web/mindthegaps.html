@@ -63,6 +63,8 @@
             #cgJump.cgJumpShown { display: flex; }
             .cgJumpL { cursor: pointer; padding: .05em .4em; border-radius: 3px; font-size: .85em; opacity: .85; }
             .cgJumpL:hover { background: rgba(255,255,255,.14); opacity: 1; }
+            .cgJumpL.cgJumpSel { background: #00a4dc; color: #fff; opacity: 1; }
+            .cgJumpAll { font-weight: 700; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -604,75 +606,64 @@
                     return a < b ? -1 : 1;
                 }
 
-                // One axis (pattern) at a time. SetCompletion: Movies/Shows > source item > (Season) > rows.
-                // CreatorWorks: Movies/Shows > letter (person's first and last initial) > person > rows.
-                // Recommendations pivot on the target: Movies/Shows > letter (of the title) > the rows.
+                // The letters an item files under for the A-Z selector: a creator under their first and last
+                // initial, a recommendation under its title, a set under its source (series/collection) name.
+                function itemLetters(it, pattern) {
+                    if (pattern === 'CreatorWorks') { return personLetters(it.SourceItemName || it.Name); }
+                    if (pattern === 'Recommendation') { return [firstLetter(it.Name)]; }
+                    return [firstLetter(it.SourceItemName || it.Name)];
+                }
+
+                // The sorted distinct letters present across the items, for the current pattern.
+                function lettersOf(items, pattern) {
+                    var present = {};
+                    items.forEach(function (it) { itemLetters(it, pattern).forEach(function (L) { present[L] = true; }); });
+                    return Object.keys(present).sort(letterSort);
+                }
+
+                // Render the current pattern's entities for the items passed (already scoped to one domain and,
+                // via the A-Z selector, usually one letter): recommended titles as rows, creators as groups, or
+                // the set grid. The A-Z bar handles letters, so there is no in-tree letter grouping.
                 function buildTree(items) {
-                    var isRec = items.length > 0 && items[0].PatternName === 'Recommendation';
-                    var isCreator = items.length > 0 && items[0].PatternName === 'CreatorWorks';
-                    var byCat = groupBy(items, categoryOf);
-                    byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+                    if (!items.length) { return ''; }
+                    var pattern = items[0].PatternName;
 
-                    // One domain is shown at a time, so each branch returns that domain's content directly:
-                    // the column grid for Set completion, the letter groups for Creator works and
-                    // Recommendations. The rollup line names the domain.
-                    return byCat.order.map(function (cat) {
-                        var catItems = byCat.map[cat];
-                        if (isRec) {
-                            var byL = groupBy(catItems, function (it) { return firstLetter(it.Name); });
-                            byL.order.sort(letterSort);
-                            var recHtml = byL.order.map(function (L) {
-                                var li = sortRows(byL.map[L]);
-                                return groupHtml(2, L, li.length, true, li.map(renderRow).join(''), '', streamDot(li));
-                            }).join('');
-                            return recHtml;
-                        }
+                    if (pattern === 'Recommendation') {
+                        return sortRows(items).map(renderRow).join('');
+                    }
 
-                        if (isCreator) {
-                            var bySrcC = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
-                            var byLetter = {}, lorder = [];
-                            bySrcC.order.forEach(function (src) {
-                                personLetters(src).forEach(function (L) {
-                                    if (!byLetter[L]) { byLetter[L] = []; lorder.push(L); }
-                                    byLetter[L].push(src);
-                                });
-                            });
-                            lorder.sort(letterSort);
-                            var creatorHtml = lorder.map(function (L) {
-                                var names = byLetter[L].slice().sort(ci);
-                                var inner = names.map(function (src) {
-                                    var srcItems = bySrcC.map[src];
-                                    return groupHtml(3, src, srcItems.length, true, sortRows(srcItems).map(renderRow).join(''), srcItems[0].SourceItemId, streamDot(srcItems) + searchIcon(src, '') + creatorDismissBtn(srcItems[0].SourceItemId, src));
-                                }).join('');
-                                var letterDot = byLetter[L].some(function (src) { return anyStream(bySrcC.map[src]); }) ? STREAM_DOT : '';
-                                return groupHtml(2, L, names.length, true, inner, '', letterDot);
-                            }).join('');
-                            return creatorHtml;
-                        }
-
-                        var bySrc = groupBy(catItems, function (it) { return it.SourceItemName || '(no source)'; });
-                        bySrc.order.sort(ci);
-                        var srcHtml = bySrc.order.map(function (src) {
-                            var srcItems = bySrc.map[src];
-                            var covItem = srcItems[0];
-                            for (var ci2 = 0; ci2 < srcItems.length; ci2++) { if (srcItems[ci2].SetTotalCount) { covItem = srcItems[ci2]; break; } }
-                            // A series (episode source) gets batch resolve/not-interested over all its episodes.
-                            var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
-                            // Order the header trailing controls: coverage, then search, open-in-Jellyfin,
-                            // resolve-all, not-interested-all. The open icon goes in extra (so itemId is '' on
-                            // groupHtml, which would otherwise append it last). Search a series in the shows
-                            // libraries; a collection (franchise) in the box sets.
-                            var extra = streamDot(srcItems)
-                                + coverageBadge(covItem)
-                                + searchIcon(src, isEpisodic ? 'tvshows' : 'boxsets')
-                                + openIcon(srcItems[0].SourceItemId)
-                                + (isEpisodic ? batchDismissBtns(src) : '');
-                            return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
+                    if (pattern === 'CreatorWorks') {
+                        var byCreator = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
+                        byCreator.order.sort(ci);
+                        return byCreator.order.map(function (src) {
+                            var cItems = byCreator.map[src];
+                            return groupHtml(2, src, cItems.length, true, sortRows(cItems).map(renderRow).join(''), cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src));
                         }).join('');
-                        // The source groups lay out in responsive columns (see .cgGridWrap) so a big library's
-                        // collapsed series/collections are not one very tall column.
-                        return '<div class="cgGridWrap">' + srcHtml + '</div>';
+                    }
+
+                    // SetCompletion: collapsed series/collection cells in a responsive grid.
+                    var bySrc = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
+                    bySrc.order.sort(ci);
+                    var srcHtml = bySrc.order.map(function (src) {
+                        var srcItems = bySrc.map[src];
+                        var covItem = srcItems[0];
+                        for (var i = 0; i < srcItems.length; i++) { if (srcItems[i].SetTotalCount) { covItem = srcItems[i]; break; } }
+                        var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
+                        // Scope the search to the right library kind for this set's domain: a movie collection
+                        // lives in box sets, a series in the shows libraries, an album artist in music.
+                        var domain = categoryOf(srcItems[0]);
+                        var searchScope = domain === 'Movies' ? 'boxsets' : domainScope(domain);
+                        // Trailing controls in order: streamable dot, coverage, search, open-in-Jellyfin, then
+                        // resolve-all / not-interested-all. The open icon goes in extra (itemId is '' so groupHtml
+                        // does not also append it).
+                        var extra = streamDot(srcItems)
+                            + coverageBadge(covItem)
+                            + searchIcon(src, searchScope)
+                            + openIcon(srcItems[0].SourceItemId)
+                            + (isEpisodic ? batchDismissBtns(src) : '');
+                        return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
                     }).join('');
+                    return '<div class="cgGridWrap">' + srcHtml + '</div>';
                 }
 
                 // The filters shared by the tab counts and the list, all of them except the pattern itself,
@@ -868,19 +859,17 @@
                     setTimeout(function () { URL.revokeObjectURL(url); }, 0);
                 }
 
-                // Populate the A-Z jump bar from the letter groups in the current tree (the letter-grouped
-                // tabs only). Each entry scrolls to and expands that letter's group.
-                function renderJumpBar(page) {
+                // The A-Z selector: one entry per letter present, plus a leading "*" for all. Clicking a letter
+                // renders only that letter's entities (so a huge tab does not render at once); "*" renders the
+                // lot. Hidden when there is only one letter (nothing to choose).
+                function renderLetterBar(page, letters, sel) {
                     var bar = page.querySelector('#cgJump');
-                    if (page._pattern === 'SetCompletion') { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-                    var seen = {}, letters = [];
-                    var groups = page.querySelectorAll('#cgList .cgGroup.cgL2');
-                    for (var i = 0; i < groups.length; i++) {
-                        var L = groups[i].getAttribute('data-cglabel');
-                        if (L && !seen[L]) { seen[L] = true; letters.push(L); }
-                    }
                     if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-                    bar.innerHTML = letters.map(function (L) { return '<a class="cgJumpL" data-l="' + esc(L) + '">' + esc(L) + '</a>'; }).join('');
+                    var html = '<a class="cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : '') + '" data-l="*" title="Show all letters">*</a>';
+                    html += letters.map(function (L) {
+                        return '<a class="cgJumpL' + (sel === L ? ' cgJumpSel' : '') + '" data-l="' + esc(L) + '">' + esc(L) + '</a>';
+                    }).join('');
+                    bar.innerHTML = html;
                     bar.style.display = 'flex';
                 }
 
@@ -924,6 +913,17 @@
                     var items = (report.Items || []).filter(function (it) {
                         return it.PatternName === page._pattern && pass(it);
                     });
+
+                    // Resolve the A-Z selection: keep the current letter if still present, else default to "*"
+                    // for a small list (show everything) or the first letter for a large one (render one letter
+                    // at a time). displayItems is what the list renders; the rollup still summarises the whole tab.
+                    var letters = lettersOf(items, page._pattern);
+                    var letter = page._letter;
+                    if (letter !== '*' && letters.indexOf(letter) === -1) { letter = null; }
+                    if (!letter) { letter = (letters.length <= 1 || items.length <= 400) ? '*' : letters[0]; }
+                    page._letter = letter;
+                    var displayItems = letter === '*' ? items
+                        : items.filter(function (it) { return itemLetters(it, page._pattern).indexOf(letter) !== -1; });
 
                     var streamable = page.querySelector('#cgStreamable').checked;
                     var empty;
@@ -976,7 +976,7 @@
                     var scroller = scrollerFor(page);
                     var scrollY = scroller.scrollTop;
 
-                    listEl.innerHTML = items.length ? buildTree(items) : empty;
+                    listEl.innerHTML = displayItems.length ? buildTree(displayItems) : empty;
 
                     // Restore the snapshot onto whichever groups/rows still exist after the rebuild.
                     var ng = listEl.querySelectorAll('.cgGroup');
@@ -993,7 +993,7 @@
                     for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
                     scroller.scrollTop = scrollY;
 
-                    renderJumpBar(page);
+                    renderLetterBar(page, letters, letter);
                     var rollup = page.querySelector('#cgRollup');
                     var rh = items.length ? rollupHtml(items) : '';
                     rollup.innerHTML = rh;
@@ -1033,6 +1033,7 @@
                             hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
                             showResolved: page.querySelector('#cgShowResolved').checked,
                             streamable: page.querySelector('#cgStreamable').checked,
+                            letter: page._letter,
                             mon: {}
                         };
                         var cbs = page.querySelectorAll('.cgMon');
@@ -1055,6 +1056,7 @@
                     if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
                     if (state.showResolved != null) { page.querySelector('#cgShowResolved').checked = !!state.showResolved; }
                     if (state.streamable != null) { page.querySelector('#cgStreamable').checked = !!state.streamable; }
+                    if (state.letter != null) { page._letter = state.letter; }
                     if (state.mon) {
                         var cbs = page.querySelectorAll('.cgMon');
                         for (var i = 0; i < cbs.length; i++) {
@@ -1093,6 +1095,7 @@
                         hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
                         showResolved: page.querySelector('#cgShowResolved').checked,
                         streamable: page.querySelector('#cgStreamable').checked,
+                        letter: page._letter,
                         mon: mon,
                         disabledProviders: disabledProviders
                     };
@@ -1145,6 +1148,7 @@
                 function applyView(page, v) {
                     if (!v) { return; }
                     if (v.pattern) { page._pattern = v.pattern; }
+                    page._letter = v.letter != null ? v.letter : null;
                     // The Type options are rebuilt per tab, so route the wanted domain through _wantType.
                     page._wantType = v.type || '';
                     if (v.sort != null) { page.querySelector('#cgSort').value = v.sort; }
@@ -1497,6 +1501,7 @@
                         var tab = e.target.closest ? e.target.closest('.cgTab') : null;
                         if (!tab) { return; }
                         page._pattern = tab.getAttribute('data-pattern');
+                        page._letter = null; // a new tab has its own letters; let applyAndRender default it
                         ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
                     });
                     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
@@ -1575,17 +1580,12 @@
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
                         if (!a) { return; }
-                        var letter = a.getAttribute('data-l');
-                        var groups = page.querySelectorAll('#cgList .cgGroup.cgL2');
-                        for (var i = 0; i < groups.length; i++) {
-                            if (groups[i].getAttribute('data-cglabel') === letter) {
-                                // Expand the target letter group and its ancestors, then scroll to it.
-                                for (var n = groups[i]; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) { n.classList.remove('cgCollapsed'); }
-                                syncGroupAria(page.querySelector('#cgList'));
-                                groups[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                break;
-                            }
-                        }
+                        // Select the letter (or "*" for all): re-render that letter's items and scroll to top.
+                        page._letter = a.getAttribute('data-l');
+                        saveFilters(page);
+                        applyAndRender(page);
+                        var sc = scrollerFor(page);
+                        if (sc) { sc.scrollTop = 0; }
                     });
                     page.querySelector('#cgMonFilter').addEventListener('change', function () {
                         saveFilters(page);
