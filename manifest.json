@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.0.14",
+                "changelog": "10.11.0.14 (pre-release) - One page, faster big tabs, and self-updating \"where to watch\". Settings now live on the report page: the gear opens an inline settings panel (accordion) and closes the report, so the plugin has a single sidebar entry. The A-Z bar is now a selector that renders one letter group at a time (with a leading \"*\" for all), on every tab including Set completion, and Creator works builds each group's rows only when you expand it, so a tab with tens of thousands of rows opens quickly. A small green dot marks a collapsed group that has a streaming source. Music gaps split by how you own the artist: an album artist you collect yields a Set-completion discography, an artist you only own a track by yields a Creator-works \"artist works\" list. \"Where to watch\" stays current on its own: a new \"Refresh where to watch\" scheduled task drains the whole backlog, a looked-up result is served instantly while a refresh runs behind the scenes, and the cache lifetime is settable (default 24 hours). Fix: a music set's search button now searches music instead of box sets.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.0.14/mind-the-gaps_10.11.0.14.zip",
+                "checksum": "455ba35a917010b2cf03b617a0d5a4f9",
+                "timestamp": "2026-06-19T01:02:18Z"
+            },
+            {
                 "version": "10.11.0.13",
                 "changelog": "10.11.0.13 - Report polish, accessibility, and a settings-link fix. The plugin's \"Settings\" button on the Plugins page now opens the configuration page instead of the report, and the report shows the installed plugin version next to the gear. Group headers use compact icons for resolve and not-interested, ordered search, open in Jellyfin, resolve, not-interested; a collapsed entry shows just the coverage percent (the full count on hover). The Markdown export now includes a search link for each gap. With one media domain shown at a time, the redundant top-level Movies/Shows group is gone and the summary line reads a little larger. Every icon control now has an accessible label so a screen reader announces the action. Fixes: the Type filter stacking onto two lines, and collapsed grid cells reflowing on hover.\n",
                 "targetAbi": "10.11.0.0",
