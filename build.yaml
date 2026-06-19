@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.0.16"
+version: "10.11.1.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -18,8 +18,10 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.0.16 - Sturdier scans against flaky APIs. Every external service call now retries rate-limit and
-  transient failures (honouring Retry-After) instead of dropping the lookup, a service that keeps failing is
-  set aside for a couple of minutes so the scan moves on to the others rather than stalling, the scan saves
-  its progress to disk as it goes so a crash or restart no longer loses the batch, and every request now
-  identifies the plugin (with its version) to the API.
+  10.11.1.0 - Initial release. Mind the Gaps scans your library and builds a dashboard todo list of what is
+  missing or worth adding: movies missing from a collection or franchise; missing seasons and episodes
+  (optionally cross-checked against TVmaze and TheTVDB); films from an owned actor or director's filmography
+  (with an independent Trakt cross-check); curated studio and keyword sets; and TMDB recommendations.
+  Experimental music and books sources are included too. It shows where to watch each gap, links out to TMDB,
+  IMDb, TheTVDB, and JustWatch, and can optionally mint reversible virtual placeholders for missing collection
+  movies.
