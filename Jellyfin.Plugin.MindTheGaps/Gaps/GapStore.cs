@@ -73,6 +73,21 @@ public sealed class GapStore
     }
 
     /// <summary>
+    /// Writes a mid-scan checkpoint to disk without replacing the cached report. The cache stays the prior
+    /// report (so the engine's carry-forward and the dashboard keep reading it during the scan), while disk
+    /// holds the latest progress so a crash or shutdown mid-scan does not lose the batch. The engine throttles
+    /// how often it calls this. The final <see cref="Save(GapReport)"/> updates both cache and disk as usual.
+    /// </summary>
+    /// <param name="report">The in-progress report to persist.</param>
+    public void SaveCheckpoint(GapReport report)
+    {
+        lock (_lock)
+        {
+            Flush(report);
+        }
+    }
+
+    /// <summary>
     /// Folds the availability enrichment from a background pass into the current report by gap id, then
     /// flushes. If the pass's report is still the cached one this is an ordinary save; if a scan replaced
     /// the cached report while the pass was running, the enrichment (offers, the checked flag, resolved

@@ -48,6 +48,15 @@ internal static class HttpRetry
         string path,
         CancellationToken cancellationToken)
     {
+        // The service has been failing hard: skip the call entirely for the cooldown so the scan moves on
+        // instead of waiting through the retries again. Returned as a 503 so the caller's own non-success
+        // handling runs unchanged.
+        if (ServiceCircuit.IsOpen(service))
+        {
+            logger.LogDebug("{Service} GET {Path}: circuit open, skipping", service, path);
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { ReasonPhrase = "Mind the Gaps: service circuit open" };
+        }
+
         for (var attempt = 1; ; attempt++)
         {
             HttpResponseMessage response;
@@ -65,9 +74,11 @@ internal static class HttpRetry
             {
                 if (attempt >= MaxAttempts)
                 {
-                    // Out of retries. Surface as a non-cancellation failure (even a request timeout, which is
-                    // an OperationCanceledException) so the caller treats it as an error and returns its
-                    // default, rather than mistaking it for cancellation and aborting the whole scan.
+                    // Out of retries. Count the give-up against the circuit, then surface as a
+                    // non-cancellation failure (even a request timeout, which is an OperationCanceledException)
+                    // so the caller treats it as an error and returns its default, rather than mistaking it
+                    // for cancellation and aborting the whole scan.
+                    RecordGiveUp(service, logger);
                     throw new HttpRequestException(
                         string.Create(CultureInfo.InvariantCulture, $"{service} GET {path} failed after {MaxAttempts} attempts"),
                         ex);
@@ -95,7 +106,26 @@ internal static class HttpRetry
                 logger.LogWarning("{Service} GET {Path} returned {Status} with Retry-After {Delay:n0}s, longer than the {Cap:n0}s cap; giving up this run", service, path, (int)response.StatusCode, delay.TotalSeconds, _maxDelay.TotalSeconds);
             }
 
+            // A retryable status here means the retries (or the cap) were exhausted: a give-up. Any other
+            // status (success, or a definitive 404/401/...) means the service answered, so the circuit closes.
+            if (IsRetryableStatus(response.StatusCode))
+            {
+                RecordGiveUp(service, logger);
+            }
+            else
+            {
+                ServiceCircuit.RecordSuccess(service);
+            }
+
             return response;
+        }
+    }
+
+    private static void RecordGiveUp(string service, ILogger logger)
+    {
+        if (ServiceCircuit.RecordFailure(service))
+        {
+            logger.LogWarning("{Service}: too many failures in a row, pausing calls to it for {Minutes:n0} min so the scan can move on", service, ServiceCircuit.OpenDuration.TotalMinutes);
         }
     }
 

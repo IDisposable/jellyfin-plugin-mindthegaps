@@ -12,9 +12,17 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
 // Exercises the shared retry/backoff helper with an in-memory handler (no network), so the retry, the
 // give-up, and the cancellation behaviour are pinned down. Backoff is real but short (sub-second), so a
-// retrying case adds only a moment to the run.
+// retrying case adds only a moment to the run. Shares the non-parallel collection with ServiceCircuitTests
+// because HttpRetry feeds the process-wide circuit; resetting it per test keeps the cases independent.
+[Collection("ServiceCircuit")]
 public class HttpRetryTests
 {
+    public HttpRetryTests()
+    {
+        ServiceCircuit.ResetAll();
+        ServiceCircuit.OnTrip = null;
+    }
+
     private static async Task<HttpResponseMessage> SendAsync(StubHandler handler, CancellationToken ct = default)
     {
         using var client = new HttpClient(handler);

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -84,52 +85,111 @@ public sealed class GapEngine
         var total = enabled.Count;
         var completed = 0;
 
-        foreach (var source in enabled)
+        // Persist progress mid-scan so a crash or shutdown does not lose the batch. A checkpoint is the prior
+        // report overlaid with the fresh gaps found so far (so it never drops gaps the report already had),
+        // written to disk only (the cache stays the prior report for carry-forward). It is throttled, except
+        // when forced after each source or when a service's circuit trips (an out-of-band "we gave up" save).
+        var lastCheckpoint = stopwatch.Elapsed;
+        void Checkpoint(bool force)
         {
-            // Fold this source's own 0..1 progress into its slice of the overall bar so a slow source
-            // (per-item API calls) does not sit at one value for minutes.
-            var sliceBase = completed / (double)total;
-            var slice = 1.0 / total;
-            context.SetProgressSink(f => progress?.Report((sliceBase + (Math.Clamp(f, 0.0, 1.0) * slice)) * 100.0));
-
-            var sourceStarted = stopwatch.ElapsedMilliseconds;
-            var beforeCount = gaps.Count;
-            try
+            if (!force && stopwatch.Elapsed - lastCheckpoint < TimeSpan.FromSeconds(5))
             {
-                await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
+                return;
+            }
+
+            lastCheckpoint = stopwatch.Elapsed;
+            var merged = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+            foreach (var item in priorReport.Items)
+            {
+                merged[item.Id] = item;
+            }
+
+            foreach (var fresh in gaps)
+            {
+                merged[fresh.Id] = fresh;
+            }
+
+            _store.SaveCheckpoint(new GapReport
+            {
+                GeneratedUtc = priorReport.GeneratedUtc,
+                GeneratedVersion = priorReport.GeneratedVersion,
+                TotalGaps = merged.Count,
+                Items = merged.Values.ToList()
+            });
+        }
+
+        // Each scan starts with a clean circuit; a service that trips during this run requests a checkpoint
+        // (consumed below), so the work gathered so far lands on disk the moment a service is given up on.
+        ServiceCircuit.ResetAll();
+        var tripRequested = new int[1];
+        ServiceCircuit.OnTrip = _ => Interlocked.Exchange(ref tripRequested[0], 1);
+        try
+        {
+            foreach (var source in enabled)
+            {
+                // Fold this source's own 0..1 progress into its slice of the overall bar so a slow source
+                // (per-item API calls) does not sit at one value for minutes.
+                var sliceBase = completed / (double)total;
+                var slice = 1.0 / total;
+                context.SetProgressSink(f => progress?.Report((sliceBase + (Math.Clamp(f, 0.0, 1.0) * slice)) * 100.0));
+
+                var sourceStarted = stopwatch.ElapsedMilliseconds;
+                var beforeCount = gaps.Count;
+                try
                 {
-                    if (byId.TryGetValue(gap.Id, out var existing))
+                    await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
                     {
-                        MergeDuplicateSource(existing, gap);
-                    }
-                    else
-                    {
-                        byId[gap.Id] = gap;
-                        gaps.Add(gap);
+                        if (byId.TryGetValue(gap.Id, out var existing))
+                        {
+                            MergeDuplicateSource(existing, gap);
+                        }
+                        else
+                        {
+                            byId[gap.Id] = gap;
+                            gaps.Add(gap);
+                        }
+
+                        // A circuit trip is an out-of-band save now; otherwise checkpoint on the time throttle
+                        // so a long-running source's progress is not all riding in memory.
+                        if (Interlocked.Exchange(ref tripRequested[0], 0) == 1)
+                        {
+                            Checkpoint(force: true);
+                        }
+                        else
+                        {
+                            Checkpoint(force: false);
+                        }
                     }
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Gap source {Source} failed", source.Name);
-            }
-            finally
-            {
-                context.SetProgressSink(null);
-            }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Gap source {Source} failed", source.Name);
+                }
+                finally
+                {
+                    context.SetProgressSink(null);
+                }
 
-            _logger.LogInformation(
-                "Gap source {Source} contributed {Count} gaps in {Ms} ms",
-                source.Name,
-                gaps.Count - beforeCount,
-                stopwatch.ElapsedMilliseconds - sourceStarted);
+                _logger.LogInformation(
+                    "Gap source {Source} contributed {Count} gaps in {Ms} ms",
+                    source.Name,
+                    gaps.Count - beforeCount,
+                    stopwatch.ElapsedMilliseconds - sourceStarted);
 
-            completed++;
-            progress?.Report(completed * 100.0 / total);
+                completed++;
+                progress?.Report(completed * 100.0 / total);
+
+                // Each source is a natural batch boundary: persist what we have before starting the next.
+                Checkpoint(force: true);
+            }
+        }
+        finally
+        {
+            ServiceCircuit.OnTrip = null;
         }
 
         // Carry the previous report's enrichment forward by id (resolved external ids and "where to
