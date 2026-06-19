@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.1.1"
+version: "10.11.1.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -18,15 +18,12 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.1.1 (pre-release) - Diagnose, deeper. A new Diagnose action explains why a gap is reported missing: a
-  per-gap popup lays the gap and the owned items that look like it side by side, and leads with a plain
-  verdict (owned under the wrong id, an owned item already holds this id, the gap looks stale, a wrong kind of
-  id, or genuinely missing). It corroborates by IMDb and TheTVDB id, so it still catches a title you own under
-  a localized name, and a "Deeper analysis" button confirms against the source provider and fills in missing
-  ids. A library-wide identification audit runs the same check across the whole library and downloads as
-  Markdown, with a link on each finding back into Jellyfin. Also in this build: a JustWatch search button on
-  movie and show rows that lack a JustWatch link (using your configured region); the Set completion tab now
-  groups by kind of set (collections and franchises, studios, keywords, and music discographies); provider
-  overviews are stripped of stray HTML and episode and season rows gained their missing search and open icons;
-  a fresh install opens to settings until the first scan; and the settings panel warns about unsaved changes.
-  This is the first build on the new beta release channel.
+  10.11.1.2 (pre-release) - Sharper diagnosis, easier exports. The Diagnose action now weighs both title and
+  year, so a remake that shares a name with something you own (the 1960 Ocean's Eleven against the 2001 remake,
+  the original Home Alone against the 2023 reboot) is no longer reported as that owned title under the wrong
+  id; a year more than one apart is treated as a different release, while a missing year still falls back to
+  the title match. The Markdown exports gained structure and a table of contents: the gap export groups each
+  domain by its kind of source (collections and franchises, studios, keywords, series, and discographies), and
+  the identification audit groups its findings by reason, each with contents links to jump between sections.
+  Titles that begin with "The" now file under both T and the next word's letter, so "The Highlander" is also
+  found under H. Curated keyword sets show the keyword's name instead of its numeric id.

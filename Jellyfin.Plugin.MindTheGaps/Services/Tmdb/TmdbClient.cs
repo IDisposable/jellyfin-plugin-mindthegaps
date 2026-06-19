@@ -231,6 +231,19 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets a keyword's display name by its TMDB id, for labelling a curated set with its name rather than
+    /// its raw id.
+    /// </summary>
+    /// <param name="keywordId">The TMDB keyword id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The keyword name, or null if not found.</returns>
+    public async Task<string?> GetKeywordNameAsync(int keywordId, CancellationToken cancellationToken)
+    {
+        var keyword = await _client.GetKeywordAsync(keywordId, cancellationToken).ConfigureAwait(false);
+        return keyword?.Name;
+    }
+
+    /// <summary>
     /// Gets a title's external ids (IMDb, and TheTVDB for series) by its TMDB id. TMDB list responses
     /// only carry the TMDB id, so this fills in the rest so a gap can link to more than TMDB.
     /// </summary>

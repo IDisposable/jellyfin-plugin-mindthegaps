@@ -226,6 +226,16 @@ public sealed class GapDiagnostics
         {
             foreach (var owned in titleHits)
             {
+                // Honor name + year before falling back to name alone: a same-title owned item whose year is
+                // more than a year off is a different release sharing the title (a remake), not this one under
+                // the wrong id, so skip it. A year missing on either side cannot rule it out, so it still
+                // matches on name. This stops, e.g., owning "Ocean's Eleven" (2001) from flagging the missing
+                // 1960 original as a mismatch.
+                if (YearConflicts(gap.Year, owned.Year))
+                {
+                    continue;
+                }
+
                 if (!seen.Add(owned.JellyfinId))
                 {
                     continue;
@@ -429,6 +439,12 @@ public sealed class GapDiagnostics
         return null;
     }
 
+    // Two known years more than a year apart mean a different release sharing the title (a remake), not the
+    // same work under the wrong id. A year missing on either side cannot rule it out. The one-year slack
+    // absorbs the usual release-date jitter between a catalogue's year and the library's production year.
+    private static bool YearConflicts(int? a, int? b)
+        => a.HasValue && b.HasValue && Math.Abs(a.Value - b.Value) > 1;
+
     private static void Add<TKey>(Dictionary<TKey, List<OwnedItem>> map, TKey key, OwnedItem value)
         where TKey : notnull
     {
@@ -442,7 +458,8 @@ public sealed class GapDiagnostics
     }
 
     // Lowercase, letters and digits only, so punctuation, spacing, and case differences do not block a
-    // match (and a mistagged item's wrong year does not hide it).
+    // match. The year is kept out of this key and compared separately (see YearConflicts) so a remake that
+    // shares a title is told apart by its year rather than being folded in here.
     private static string Normalize(string? name)
     {
         if (string.IsNullOrEmpty(name))

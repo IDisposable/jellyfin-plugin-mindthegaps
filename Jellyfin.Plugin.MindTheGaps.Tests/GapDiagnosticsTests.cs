@@ -72,6 +72,60 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
+    public void DiagnoseAgainst_RemakeSharesTitleButYearDiffers_IsGenuineGap()
+    {
+        // The missing 1960 original shares its title with the owned 2001 remake. Years far apart mean a
+        // different release, so this is a genuine gap, not the remake owned under the wrong id.
+        var gap = Gap(BaseItemKind.Movie, "Ocean's Eleven", 1960, ("Tmdb", "21786"));
+        var owned = new BaseItem[] { OwnedMovie("Ocean's Eleven", 2001, ("Tmdb", "161")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Empty(d.Candidates);
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_RebootSharesTitleWithOwnedOriginal_IsGenuineGap()
+    {
+        // The missing 2023 reboot shares its title with the owned 1990 original; the year tells them apart.
+        var gap = Gap(BaseItemKind.Movie, "Home Alone", 2023, ("Tmdb", "1009408"));
+        var owned = new BaseItem[] { OwnedMovie("Home Alone", 1990, ("Tmdb", "771")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Empty(d.Candidates);
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_SameTitleYearJitter_StillFlagsMismatch()
+    {
+        // A one-year gap between the catalogue's year and the library's production year is release-date
+        // jitter, not a remake, so the mismatch is still caught.
+        var gap = Gap(BaseItemKind.Movie, "Coco", 2017, ("Tmdb", "354912"));
+        var owned = new BaseItem[] { OwnedMovie("Coco", 2018, ("Tmdb", "999999")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Single(d.Candidates);
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_SameTitleYearMissing_FallsBackToNameMatch()
+    {
+        // The owned item has no year, so year cannot tell them apart: fall back to the name match.
+        var gap = Gap(BaseItemKind.Movie, "Dune", 2021, ("Tmdb", "438631"));
+        var owned = new BaseItem[] { OwnedMovie("Dune", null, ("Tmdb", "999999")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Single(d.Candidates);
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+    }
+
+    [Fact]
     public void DiagnoseAgainst_OwnedSameTitleNoId_NotesMissingId()
     {
         var gap = Gap(BaseItemKind.Movie, "Solaris", 1972, ("Tmdb", "27328"));

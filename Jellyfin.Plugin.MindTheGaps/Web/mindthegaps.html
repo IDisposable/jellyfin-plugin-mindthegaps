@@ -458,6 +458,10 @@
                 // once on pageshow and refreshed on save; empty until then, so jwLocale falls back to the browser.
                 var cgRegion = '';
 
+                // This server's display name, for labelling export links that point back to it. Loaded once on
+                // pageshow; empty until then, so the label falls back to "Jellyfin".
+                var cgServerName = '';
+
                 // Monotonic counter for per-render group body ids (aria-controls targets).
                 var cgGroupSeq = 0;
 
@@ -1031,6 +1035,18 @@
                     return letters;
                 }
 
+                // A title is filed under its first letter, and if it leads with the article "The" also under the
+                // next word's letter (The Highlander -> T and H), so it is found either way.
+                function titleLetters(name) {
+                    var letters = [firstLetter(name)];
+                    var rest = (name || '').trim().replace(/^the\s+/i, '');
+                    if (rest && rest.length !== (name || '').trim().length) {
+                        var next = firstLetter(rest);
+                        if (letters.indexOf(next) === -1) { letters.push(next); }
+                    }
+                    return letters;
+                }
+
                 // A-Z, then '#' last.
                 function letterSort(a, b) {
                     if (a === b) { return 0; }
@@ -1041,10 +1057,11 @@
 
                 // The letters an item files under for the A-Z selector: a creator under their first and last
                 // initial, a recommendation under its title, a set under its source (series/collection) name.
+                // A title that leads with "The" also files under the next word's letter (see titleLetters).
                 function itemLetters(it, pattern) {
                     if (pattern === 'CreatorWorks') { return personLetters(it.SourceItemName || it.Name); }
-                    if (pattern === 'Recommendation') { return [firstLetter(it.Name)]; }
-                    return [firstLetter(it.SourceItemName || it.Name)];
+                    if (pattern === 'Recommendation') { return titleLetters(it.Name); }
+                    return titleLetters(it.SourceItemName || it.Name);
                 }
 
                 // The sorted distinct letters present across the items, for the current pattern.
@@ -1066,6 +1083,39 @@
                         case 'Keyword': return 'Keywords';
                         default: return 'Other';
                     }
+                }
+
+                // The H2 source group for the Markdown export, mirroring the on-screen tree: a set's kind for
+                // Set completion (Collections & franchises, Studios, Keywords, Series, Discography), otherwise
+                // the owning source (the creator, or the title a recommendation came from).
+                function exportGroupLabel(it) {
+                    return it.PatternName === 'SetCompletion' ? setKindLabel(it.SourceItemType) : (it.SourceItemName || '(no source)');
+                }
+
+                // Order the export's source groups: set kinds in their canonical order, sources alphabetically.
+                function exportGroupSort(pattern) {
+                    if (pattern === 'SetCompletion') {
+                        return function (a, b) { return (SET_KIND_ORDER[a] != null ? SET_KIND_ORDER[a] : 9) - (SET_KIND_ORDER[b] != null ? SET_KIND_ORDER[b] : 9); };
+                    }
+                    return ci;
+                }
+
+                // A GitHub-style heading anchor (lowercase, punctuation dropped, whitespace to hyphens), so the
+                // contents links resolve in the same renderers (GitHub, VS Code preview) that auto-anchor headings.
+                function mdAnchor(text) {
+                    return String(text == null ? '' : text).toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s/g, '-') || 'section';
+                }
+
+                // An allocator of unique heading anchors, called in heading order, de-duping like the renderer
+                // does (a repeated heading gets "-1", "-2", ...), so a table of contents link resolves.
+                function anchorAllocator() {
+                    var used = {};
+                    return function (text) {
+                        var base = mdAnchor(text), a = base, n = 1;
+                        while (used[a]) { a = base + '-' + n; n++; }
+                        used[a] = true;
+                        return a;
+                    };
                 }
 
                 // One collapsed set cell (a collection, series, studio, ...) for the Set completion grid.
@@ -1260,11 +1310,13 @@
                     var parts = [];
                     var links = it.Links || [];
                     if (links.length) { parts.push(links.map(function (l) { return '[' + mdEsc(l.Name) + '](' + safeUrl(l.Url) + ')'; }).join(' ')); }
-                    // A Jellyfin search link, scoped like the report's search icon (an episode searches its
-                    // series). Angle brackets so the encoded collectionType/query cannot break the link.
+                    // A search link back to this server, scoped like the report's search icon (an episode
+                    // searches its series). Labelled with the server name (or "Jellyfin"), led by a magnifying
+                    // glass (U+1F50D); the surrogate-pair escape keeps this file ASCII. The encoded query uses
+                    // "+" for spaces and has no whitespace or closing bracket, so no angle-bracket wrap is needed.
                     var sName = (it.TargetKindName === 'Episode' && it.SourceItemName) ? it.SourceItemName : it.Name;
                     var sScope = it.TargetKindName === 'Episode' ? 'tvshows' : domainScope(it.DomainName);
-                    parts.push('[Search](<' + searchUrl(sName, sScope) + '>)');
+                    parts.push('[\uD83D\uDD0D ' + mdEsc(cgServerName || 'Jellyfin') + '](' + searchUrl(sName, sScope) + ')');
                     var offers = filterOffers(it.Availability);
                     if (offers.length) {
                         var provs = offers.map(function (o) { return o.Provider; }).filter(function (p, i, a) { return p && a.indexOf(p) === i; });
@@ -1283,9 +1335,10 @@
                     return parts.join(' | ');
                 }
 
-                // Build a markdown document for the current tab as filtered. One H1 per domain (the axis), with
-                // the domain folded into the title ("Mind the Gaps: Movies Set completion") and each gap as an
-                // H2 with a detail line. The summary line links to a shareable view of this exact export.
+                // Build a markdown document for the current tab as filtered. One H1 per domain (the axis, the
+                // domain folded into the title "Mind the Gaps: Movies Set completion"), an H2 per source group
+                // (the set's kind, the creator, or the recommending title), and each gap as an H3 with a detail
+                // line. A table of contents jumps to each group. The summary line links to a shareable view.
                 function buildMarkdown(page) {
                     var report = page._report || { Items: [] };
                     var pass = buildFilter(page);
@@ -1293,19 +1346,56 @@
                     var label = PATTERN_LABELS[page._pattern];
                     // Angle brackets around the URL so encoded filter values cannot break the markdown link.
                     var out = ['_[' + items.length + ' gaps, exported ' + new Date().toLocaleString() + '](<' + shareUrl(page) + '>)_', ''];
+
+                    // Allocate heading anchors in the order the headings appear, so the contents links resolve.
+                    var anchorFor = anchorAllocator();
+
                     var byCat = groupBy(items, categoryOf);
                     byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
-                    byCat.order.forEach(function (cat) {
-                        out.push('# Mind the Gaps: ' + mdEsc(cat) + ' ' + label, '');
-                        // No source heading now, so sort by source then title to keep one source's gaps adjacent.
-                        byCat.map[cat].slice().sort(function (a, b) {
-                            var s = ci(a.SourceItemName || '', b.SourceItemName || '');
-                            return s !== 0 ? s : ci(a.Name || '', b.Name || '');
-                        }).forEach(function (it) {
-                            out.push('## ' + gapHeading(it));
-                            var detail = gapDetail(it);
-                            if (detail) { out.push(detail); }
-                            out.push('');
+                    var groupSort = exportGroupSort(page._pattern);
+
+                    // Model the document (domains -> source groups) and allocate anchors in render order.
+                    var sections = byCat.order.map(function (cat) {
+                        var heading = 'Mind the Gaps: ' + cat + ' ' + label;
+                        var byGroup = groupBy(byCat.map[cat], exportGroupLabel);
+                        byGroup.order.sort(groupSort);
+                        return {
+                            cat: cat,
+                            heading: heading,
+                            anchor: anchorFor(heading),
+                            groups: byGroup.order.map(function (g) {
+                                return { label: g, anchor: anchorFor(g), items: byGroup.map[g] };
+                            })
+                        };
+                    });
+
+                    // Table of contents, skipped when there is only one group to jump to.
+                    var groupCount = sections.reduce(function (n, s) { return n + s.groups.length; }, 0);
+                    if (groupCount > 1) {
+                        out.push('## Contents', '');
+                        sections.forEach(function (s) {
+                            out.push('- [' + mdEsc(s.cat + ' ' + label) + '](#' + s.anchor + ')');
+                            s.groups.forEach(function (g) {
+                                out.push('    - [' + mdEsc(g.label) + '](#' + g.anchor + ')');
+                            });
+                        });
+                        out.push('');
+                    }
+
+                    sections.forEach(function (s) {
+                        out.push('# ' + mdEsc(s.heading), '');
+                        s.groups.forEach(function (g) {
+                            out.push('## ' + mdEsc(g.label), '');
+                            // Sort by source then title to keep one source's gaps adjacent within the group.
+                            g.items.slice().sort(function (a, b) {
+                                var src = ci(a.SourceItemName || '', b.SourceItemName || '');
+                                return src !== 0 ? src : ci(a.Name || '', b.Name || '');
+                            }).forEach(function (it) {
+                                out.push('### ' + gapHeading(it));
+                                var detail = gapDetail(it);
+                                if (detail) { out.push(detail); }
+                                out.push('');
+                            });
                         });
                     });
                     return out.join('\n');
@@ -1318,8 +1408,17 @@
                     return base + '#/configurationpage?name=MindTheGaps&cgdiag=' + encodeURIComponent(gapId) + '&cgdeep=1';
                 }
 
-                // Format a library identification audit (from MindTheGaps/DiagnoseAudit) as Markdown, with each
-                // provider id linked out and an "open in Jellyfin" link for owned items.
+                // The mismatch reasons the audit reports, in display order, with the one-line intro each
+                // section leads with. The labels come from DIAG_REASON (shared with the modal badges).
+                var AUDIT_REASON_ORDER = ['OwnedUnderWrongId', 'CarriesAnothersId'];
+                var AUDIT_REASON_INTRO = {
+                    OwnedUnderWrongId: 'Reported missing, but you appear to own these under a different (or missing) id.',
+                    CarriesAnothersId: 'An owned item carries this id but sits under a different title, so it is misidentified.'
+                };
+
+                // Format a library identification audit (from MindTheGaps/DiagnoseAudit) as Markdown: a section
+                // per reason (owned under the wrong id, an owned item holds this id) plus the duplicate-id
+                // section, each id linked out, and a table of contents to jump between them.
                 function buildAuditMarkdown(audit) {
                     audit = audit || {};
                     // Same id links as the modal, from the shared map-driven cells, in Markdown form.
@@ -1332,48 +1431,78 @@
                     var jf = function (it) { return it.JellyfinItemId ? ' - [open in Jellyfin](<' + itemUrl(it.JellyfinItemId) + '>)' : ''; };
                     var yr = function (it) { return it.Year ? ' (' + it.Year + ')' : ''; };
 
+                    // One mismatch finding (target, owned candidates, fix hint, deeper link) as Markdown lines.
+                    var mismatchLines = function (d) {
+                        var lines = [];
+                        var t = d.Target || {};
+                        lines.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(t));
+                        (d.Candidates || []).forEach(function (c) {
+                            lines.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
+                        });
+                        var tTmdb = t.ProviderIds && t.ProviderIds.Tmdb;
+                        if (tTmdb) { lines.push('  - Fix: set the owned item to TheMovieDb ' + tTmdb + ', then rescan.'); }
+                        // The label is a magnifying glass (U+1F50D) plus "Deeper"; the surrogate-pair escape
+                        // keeps this file ASCII while the exported Markdown still shows the glyph.
+                        if (d.GapId) { lines.push('  - [\uD83D\uDD0D Deeper](' + diagDeepLink(d.GapId) + ')'); }
+                        return lines;
+                    };
+
+                    // Build the sections (heading + body lines). A reason section appears only when it has
+                    // findings; with no mismatches at all, a single reassuring "none found" section stands in.
+                    var sections = [];
+                    var mismatches = audit.Mismatches || [];
+                    if (!mismatches.length) {
+                        sections.push({ heading: 'Likely false "missing" (0)', body: ['None found: every checked gap looks like a genuine miss.', ''] });
+                    } else {
+                        var byReason = {};
+                        mismatches.forEach(function (d) { (byReason[d.ReasonName] = byReason[d.ReasonName] || []).push(d); });
+                        AUDIT_REASON_ORDER.forEach(function (r) {
+                            var list = byReason[r];
+                            if (!list || !list.length) { return; }
+                            var label = (DIAG_REASON[r] && DIAG_REASON[r].label) || r;
+                            var body = [AUDIT_REASON_INTRO[r] || '', ''];
+                            list.forEach(function (d) { body = body.concat(mismatchLines(d)); });
+                            body.push('');
+                            sections.push({ heading: label + ' (' + list.length + ')', body: body });
+                        });
+                    }
+
+                    var dups = audit.Duplicates || [];
+                    var dupBody = [];
+                    if (!dups.length) {
+                        dupBody.push('None found: no two owned items share a TheMovieDb id.', '');
+                    } else {
+                        dupBody.push('Each id below is on more than one owned item, so at least one is misidentified.', '');
+                        dups.forEach(function (g) {
+                            var tmdbCell = diagCells((g.Items || [])[0] || {}).tmdb;
+                            var dl = tmdbCell && tmdbCell.url;
+                            dupBody.push('- TheMovieDb ' + (dl ? '[' + g.Id + '](' + dl + ')' : g.Id) + ' is on ' + (g.Items || []).length + ' items:');
+                            (g.Items || []).forEach(function (c) {
+                                dupBody.push('  - "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c));
+                            });
+                        });
+                        dupBody.push('');
+                    }
+                    sections.push({ heading: 'Duplicate TheMovieDb ids (' + dups.length + ')', body: dupBody });
+
+                    var anchorFor = anchorAllocator();
+                    sections.forEach(function (s) { s.anchor = anchorFor(s.heading); });
+
                     var out = ['# Mind the Gaps: identification audit', ''];
                     out.push('_Based on the gap scan from ' + new Date(audit.GeneratedUtc).toLocaleString()
                         + '. Library: ' + (audit.OwnedMovies || 0) + ' movies, ' + (audit.OwnedShows || 0)
                         + ' shows; ' + (audit.GapsChecked || 0) + ' gaps checked._', '');
 
-                    var mismatches = audit.Mismatches || [];
-                    out.push('## Likely false "missing" (' + mismatches.length + ')', '');
-                    if (!mismatches.length) {
-                        out.push('None found: every checked gap looks like a genuine miss.', '');
-                    } else {
-                        out.push('Reported missing, but you appear to own them under a different (or missing) id.', '');
-                        mismatches.forEach(function (d) {
-                            var t = d.Target || {};
-                            out.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(t));
-                            (d.Candidates || []).forEach(function (c) {
-                                out.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
-                            });
-                            var tTmdb = t.ProviderIds && t.ProviderIds.Tmdb;
-                            if (tTmdb) { out.push('  - Fix: set the owned item to TheMovieDb ' + tTmdb + ', then rescan.'); }
-                            // The label is a magnifying glass (U+1F50D) plus "Deeper"; the surrogate-pair
-                            // escape keeps this file ASCII while the exported Markdown still shows the glyph.
-                            if (d.GapId) { out.push('  - [\uD83D\uDD0D Deeper](' + diagDeepLink(d.GapId) + ')'); }
-                        });
+                    if (sections.length > 1) {
+                        out.push('## Contents', '');
+                        sections.forEach(function (s) { out.push('- [' + mdEsc(s.heading) + '](#' + s.anchor + ')'); });
                         out.push('');
                     }
 
-                    var dups = audit.Duplicates || [];
-                    out.push('## Duplicate TheMovieDb ids (' + dups.length + ')', '');
-                    if (!dups.length) {
-                        out.push('None found: no two owned items share a TheMovieDb id.', '');
-                    } else {
-                        out.push('Each id below is on more than one owned item, so at least one is misidentified.', '');
-                        dups.forEach(function (g) {
-                            var tmdbCell = diagCells((g.Items || [])[0] || {}).tmdb;
-                            var dl = tmdbCell && tmdbCell.url;
-                            out.push('- TheMovieDb ' + (dl ? '[' + g.Id + '](' + dl + ')' : g.Id) + ' is on ' + (g.Items || []).length + ' items:');
-                            (g.Items || []).forEach(function (c) {
-                                out.push('  - "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c));
-                            });
-                        });
-                        out.push('');
-                    }
+                    sections.forEach(function (s) {
+                        out.push('## ' + mdEsc(s.heading), '');
+                        out = out.concat(s.body);
+                    });
 
                     return out.join('\n');
                 }
@@ -2238,6 +2367,10 @@
                     ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
                         cgRegion = (cfg.MetadataCountryCode || '').trim().toLowerCase();
                     });
+                    // Cache the server's display name so exported links back to it can be labelled with it.
+                    ApiClient.getPublicSystemInfo().then(function (info) {
+                        cgServerName = (info && info.ServerName) || '';
+                    }, function () { /* best-effort; the label falls back to "Jellyfin" */ });
                     // Diagnose popup: close via the button, a backdrop click, or Escape.
                     document.getElementById('cgDiagClose').addEventListener('click', closeDiagnose);
                     document.getElementById('cgDiagModal').addEventListener('click', function (e) {

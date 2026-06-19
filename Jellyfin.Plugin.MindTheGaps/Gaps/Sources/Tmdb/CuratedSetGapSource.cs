@@ -101,14 +101,17 @@ public sealed class CuratedSetGapSource : IGapSource
         foreach (var keywordId in keywordIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var label = await SafeKeywordName(keywordId, cancellationToken).ConfigureAwait(false)
+                ?? string.Create(CultureInfo.InvariantCulture, $"Keyword {keywordId}");
             var results = await CollectAsync(
                 (page, ct) => _tmdb.DiscoverMoviesByKeywordAsync(keywordId, page, language, ct),
                 cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Curated sets: keyword '{Label}' ({Id}) has {Count} movies on TMDB", label, keywordId, results.Count);
 
             foreach (var gap in CuratedSetGapMapper.BuildMovies(
                 results,
                 string.Create(CultureInfo.InvariantCulture, $"keyword:{keywordId}"),
-                string.Create(CultureInfo.InvariantCulture, $"Keyword {keywordId}"),
+                label,
                 "Keyword",
                 context.Ownership,
                 _tmdb.GetPosterUrl,
@@ -247,6 +250,19 @@ public sealed class CuratedSetGapSource : IGapSource
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Curated sets: failed to fetch company name for {Id}", companyId);
+            return null;
+        }
+    }
+
+    private async Task<string?> SafeKeywordName(int keywordId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _tmdb.GetKeywordNameAsync(keywordId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Curated sets: failed to fetch keyword name for {Id}", keywordId);
             return null;
         }
     }
