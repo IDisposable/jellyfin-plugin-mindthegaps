@@ -43,7 +43,7 @@
             .cgL2 .listItem { padding-left: 2.6em; }
             .cgL3 .listItem { padding-left: 3.9em; }
             .cgRow { cursor: pointer; }
-            .cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; }
+            .cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; white-space: pre-line; }
             .cgTab.cgActive { background: #00a4dc; color: #fff; }
             .cgLink {
                 display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
@@ -691,7 +691,7 @@
                         + poster
                         + '<div style="flex:1;min-width:0;">'
                         + '<div class="listItemBodyText">' + esc(item.Name)
-                        + (item.TargetKindName === 'Episode' ? '' : searchIcon(item.Name, domainScope(item.DomainName)))
+                        + searchIcon(item.Name, domainScope(item.DomainName))
                         + openIcon(item.LibraryItemId) + '</div>'
                         + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
                         + details
@@ -808,7 +808,13 @@
                         // just because a linkless cross-check episode happens to sort first.
                         var seasonId = '';
                         for (var si = 0; si < seasonItems.length; si++) { if (seasonItems[si].SeasonItemId) { seasonId = seasonItems[si].SeasonItemId; break; } }
-                        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), seasonId, batchDismissBtns(label));
+                        // Always offer a search (for the series, since a "Season 3" query is useless) and an
+                        // open link: the season itself when owned, otherwise its series, so there is always
+                        // somewhere to go.
+                        var seriesName = seasonItems[0].SourceItemName;
+                        var openId = seasonId || seasonItems[0].SourceItemId;
+                        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId) + batchDismissBtns(label);
+                        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra);
                     }).join('');
                 }
 

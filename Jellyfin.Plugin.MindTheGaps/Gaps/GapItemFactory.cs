@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Text;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
@@ -74,7 +75,7 @@ public static class GapItemFactory
             ReleaseDate = releaseDate,
             IsUpcoming = releaseDate.HasValue && releaseDate.Value.Date > DateTime.UtcNow.Date,
             ImageUrl = imageUrl,
-            Overview = overview,
+            Overview = HtmlText.ToPlainText(overview),
             ProviderIds = providerIds,
             Links = links,
             SourceItemId = sourceItemId,
