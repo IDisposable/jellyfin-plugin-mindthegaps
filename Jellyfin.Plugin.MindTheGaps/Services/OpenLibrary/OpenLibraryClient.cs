@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -75,12 +74,8 @@ public sealed class OpenLibraryClient
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
             using var response = await HttpRetry.SendAsync(
                 client,
-                () =>
-                {
-                    var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
-                    request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Jellyfin.Plugin.MindTheGaps", "1.0"));
-                    return request;
-                },
+                // HttpRetry adds the plugin's versioned User-Agent.
+                () => new HttpRequestMessage(HttpMethod.Get, BaseUrl + path),
                 _logger,
                 "OpenLibrary",
                 path,

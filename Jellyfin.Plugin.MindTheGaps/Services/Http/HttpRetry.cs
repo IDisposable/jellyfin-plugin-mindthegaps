@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -63,6 +64,7 @@ internal static class HttpRetry
             try
             {
                 using var request = requestFactory();
+                EnsureUserAgent(request);
                 response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -127,6 +129,21 @@ internal static class HttpRetry
         {
             logger.LogWarning("{Service}: too many failures in a row, pausing calls to it for {Minutes:n0} min so the scan can move on", service, ServiceCircuit.OpenDuration.TotalMinutes);
         }
+    }
+
+    // Identify the plugin (with its real version) and a contact URL to every API, unless the caller already
+    // set its own User-Agent. Good API citizenship: some providers rate-limit or block blank/default agents,
+    // and MusicBrainz requires a descriptive one. TMDB goes through TMDbLib, which sets its own.
+    private static void EnsureUserAgent(HttpRequestMessage request)
+    {
+        if (request.Headers.UserAgent.Count > 0)
+        {
+            return;
+        }
+
+        var version = Plugin.Instance?.Version?.ToString() ?? "0.0";
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Jellyfin.Plugin.MindTheGaps", version));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("(+https://github.com/IDisposable/jellyfin-plugin-mindthegaps)"));
     }
 
     private static bool IsTransient(Exception ex)
