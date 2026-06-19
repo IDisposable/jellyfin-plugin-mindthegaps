@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.1.0"
+version: "10.11.1.1"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -18,10 +18,15 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.1.0 - Initial release. Mind the Gaps scans your library and builds a dashboard todo list of what is
-  missing or worth adding: movies missing from a collection or franchise; missing seasons and episodes
-  (optionally cross-checked against TVmaze and TheTVDB); films from an owned actor or director's filmography
-  (with an independent Trakt cross-check); curated studio and keyword sets; and TMDB recommendations.
-  Experimental music and books sources are included too. It shows where to watch each gap, links out to TMDB,
-  IMDb, TheTVDB, and JustWatch, and can optionally mint reversible virtual placeholders for missing collection
-  movies.
+  10.11.1.1 (pre-release) - Diagnose, deeper. A new Diagnose action explains why a gap is reported missing: a
+  per-gap popup lays the gap and the owned items that look like it side by side, and leads with a plain
+  verdict (owned under the wrong id, an owned item already holds this id, the gap looks stale, a wrong kind of
+  id, or genuinely missing). It corroborates by IMDb and TheTVDB id, so it still catches a title you own under
+  a localized name, and a "Deeper analysis" button confirms against the source provider and fills in missing
+  ids. A library-wide identification audit runs the same check across the whole library and downloads as
+  Markdown, with a link on each finding back into Jellyfin. Also in this build: a JustWatch search button on
+  movie and show rows that lack a JustWatch link (using your configured region); the Set completion tab now
+  groups by kind of set (collections and franchises, studios, keywords, and music discographies); provider
+  overviews are stripped of stray HTML and episode and season rows gained their missing search and open icons;
+  a fresh install opens to settings until the first scan; and the settings panel warns about unsaved changes.
+  This is the first build on the new beta release channel.
