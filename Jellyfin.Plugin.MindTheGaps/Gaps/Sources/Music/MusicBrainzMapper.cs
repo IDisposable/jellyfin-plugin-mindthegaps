@@ -20,20 +20,27 @@ public static class MusicBrainzMapper
     public static readonly string ReleaseGroupProvider = MetadataProvider.MusicBrainzReleaseGroup.ToString();
 
     /// <summary>
-    /// Builds discography gaps for an artist's unowned studio-album release-groups.
+    /// Builds gaps for an artist's unowned studio-album release-groups. The pattern and id prefix tell
+    /// the two music sources apart: an album artist you collect yields a <see cref="GapPattern.SetCompletion"/>
+    /// "discography" gap, an artist you only own tracks by yields a <see cref="GapPattern.CreatorWorks"/>
+    /// "artistworks" gap.
     /// </summary>
     /// <param name="artistMbid">The artist's MusicBrainz id (used in the stable gap id).</param>
     /// <param name="releaseGroups">The artist's album release-groups from MusicBrainz.</param>
     /// <param name="sourceItemId">The owned library artist's id (N-format guid).</param>
     /// <param name="sourceItemName">The owned library artist's name.</param>
     /// <param name="ownership">The library ownership index.</param>
-    /// <returns>The discography gaps for the unowned studio albums.</returns>
+    /// <param name="pattern">The gap pattern to tag each gap with.</param>
+    /// <param name="idPrefix">The stable-id prefix that distinguishes the two music sources.</param>
+    /// <returns>The gaps for the unowned studio albums.</returns>
     public static IEnumerable<GapItem> Build(
         string artistMbid,
         IEnumerable<Services.MusicBrainz.MusicBrainzReleaseGroup> releaseGroups,
         string sourceItemId,
         string? sourceItemName,
-        OwnershipIndex ownership)
+        OwnershipIndex ownership,
+        GapPattern pattern,
+        string idPrefix)
     {
         foreach (var group in releaseGroups)
         {
@@ -58,8 +65,8 @@ public static class MusicBrainzMapper
             }
 
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"discography:{artistMbid}:{group.Id}"),
-                pattern: GapPattern.SetCompletion,
+                id: string.Create(CultureInfo.InvariantCulture, $"{idPrefix}:{artistMbid}:{group.Id}"),
+                pattern: pattern,
                 domain: MediaDomain.Music,
                 targetKind: BaseItemKind.MusicAlbum,
                 name: group.Title,

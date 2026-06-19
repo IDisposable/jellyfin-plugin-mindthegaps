@@ -60,6 +60,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, RecommendationsGapSource>();
         serviceCollection.AddSingleton<IGapSource, CuratedSetGapSource>();
         serviceCollection.AddSingleton<IGapSource, MusicDiscographyGapSource>();
+        serviceCollection.AddSingleton<IGapSource, MusicArtistWorksGapSource>();
         serviceCollection.AddSingleton<IGapSource, BooksBibliographyGapSource>();
     }
 }

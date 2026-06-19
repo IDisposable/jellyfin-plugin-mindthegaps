@@ -65,7 +65,7 @@ missing rows and hitting "Mint selected"; there is no separate SetCompletion-onl
 
 | Promise (README / CLAUDE / ADRs) | Status |
 |---|---|
-| Music, Books, MusicVideos domains (`MediaDomain`; discography, book series, bibliography) | Enum values exist, zero sources. Movies and Shows are implemented. |
+| Music, Books, MusicVideos domains (`MediaDomain`; discography, book series, bibliography) | Music and Books have experimental sources (opt-in, off by default). Music: an album artist you collect yields a Set-completion discography, a track-only artist yields Creator-works "artist works". Books: author bibliography as Creator works. The symmetric **book series -> Set completion** is not built: OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to diff. MusicVideos is still enum-only. |
 | Materialize CreatorWorks or Recommendation gaps in bulk | Per-row and multi-select mint do it one batch at a time; no one-click "mint every gap of a pattern" |
 | Native virtual items in core (the three upstream asks) | PR A filed as jellyfin-web 8049; Discussions B and C are drafts |
 | Per-user display gate for minted items | Not possible from a plugin; minted items show for everyone |
