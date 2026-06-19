@@ -27,6 +27,8 @@
             /* Set completion lays its collapsed series/collection groups out in responsive columns, so a
                large library is not one very tall column. An expanded group spans every column to show its
                seasons and episodes full width. */
+            .cgSetKind { font-size: 1em; font-weight: 600; opacity: .85; margin: .9em 0 .25em 0; padding-bottom: .15em; border-bottom: 1px solid #333; }
+            .cgSetKind:first-child { margin-top: .2em; }
             .cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .1em 1.4em; align-items: start; }
             .cgGridWrap > .cgGroup { min-width: 0; }
             .cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
@@ -987,6 +989,40 @@
                     return Object.keys(present).sort(letterSort);
                 }
 
+                // The "kind of set" a SetCompletion gap completes, from its owning item's type, so the tab can
+                // group collections, studios, keywords, series, and discographies into separate sections.
+                var SET_KIND_ORDER = { 'Collections & franchises': 0, 'Series': 1, 'Discography': 2, 'Studios': 3, 'Keywords': 4, 'Other': 9 };
+                function setKindLabel(sourceItemType) {
+                    switch (sourceItemType) {
+                        case 'BoxSet': return 'Collections & franchises';
+                        case 'Series': return 'Series';
+                        case 'MusicArtist': return 'Discography';
+                        case 'Studio': return 'Studios';
+                        case 'Keyword': return 'Keywords';
+                        default: return 'Other';
+                    }
+                }
+
+                // One collapsed set cell (a collection, series, studio, ...) for the Set completion grid.
+                function setSourceCell(src, srcItems) {
+                    var covItem = srcItems[0];
+                    for (var i = 0; i < srcItems.length; i++) { if (srcItems[i].SetTotalCount) { covItem = srcItems[i]; break; } }
+                    var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
+                    // Scope the search to the right library kind for this set's domain: a movie collection
+                    // lives in box sets, a series in the shows libraries, an album artist in music.
+                    var domain = categoryOf(srcItems[0]);
+                    var searchScope = domain === 'Movies' ? 'boxsets' : domainScope(domain);
+                    // Trailing controls: streamable dot, coverage, search, open-in-Jellyfin, then the batch
+                    // dismiss buttons (episodic sets only). The open icon goes in extra (itemId is '' so
+                    // groupHtml does not also append it).
+                    var extra = streamDot(srcItems)
+                        + coverageBadge(covItem)
+                        + searchIcon(src, searchScope)
+                        + openIcon(srcItems[0].SourceItemId)
+                        + (isEpisodic ? batchDismissBtns(src) : '');
+                    return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
+                }
+
                 // Render the current pattern's entities for the items passed (already scoped to one domain and,
                 // via the A-Z selector, usually one letter): recommended titles as rows, creators as groups, or
                 // the set grid. The A-Z bar handles letters, so there is no in-tree letter grouping.
@@ -1012,29 +1048,21 @@
                         }).join('');
                     }
 
-                    // SetCompletion: collapsed series/collection cells in a responsive grid.
-                    var bySrc = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
-                    bySrc.order.sort(ci);
-                    var srcHtml = bySrc.order.map(function (src) {
-                        var srcItems = bySrc.map[src];
-                        var covItem = srcItems[0];
-                        for (var i = 0; i < srcItems.length; i++) { if (srcItems[i].SetTotalCount) { covItem = srcItems[i]; break; } }
-                        var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
-                        // Scope the search to the right library kind for this set's domain: a movie collection
-                        // lives in box sets, a series in the shows libraries, an album artist in music.
-                        var domain = categoryOf(srcItems[0]);
-                        var searchScope = domain === 'Movies' ? 'boxsets' : domainScope(domain);
-                        // Trailing controls in order: streamable dot, coverage, search, open-in-Jellyfin, then
-                        // resolve-all / not-interested-all. The open icon goes in extra (itemId is '' so groupHtml
-                        // does not also append it).
-                        var extra = streamDot(srcItems)
-                            + coverageBadge(covItem)
-                            + searchIcon(src, searchScope)
-                            + openIcon(srcItems[0].SourceItemId)
-                            + (isEpisodic ? batchDismissBtns(src) : '');
-                        return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
+                    // SetCompletion: split by the kind of set, then lay each kind's collapsed sources out in a
+                    // responsive grid. One domain can hold several kinds (Movies has collections, studios, and
+                    // keywords), so each kind gets a heading; with a single kind the heading is dropped.
+                    var byKind = groupBy(items, function (it) { return setKindLabel(it.SourceItemType); });
+                    byKind.order.sort(function (a, b) {
+                        return (SET_KIND_ORDER[a] != null ? SET_KIND_ORDER[a] : 9) - (SET_KIND_ORDER[b] != null ? SET_KIND_ORDER[b] : 9);
+                    });
+                    var multiKind = byKind.order.length > 1;
+                    return byKind.order.map(function (kind) {
+                        var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
+                        bySrc.order.sort(ci);
+                        var srcHtml = bySrc.order.map(function (src) { return setSourceCell(src, bySrc.map[src]); }).join('');
+                        var heading = multiKind ? '<h3 class="cgSetKind">' + esc(kind) + '</h3>' : '';
+                        return heading + '<div class="cgGridWrap">' + srcHtml + '</div>';
                     }).join('');
-                    return '<div class="cgGridWrap">' + srcHtml + '</div>';
                 }
 
                 // The filters shared by the tab counts and the list, all of them except the pattern itself,
