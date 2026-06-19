@@ -163,8 +163,8 @@ targeted deletes), so it does not need its own progress. Availability is its own
   resolve, not-interested, mint, version, refresh, and gear glyphs) rely on `title` only. Material icons
   render as text ligatures, so a screen reader can read the raw glyph name ("done", "close", "open_in_new").
   Add `aria-label` to each icon control and `aria-hidden="true"` on the decorative icon span, and confirm the
-  config page's inputs all have associated labels. A focused, low-risk accessibility pass over
-  `Web/mindthegaps.html` and `Configuration/configPage.html`.
+  settings form's inputs all have associated labels. A focused, low-risk accessibility pass over
+  `Web/mindthegaps.html` (which now holds both the report and the inline settings form).
 - **Collection completion misses owned movies that lack a TMDB id.** `CollectionGapSource` diffs a TMDB
   collection's parts against the ownership index, which is keyed by provider id, and never inspects the owned
   BoxSet's children. A movie that is in the BoxSet but whose library item has no (or a mismatched) TMDB id is

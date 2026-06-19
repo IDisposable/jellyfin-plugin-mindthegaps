@@ -188,10 +188,10 @@ Jellyfin.Plugin.MindTheGaps/            # the plugin
   Plugin.cs, ServiceRegistrator.cs, ProviderLinks.cs
   Gaps/                                 # engine + IGapSource + sources
   Services/                             # TMDB, Trakt, TVmaze, TheTVDB, availability clients
-  ScheduledTasks/GapScanTask.cs
+  ScheduledTasks/GapScanTask.cs, AvailabilityRefreshTask.cs
   Api/GapsController.cs
-  Web/mindthegaps.html                  # dashboard
-  Configuration/PluginConfiguration.cs, configPage.html
+  Web/mindthegaps.html                  # dashboard + settings (gear toggles an inline settings panel)
+  Configuration/PluginConfiguration.cs
   VirtualItems/VirtualMovieMinter.cs    # experimental, opt-in
 .editorconfig                           # code style + analyzer severities
 Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures

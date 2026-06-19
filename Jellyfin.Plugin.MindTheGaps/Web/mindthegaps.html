@@ -5,7 +5,7 @@
     <title>Mind the Gaps</title>
 </head>
 <body>
-    <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-linkbutton,paper-icon-button-light">
+    <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-checkbox,emby-linkbutton,paper-icon-button-light">
         <style>
             .cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
             .cgHdr1 { font-size: 1.1em; border-bottom: 1px solid #444; margin-top: .6em; }
@@ -68,14 +68,15 @@
         </style>
         <div data-role="content">
             <div class="content-primary">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle" id="cgPageTitle">Mind the Gaps ToDo List</h2>
+                    <span id="cgVersion" class="fieldDescription" style="margin-left:auto;margin-right:.4em;opacity:.6;" title="Installed plugin version"></span>
+                    <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" aria-label="Plugin settings" aria-expanded="false">
+                        <span class="material-icons" aria-hidden="true">settings</span>
+                    </button>
+                </div>
+                <div id="cgReportPanel">
                 <div class="verticalSection verticalSection-extrabottompadding">
-                    <div class="sectionTitleContainer flex align-items-center">
-                        <h2 class="sectionTitle">Mind the Gaps ToDo List</h2>
-                        <span id="cgVersion" class="fieldDescription" style="margin-left:auto;margin-right:.4em;opacity:.6;" title="Installed plugin version"></span>
-                        <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" aria-label="Plugin settings">
-                            <span class="material-icons" aria-hidden="true">settings</span>
-                        </button>
-                    </div>
                     <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.3em;">
                         <p class="fieldDescription" id="cgSummary" style="margin:0;">Loading&hellip;</p>
                         <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)" aria-label="Reload the last saved results (no rescan)">
@@ -159,6 +160,230 @@
                 <div id="cgJump" style="display:none;"></div>
                 <div id="cgRollup" style="display:none;"></div>
                 <div id="cgList" class="itemsContainer vertical-list"></div>
+                </div>
+
+                <div id="cgSettingsPanel" style="display:none;">
+                    <form id="MindTheGapsConfigForm" onsubmit="return false;">
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Settings</h2>
+                            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Close this panel with the gear to return to the report.</p>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">What to scan</h2>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanCollections" name="ScanCollections" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan collections &amp; franchises for missing movies</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanSeries" name="ScanSeries" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan series for missing seasons/episodes</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanPeople" name="ScanPeople" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan actor/director filmographies for unowned titles</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
+                                    <span>Include recommendations / similar titles (discovery)</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanCuratedSets" name="ScanCuratedSets" type="checkbox" is="emby-checkbox" />
+                                    <span>Track curated sets (studios and keywords below)</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="AutoSeedStudios" name="AutoSeedStudios" type="checkbox" is="emby-checkbox" />
+                                    <span>Auto-seed studios from your library (the studios most common on owned items)</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyNames">Studio names</label>
+                                <input id="CuratedCompanyNames" name="CuratedCompanyNames" type="text" is="emby-input" />
+                                <div class="fieldDescription">Comma-separated studio names to complete, for example A24, Studio Ghibli. Resolved to TMDB at scan time.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyIds">TMDB studio (company) ids</label>
+                                <input id="CuratedCompanyIds" name="CuratedCompanyIds" type="text" is="emby-input" />
+                                <div class="fieldDescription">Alternative to names: comma-separated TMDB company ids, for example 41077 (A24), 10342 (Studio Ghibli).</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="CuratedKeywordIds">TMDB keyword ids</label>
+                                <input id="CuratedKeywordIds" name="CuratedKeywordIds" type="text" is="emby-input" />
+                                <div class="fieldDescription">Comma-separated TMDB keyword ids to complete.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanMusic" name="ScanMusic" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan music artists for missing studio albums (MusicBrainz, experimental)</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanBooks" name="ScanBooks" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan books for other works by the author (OpenLibrary, experimental)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Where to watch</h2>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
+                                    <span>Enrich with streaming availability (TMDB / JustWatch)</span>
+                                </label>
+                                <div class="fieldDescription">Powers the "Where to watch" links and the report's "Hide items with no sources" filter. Look-ups run on demand per item, or as a background pass from the report (the "Look up where to watch" button), never during the scan. The "Refresh where to watch" scheduled task keeps it current.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="AvailabilityCacheHours">Availability cache (hours)</label>
+                                <input id="AvailabilityCacheHours" name="AvailabilityCacheHours" type="number" is="emby-input" min="1" max="720" />
+                                <div class="fieldDescription">How long a looked-up "where to watch" result stays fresh before it is refreshed. A stale result is still shown instantly while a refresh runs behind the scenes, so this only trades how current the data is against how often TMDB is hit. Default 24.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Data sources</h2>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label" title="TMDB powers collections, people, recommendations and availability, so it is always on. The plugin uses the key below if you set one, otherwise a built-in default key.">
+                                    <input id="UseTmdb" type="checkbox" is="emby-checkbox" checked disabled />
+                                    <span>Use TMDB (always on)</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key (optional)</label>
+                                <input id="TmdbApiKey" name="TmdbApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealTmdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TmdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="WebhookUrl">Webhook URL (optional)</label>
+                                <input id="WebhookUrl" name="WebhookUrl" type="text" is="emby-input" />
+                                <div class="fieldDescription">Posted to when a scan or the "where to watch" pass finishes (a summary, Discord-compatible). Leave blank to disable.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="TraktEnabled" name="TraktEnabled" type="checkbox" is="emby-checkbox" />
+                                    <span>Use Trakt as an independent filmography cross-check</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="TraktClientId">Trakt client id</label>
+                                <input id="TraktClientId" name="TraktClientId" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealTraktClientId" is="emby-button" type="button" class="raised cgReveal" data-target="TraktClientId" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="TvMazeEnabled" name="TvMazeEnabled" type="checkbox" is="emby-checkbox" />
+                                    <span>Use TVmaze to cross-check series for missing episodes</span>
+                                </label>
+                                <div class="fieldDescription">Keyless. Catches episodes a series' configured metadata provider doesn't list.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="TvdbEnabled" name="TvdbEnabled" type="checkbox" is="emby-checkbox" />
+                                    <span>Use TheTVDB to cross-check series for missing episodes</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
+                                <input id="TvdbApiKey" name="TvdbApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealTvdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Region</h2>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MetadataCountryCode">Country code</label>
+                                <input id="MetadataCountryCode" name="MetadataCountryCode" type="text" is="emby-input" />
+                                <div class="fieldDescription">ISO 3166-1 alpha-2, e.g. US, GB, DE.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MetadataLanguage">Language</label>
+                                <input id="MetadataLanguage" name="MetadataLanguage" type="text" is="emby-input" />
+                                <div class="fieldDescription">ISO 639-1, e.g. en, de.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Limits</h2>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
+                                <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" max="100" />
+                                <div class="fieldDescription">Caps how many similar titles each owned item contributes (recommended max 100).</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MinRecommendationVotes">Recommendations: minimum TMDB votes</label>
+                                <input id="MinRecommendationVotes" name="MinRecommendationVotes" type="number" is="emby-input" min="0" max="100000" />
+                                <div class="fieldDescription">A recommended ("similar") title must have at least this many TMDB votes to surface, trimming the obscure long tail of the discovery feed. 0 shows everything; raise it (for example 500 or 1000) to keep only well-known suggestions.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MaxMissingEpisodesPerShow">Max missing episodes per show</label>
+                                <input id="MaxMissingEpisodesPerShow" name="MaxMissingEpisodesPerShow" type="number" is="emby-input" min="0" max="10000" />
+                                <div class="fieldDescription">Caps how many missing episodes are listed per show. 0 lists them all.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MaxFilmographyPeople">Max creators scanned per run</label>
+                                <input id="MaxFilmographyPeople" name="MaxFilmographyPeople" type="number" is="emby-input" min="1" max="10000" />
+                                <div class="fieldDescription">Filmography and recommendation scans rotate stalest-first within this cap, so coverage builds up over runs; raise this to cover a large cast and crew faster (each person is one cached TMDB lookup; recommended max 10000).</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MinFilmographyVotes">Filmography: minimum TMDB votes</label>
+                                <input id="MinFilmographyVotes" name="MinFilmographyVotes" type="number" is="emby-input" min="0" max="100000" />
+                                <div class="fieldDescription">Keeps Creator works actionable on a large library: a cast credit must have at least this many TMDB votes to surface, which drops obscure and unreleased films. 0 shows everything; raise it (for example 500 or 1000) to trim to only well-known films. Directing/writing credits are always shown.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MaxCastBillingOrder">Filmography: deepest cast billing</label>
+                                <input id="MaxCastBillingOrder" name="MaxCastBillingOrder" type="number" is="emby-input" min="0" max="100" />
+                                <div class="fieldDescription">Drops minor (deeply billed) acting roles, so a bit part is not counted as the person's work. 0 keeps any billing; for example 10 keeps only roles billed in the top 10. Does not affect directing/writing.</div>
+                            </div>
+                            <div style="margin: 0.5em 0;">
+                                <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">
+                                    <span>Reset scan rotation</span>
+                                </button>
+                                <div class="fieldDescription">Forgets which items were scanned recently, so the next scan starts a fresh coverage cycle treating everything as never-scanned. Does not delete any gaps or dismissals. Stale entries for items that left the library are pruned automatically, so you rarely need this.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Experimental: virtual items</h2>
+                            <p class="fieldDescription" style="color:#e08000;">
+                                The plugin can write pathless "virtual" placeholder items into your library so missing
+                                entries render greyed-out, the way missing episodes do. It is a temporary stand-in for
+                                proper server support; the server will not reconcile or garbage-collect these for you.
+                                Mint individual gaps, or a multi-select batch, from the <strong>Mint</strong> buttons on
+                                the report. Use <strong>Remove minted movies</strong> here to undo everything at once.
+                            </p>
+                            <div style="margin: 0.5em 0 1.5em 0;">
+                                <button id="RemovePreview" is="emby-button" type="button" class="raised emby-button">
+                                    <span>Preview removal (dry run)</span>
+                                </button>
+                                <button id="RemoveMinted" is="emby-button" type="button" class="raised emby-button">
+                                    <span>Remove minted movies</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                                <span>Save</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -1142,7 +1367,7 @@
                     var href = window.location.href;
                     var hashIdx = href.indexOf('#');
                     var base = hashIdx === -1 ? href : href.slice(0, hashIdx);
-                    var hash = hashIdx === -1 ? '/configurationpage?name=MindTheGapsReport' : href.slice(hashIdx + 1);
+                    var hash = hashIdx === -1 ? '/configurationpage?name=MindTheGaps' : href.slice(hashIdx + 1);
                     var qIdx = hash.indexOf('?');
                     var path = qIdx === -1 ? hash : hash.slice(0, qIdx);
                     var query = qIdx === -1 ? '' : hash.slice(qIdx + 1);
@@ -1455,6 +1680,183 @@
                         .catch(function () { finish('Could not start the scan. Check the server logs.'); });
                 }
 
+                // ---- Settings panel (accordion) ----
+                // The gear toggles between the report and an inline settings form, so the plugin keeps a
+                // single sidebar entry. The form mirrors the standalone config page and saves through the
+                // same plugin-configuration API. Config is fetched lazily the first time the panel opens.
+
+                // Enable/disable and dim a secret field based on its toggle checkbox.
+                function bindSettingsToggle(page, toggleId, inputId) {
+                    var on = page.querySelector('#' + toggleId).checked;
+                    var input = page.querySelector('#' + inputId);
+                    input.disabled = !on;
+                    input.required = on;
+                    var container = input.closest('.inputContainer');
+                    if (container) { container.style.opacity = on ? '' : '0.5'; }
+                }
+
+                function loadConfig(page, config) {
+                    page.querySelector('#ScanCollections').checked = config.ScanCollections;
+                    page.querySelector('#ScanSeries').checked = config.ScanSeries;
+                    page.querySelector('#ScanPeople').checked = config.ScanPeople;
+                    page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
+                    page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
+                    page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
+                    page.querySelector('#CuratedCompanyNames').value = config.CuratedCompanyNames || '';
+                    page.querySelector('#CuratedCompanyIds').value = config.CuratedCompanyIds || '';
+                    page.querySelector('#CuratedKeywordIds').value = config.CuratedKeywordIds || '';
+                    page.querySelector('#ScanMusic').checked = config.ScanMusic;
+                    page.querySelector('#ScanBooks').checked = config.ScanBooks;
+                    page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
+                    page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
+                    page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
+                    page.querySelector('#TraktClientId').value = config.TraktClientId || '';
+                    page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
+                    page.querySelector('#TvdbEnabled').checked = config.TvdbEnabled;
+                    page.querySelector('#TvdbApiKey').value = config.TvdbApiKey || '';
+                    page.querySelector('#MetadataCountryCode').value = config.MetadataCountryCode || '';
+                    page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
+                    page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                    page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
+                    page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
+                    page.querySelector('#MinRecommendationVotes').value = config.MinRecommendationVotes;
+                    page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
+                    page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
+                    page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
+                    page.querySelector('#MaxCastBillingOrder').value = config.MaxCastBillingOrder;
+                    bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId');
+                    bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey');
+                }
+
+                // Poll the mint/remove background operation and report its result.
+                function pollRemoval() {
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/MintStatus'), dataType: 'json' })
+                        .then(function (s) {
+                            if (s && s.Running) { setTimeout(pollRemoval, 1500); }
+                            else { Dashboard.hideLoadingMsg(); Dashboard.alert((s && s.Message) || 'Done.'); }
+                        }, function () {
+                            Dashboard.hideLoadingMsg();
+                            Dashboard.alert('Lost contact while working. Check the server logs.');
+                        });
+                }
+
+                function runRemoval(path, confirmMsg) {
+                    if (confirmMsg && !window.confirm(confirmMsg)) { return; }
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/' + path), dataType: 'json' })
+                        .then(function () { pollRemoval(); }, function () {
+                            Dashboard.hideLoadingMsg();
+                            Dashboard.alert('Action failed. Check the server logs.');
+                        });
+                }
+
+                function saveConfig(page, e) {
+                    if (e) { e.preventDefault(); }
+                    var form = page.querySelector('#MindTheGapsConfigForm');
+
+                    // Validate a secret only when its cross-check is on; bypass entirely when off.
+                    if (form.querySelector('#TraktEnabled').checked && !form.querySelector('#TraktClientId').value.trim()) {
+                        Dashboard.alert('Enter a Trakt client id, or turn off the Trakt cross-check.');
+                        return false;
+                    }
+                    if (form.querySelector('#TvdbEnabled').checked && !form.querySelector('#TvdbApiKey').value.trim()) {
+                        Dashboard.alert('Enter a TheTVDB API key, or turn off the TheTVDB cross-check.');
+                        return false;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        config.ScanCollections = form.querySelector('#ScanCollections').checked;
+                        config.ScanSeries = form.querySelector('#ScanSeries').checked;
+                        config.ScanPeople = form.querySelector('#ScanPeople').checked;
+                        config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
+                        config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
+                        config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
+                        config.CuratedCompanyNames = form.querySelector('#CuratedCompanyNames').value;
+                        config.CuratedCompanyIds = form.querySelector('#CuratedCompanyIds').value;
+                        config.CuratedKeywordIds = form.querySelector('#CuratedKeywordIds').value;
+                        config.ScanMusic = form.querySelector('#ScanMusic').checked;
+                        config.ScanBooks = form.querySelector('#ScanBooks').checked;
+                        config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
+                        config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
+                        config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
+                        config.TraktClientId = form.querySelector('#TraktClientId').value;
+                        config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;
+                        config.TvdbEnabled = form.querySelector('#TvdbEnabled').checked;
+                        config.TvdbApiKey = form.querySelector('#TvdbApiKey').value;
+                        config.MetadataCountryCode = form.querySelector('#MetadataCountryCode').value;
+                        config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
+                        config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
+                        config.WebhookUrl = form.querySelector('#WebhookUrl').value;
+                        config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
+                        config.MinRecommendationVotes = parseInt(form.querySelector('#MinRecommendationVotes').value || '0', 10);
+                        config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
+                        config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
+                        config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
+                        config.MaxCastBillingOrder = parseInt(form.querySelector('#MaxCastBillingOrder').value || '0', 10);
+                        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                    return false;
+                }
+
+                // Swap the page between the report and the settings form, keeping the gear (and title) in sync.
+                function toggleSettings(page, show) {
+                    page.querySelector('#cgSettingsPanel').style.display = show ? '' : 'none';
+                    page.querySelector('#cgReportPanel').style.display = show ? 'none' : '';
+                    var gear = page.querySelector('#cgSettings');
+                    gear.setAttribute('aria-expanded', show ? 'true' : 'false');
+                    gear.title = show ? 'Close settings' : 'Plugin settings';
+                    var icon = gear.querySelector('.material-icons');
+                    if (icon) { icon.textContent = show ? 'close' : 'settings'; }
+                    page.querySelector('#cgPageTitle').textContent = show ? 'Mind the Gaps settings' : 'Mind the Gaps ToDo List';
+                    if (show && !page._cfgLoaded) {
+                        page._cfgLoaded = true;
+                        Dashboard.showLoadingMsg();
+                        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                            loadConfig(page, config);
+                            Dashboard.hideLoadingMsg();
+                        });
+                    }
+                    var sc = scrollerFor(page);
+                    if (sc) { sc.scrollTop = 0; }
+                }
+
+                function bindSettings(page) {
+                    page.querySelector('#TraktEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId'); });
+                    page.querySelector('#TvdbEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey'); });
+                    // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
+                    var revealBtns = page.querySelectorAll('.cgReveal');
+                    for (var rb = 0; rb < revealBtns.length; rb++) {
+                        revealBtns[rb].addEventListener('click', function () {
+                            var input = page.querySelector('#' + this.getAttribute('data-target'));
+                            if (!input) { return; }
+                            var sh = input.type === 'password';
+                            input.type = sh ? 'text' : 'password';
+                            var span = this.querySelector('span');
+                            if (span) { span.textContent = sh ? 'Hide' : 'Show'; }
+                        });
+                    }
+                    page.querySelector('#RemovePreview').addEventListener('click', function () { runRemoval('RemoveMintedMovies?dryRun=true', null); });
+                    page.querySelector('#RemoveMinted').addEventListener('click', function () { runRemoval('RemoveMintedMovies', null); });
+                    page.querySelector('#ResetRotation').addEventListener('click', function () {
+                        if (!window.confirm('Forget which items were scanned recently and start a fresh coverage cycle on the next scan?')) { return; }
+                        Dashboard.showLoadingMsg();
+                        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/ResetScanRotation') })
+                            .then(function () {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Scan rotation reset. The next scan starts a fresh coverage cycle.');
+                            }, function () {
+                                Dashboard.hideLoadingMsg();
+                                Dashboard.alert('Reset failed. Check the server logs.');
+                            });
+                    });
+                    // Bind the save to the live form (per page show), so the native form never GET-submits
+                    // (which would leak API keys into the URL).
+                    page.querySelector('#MindTheGapsConfigForm').addEventListener('submit', function (e) { saveConfig(page, e); });
+                }
+
                 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
                     var page = this;
                     // Jellyfin keeps this page element and re-fires pageshow on every navigation, so attach
@@ -1472,8 +1874,9 @@
                         startScan(page, this);
                     });
                     page.querySelector('#cgSettings').addEventListener('click', function () {
-                        Dashboard.navigate('configurationpage?name=MindTheGaps');
+                        toggleSettings(page, page.querySelector('#cgSettingsPanel').style.display === 'none');
                     });
+                    bindSettings(page);
                     function setAllSelected(checked) {
                         // "Select all" should reach every row, including those in still-deferred creator-works
                         // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups).

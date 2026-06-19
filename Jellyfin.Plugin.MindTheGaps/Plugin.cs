@@ -46,28 +46,15 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         var ns = GetType().Namespace;
 
-        // Admin configuration page. It must be EnableInMainMenu too: jellyfin-web's
-        // findBestConfigurationPage (apps/dashboard/features/plugins) resolves the plugin-details
-        // "Settings" button to the first candidate that has EnableInMainMenu (DisplayName is not
-        // consulted). With only the report page flagged, Settings would open the report; flagging this
-        // page and yielding it first makes Settings open the config. The side effect is that this page
-        // also appears in the admin dashboard drawer alongside the report, which is a normal place for
-        // plugin settings. The name must NOT collide case-insensitively with the report below: the host
-        // resolves pages by name with OrdinalIgnoreCase (DashboardController.GetDashboardConfigurationPage).
+        // One page for the whole plugin: the report and the settings form live on the same page, with the
+        // gear toggling between them (accordion), so there is a single sidebar entry rather than two. It is
+        // EnableInMainMenu so it shows in the dashboard drawer and so jellyfin-web's findBestConfigurationPage
+        // (apps/dashboard/features/plugins) resolves the plugin-details "Settings" button to it; that button
+        // opens the page with the report showing, and the gear opens the settings panel.
         yield return new PluginPageInfo
         {
             Name = "MindTheGaps",
             DisplayName = "Mind the Gaps",
-            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns),
-            EnableInMainMenu = true,
-            MenuIcon = "settings"
-        };
-
-        // The todo-list dashboard page, surfaced in the main menu.
-        yield return new PluginPageInfo
-        {
-            Name = "MindTheGapsReport",
-            DisplayName = "Mind the Gaps ToDo List",
             EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
             EnableInMainMenu = true,
             MenuIcon = "playlist_add_check"
