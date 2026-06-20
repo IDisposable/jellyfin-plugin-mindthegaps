@@ -1997,6 +1997,19 @@
                         }, function () { Dashboard.hideLoadingMsg(); return { Items: [] }; });
                 }
 
+                // Whether the settings panel is the one on screen (it starts hidden; the gear toggles it).
+                function settingsOpen(page) {
+                    return page.querySelector('#cgSettingsPanel').style.display !== 'none';
+                }
+
+                // Reload the report after a background scan or look-up finishes, but defer it while the settings
+                // panel is open so the report under it is not rebuilt out from under the user; it reloads when
+                // settings closes.
+                function reloadReport(page) {
+                    if (settingsOpen(page)) { page._reloadAfterSettings = true; return; }
+                    load(page);
+                }
+
                 function load(page) {
                     Dashboard.showLoadingMsg();
                     // Drop any cached slices so a reload (after a scan, mint, or availability pass) re-fetches.
@@ -2146,7 +2159,7 @@
                                     setTimeout(poll, 2000);
                                 } else {
                                     done();
-                                    load(page);
+                                    reloadReport(page);
                                     if (s && s.Message) { Dashboard.alert(s.Message); }
                                 }
                             })
@@ -2182,7 +2195,7 @@
                                     setTimeout(poll, 2000);
                                 } else {
                                     finish();
-                                    load(page);
+                                    reloadReport(page);
                                 }
                             })
                             .catch(function () { finish('Lost contact while scanning. Refresh to see results.'); });
@@ -2335,6 +2348,10 @@
                             loadConfig(page, config);
                             Dashboard.hideLoadingMsg();
                         });
+                    } else if (page._reloadAfterSettings) {
+                        // A scan or look-up finished while settings was open; pick up its results now.
+                        page._reloadAfterSettings = false;
+                        load(page);
                     }
                     var sc = scrollerFor(page);
                     if (sc) { sc.scrollTop = 0; }
