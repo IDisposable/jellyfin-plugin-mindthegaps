@@ -132,6 +132,61 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
+    public void ApplyCrossProviderDisagreement_DifferentImdb_DowngradesToNotOwned()
+    {
+        // A same-title owned movie under a different TheMovieDb id, but the resolved IMDb ids differ: a
+        // different film sharing the title, so the deeper pass downgrades it to a genuine gap.
+        var gap = Gap(BaseItemKind.Movie, "The Game", 1997, ("Tmdb", "1000"), ("Imdb", "tt0119174"));
+        var diagnosis = new GapDiagnosis
+        {
+            Reason = DiagnosisReason.OwnedUnderWrongId,
+            TargetKind = BaseItemKind.Movie,
+            Candidates = new List<DiagnosisItem>
+            {
+                new()
+                {
+                    Relation = "titleMatch",
+                    Name = "The Game",
+                    ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "55", ["Imdb"] = "tt9999999" }
+                }
+            }
+        };
+
+        GapDiagnostics.ApplyCrossProviderDisagreement(gap, diagnosis);
+
+        Assert.Equal(DiagnosisReason.NotOwned, diagnosis.Reason);
+        Assert.Contains("different films", diagnosis.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ApplyCrossProviderDisagreement_MatchingImdb_ConfirmsOwnedUnderWrongId()
+    {
+        // The same-title owned movie has a different TheMovieDb id but the same IMDb id: confirmed the same
+        // film under the wrong id.
+        var gap = Gap(BaseItemKind.Movie, "The Game", 1997, ("Tmdb", "1000"), ("Imdb", "tt0119174"));
+        var diagnosis = new GapDiagnosis
+        {
+            Reason = DiagnosisReason.OwnedUnderWrongId,
+            TargetKind = BaseItemKind.Movie,
+            Candidates = new List<DiagnosisItem>
+            {
+                new()
+                {
+                    Relation = "titleMatch",
+                    Name = "The Game",
+                    ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "55", ["Imdb"] = "tt0119174" }
+                }
+            }
+        };
+
+        GapDiagnostics.ApplyCrossProviderDisagreement(gap, diagnosis);
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, diagnosis.Reason);
+        Assert.Contains("Confirmed", diagnosis.Summary, StringComparison.Ordinal);
+        Assert.Contains("IMDb", diagnosis.Candidates[0].Note!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void DiagnoseAgainst_SameTitleYearMissing_FallsBackToNameMatch()
     {
         // The owned item has no year, so year cannot tell them apart: fall back to the name match.

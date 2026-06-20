@@ -86,6 +86,11 @@ public sealed class GapDiagnostics
                 }
             }
 
+            // Now that both sides carry resolved IMDb ids, use them to tell a real misidentification (same
+            // film under the wrong TheMovieDb id) from a coincidental title clash (a different film sharing
+            // the title), which a library-only, title-keyed match cannot distinguish.
+            ApplyCrossProviderDisagreement(gap, diagnosis);
+
             diagnosis.Deepened = true;
         }
 
@@ -351,6 +356,68 @@ public sealed class GapDiagnostics
             Target = target,
             Candidates = candidates
         };
+    }
+
+    // In the deeper pass, compare the gap's resolved IMDb id with each same-title owned candidate's resolved
+    // IMDb id. A match confirms the candidate is the same film under the wrong TheMovieDb id; a mismatch means
+    // a different film that merely shares the title. When every same-title candidate is a different film (and
+    // nothing matched by a shared id), the gap is genuinely missing after all. Does nothing without a gap IMDb
+    // id to compare, so it is safe to call whenever the deeper pass ran.
+    internal static void ApplyCrossProviderDisagreement(GapItem gap, GapDiagnosis diagnosis)
+    {
+        gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
+        gap.ProviderIds.TryGetValue("Tmdb", out var gapTmdb);
+        if (string.IsNullOrEmpty(gapImdb))
+        {
+            return;
+        }
+
+        var titleMatches = diagnosis.Candidates
+            .Where(c => string.Equals(c.Relation, "titleMatch", StringComparison.Ordinal))
+            .ToList();
+        if (titleMatches.Count == 0)
+        {
+            return;
+        }
+
+        var hasSharedIdMatch = diagnosis.Candidates.Any(c => c.Relation is "idMatch" or "idHolder");
+        var confirmedSameFilm = false;
+        var allDifferentFilm = true;
+        foreach (var candidate in titleMatches)
+        {
+            candidate.ProviderIds.TryGetValue("Imdb", out var candidateImdb);
+            candidate.ProviderIds.TryGetValue("Tmdb", out var candidateTmdb);
+
+            if (string.IsNullOrEmpty(candidateImdb) || string.Equals(candidateTmdb, gapTmdb, StringComparison.Ordinal))
+            {
+                // No IMDb id to compare, or it already carries the gap's id: cannot call it a different film.
+                allDifferentFilm = false;
+                continue;
+            }
+
+            if (string.Equals(candidateImdb, gapImdb, StringComparison.OrdinalIgnoreCase))
+            {
+                candidate.Note = "same film, confirmed by a matching IMDb id (owned under the wrong TheMovieDb id)";
+                confirmedSameFilm = true;
+                allDifferentFilm = false;
+            }
+            else
+            {
+                candidate.Note = "a different film that shares this title (its IMDb id differs)";
+            }
+        }
+
+        var noun = gap.TargetKind == BaseItemKind.Series ? "show" : "movie";
+        if (confirmedSameFilm)
+        {
+            diagnosis.Reason = DiagnosisReason.OwnedUnderWrongId;
+            diagnosis.Summary = string.Create(CultureInfo.InvariantCulture, $"Confirmed: you own this {noun} under a different TheMovieDb id (its IMDb id matches). Fix the owned item's id and rescan.");
+        }
+        else if (allDifferentFilm && !hasSharedIdMatch && diagnosis.Reason == DiagnosisReason.OwnedUnderWrongId)
+        {
+            diagnosis.Reason = DiagnosisReason.NotOwned;
+            diagnosis.Summary = string.Create(CultureInfo.InvariantCulture, $"No owned {noun} matches once external ids are compared: the same-title items you own are different films (their IMDb ids differ), so this looks like a genuine gap.");
+        }
     }
 
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)

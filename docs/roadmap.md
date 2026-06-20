@@ -208,11 +208,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   those candidates out as a comparison table with linked TheMovieDb/IMDb/TheTVDB ids, so the mis-tagged
   "Never Go Back" case (an owned item carrying a different film's id) is obvious and fixable; the audit runs
   the same check across the whole library and downloads it as Markdown (the mismatches plus every duplicate
-  TheMovieDb id). Both are library-only. What remains: (a) inspecting the owned BoxSet's actual children for
-  collection gaps, so a movie sitting in the BoxSet under the wrong (or no) TMDB id is diagnosed as
-  owned-but-mistagged rather than merely "not owned" (surfacing it to be corrected, not silently treating it
-  as owned); (b) **cross-provider disagreement** via `TmdbClient.GetExternalIdsAsync` (resolve the gap's TMDB
-  id to its external ids and compare), which would add a network call the current synchronous diagnosis avoids.
+  TheMovieDb id). The library-only check is synchronous; the **Deeper analysis** button adds a networked pass.
+  Done in the deeper pass: **cross-provider disagreement** (`ApplyCrossProviderDisagreement`). After resolving
+  both the gap's and each candidate's external ids via `TmdbClient.GetExternalIdsAsync`, it compares the IMDb
+  ids of same-title candidates: a match confirms the same film under the wrong TheMovieDb id, a mismatch marks
+  a different film that merely shares the title, and when every same-title candidate is a different film the
+  verdict downgrades to genuinely missing. That tells the two cases apart, which a title-keyed library match
+  cannot. Deliberately not done: inspecting the owned BoxSet's children for collection gaps. The library-wide
+  title match already includes BoxSet members, so an in-collection mistag with the same title is already
+  surfaced as "owned under the wrong id"; matching a differently-titled member would need fuzzy title/year or
+  position matching, which is the masking approach rejected above (surface it, do not guess).
 
 - **Extend the Diagnose action to Music and Books.** `GapDiagnostics` is already provider-agnostic on the
   data side: a `DiagnosisItem` carries a full `ProviderIds` map and `ProviderLinks` builds its links, so the
