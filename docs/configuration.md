@@ -31,10 +31,11 @@ These only matter when **Curated studio / keyword sets** is on.
 
 | Setting | When set | When cleared |
 |---|---|---|
-| **Studio names** (`CuratedCompanyNames`) | Comma-separated studio names, for example `A24, Studio Ghibli`. Each is resolved to a TMDB company at scan time. Convenient but a name can resolve to the wrong company; prefer ids when in doubt. | No name-resolved studios. |
-| **TMDB studio (company) ids** (`CuratedCompanyIds`) | Comma-separated TMDB company ids, for example `41077` (A24), `10342` (Studio Ghibli). Exact, no resolution guesswork. | No id-specified studios. |
-| **TMDB keyword ids** (`CuratedKeywordIds`) | Comma-separated TMDB keyword ids to complete (for example a franchise keyword). | No keyword sets. |
-| **Auto-seed studios from your library** (`AutoSeedStudios`) | Tracks the studios most common across your owned movies and series without you listing anything. Combine with the explicit lists or use alone. | Only the studios/keywords you listed are tracked. |
+| **Studios** (`CuratedCompanyIds`) | Search TheMovieDb for a studio in the chip box and pick a match (for example A24 or Studio Ghibli); each becomes a removable chip. Only the matched TMDB company id is stored, so there is no resolution guesswork at scan time. | No studio sets. |
+| **Keywords** (`CuratedKeywordIds`) | Search TheMovieDb for a keyword (a theme or motif) and pick a match; each becomes a chip. Only the keyword id is stored. | No keyword sets. |
+| **Auto-seed studios from your library** (`AutoSeedStudios`) | Tracks the studios most common across your owned movies and series without you picking anything. Combine with the chips or use alone. | Only the studios/keywords you picked are tracked. |
+
+> **Breaking change (10.11.2.0):** studios and keywords are now chosen with a type-ahead chip picker instead of free-text fields. The old free-text **studio names** input (`CuratedCompanyNames`) was removed; any studios you had configured **by name** are dropped and must be re-picked. Studio and keyword **ids** you had set are unaffected.
 
 ## Where to watch
 

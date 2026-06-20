@@ -10,6 +10,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -35,6 +36,7 @@ public class GapsController : ControllerBase
     private readonly ResolutionStore _resolutions;
     private readonly ScanCursorStore _cursors;
     private readonly GapDiagnostics _diagnostics;
+    private readonly TmdbClient _tmdb;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -48,7 +50,8 @@ public class GapsController : ControllerBase
     /// <param name="resolutions">The store of per-gap resolution notes.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="diagnostics">The gap identification diagnostics.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics)
+    /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -59,6 +62,7 @@ public class GapsController : ControllerBase
         _resolutions = resolutions;
         _cursors = cursors;
         _diagnostics = diagnostics;
+        _tmdb = tmdb;
     }
 
     /// <summary>
@@ -270,6 +274,73 @@ public class GapsController : ControllerBase
     {
         return _diagnostics.BuildAudit(_store.LoadSnapshot());
     }
+
+    /// <summary>
+    /// Type-ahead for the curated-set settings: searches TheMovieDb studios or keywords by name so the
+    /// settings page can offer matches to pick, never exposing the numeric id.
+    /// </summary>
+    /// <param name="kind">"studio" or "keyword".</param>
+    /// <param name="query">The partial name typed.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The top matches as id and name pairs.</returns>
+    [HttpGet("CuratedSearch")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<CuratedSetRef>>> CuratedSearch([FromQuery] string? kind, [FromQuery] string? query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return new List<CuratedSetRef>();
+        }
+
+        var results = IsKeyword(kind)
+            ? await _tmdb.SearchKeywordsAsync(query, cancellationToken).ConfigureAwait(false)
+            : await _tmdb.SearchCompaniesAsync(query, cancellationToken).ConfigureAwait(false);
+        return results.ToList();
+    }
+
+    /// <summary>
+    /// Resolves stored curated-set ids to id and name pairs, so the settings page can render a chip per
+    /// saved set with its name rather than its id.
+    /// </summary>
+    /// <param name="kind">"studio" or "keyword".</param>
+    /// <param name="ids">A comma-separated list of stored ids.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The resolved sets, de-duplicated by id in input order.</returns>
+    [HttpGet("CuratedResolve")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<CuratedSetRef>>> CuratedResolve([FromQuery] string? kind, [FromQuery] string? ids, CancellationToken cancellationToken)
+    {
+        var keyword = IsKeyword(kind);
+        var resolved = new List<CuratedSetRef>();
+        var seen = new HashSet<int>();
+
+        foreach (var id in ParseIds(ids))
+        {
+            if (!seen.Add(id))
+            {
+                continue;
+            }
+
+            var name = keyword
+                ? await _tmdb.GetKeywordNameAsync(id, cancellationToken).ConfigureAwait(false)
+                : await _tmdb.GetCompanyNameAsync(id, cancellationToken).ConfigureAwait(false);
+            resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id.ToString(CultureInfo.InvariantCulture) : name });
+        }
+
+        return resolved;
+    }
+
+    // Whether a curated-set kind query value means keywords (otherwise studios).
+    private static bool IsKeyword(string? kind)
+        => string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase);
+
+    // Parse a comma-separated list of ids, ignoring blanks and non-numbers.
+    private static IEnumerable<int> ParseIds(string? raw)
+        => string.IsNullOrWhiteSpace(raw)
+            ? Array.Empty<int>()
+            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0)
+                .Where(id => id > 0);
 
     // Look a gap up by its stable id in the current stored report. Returns null for a missing/unknown id.
     private GapItem? RehydrateGap(string? id)

@@ -67,6 +67,23 @@
             .cgJumpL:hover { background: rgba(255,255,255,.14); opacity: 1; }
             .cgJumpL.cgJumpSel { background: #00a4dc; color: #fff; opacity: 1; }
             .cgJumpAll { font-weight: 700; }
+            /* Curated-set chip input: type a name, pick a match, it becomes a removable chip. The numeric
+               provider id never shows; it is held on the chip and saved behind the scenes. */
+            .cgChipField { position: relative; }
+            .cgChipBox { display: flex; flex-wrap: wrap; align-items: center; gap: .35em; padding: .35em .45em; border: 1px solid #2c2c2c; border-radius: 4px; background: #292929; min-height: 2.2em; cursor: text; }
+            .cgChipBox:focus-within { border-color: #00a4dc; }
+            .cgChip { display: inline-flex; align-items: center; gap: .2em; padding: .1em .2em .1em .55em; border-radius: 12px; background: rgba(0,164,220,.18); color: #e0f4fb; font-size: .9em; }
+            .cgChipX { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; width: 1.3em; height: 1.3em; line-height: 1.3em; text-align: center; border-radius: 50%; opacity: .7; }
+            .cgChipX:hover { background: rgba(255,255,255,.18); opacity: 1; }
+            .cgChipX:focus-visible { outline: 2px solid #00a4dc; outline-offset: 1px; opacity: 1; }
+            /* Visually hidden but available to screen readers (the chip add/remove live region). */
+            .cgSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+            .cgChipInput { flex: 1 1 8em; min-width: 8em; background: transparent; border: 0; outline: none; color: inherit; font-size: 1em; padding: .2em; }
+            .cgSuggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: .15em; max-height: 16em; overflow-y: auto; background: #1c1c1c; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none; }
+            .cgSuggest.cgShown { display: block; }
+            .cgSuggestItem { padding: .4em .6em; cursor: pointer; font-size: .92em; }
+            .cgSuggestItem:hover, .cgSuggestItem.cgSuggestSel { background: #00a4dc; color: #fff; }
+            .cgSuggestEmpty { padding: .4em .6em; opacity: .6; font-size: .9em; }
         </style>
         <div data-role="content">
             <div class="content-primary">
@@ -213,19 +230,27 @@
                                 </label>
                             </div>
                             <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyNames">Studio names</label>
-                                <input id="CuratedCompanyNames" name="CuratedCompanyNames" type="text" is="emby-input" />
-                                <div class="fieldDescription">Comma-separated studio names to complete, for example A24, Studio Ghibli. Resolved to TMDB at scan time.</div>
+                                <label class="inputLabel inputLabelUnfocused" for="cgStudioInput">Studios</label>
+                                <div class="cgChipField" id="cgStudioField">
+                                    <div class="cgChipBox" id="cgStudioBox">
+                                        <span class="cgChipList" id="cgStudioChips" role="list" aria-label="Selected studios"></span>
+                                        <input id="cgStudioInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search studios..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgStudioSuggest" />
+                                    </div>
+                                    <div class="cgSuggest" id="cgStudioSuggest" role="listbox" aria-label="Studio matches"></div>
+                                </div>
+                                <div class="fieldDescription">Search TheMovieDb for a studio and pick it; the movies it made that you do not own become gaps. For example A24 or Studio Ghibli.</div>
                             </div>
                             <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="CuratedCompanyIds">TMDB studio (company) ids</label>
-                                <input id="CuratedCompanyIds" name="CuratedCompanyIds" type="text" is="emby-input" />
-                                <div class="fieldDescription">Alternative to names: comma-separated TMDB company ids, for example 41077 (A24), 10342 (Studio Ghibli).</div>
-                            </div>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="CuratedKeywordIds">TMDB keyword ids</label>
-                                <input id="CuratedKeywordIds" name="CuratedKeywordIds" type="text" is="emby-input" />
-                                <div class="fieldDescription">Comma-separated TMDB keyword ids to complete.</div>
+                                <label class="inputLabel inputLabelUnfocused" for="cgKeywordInput">Keywords</label>
+                                <div class="cgChipField" id="cgKeywordField">
+                                    <div class="cgChipBox" id="cgKeywordBox">
+                                        <span class="cgChipList" id="cgKeywordChips" role="list" aria-label="Selected keywords"></span>
+                                        <input id="cgKeywordInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search keywords..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgKeywordSuggest" />
+                                    </div>
+                                    <div class="cgSuggest" id="cgKeywordSuggest" role="listbox" aria-label="Keyword matches"></div>
+                                </div>
+                                <div class="fieldDescription">Search TheMovieDb for a keyword (a theme or motif) and pick it; movies tagged with it that you do not own become gaps.</div>
+                                <div id="cgChipLive" class="cgSrOnly" role="status" aria-live="polite"></div>
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
@@ -1293,6 +1318,10 @@
                 // Escape the markdown control characters so a title cannot break the output.
                 function mdEsc(s) { return (s == null ? '' : String(s)).replace(/([\\`*_\[\]()<>#|])/g, '\\$1'); }
 
+                // Like mdEsc but for heading text: parentheses are left alone (they are safe in a heading, and
+                // escaping them shows literal backslashes in some renderers, which also breaks the anchor).
+                function mdHeading(s) { return (s == null ? '' : String(s)).replace(/([\\`*_\[\]<>#|])/g, '\\$1'); }
+
                 // A gap's H2 heading text (no leading "##"): the linked title and its year/kind.
                 function gapHeading(it) {
                     var links = it.Links || [];
@@ -1325,7 +1354,7 @@
                         var watch = watchUrl ? '[Watch](' + safeUrl(watchUrl) + ')' : 'Watch';
                         parts.push(watch + (provs.length ? ': ' + provs.map(mdEsc).join(', ') : ''));
                     }
-                    if (it.LibraryItemId) { parts.push('[Open in Jellyfin](' + itemUrl(it.LibraryItemId) + ')'); }
+                    if (it.LibraryItemId) { parts.push('[\uD83D\uDD17 Open in Jellyfin](' + itemUrl(it.LibraryItemId) + ')'); }
                     if (it.SourceItemName) { parts.push('from ' + mdEsc(it.SourceItemName)); }
                     var res = activeDismissal(it);
                     if (res) {
@@ -1374,28 +1403,51 @@
                     if (groupCount > 1) {
                         out.push('## Contents', '');
                         sections.forEach(function (s) {
-                            out.push('- [' + mdEsc(s.cat + ' ' + label) + '](#' + s.anchor + ')');
+                            out.push('- [' + mdHeading(s.cat + ' ' + label) + '](#' + s.anchor + ')');
                             s.groups.forEach(function (g) {
-                                out.push('    - [' + mdEsc(g.label) + '](#' + g.anchor + ')');
+                                out.push('    - [' + mdHeading(g.label) + '](#' + g.anchor + ')');
                             });
                         });
                         out.push('');
                     }
 
+                    // Sort by source then title so one set's gaps stay adjacent and read alphabetically.
+                    var byTitle = function (a, b) {
+                        var src = ci(a.SourceItemName || '', b.SourceItemName || '');
+                        return src !== 0 ? src : ci(a.Name || '', b.Name || '');
+                    };
+                    var emitGap = function (it) {
+                        out.push('### ' + gapHeading(it));
+                        var detail = gapDetail(it);
+                        if (detail) { out.push(detail); }
+                        out.push('');
+                    };
+                    // Collapse each set's gaps in a native <details>: <details>/<summary> with blank lines around
+                    // the body is the no-JS collapsible that GitHub, VS Code, and most Markdown viewers render.
+                    // The domain and group stay real headings so the contents links still resolve.
+                    var openDetails = function (summary) { out.push('<details>', '<summary>' + summary + '</summary>', ''); };
+                    var closeDetails = function () { out.push('</details>', ''); };
+                    var isSet = page._pattern === 'SetCompletion';
                     sections.forEach(function (s) {
-                        out.push('# ' + mdEsc(s.heading), '');
+                        out.push('# ' + mdHeading(s.heading), '');
                         s.groups.forEach(function (g) {
-                            out.push('## ' + mdEsc(g.label), '');
-                            // Sort by source then title to keep one source's gaps adjacent within the group.
-                            g.items.slice().sort(function (a, b) {
-                                var src = ci(a.SourceItemName || '', b.SourceItemName || '');
-                                return src !== 0 ? src : ci(a.Name || '', b.Name || '');
-                            }).forEach(function (it) {
-                                out.push('### ' + gapHeading(it));
-                                var detail = gapDetail(it);
-                                if (detail) { out.push(detail); }
-                                out.push('');
-                            });
+                            out.push('## ' + mdHeading(g.label), '');
+                            if (isSet) {
+                                // Two axes: the kind (the H2) and the individual set; each set collapses on its own.
+                                var bySource = groupBy(g.items, function (it) { return it.SourceItemName || '(no source)'; });
+                                bySource.order.sort(ci);
+                                bySource.order.forEach(function (src) {
+                                    var rows = bySource.map[src].slice().sort(byTitle);
+                                    openDetails(esc(src) + ' (' + rows.length + ')');
+                                    rows.forEach(emitGap);
+                                    closeDetails();
+                                });
+                            } else {
+                                var rows = g.items.slice().sort(byTitle);
+                                openDetails(rows.length === 1 ? '1 item' : rows.length + ' items');
+                                rows.forEach(emitGap);
+                                closeDetails();
+                            }
                         });
                     });
                     return out.join('\n');
@@ -1428,23 +1480,34 @@
                             .map(function (t) { return (DIAG_PROVIDER_LABEL[t] || t) + ' ' + diagCell(cells[t], true); });
                         return parts.length ? parts.join(', ') : '(no ids)';
                     };
-                    var jf = function (it) { return it.JellyfinItemId ? ' - [open in Jellyfin](<' + itemUrl(it.JellyfinItemId) + '>)' : ''; };
+                    // Open-in-Jellyfin link with a link glyph (U+1F517, the surrogate-pair escape keeps this
+                    // file ASCII). No angle-bracket wrap: the item url has no spaces, and the wrap renders
+                    // literally in some viewers.
+                    var jf = function (it) { return it.JellyfinItemId ? ' - [\uD83D\uDD17 open in Jellyfin](' + itemUrl(it.JellyfinItemId) + ')' : ''; };
                     var yr = function (it) { return it.Year ? ' (' + it.Year + ')' : ''; };
 
-                    // One mismatch finding (target, owned candidates, fix hint, deeper link) as Markdown lines.
-                    var mismatchLines = function (d) {
-                        var lines = [];
+                    // A native collapsible: <details>/<summary> with blank lines around the body, the no-JS
+                    // collapsible that GitHub, VS Code, and most Markdown viewers render. Section headings stay
+                    // real headings so the contents links still resolve.
+                    var detailsBlock = function (summary, bodyLines) {
+                        return ['<details>', '<summary>' + summary + '</summary>', ''].concat(bodyLines, ['', '</details>', '']);
+                    };
+
+                    // One mismatch finding as a collapsible: the missing title is the summary; the expected ids,
+                    // owned candidates, fix hint, and deeper link are the body.
+                    var mismatchDetails = function (d) {
                         var t = d.Target || {};
-                        lines.push('- **' + mdEsc(t.Name || '') + yr(t) + '** - missing; expected ' + ids(t));
+                        var summary = '<strong>' + esc(t.Name || '') + esc(yr(t)) + '</strong> - missing';
+                        var lines = ['Expected ' + ids(t) + '.', ''];
                         (d.Candidates || []).forEach(function (c) {
-                            lines.push('  - Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
+                            lines.push('- Owned as "' + mdEsc(c.Name || '') + '"' + yr(c) + ': ' + ids(c) + jf(c) + (c.Note ? ' - _' + mdEsc(c.Note) + '_' : ''));
                         });
                         var tTmdb = t.ProviderIds && t.ProviderIds.Tmdb;
-                        if (tTmdb) { lines.push('  - Fix: set the owned item to TheMovieDb ' + tTmdb + ', then rescan.'); }
+                        if (tTmdb) { lines.push('- Fix: set the owned item to TheMovieDb ' + tTmdb + ', then rescan.'); }
                         // The label is a magnifying glass (U+1F50D) plus "Deeper"; the surrogate-pair escape
                         // keeps this file ASCII while the exported Markdown still shows the glyph.
-                        if (d.GapId) { lines.push('  - [\uD83D\uDD0D Deeper](' + diagDeepLink(d.GapId) + ')'); }
-                        return lines;
+                        if (d.GapId) { lines.push('- [\uD83D\uDD0D Deeper](' + diagDeepLink(d.GapId) + ')'); }
+                        return detailsBlock(summary, lines);
                     };
 
                     // Build the sections (heading + body lines). A reason section appears only when it has
@@ -1452,7 +1515,7 @@
                     var sections = [];
                     var mismatches = audit.Mismatches || [];
                     if (!mismatches.length) {
-                        sections.push({ heading: 'Likely false "missing" (0)', body: ['None found: every checked gap looks like a genuine miss.', ''] });
+                        sections.push({ heading: 'Likely false "missing"', body: ['None found: every checked gap looks like a genuine miss.', ''] });
                     } else {
                         var byReason = {};
                         mismatches.forEach(function (d) { (byReason[d.ReasonName] = byReason[d.ReasonName] || []).push(d); });
@@ -1460,10 +1523,11 @@
                             var list = byReason[r];
                             if (!list || !list.length) { return; }
                             var label = (DIAG_REASON[r] && DIAG_REASON[r].label) || r;
-                            var body = [AUDIT_REASON_INTRO[r] || '', ''];
-                            list.forEach(function (d) { body = body.concat(mismatchLines(d)); });
-                            body.push('');
-                            sections.push({ heading: label + ' (' + list.length + ')', body: body });
+                            // The count goes in the body, not the heading: parentheses in a heading get escaped
+                            // and break the contents anchors.
+                            var body = ['**' + list.length + '** ' + (AUDIT_REASON_INTRO[r] || ''), ''];
+                            list.forEach(function (d) { body = body.concat(mismatchDetails(d)); });
+                            sections.push({ heading: label, body: body });
                         });
                     }
 
@@ -1472,18 +1536,18 @@
                     if (!dups.length) {
                         dupBody.push('None found: no two owned items share a TheMovieDb id.', '');
                     } else {
-                        dupBody.push('Each id below is on more than one owned item, so at least one is misidentified.', '');
+                        dupBody.push('**' + dups.length + '** Each id below is on more than one owned item, so at least one is misidentified.', '');
                         dups.forEach(function (g) {
                             var tmdbCell = diagCells((g.Items || [])[0] || {}).tmdb;
                             var dl = tmdbCell && tmdbCell.url;
-                            dupBody.push('- TheMovieDb ' + (dl ? '[' + g.Id + '](' + dl + ')' : g.Id) + ' is on ' + (g.Items || []).length + ' items:');
-                            (g.Items || []).forEach(function (c) {
-                                dupBody.push('  - "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c));
-                            });
+                            var n = (g.Items || []).length;
+                            var lines = [];
+                            if (dl) { lines.push('[Open TheMovieDb ' + g.Id + '](' + dl + ')', ''); }
+                            (g.Items || []).forEach(function (c) { lines.push('- "' + mdEsc(c.Name || '') + '"' + yr(c) + jf(c)); });
+                            dupBody = dupBody.concat(detailsBlock('TheMovieDb ' + esc(String(g.Id)) + ' on ' + n + ' items', lines));
                         });
-                        dupBody.push('');
                     }
-                    sections.push({ heading: 'Duplicate TheMovieDb ids (' + dups.length + ')', body: dupBody });
+                    sections.push({ heading: 'Duplicate TheMovieDb ids', body: dupBody });
 
                     var anchorFor = anchorAllocator();
                     sections.forEach(function (s) { s.anchor = anchorFor(s.heading); });
@@ -2151,9 +2215,7 @@
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
                     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
-                    page.querySelector('#CuratedCompanyNames').value = config.CuratedCompanyNames || '';
-                    page.querySelector('#CuratedCompanyIds').value = config.CuratedCompanyIds || '';
-                    page.querySelector('#CuratedKeywordIds').value = config.CuratedKeywordIds || '';
+                    loadChips(page, config);
                     page.querySelector('#ScanMusic').checked = config.ScanMusic;
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
@@ -2223,9 +2285,10 @@
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
                         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
-                        config.CuratedCompanyNames = form.querySelector('#CuratedCompanyNames').value;
-                        config.CuratedCompanyIds = form.querySelector('#CuratedCompanyIds').value;
-                        config.CuratedKeywordIds = form.querySelector('#CuratedKeywordIds').value;
+                        // The chips hold the ids; nothing else to persist for curated sets.
+                        var chips = page._chipState || {};
+                        config.CuratedCompanyIds = chips.studio ? chips.studio.ids() : (config.CuratedCompanyIds || '');
+                        config.CuratedKeywordIds = chips.keyword ? chips.keyword.ids() : (config.CuratedKeywordIds || '');
                         config.ScanMusic = form.querySelector('#ScanMusic').checked;
                         config.ScanBooks = form.querySelector('#ScanBooks').checked;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
@@ -2264,8 +2327,9 @@
                     var icon = gear.querySelector('.material-icons');
                     if (icon) { icon.textContent = show ? 'close' : 'settings'; }
                     page.querySelector('#cgPageTitle').textContent = show ? 'Mind the Gaps settings' : 'Mind the Gaps ToDo List';
-                    if (show && !page._cfgLoaded) {
-                        page._cfgLoaded = true;
+                    if (show) {
+                        // Re-read the config every time settings opens (opening is a discrete action now), so it
+                        // always reflects what is saved; any prior unsaved edits were already discarded on close.
                         Dashboard.showLoadingMsg();
                         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                             loadConfig(page, config);
@@ -2276,6 +2340,108 @@
                     if (sc) { sc.scrollTop = 0; }
                 }
 
+                // A type-ahead chip control over a curated-set kind ('studio' or 'keyword'). Each chip holds
+                // {Id, Name}: the name shows, the id is what gets saved, so the numeric id is never exposed.
+                // Suggestions come from the server's TheMovieDb search; wired once, populated by loadConfig.
+                function setupChips(page, kind, boxId, listId, inputId, suggestId) {
+                    var box = page.querySelector('#' + boxId);
+                    var list = page.querySelector('#' + listId);
+                    var input = page.querySelector('#' + inputId);
+                    var suggest = page.querySelector('#' + suggestId);
+                    var state = { chips: [], items: [], sel: -1, seq: 0, timer: 0 };
+                    page._chipState = page._chipState || {};
+                    page._chipState[kind] = state;
+
+                    function announce(msg) { var live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
+                    function render() {
+                        list.innerHTML = state.chips.map(function (c, i) {
+                            return '<span class="cgChip" role="listitem">' + esc(c.Name)
+                                + '<button type="button" class="cgChipX" data-i="' + i + '" aria-label="Remove ' + esc(c.Name) + '" title="Remove ' + esc(c.Name) + '">&times;</button></span>';
+                        }).join('');
+                    }
+                    function closeSuggest() {
+                        suggest.classList.remove('cgShown'); suggest.innerHTML = ''; state.items = []; state.sel = -1;
+                        input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant');
+                    }
+                    function has(id) { return state.chips.some(function (c) { return c.Id === id; }); }
+                    function addChip(c) {
+                        if (c && c.Id && !has(c.Id)) { state.chips.push({ Id: c.Id, Name: c.Name || String(c.Id) }); render(); page._settingsDirty = true; announce('Added ' + (c.Name || c.Id)); }
+                        input.value = ''; closeSuggest();
+                    }
+                    function removeAt(i) {
+                        var removed = state.chips[i];
+                        state.chips.splice(i, 1); render(); page._settingsDirty = true;
+                        if (removed) { announce('Removed ' + removed.Name); }
+                        input.focus();
+                    }
+                    function renderSuggest() {
+                        suggest.innerHTML = state.items.length
+                            ? state.items.map(function (it, i) { return '<div class="cgSuggestItem' + (i === state.sel ? ' cgSuggestSel' : '') + '" role="option" id="' + suggestId + '-opt-' + i + '" aria-selected="' + (i === state.sel ? 'true' : 'false') + '" data-i="' + i + '">' + esc(it.Name) + '</div>'; }).join('')
+                            : '<div class="cgSuggestEmpty">No matches</div>';
+                        suggest.classList.add('cgShown');
+                        input.setAttribute('aria-expanded', 'true');
+                        input.setAttribute('aria-activedescendant', state.sel >= 0 ? (suggestId + '-opt-' + state.sel) : '');
+                    }
+                    function search() {
+                        var q = input.value.trim();
+                        if (q.length < 2) { closeSuggest(); return; }
+                        var mySeq = ++state.seq;
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedSearch', { kind: kind, query: q }), dataType: 'json' }).then(function (res) {
+                            if (mySeq !== state.seq) { return; } // a newer keystroke superseded this response
+                            state.items = (res || []).filter(function (it) { return !has(it.Id); });
+                            state.sel = state.items.length ? 0 : -1;
+                            renderSuggest();
+                        }, function () { closeSuggest(); });
+                    }
+
+                    input.addEventListener('input', function () { clearTimeout(state.timer); state.timer = setTimeout(search, 220); });
+                    input.addEventListener('keydown', function (e) {
+                        if (e.key === 'ArrowDown' && state.items.length) { state.sel = (state.sel + 1) % state.items.length; renderSuggest(); e.preventDefault(); }
+                        else if (e.key === 'ArrowUp' && state.items.length) { state.sel = (state.sel - 1 + state.items.length) % state.items.length; renderSuggest(); e.preventDefault(); }
+                        else if (e.key === 'Enter') { e.preventDefault(); if (state.sel >= 0 && state.items[state.sel]) { addChip(state.items[state.sel]); } }
+                        else if (e.key === 'Escape') { closeSuggest(); }
+                        else if (e.key === 'Backspace' && !input.value && state.chips.length) { removeAt(state.chips.length - 1); }
+                    });
+                    // A blur closes the dropdown, but after a beat so a click on a suggestion lands first.
+                    input.addEventListener('blur', function () { setTimeout(closeSuggest, 150); });
+                    suggest.addEventListener('mousedown', function (e) {
+                        var el = e.target.closest('.cgSuggestItem');
+                        if (el) { e.preventDefault(); addChip(state.items[parseInt(el.getAttribute('data-i'), 10)]); }
+                    });
+                    list.addEventListener('click', function (e) {
+                        var x = e.target.closest('.cgChipX');
+                        if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); }
+                    });
+                    box.addEventListener('click', function (e) { if (e.target === box || e.target === list) { input.focus(); } });
+
+                    state.set = function (chips) {
+                        var seen = {};
+                        state.chips = [];
+                        (chips || []).forEach(function (c) {
+                            var k = String(c.Id);
+                            if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k }); }
+                        });
+                        render();
+                    };
+                    state.ids = function () { return state.chips.map(function (c) { return c.Id; }).join(','); };
+                    return state;
+                }
+
+                // Populate the studio/keyword chips from the saved config: resolve the stored ids to display
+                // names server-side, then hand them to the chip controls.
+                function loadChips(page, config) {
+                    var resolve = function (kind, ids) {
+                        var st = page._chipState && page._chipState[kind];
+                        if (!st) { return; }
+                        st.set([]);
+                        if (!ids) { return; }
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedResolve', { kind: kind, ids: ids }), dataType: 'json' })
+                            .then(function (res) { st.set(res || []); }, function () { });
+                    };
+                    resolve('studio', config.CuratedCompanyIds || '');
+                    resolve('keyword', config.CuratedKeywordIds || '');
+                }
+
                 function bindSettings(page) {
                     // Any edit to a settings field marks the form dirty, so closing it can warn about unsaved
                     // changes. loadConfig/save reset the flag; programmatic value assignment fires no events.
@@ -2284,6 +2450,8 @@
                     page.querySelector('#MindTheGapsConfigForm').addEventListener('change', markDirty);
                     page.querySelector('#TraktEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId'); });
                     page.querySelector('#TvdbEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey'); });
+                    setupChips(page, 'studio', 'cgStudioBox', 'cgStudioChips', 'cgStudioInput', 'cgStudioSuggest');
+                    setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
                     // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
                     var revealBtns = page.querySelectorAll('.cgReveal');
                     for (var rb = 0; rb < revealBtns.length; rb++) {
@@ -2352,12 +2520,13 @@
                     page.querySelector('#cgSettings').addEventListener('click', function () {
                         var opening = page.querySelector('#cgSettingsPanel').style.display === 'none';
                         // Closing with unsaved edits: warn before discarding. Cancel returns to the form to Save;
-                        // OK discards, reloading the saved config so reopening does not show the abandoned edits.
+                        // OK discards. No reload needed here: reopening re-reads the saved config, so the
+                        // abandoned edits never show; just drop the dirty flag.
                         if (!opening && page._settingsDirty) {
                             if (!window.confirm('You have unsaved settings changes that will be lost. Click Cancel to go back and Save, or OK to discard them.')) {
                                 return;
                             }
-                            ApiClient.getPluginConfiguration(pluginId).then(function (config) { loadConfig(page, config); });
+                            page._settingsDirty = false;
                         }
                         toggleSettings(page, opening);
                     });

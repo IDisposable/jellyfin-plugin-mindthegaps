@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.1.2"
+version: "10.11.1.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -18,12 +18,12 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.1.2 (pre-release) - Sharper diagnosis, easier exports. The Diagnose action now weighs both title and
-  year, so a remake that shares a name with something you own (the 1960 Ocean's Eleven against the 2001 remake,
-  the original Home Alone against the 2023 reboot) is no longer reported as that owned title under the wrong
-  id; a year more than one apart is treated as a different release, while a missing year still falls back to
-  the title match. The Markdown exports gained structure and a table of contents: the gap export groups each
-  domain by its kind of source (collections and franchises, studios, keywords, series, and discographies), and
-  the identification audit groups its findings by reason, each with contents links to jump between sections.
-  Titles that begin with "The" now file under both T and the next word's letter, so "The Highlander" is also
-  found under H. Curated keyword sets show the keyword's name instead of its numeric id.
+  10.11.1.3 (pre-release) - Curated sets get a chip picker, exports collapse. Studios and keywords are now
+  chosen with a type-ahead chip picker: search TheMovieDb, pick a match, and it becomes a removable chip, so
+  you never touch a numeric id; the picker is keyboard and screen-reader accessible. Breaking change: the old
+  free-text studio-names field is gone, so any studios configured by name (rather than id) are dropped and
+  must be re-picked. The Markdown exports gained native
+  collapsible sections (closed by default) so a large export opens to a scannable list: the gap export lists
+  each individual studio, keyword, or collection on its own, and the identification audit makes each finding
+  and each duplicate-id group its own collapsible. The audit's open-in-Jellyfin links were also fixed to
+  render correctly.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Caching.Memory;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
@@ -24,6 +25,10 @@ public sealed class TmdbClient : IDisposable
     public const string DefaultApiKey = "4219e299c89411838049ab0dab19ebd5";
 
     private const int CacheDurationHours = 1;
+
+    // The settings type-ahead shows a short list, so a partial query does not flood the dropdown.
+    private const int MaxSuggestions = 10;
+
     private const string ImageBaseUrl = "https://image.tmdb.org/t/p/";
     private const string PosterSize = "w500";
 
@@ -216,6 +221,85 @@ public sealed class TmdbClient : IDisposable
         (int Id, string Name)? match = first is null ? null : (first.Id, string.IsNullOrEmpty(first.Name) ? name : first.Name);
         _cache.Set(key, match, TimeSpan.FromHours(CacheDurationHours));
         return match;
+    }
+
+    /// <summary>
+    /// Searches TMDB studios (companies) by name for the settings type-ahead, returning the top matches as
+    /// id and name pairs (the empty result is cached too).
+    /// </summary>
+    /// <param name="query">The partial studio name typed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top matches.</returns>
+    public async Task<IReadOnlyList<CuratedSetRef>> SearchCompaniesAsync(string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<CuratedSetRef>();
+        }
+
+        var key = string.Create(CultureInfo.InvariantCulture, $"company-suggest-{query.ToUpperInvariant()}");
+        if (_cache.TryGetValue(key, out IReadOnlyList<CuratedSetRef>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var results = await _client.SearchCompanyAsync(query, 0, cancellationToken).ConfigureAwait(false);
+        var refs = new List<CuratedSetRef>();
+        foreach (var company in results?.Results ?? new List<SearchCompany>())
+        {
+            if (!string.IsNullOrEmpty(company.Name))
+            {
+                refs.Add(new CuratedSetRef { Id = company.Id, Name = company.Name });
+            }
+
+            if (refs.Count >= MaxSuggestions)
+            {
+                break;
+            }
+        }
+
+        _cache.Set(key, (IReadOnlyList<CuratedSetRef>)refs, TimeSpan.FromHours(CacheDurationHours));
+        return refs;
+    }
+
+    /// <summary>
+    /// Searches TMDB keywords by name for the settings type-ahead, returning the top matches as id and name
+    /// pairs (the empty result is cached too). The type-ahead is how a keyword set is chosen without ever
+    /// exposing its numeric id.
+    /// </summary>
+    /// <param name="query">The partial keyword typed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top matches.</returns>
+    public async Task<IReadOnlyList<CuratedSetRef>> SearchKeywordsAsync(string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<CuratedSetRef>();
+        }
+
+        var key = string.Create(CultureInfo.InvariantCulture, $"keyword-suggest-{query.ToUpperInvariant()}");
+        if (_cache.TryGetValue(key, out IReadOnlyList<CuratedSetRef>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var results = await _client.SearchKeywordAsync(query, 0, cancellationToken).ConfigureAwait(false);
+        var refs = new List<CuratedSetRef>();
+        foreach (var keyword in results?.Results ?? new List<SearchKeyword>())
+        {
+            if (!string.IsNullOrEmpty(keyword.Name))
+            {
+                refs.Add(new CuratedSetRef { Id = keyword.Id, Name = keyword.Name });
+            }
+
+            if (refs.Count >= MaxSuggestions)
+            {
+                break;
+            }
+        }
+
+        _cache.Set(key, (IReadOnlyList<CuratedSetRef>)refs, TimeSpan.FromHours(CacheDurationHours));
+        return refs;
     }
 
     /// <summary>

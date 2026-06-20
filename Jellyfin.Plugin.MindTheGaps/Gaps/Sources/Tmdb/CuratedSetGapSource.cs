@@ -60,7 +60,6 @@ public sealed class CuratedSetGapSource : IGapSource
         => config.ScanCuratedSets
             && (ParseIds(config.CuratedCompanyIds).Count > 0
                 || ParseIds(config.CuratedKeywordIds).Count > 0
-                || ParseNames(config.CuratedCompanyNames).Count > 0
                 || config.AutoSeedStudios);
 
     /// <inheritdoc />
@@ -149,8 +148,8 @@ public sealed class CuratedSetGapSource : IGapSource
         return all;
     }
 
-    // Build the studios to scan from: explicit ids, explicit names (resolved), and the most-owned studios
-    // (when auto-seed is on). De-duped by company id, first label wins.
+    // Build the studios to scan from: the configured ids and, when auto-seed is on, the most-owned studios.
+    // De-duped by company id, first label wins.
     private async Task<List<(int Id, string Label)>> BuildCompanySetsAsync(PluginConfiguration config, CancellationToken cancellationToken)
     {
         var sets = new List<(int Id, string Label)>();
@@ -166,19 +165,6 @@ public sealed class CuratedSetGapSource : IGapSource
             var name = await SafeCompanyName(id, cancellationToken).ConfigureAwait(false)
                 ?? string.Create(CultureInfo.InvariantCulture, $"Studio {id}");
             sets.Add((id, name));
-        }
-
-        foreach (var name in ParseNames(config.CuratedCompanyNames))
-        {
-            var resolved = await SafeSearchCompany(name, cancellationToken).ConfigureAwait(false);
-            if (resolved is { } match && seen.Add(match.Id))
-            {
-                sets.Add((match.Id, match.Name));
-            }
-            else if (resolved is null)
-            {
-                _logger.LogInformation("Curated sets: no TMDB studio matched '{Name}'", name);
-            }
         }
 
         if (config.AutoSeedStudios)
@@ -265,20 +251,6 @@ public sealed class CuratedSetGapSource : IGapSource
             _logger.LogWarning(ex, "Curated sets: failed to fetch keyword name for {Id}", keywordId);
             return null;
         }
-    }
-
-    // Parse a comma-separated list of studio names, trimmed and de-duplicated.
-    private static IReadOnlyList<string> ParseNames(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return Array.Empty<string>();
-        }
-
-        return raw
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 
     // Parse a comma-separated list of TMDB ids, ignoring blanks and non-numbers.

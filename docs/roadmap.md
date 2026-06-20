@@ -194,22 +194,25 @@ targeted deletes), so it does not need its own progress. Availability is its own
   short token and put only the token in the URL (a real short-link, the most robust against URL limits but it
   adds a store and an endpoint). Likely combine: omit/short-diff providers and drop defaults first, compress
   if still large.
-- **Collection completion misses owned movies that lack a TMDB id.** `CollectionGapSource` diffs a TMDB
-  collection's parts against the ownership index, which is keyed by provider id, and never inspects the owned
-  BoxSet's children. A movie that is in the BoxSet but whose library item has no (or a mismatched) TMDB id is
-  reported missing even though it is owned (seen with "Jack Reacher: Never Go Back"). Fix: also treat a part
-  as owned when the owned BoxSet already contains a child matching it by normalized title and year (a fuzzy
-  fallback to provider-id matching), so a thin-metadata owned movie is not flagged.
+- **Collection completion flags owned-but-mistagged movies as missing (left as a real gap on purpose).**
+  `CollectionGapSource` diffs a TMDB collection's parts against the ownership index, which is keyed by
+  provider id, so a movie that is in the owned BoxSet but whose library item has no (or a mismatched) TMDB id
+  is reported missing even though it is owned (seen with "Jack Reacher: Never Go Back"). This is deliberately
+  not "fixed" by fuzzy title-and-year matching against the BoxSet's children: that would mask the bad or
+  missing set metadata that should actually be corrected. The intended resolution is to **surface** it, not
+  hide it, which the Diagnose action does (it shows the owned item carrying the wrong or no id so you can fix
+  the metadata and rescan).
 - **Deepen the "Diagnose" action.** Both the per-gap **Diagnose** popup and a **library-wide audit** are
   built (`GapDiagnostics`, the `GET Diagnose` and `GET DiagnoseAudit` endpoints). For a movie or show gap
   the popup finds the owned items that match by title or already carry the gap's id and lays the gap and
   those candidates out as a comparison table with linked TheMovieDb/IMDb/TheTVDB ids, so the mis-tagged
   "Never Go Back" case (an owned item carrying a different film's id) is obvious and fixable; the audit runs
   the same check across the whole library and downloads it as Markdown (the mismatches plus every duplicate
-  TheMovieDb id). Both are library-only. What remains: (a) using the owned BoxSet's actual children for
-  collection gaps, which pairs with the collection-ownership fallback below; (b) **cross-provider
-  disagreement** via `TmdbClient.GetExternalIdsAsync` (resolve the gap's TMDB id to its external ids and
-  compare), which would add a network call the current synchronous diagnosis avoids.
+  TheMovieDb id). Both are library-only. What remains: (a) inspecting the owned BoxSet's actual children for
+  collection gaps, so a movie sitting in the BoxSet under the wrong (or no) TMDB id is diagnosed as
+  owned-but-mistagged rather than merely "not owned" (surfacing it to be corrected, not silently treating it
+  as owned); (b) **cross-provider disagreement** via `TmdbClient.GetExternalIdsAsync` (resolve the gap's TMDB
+  id to its external ids and compare), which would add a network call the current synchronous diagnosis avoids.
 
 - **Extend the Diagnose action to Music and Books.** `GapDiagnostics` is already provider-agnostic on the
   data side: a `DiagnosisItem` carries a full `ProviderIds` map and `ProviderLinks` builds its links, so the
@@ -221,11 +224,28 @@ targeted deletes), so it does not need its own progress. Availability is its own
   the id cells link out. The blocker is less the code than the ids: until owned albums and books reliably
   carry those provider ids, the diff has nothing to match against. Revisit once suitable set provider ids are
   present. `CuratedSetGapSource` completes the movies of
-  a studio or keyword, configured by **name** (resolved to TMDB via `SearchCompanyAsync`), by TMDB id, or
-  **auto-seeded** from the studios most common on owned movies and series (`AutoSeedStudios`), grouped by
-  the set name with per-set page and gap caps. The one input type it does not cover is TMDB Lists: paste a
-  list id and complete it the same way (TMDbLib `GetListAsync`).
+  a studio or keyword, chosen in settings with a type-ahead chip picker (only the resolved TMDB id is
+  stored) or **auto-seeded** from the studios most common on owned movies and series (`AutoSeedStudios`),
+  grouped by the set name with per-set page and gap caps. The one input type it does not cover is TMDB
+  Lists: paste a list id and complete it the same way (TMDbLib `GetListAsync`).
   Keyword auto-seeding (from keywords on owned items) is also possible but lower value than studios.
+- **Grow the curated-set chip picker to Music and Books.** The settings page picks curated studio and
+  keyword sets with a type-ahead chip control: you search TheMovieDb (`GET CuratedSearch` over
+  `TmdbClient.SearchCompaniesAsync`/`SearchKeywordsAsync`), pick a match, and only the id is stored
+  (`CuratedCompanyIds`/`CuratedKeywordIds`); `GET CuratedResolve` turns the stored ids (and any legacy
+  free-text names) back into named chips on load, so the numeric id is never shown. Today it is TMDB-only,
+  so it covers movies. Extending the same control to Music and Books needs, per new chip kind: a provider
+  search behind `CuratedSearch` (music: a record label or artist via MusicBrainz, and via Discogs once that
+  client exists; books: an OpenLibrary subject or author), a matching id-to-name path behind
+  `CuratedResolve`, a config field to store the picked ids (mirroring `CuratedCompanyIds`), a gap source
+  that diffs that curated set against owned items (a label's releases, a subject's books) the way
+  `CuratedSetGapSource` does for studios, and a `setupChips` instance plus markup for the field. The chip
+  JS is kind-agnostic; the work is the per-provider search/resolve endpoints and the gap sources.
+- **Add a Discogs source for music.** There is no Discogs client yet (`Services/` carries MusicBrainz and
+  OpenLibrary, not Discogs). A hand-rolled `DiscogsClient` over `Services/Http/HttpRetry` (with a user token
+  in config, like the Trakt/TheTVDB keys) would back a curated **label** set (complete a record label's
+  discography) for the chip picker above, and give richer release and artist matching than MusicBrainz alone
+  to widen `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` coverage.
 - **Extend fill-up scanning to recommendations and series.** Filmography fills up over runs:
   `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
   the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run
@@ -340,11 +360,19 @@ targeted deletes), so it does not need its own progress. Availability is its own
   edges (covered by `OpenLibraryCapturedDataTests`): (1) the author search's first
   result is often the wrong namesake (searching "Frank Herbert" returns Frank Herbert Hayward first; the
   Dune author OL79034A is third) so a naive docs[0] pick resolves the wrong author; (2) the works-list
-  endpoint carries no publish date, so book gaps get no year; (3) several works share a title. For (1) the
-  fix is to surface candidates for disambiguation rather than auto-pick: verify a candidate by confirming
-  their works actually include the owned book, rank by work_count as a tiebreak, and/or present a list so
-  the user can map their authors to OpenLibrary keys (a config-time mapping). For (2) read the date from
-  the per-work record or accept no year. The Books domain stays experimental until these are addressed.
+  endpoint (`/authors/{key}/works.json`) carries no publish date, so book gaps get no year; (3) several
+  works share a title. The plan: for (1), resolve the author from the **owned work**, not the name, whenever
+  possible. An owned book that carries an OpenLibrary work id lets us fetch `/works/{key}.json` and read its
+  author key directly, skipping the name search and its namesake problem entirely; only fall back to the name
+  search when the owned book has no work id, and then verify candidates instead of taking docs[0]: prefer the
+  shortest candidate name that still matches the searched name (a namesake usually carries extra middle names
+  or a suffix, so "Frank Herbert" beats "Frank Herbert Hayward"), then confirm by work_count and by checking
+  the candidate's works actually include the owned title; failing that, present a list so the user can map an
+  author to an OpenLibrary key as a config-time mapping. For (2), switch the works listing to the search endpoint
+  (`/search.json?author_key={key}&fields=key,title,first_publish_year`), which returns the works and their
+  years in one call. For (3), de-duplicate works by normalized title, keeping the earliest year. The
+  captured-fixture tests (`OpenLibraryCapturedDataTests`) gain a work-to-author response and a
+  search-with-years response. The Books domain stays experimental until these are addressed.
 - **Shard the report by domain (storage and transfer).** The whole report lives in one `gaps.json` and
   is shipped to the browser whole; with more sources and the filmography backfill (toward the 50k cap) it
   can reach multiple MB, which is slow to load, parse, atomically save on every scan and availability
