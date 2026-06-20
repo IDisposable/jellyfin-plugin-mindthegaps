@@ -356,23 +356,21 @@ targeted deletes), so it does not need its own progress. Availability is its own
   minting itself is deferred to post-1.0, to be built on top of the bulk-mint container refactor (branch
   B, a post-1.0 PR) where the minter can be generalized from movie-only to kind-aware and validated
   against a running server, rather than written as speculative, untestable code on main now.
-- **Harden the Books source against real OpenLibrary data.** Real OpenLibrary responses have three rough
-  edges (covered by `OpenLibraryCapturedDataTests`): (1) the author search's first
-  result is often the wrong namesake (searching "Frank Herbert" returns Frank Herbert Hayward first; the
-  Dune author OL79034A is third) so a naive docs[0] pick resolves the wrong author; (2) the works-list
-  endpoint (`/authors/{key}/works.json`) carries no publish date, so book gaps get no year; (3) several
-  works share a title. The plan: for (1), resolve the author from the **owned work**, not the name, whenever
-  possible. An owned book that carries an OpenLibrary work id lets us fetch `/works/{key}.json` and read its
-  author key directly, skipping the name search and its namesake problem entirely; only fall back to the name
-  search when the owned book has no work id, and then verify candidates instead of taking docs[0]: prefer the
-  shortest candidate name that still matches the searched name (a namesake usually carries extra middle names
-  or a suffix, so "Frank Herbert" beats "Frank Herbert Hayward"), then confirm by work_count and by checking
-  the candidate's works actually include the owned title; failing that, present a list so the user can map an
-  author to an OpenLibrary key as a config-time mapping. For (2), switch the works listing to the search endpoint
-  (`/search.json?author_key={key}&fields=key,title,first_publish_year`), which returns the works and their
-  years in one call. For (3), de-duplicate works by normalized title, keeping the earliest year. The
-  captured-fixture tests (`OpenLibraryCapturedDataTests`) gain a work-to-author response and a
-  search-with-years response. The Books domain stays experimental until these are addressed.
+- **Harden the Books source against real OpenLibrary data (largely done).** Real OpenLibrary responses
+  have three rough edges. (1) The author search's first result is often the wrong namesake (searching "Frank
+  Herbert" returns Frank Herbert Hayward first; the Dune author OL79034A is further down). Now handled two
+  ways: `BooksBibliographyGapSource` resolves the author from the **owned work** when the book carries an
+  OpenLibrary work id (`OpenLibraryClient.GetWorkAuthorKeyAsync` reads `/works/{key}.json`), skipping the
+  name search entirely; otherwise `OpenLibraryAuthorMatcher.Pick` chooses by shortest exactly-matching name
+  then work_count (the prolific real author), not docs[0]. (2) The author-works list carried no publish
+  date, so book gaps got no year; the source now lists works via the search endpoint
+  (`OpenLibraryClient.GetAuthorWorksBySearchAsync` over `/search.json?author_key=...&fields=...,first_publish_year`),
+  which returns years in one call. (3) Several works share a title; `OpenLibraryMapper` now de-duplicates by
+  normalized title, keeping the earliest-published edition and treating a title as owned when any of its
+  works is owned. What remains before promoting Books out of experimental: capture fixtures for the two new
+  endpoints (a `/works/{key}.json` and a `/search.json?author_key=` response) so they are tested against
+  real data, optionally a config-time author-to-key mapping as a manual override, and real-world validation
+  across a varied library.
 - **Shard the report by domain (storage and transfer).** The whole report lives in one `gaps.json` and
   is shipped to the browser whole; with more sources and the filmography backfill (toward the 50k cap) it
   can reach multiple MB, which is slow to load, parse, atomically save on every scan and availability

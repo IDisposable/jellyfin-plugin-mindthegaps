@@ -89,16 +89,23 @@ public sealed class BooksBibliographyGapSource : IGapSource
             processed++;
 
             string? authorKey;
-            OpenLibraryWorksResponse? works;
+            IReadOnlyList<OpenLibraryWork> works;
             try
             {
-                authorKey = await _openLibrary.ResolveAuthorKeyAsync(authorName, cancellationToken).ConfigureAwait(false);
+                // Prefer resolving the author from the owned book's own OpenLibrary work id: that reads the
+                // work's author directly and skips the name search (where a common name resolves the wrong
+                // namesake). Fall back to the name search only when the book carries no work id.
+                var ownedWorkId = OwnedWorkId(book);
+                authorKey = string.IsNullOrEmpty(ownedWorkId)
+                    ? null
+                    : await _openLibrary.GetWorkAuthorKeyAsync(ownedWorkId, cancellationToken).ConfigureAwait(false);
+                authorKey ??= await _openLibrary.ResolveAuthorKeyAsync(authorName, cancellationToken).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(authorKey))
                 {
                     continue;
                 }
 
-                works = await _openLibrary.GetAuthorWorksAsync(authorKey, cancellationToken).ConfigureAwait(false);
+                works = await _openLibrary.GetAuthorWorksBySearchAsync(authorKey, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -106,7 +113,7 @@ public sealed class BooksBibliographyGapSource : IGapSource
                 continue;
             }
 
-            if (works?.Entries is null)
+            if (works.Count == 0)
             {
                 continue;
             }
@@ -114,7 +121,7 @@ public sealed class BooksBibliographyGapSource : IGapSource
             var gaps = OpenLibraryMapper.Build(
                 authorKey,
                 authorName,
-                works.Entries,
+                works,
                 book.Id.ToString("N", CultureInfo.InvariantCulture),
                 context.Ownership,
                 context.Config.MaxRelatedPerItem);
@@ -125,6 +132,13 @@ public sealed class BooksBibliographyGapSource : IGapSource
             }
         }
     }
+
+    // The owned book's OpenLibrary work id, if its metadata carries one (the OpenLibrary metadata plugin
+    // stores the work key under this provider id). Lets the author be resolved from the work directly.
+    private static string? OwnedWorkId(BaseItem book)
+        => book.ProviderIds.TryGetValue(OpenLibraryMapper.OpenLibraryProvider, out var id) && !string.IsNullOrEmpty(id)
+            ? id
+            : null;
 
     private string? ResolveAuthorName(BaseItem book)
     {

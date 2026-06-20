@@ -15,11 +15,13 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 //   curl -s 'https://openlibrary.org/search/authors.json?q=Frank%20Herbert' > openlibrary_authorsearch.json
 //   curl -s 'https://openlibrary.org/authors/OL79034A/works.json?limit=100' > openlibrary_works.json
 //
-// The real data exposes limitations of the (experimental) Books source these tests now document:
-//  - the author search's first result is a different "Frank Herbert" (Hayward); the Dune author OL79034A
-//    is third, so a naive "first doc" best-match is wrong (see roadmap, Books-source hardening);
-//  - the works-list response carries no publish dates, so book gaps get no year;
-//  - several works share a title ("Dune" appears more than once as distinct work keys).
+// The real data carries the rough edges the Books-source hardening handles, which these tests exercise:
+//  - the author search's first result is a different "Frank Herbert" (Hayward); the Dune author OL79034A is
+//    further down, so OpenLibraryAuthorMatcher picks by shortest exact name and work count, not docs[0];
+//  - several works share a title ("Dune" appears more than once as distinct work keys), which the mapper
+//    de-duplicates to one gap per title.
+// The third edge, the author-works endpoint carrying no publish dates, is handled in production by switching
+// to the search endpoint (it returns first_publish_year); this captured works list still has none.
 public class OpenLibraryCapturedDataTests
 {
     private const string AuthorKey = "OL79034A";
@@ -111,4 +113,37 @@ public class OpenLibraryCapturedDataTests
         Assert.DoesNotContain(gaps, g => g.Id == "bibliography:" + AuthorKey + ":OL45588324W");
         Assert.Equal(2, gaps.Count);
     }
+
+    [Fact]
+    public void AuthorMatcher_PicksTheProlificExactName_NotTheFirstResult()
+    {
+        var response = JsonSerializer.Deserialize<OpenLibraryAuthorSearchResponse>(
+            TestData.Read("openlibrary_authorsearch.json"),
+            Options);
+
+        var key = OpenLibraryAuthorMatcher.Pick(response!.Docs, "Frank Herbert");
+
+        // The Dune author (exact name, by far the most works) is chosen over the first result (Frank Herbert
+        // Hayward, a longer name) and the thin exact-name namesakes, so the namesake problem is handled.
+        Assert.Equal(AuthorKey, key);
+        Assert.NotEqual(response.Docs!.First().Key, key);
+    }
+
+    [Fact]
+    public void Build_DeDuplicatesWorksThatShareATitle()
+    {
+        var works = LoadWorks();
+
+        var gaps = OpenLibraryMapper.Build(AuthorKey, "Frank Herbert", works, "owner-guid", IndexWith(), 100).ToList();
+
+        // OpenLibrary lists the same title as several distinct works ("Dune" appears more than once); the
+        // mapper now emits one gap per title, so the de-dup collapses the 100 works to fewer and no two gaps
+        // share a normalized title.
+        Assert.True(gaps.Count < works.Count);
+        var titleKeys = gaps.Select(g => NormalizeForTest(g.Name)).ToList();
+        Assert.Equal(titleKeys.Count, titleKeys.Distinct().Count());
+    }
+
+    private static string NormalizeForTest(string value)
+        => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
 }

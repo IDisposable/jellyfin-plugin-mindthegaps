@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -46,26 +47,84 @@ public sealed class OpenLibraryClient
     /// </summary>
     /// <param name="authorName">The author's name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The author key (for example "OL23919A"), or <see langword="null"/>.</returns>
+    /// <returns>The author key (for example "OL79034A"), or <see langword="null"/>.</returns>
     public async Task<string?> ResolveAuthorKeyAsync(string authorName, CancellationToken cancellationToken)
     {
         var response = await GetAsync<OpenLibraryAuthorSearchResponse>(
             string.Create(CultureInfo.InvariantCulture, $"/search/authors.json?q={Uri.EscapeDataString(authorName)}"),
             cancellationToken).ConfigureAwait(false);
 
-        return response?.Docs?.FirstOrDefault(d => !string.IsNullOrEmpty(d.Key))?.Key;
+        // Do not take the first result: it is often a different person of the same name. The matcher prefers
+        // the shortest exactly-matching name and the most works.
+        return OpenLibraryAuthorMatcher.Pick(response?.Docs, authorName);
     }
 
     /// <summary>
-    /// Gets an author's works (the abstract titles, not individual editions).
+    /// Reads a work's first author key directly from its OpenLibrary record (works/{key}.json), so an owned
+    /// book resolves its author without a name search (which hits the namesake problem). Null when the work
+    /// or its author cannot be read.
     /// </summary>
-    /// <param name="authorKey">The author key (for example "OL23919A").</param>
+    /// <param name="workKey">The work id (for example "OL45804W", with or without the "/works/" prefix).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The works response, or <see langword="null"/>.</returns>
-    public Task<OpenLibraryWorksResponse?> GetAuthorWorksAsync(string authorKey, CancellationToken cancellationToken)
-        => GetAsync<OpenLibraryWorksResponse>(
-            string.Create(CultureInfo.InvariantCulture, $"/authors/{Uri.EscapeDataString(authorKey)}/works.json?limit={WorksLimit}"),
-            cancellationToken);
+    /// <returns>The author key (for example "OL79034A"), or <see langword="null"/>.</returns>
+    public async Task<string?> GetWorkAuthorKeyAsync(string workKey, CancellationToken cancellationToken)
+    {
+        var bare = LastSegment(workKey);
+        if (string.IsNullOrEmpty(bare))
+        {
+            return null;
+        }
+
+        var detail = await GetAsync<OpenLibraryWorkDetail>(
+            string.Create(CultureInfo.InvariantCulture, $"/works/{Uri.EscapeDataString(bare)}.json"),
+            cancellationToken).ConfigureAwait(false);
+
+        var key = detail?.Authors?
+            .Select(a => a.Author?.Key)
+            .FirstOrDefault(k => !string.IsNullOrEmpty(k));
+        return string.IsNullOrEmpty(key) ? null : LastSegment(key);
+    }
+
+    /// <summary>
+    /// Lists an author's works via the search endpoint (search.json?author_key=...), which carries the first
+    /// publish year (the author-works list does not), so book gaps can get a year in a single call.
+    /// </summary>
+    /// <param name="authorKey">The author key (for example "OL79034A").</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The author's works, with years where present.</returns>
+    public async Task<IReadOnlyList<OpenLibraryWork>> GetAuthorWorksBySearchAsync(string authorKey, CancellationToken cancellationToken)
+    {
+        var response = await GetAsync<OpenLibrarySearchResponse>(
+            string.Create(CultureInfo.InvariantCulture, $"/search.json?author_key={Uri.EscapeDataString(authorKey)}&fields=key,title,first_publish_year&limit={WorksLimit}"),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response?.Docs is null)
+        {
+            return Array.Empty<OpenLibraryWork>();
+        }
+
+        return response.Docs
+            .Select(d => new OpenLibraryWork
+            {
+                Key = d.Key,
+                Title = d.Title,
+                FirstPublishDate = d.FirstPublishYear?.ToString(CultureInfo.InvariantCulture)
+            })
+            .ToList();
+    }
+
+    // The last path segment of an OpenLibrary key (so "/works/OL45804W" yields "OL45804W" and
+    // "/authors/OL79034A" yields "OL79034A"), so a prefixed key from one endpoint queries another.
+    private static string LastSegment(string? key)
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            return string.Empty;
+        }
+
+        var slash = key.LastIndexOf('/');
+        return slash >= 0 && slash < key.Length - 1 ? key[(slash + 1)..] : key;
+    }
 
     private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
     {

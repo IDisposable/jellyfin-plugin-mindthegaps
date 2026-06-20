@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Text;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
@@ -39,28 +41,30 @@ public static class OpenLibraryMapper
         int maxResults)
     {
         var emitted = 0;
-        foreach (var work in works)
+
+        // De-duplicate works that share a title (OpenLibrary lists reissues and translations as distinct
+        // works), keeping one gap per title. The representative is the earliest-published edition, and a
+        // title counts as owned when any of its works is owned, so a title held under a different work key is
+        // not reported missing.
+        var groups = works
+            .Where(w => !string.IsNullOrEmpty(NormalizeWorkKey(w.Key)) && !string.IsNullOrEmpty(w.Title))
+            .GroupBy(w => NormalizeTitle(w.Title), StringComparer.Ordinal)
+            .Where(g => g.Key.Length > 0);
+
+        foreach (var group in groups)
         {
             if (emitted >= maxResults)
             {
                 break;
             }
 
-            var workId = NormalizeWorkKey(work.Key);
-            if (string.IsNullOrEmpty(workId) || string.IsNullOrEmpty(work.Title))
+            if (group.Any(w => ownership.OwnsAny(BaseItemKind.Book, ProviderIdsFor(w))))
             {
                 continue;
             }
 
-            var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                [OpenLibraryProvider] = workId
-            };
-
-            if (ownership.OwnsAny(BaseItemKind.Book, providerIds))
-            {
-                continue;
-            }
+            var work = group.OrderBy(w => YearOf(w) ?? int.MaxValue).First();
+            var workId = NormalizeWorkKey(work.Key)!;
 
             emitted++;
             yield return GapItemFactory.Create(
@@ -68,13 +72,41 @@ public static class OpenLibraryMapper
                 pattern: GapPattern.CreatorWorks,
                 domain: MediaDomain.Books,
                 targetKind: BaseItemKind.Book,
-                name: work.Title,
-                providerIds: providerIds,
+                name: work.Title!,
+                providerIds: ProviderIdsFor(work),
                 sourceItemId: sourceItemId,
                 sourceItemName: authorName,
                 sourceItemType: "Book",
                 releaseDate: ParseDate(work.FirstPublishDate));
         }
+    }
+
+    // An owned-lookup provider map for a work (its OpenLibrary work id under the OpenLibrary provider).
+    private static Dictionary<string, string> ProviderIdsFor(OpenLibraryWork work)
+        => new(StringComparer.OrdinalIgnoreCase) { [OpenLibraryProvider] = NormalizeWorkKey(work.Key)! };
+
+    // The work's first publish year, when its date parses to one.
+    private static int? YearOf(OpenLibraryWork work) => ParseDate(work.FirstPublishDate)?.Year;
+
+    // Lowercase letters and digits only, so case, punctuation, and spacing differences do not split a title
+    // ("Dune" and "DUNE" are one title; "Duna" stays its own).
+    private static string NormalizeTitle(string? title)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder(title.Length);
+        foreach (var ch in title)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                sb.Append(char.ToLowerInvariant(ch));
+            }
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
