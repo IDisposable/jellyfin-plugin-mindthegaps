@@ -113,6 +113,25 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
+    public void DiagnoseAgainst_PrefersExactYearOverOneYearOff()
+    {
+        // The Game (1997) thriller versus The Game (1998) comedy: when the exact-year copy is owned (under a
+        // wrong id), only it is a candidate. The one-year-off owned item is a different film, not a near match.
+        var gap = Gap(BaseItemKind.Movie, "The Game", 1997, ("Tmdb", "1000"));
+        var owned = new BaseItem[]
+        {
+            OwnedMovie("The Game", 1997, ("Tmdb", "999999")),
+            OwnedMovie("The Game", 1998, ("Tmdb", "55"))
+        };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        var c = Assert.Single(d.Candidates);
+        Assert.Equal(1997, c.Year);
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+    }
+
+    [Fact]
     public void DiagnoseAgainst_SameTitleYearMissing_FallsBackToNameMatch()
     {
         // The owned item has no year, so year cannot tell them apart: fall back to the name match.

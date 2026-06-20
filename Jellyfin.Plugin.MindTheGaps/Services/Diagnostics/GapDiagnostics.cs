@@ -224,14 +224,24 @@ public sealed class GapDiagnostics
 
         if (index.ByTitle.TryGetValue((kind, wantName), out var titleHits))
         {
+            // Honor name + year before falling back to name alone. Prefer an exact-year match: when the gap
+            // has a year and an owned item shares it exactly, treat that as the match and ignore same-title
+            // owned items whose year differs (even by one), since those are a different release sharing the
+            // title (The Game 1997 the thriller vs The Game 1998 the comedy). The one-year tolerance only
+            // applies as a fallback (release-date jitter) when nothing matches the year exactly.
+            var hasExactYear = gap.Year.HasValue && titleHits.Any(o => o.Year == gap.Year);
             foreach (var owned in titleHits)
             {
-                // Honor name + year before falling back to name alone: a same-title owned item whose year is
-                // more than a year off is a different release sharing the title (a remake), not this one under
-                // the wrong id, so skip it. A year missing on either side cannot rule it out, so it still
-                // matches on name. This stops, e.g., owning "Ocean's Eleven" (2001) from flagging the missing
-                // 1960 original as a mismatch.
+                // A same-title owned item more than a year off is always a different release (a remake), so
+                // skip it. A year missing on either side cannot rule it out, so it still matches on name (this
+                // stops owning "Ocean's Eleven" 2001 from flagging the missing 1960 original as a mismatch).
                 if (YearConflicts(gap.Year, owned.Year))
+                {
+                    continue;
+                }
+
+                // An exact-year match exists, so a same-title item that is only a year off is a different film.
+                if (hasExactYear && owned.Year.HasValue && owned.Year != gap.Year)
                 {
                     continue;
                 }
