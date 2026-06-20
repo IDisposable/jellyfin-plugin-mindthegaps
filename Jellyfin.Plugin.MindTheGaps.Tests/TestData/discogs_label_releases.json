@@ -1,0 +1,9 @@
+{
+  "pagination": { "page": 1, "pages": 1, "per_page": 100, "items": 4 },
+  "releases": [
+    { "id": 100, "status": "Accepted", "title": "Selected Ambient Works 85-92", "format": "Vinyl", "artist": "Aphex Twin", "year": 1992 },
+    { "id": 101, "status": "Accepted", "title": "Music Has the Right to Children", "format": "CD", "artist": "Boards of Canada", "year": 1998 },
+    { "id": 100, "status": "Accepted", "title": "Selected Ambient Works 85-92 (2013 Reissue)", "format": "Vinyl", "artist": "Aphex Twin", "year": 2013 },
+    { "id": 102, "status": "Accepted", "title": "Untitled", "format": "Vinyl", "artist": "", "year": 0 }
+  ]
+}

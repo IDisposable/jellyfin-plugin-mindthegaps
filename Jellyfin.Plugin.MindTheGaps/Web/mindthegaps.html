@@ -264,6 +264,23 @@
                                     <span>Scan books for other works by the author (OpenLibrary, experimental)</span>
                                 </label>
                             </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanDiscogs" name="ScanDiscogs" type="checkbox" is="emby-checkbox" />
+                                    <span>Scan curated Discogs labels for missing releases (experimental; needs a token and label ids below)</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="DiscogsToken">Discogs token</label>
+                                <input id="DiscogsToken" name="DiscogsToken" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealDiscogsToken" is="emby-button" type="button" class="raised cgReveal" data-target="DiscogsToken" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers.</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="DiscogsLabelIds">Discogs label ids</label>
+                                <input id="DiscogsLabelIds" name="DiscogsLabelIds" type="text" is="emby-input" />
+                                <div class="fieldDescription">Comma-separated Discogs label ids to complete (for example 23528 for Warp Records). A label id is in its discogs.com URL.</div>
+                            </div>
                         </div>
 
                         <div class="verticalSection">
@@ -1098,12 +1115,13 @@
 
                 // The "kind of set" a SetCompletion gap completes, from its owning item's type, so the tab can
                 // group collections, studios, keywords, series, and discographies into separate sections.
-                var SET_KIND_ORDER = { 'Collections & franchises': 0, 'Series': 1, 'Discography': 2, 'Studios': 3, 'Keywords': 4, 'Other': 9 };
+                var SET_KIND_ORDER = { 'Collections & franchises': 0, 'Series': 1, 'Discography': 2, 'Labels': 3, 'Studios': 4, 'Keywords': 5, 'Other': 9 };
                 function setKindLabel(sourceItemType) {
                     switch (sourceItemType) {
                         case 'BoxSet': return 'Collections & franchises';
                         case 'Series': return 'Series';
                         case 'MusicArtist': return 'Discography';
+                        case 'MusicLabel': return 'Labels';
                         case 'Studio': return 'Studios';
                         case 'Keyword': return 'Keywords';
                         default: return 'Other';
@@ -2231,6 +2249,9 @@
                     loadChips(page, config);
                     page.querySelector('#ScanMusic').checked = config.ScanMusic;
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
+                    page.querySelector('#ScanDiscogs').checked = config.ScanDiscogs;
+                    page.querySelector('#DiscogsToken').value = config.DiscogsToken || '';
+                    page.querySelector('#DiscogsLabelIds').value = config.DiscogsLabelIds || '';
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
                     page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
@@ -2304,6 +2325,9 @@
                         config.CuratedKeywordIds = chips.keyword ? chips.keyword.ids() : (config.CuratedKeywordIds || '');
                         config.ScanMusic = form.querySelector('#ScanMusic').checked;
                         config.ScanBooks = form.querySelector('#ScanBooks').checked;
+                        config.ScanDiscogs = form.querySelector('#ScanDiscogs').checked;
+                        config.DiscogsToken = form.querySelector('#DiscogsToken').value;
+                        config.DiscogsLabelIds = form.querySelector('#DiscogsLabelIds').value;
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
                         config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;

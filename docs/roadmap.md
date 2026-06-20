@@ -241,11 +241,18 @@ targeted deletes), so it does not need its own progress. Availability is its own
   that diffs that curated set against owned items (a label's releases, a subject's books) the way
   `CuratedSetGapSource` does for studios, and a `setupChips` instance plus markup for the field. The chip
   JS is kind-agnostic; the work is the per-provider search/resolve endpoints and the gap sources.
-- **Add a Discogs source for music.** There is no Discogs client yet (`Services/` carries MusicBrainz and
-  OpenLibrary, not Discogs). A hand-rolled `DiscogsClient` over `Services/Http/HttpRetry` (with a user token
-  in config, like the Trakt/TheTVDB keys) would back a curated **label** set (complete a record label's
-  discography) for the chip picker above, and give richer release and artist matching than MusicBrainz alone
-  to widen `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` coverage.
+- **Discogs source for music (label sets done; more to do).** `DiscogsClient` (hand-rolled over
+  `Services/Http/HttpRetry`, authenticated with a `DiscogsToken` from config) and `DiscogsLabelGapSource`
+  complete a curated record **label** set: for each configured label id, it lists the label's releases and
+  emits a `SetCompletion` Music gap per unowned release (`DiscogsLabelMapper`, grouped under "Labels" in the
+  report). Opt-in and experimental. Two known limits remain: (1) the ownership diff is by Discogs id, so it
+  only recognises an owned release when the library item carries a Discogs provider id; a normalized
+  artist-plus-title fallback (which the ownership index does not support today) would make it useful on
+  MusicBrainz-tagged libraries. (2) The set is shown as "Label {id}" until the label name is resolved
+  (`DiscogsClient.SearchLabelAsync` already does name-to-id for the future chip picker; the reverse, an id
+  to name lookup, is a small `/labels/{id}` call). Discogs could also widen
+  `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` with richer release/artist matching than
+  MusicBrainz alone.
 - **Extend fill-up scanning to recommendations and series.** Filmography fills up over runs:
   `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
   the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run

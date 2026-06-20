@@ -22,6 +22,9 @@ public class PluginConfiguration : BasePluginConfiguration
         AutoSeedStudios = false;
         ScanMusic = false;
         ScanBooks = false;
+        ScanDiscogs = false;
+        DiscogsToken = string.Empty;
+        DiscogsLabelIds = string.Empty;
         IncludeAvailability = true;
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
@@ -96,6 +99,23 @@ public class PluginConfiguration : BasePluginConfiguration
     /// bibliography or the book's series (OpenLibrary). Experimental; defaults off.
     /// </summary>
     public bool ScanBooks { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface missing releases from curated Discogs record
+    /// labels. Needs a Discogs token and at least one label id. Experimental; defaults off.
+    /// </summary>
+    public bool ScanDiscogs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Discogs personal access token used to authenticate Discogs API calls. Without it
+    /// the Discogs source stays off (Discogs requires authentication for catalogue browsing).
+    /// </summary>
+    public string DiscogsToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of Discogs label ids to complete as curated sets.
+    /// </summary>
+    public string DiscogsLabelIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where
