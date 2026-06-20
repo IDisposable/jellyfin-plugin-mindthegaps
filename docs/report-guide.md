@@ -126,6 +126,8 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
   creator) in a new tab, scoped to the right library type (movies, shows, music, books, music videos,
   or box sets; a creator searches everywhere). Handy to confirm you do not already hold it under another
   name, or to find it on a federated server.
+- **Diagnose** (movie and show rows): explains why the row is reported missing, most often an owned copy
+  under the wrong id. See [Diagnose](#diagnose-is-it-really-missing) below.
 - **Where to watch / Watch**: streaming-availability links. If a row has not been looked up yet, the
   button fetches it on demand; the background **Look up where to watch** pass does many at once.
 - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
@@ -143,6 +145,22 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
 Resolving a gap can carry an optional note (for example why it is not really missing):
 
 ![Dismissing a gap with an optional note](screenshots/report-resolve-modal.png)
+
+## Diagnose: is it really missing?
+
+![Diagnosing why a gap is reported missing](screenshots/diagnose.png)
+
+On a movie or show row, **Diagnose** explains why it is reported missing. The popup lays the gap and the
+owned items that look like it (matched by title, or already carrying the gap's id) side by side, and leads
+with a plain verdict: owned under the wrong id, an owned item already holds this id, the gap looks stale, a
+wrong kind of id, or genuinely missing. It corroborates by IMDb and TheTVDB id, so it still catches a title
+you own under a localized name, and it weighs both title and year, so a remake that shares a name with
+something you own is not mistaken for it. A **Deeper analysis** button confirms against the source provider
+and fills in any missing ids.
+
+The report also runs a library-wide **identification audit**: the same check across your whole library,
+downloaded as Markdown grouped by reason, with a link on each finding back into Jellyfin so you can fix the
+metadata and rescan.
 
 ## Minting several at once
 
