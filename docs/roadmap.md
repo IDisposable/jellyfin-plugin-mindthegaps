@@ -82,12 +82,17 @@ of them. Drafts in [docs/upstream/](upstream/).
   keywords, and Discogs labels; Books needs a curated-book **gap source** first (none today, only the author
   bibliography from owned books), for example an OpenLibrary subject or author set. Once that source and a
   config field exist, the chip kind is a `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance.
-- **Discogs: make it useful on tagged libraries.** `DiscogsLabelGapSource` diffs by Discogs id, so it only
-  recognises an owned release when the library item carries a Discogs id; a normalized artist-plus-title
-  fallback (which the ownership index does not support today) would make it work on MusicBrainz-tagged
-  libraries. Also: resolve the label name (the set shows "Label {id}" until then; `GetLabelNameAsync` exists,
-  one `/labels/{id}` call). Discogs could also widen `MusicDiscographyGapSource`/`MusicArtistWorksGapSource`
-  with richer release/artist matching than MusicBrainz alone.
+- **MDBList toplists as a recommendation source.** [mdblist.com/toplists](https://mdblist.com/toplists/)
+  publishes ranked, frequently-updated community lists (top watched, trending, by genre) aggregated across
+  IMDb/Trakt/TMDB. A source could pull one or more configured lists via the MDBList API and emit a
+  `Recommendation` gap per unowned title, keyed by the TMDB/IMDb id the list already carries so it drops
+  straight into the ownership diff and the existing link building. Opt-in like the other cross-checks; needs
+  an MDBList API key and a way to pick which list(s) (a chip picker over the public lists would fit).
+- **Discogs: widen the music sources.** Label sets resolve the real label name and recognise an owned
+  release by a conservative artist-and-title name match as well as by Discogs id (so they work on
+  MusicBrainz-tagged libraries). Remaining: let Discogs also widen
+  `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` with richer release/artist matching than
+  MusicBrainz alone.
 - **De-experimentalize Books.** What remains: capture fixtures for the two OpenLibrary endpoints the
   hardening added (a `/works/{key}.json` and a `/search.json?author_key=` response) so they are tested
   against real data, optionally a config-time author-to-key override, and real-world validation.
