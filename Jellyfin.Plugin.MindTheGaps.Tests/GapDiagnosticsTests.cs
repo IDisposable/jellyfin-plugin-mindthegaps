@@ -420,4 +420,42 @@ public class GapDiagnosticsTests
         Assert.Equal(1, audit.GapsChecked); // the episode gap is skipped
         Assert.Empty(audit.Mismatches);
     }
+
+    [Fact]
+    public void DiagnoseSeriesContent_EpisodeWithinOwnedRun_IsGenuineGap()
+    {
+        var gap = Gap(BaseItemKind.Episode, "Some Show S02E05", 2003);
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 });
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_EpisodeFarOutsideRun_LooksLikeRebootAndSurfacesTheId()
+    {
+        // Owned "V" is 1984-85; this episode aired 2009 (the reboot). Flagged, and the series' TheMovieDb id
+        // is surfaced as a disambiguation to check, without the verdict depending on it.
+        var gap = Gap(BaseItemKind.Episode, "V S02E01", 2009);
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 });
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TheMovieDb 40063", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_NoOwnedYears_IsGenuineGap()
+    {
+        var gap = Gap(BaseItemKind.Episode, "New Show S01E01", 2020);
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", Array.Empty<int>());
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+    }
 }

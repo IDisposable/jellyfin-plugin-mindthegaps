@@ -725,9 +725,9 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
                     }
-                    // Diagnose why a movie, show, album, or book is reported missing (usually a provider-id
-                    // mismatch on an owned item).
-                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'MusicAlbum' || item.TargetKindName === 'Book') {
+                    // Diagnose why a movie, show, album, book, or episode is reported missing (usually a
+                    // provider-id mismatch on an owned item, or a same-named reboot for an episode).
+                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'MusicAlbum' || item.TargetKindName === 'Book' || item.TargetKindName === 'Episode') {
                         actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
                     }
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
@@ -1020,6 +1020,14 @@
                     return ' <span class="cgCoverage" title="' + esc(full) + '"><span class="cgCovFull">' + full + '</span><span class="cgCovPct">' + pct + '%</span></span>';
                 }
 
+                // A compact Diagnose control for a season header, run against one of the season's episodes, so
+                // the popup can say whether the season belongs to the series you own or a same-named reboot.
+                function seasonDiagnoseBtn(gapId, name) {
+                    return ' <a class="cgLink cgDiagnose" data-gapid="' + esc(gapId) + '" data-name="' + esc(name)
+                        + '" title="Is this season really part of the series you own?" aria-label="Diagnose this season">'
+                        + '<span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">troubleshoot</span></a>';
+                }
+
                 // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
                 // Specials); everything else lists rows directly.
                 function sourceBody(items) {
@@ -1049,7 +1057,12 @@
                         // somewhere to go.
                         var seriesName = seasonItems[0].SourceItemName;
                         var openId = seasonId || seasonItems[0].SourceItemId;
-                        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId) + batchDismissBtns(label);
+                        // Diagnose the season via one of its episodes: does it belong to the series you own, or
+                        // to a same-named reboot? Skip Specials/Other (a year comparison there is meaningless).
+                        var seasonDiag = (key !== 'na' && n > 0)
+                            ? seasonDiagnoseBtn(seasonItems[0].Id, (seriesName ? seriesName + ' ' : '') + label)
+                            : '';
+                        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId) + seasonDiag + batchDismissBtns(label);
                         return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra);
                     }).join('');
                 }
