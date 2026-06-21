@@ -719,8 +719,9 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
                     }
-                    // Diagnose why a movie/show is reported missing (usually a provider-id mismatch on an owned item).
-                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
+                    // Diagnose why a movie, show, album, or book is reported missing (usually a provider-id
+                    // mismatch on an owned item).
+                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'MusicAlbum' || item.TargetKindName === 'Book') {
                         actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
                     }
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.

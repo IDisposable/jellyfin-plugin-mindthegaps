@@ -101,9 +101,9 @@ public sealed class GapDiagnostics
     // entry supplies the owned movies/shows; tests supply their own.
     internal static GapDiagnosis DiagnoseAgainst(GapItem gap, IReadOnlyList<BaseItem> owned)
     {
-        if (gap.TargetKind is not (BaseItemKind.Movie or BaseItemKind.Series))
+        if (!IsDiagnosable(gap.TargetKind))
         {
-            return new GapDiagnosis { Summary = "Identification diagnosis is available for movie and show gaps only." };
+            return new GapDiagnosis { Summary = "Identification diagnosis is available for movie, show, album, and book gaps only." };
         }
 
         return Evaluate(gap, BuildIndex(owned));
@@ -175,8 +175,10 @@ public sealed class GapDiagnostics
             }
         }
 
+        // The audit's owned set is movies and shows only (the guard above), so every primary id here is a
+        // TheMovieDb id; the duplicate section stays TheMovieDb-specific.
         var duplicates = new List<DuplicateIdGroup>();
-        foreach (var pair in index.ByTmdb)
+        foreach (var pair in index.ByPrimaryId)
         {
             if (pair.Value.Count < 2)
             {
@@ -206,10 +208,11 @@ public sealed class GapDiagnostics
 
     private static GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)
     {
-        gap.ProviderIds.TryGetValue("Tmdb", out var gapTmdb);
+        var kind = gap.TargetKind;
+        var primaryLabel = PrimaryProviderLabel(kind);
+        gap.ProviderIds.TryGetValue(PrimaryProvider(kind), out var gapPrimary);
         gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
         gap.ProviderIds.TryGetValue("Tvdb", out var gapTvdb);
-        var kind = gap.TargetKind;
         var wantName = Normalize(gap.Name);
 
         var target = new DiagnosisItem
@@ -256,14 +259,14 @@ public sealed class GapDiagnostics
                     continue;
                 }
 
-                var ownedTmdb = Tmdb(owned);
+                var ownedPrimary = PrimaryId(owned);
                 string note;
-                if (ownedTmdb is null)
+                if (ownedPrimary is null)
                 {
-                    note = "same title, no TheMovieDb id";
+                    note = string.Create(CultureInfo.InvariantCulture, $"same title, no {primaryLabel} id");
                     titleMismatch = true;
                 }
-                else if (string.Equals(ownedTmdb, gapTmdb, StringComparison.Ordinal))
+                else if (string.Equals(ownedPrimary, gapPrimary, StringComparison.Ordinal))
                 {
                     note = "same title and id (this gap may be stale)";
                     titleStale = true;
@@ -279,7 +282,7 @@ public sealed class GapDiagnostics
         }
 
         var idHolderMismatch = false;
-        if (!string.IsNullOrEmpty(gapTmdb) && index.ByTmdb.TryGetValue((kind, gapTmdb), out var idHits))
+        if (!string.IsNullOrEmpty(gapPrimary) && index.ByPrimaryId.TryGetValue((kind, gapPrimary), out var idHits))
         {
             foreach (var owned in idHits)
             {
@@ -318,13 +321,13 @@ public sealed class GapDiagnostics
         // C1: a wrong-class id on the gap itself (a typed-provider check) means the match never had a chance.
         var wrongClass = WrongClassId(gap.ProviderIds);
 
-        var noun = kind == BaseItemKind.Series ? "show" : "movie";
+        var noun = Noun(kind);
         string summary;
         DiagnosisReason reason;
         if (titleMismatch)
         {
             reason = DiagnosisReason.OwnedUnderWrongId;
-            summary = string.Create(CultureInfo.InvariantCulture, $"Likely a metadata mismatch: you appear to own this {noun} already, under a different or missing TheMovieDb id. Compare the ids below, fix the owned item, and rescan.");
+            summary = string.Create(CultureInfo.InvariantCulture, $"Likely a metadata mismatch: you appear to own this {noun} already, under a different or missing {primaryLabel} id. Compare the ids below, fix the owned item, and rescan.");
         }
         else if (idHolderMismatch)
         {
@@ -422,8 +425,8 @@ public sealed class GapDiagnostics
 
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
     {
-        // Only movies and shows are diagnosable, so skip the load entirely for any other kind
-        if (kinds.Any(k => k is not (BaseItemKind.Movie or BaseItemKind.Series)))
+        // Skip the load entirely for any kind the diagnosis cannot analyse.
+        if (kinds.Any(k => !IsDiagnosable(k)))
         {
             return [];
         }
@@ -454,10 +457,10 @@ public sealed class GapDiagnostics
 
             index.All.Add(entry);
             Add(index.ByTitle, (entry.Kind, entry.NormalizedName), entry);
-            var tmdb = Tmdb(entry);
-            if (tmdb is not null)
+            var primary = PrimaryId(entry);
+            if (primary is not null)
             {
-                Add(index.ByTmdb, (entry.Kind, tmdb), entry);
+                Add(index.ByPrimaryId, (entry.Kind, primary), entry);
             }
 
             foreach (var provider in SecondaryIdProviders)
@@ -499,8 +502,40 @@ public sealed class GapDiagnostics
         return map;
     }
 
-    // The TheMovieDb id, still the one key the matching indexes on (movie/show diagnosis); null when absent.
-    private static string? Tmdb(OwnedItem owned) => owned.ProviderIds.TryGetValue("Tmdb", out var id) ? id : null;
+    // The kinds the diagnosis can analyse: movies and shows (TheMovieDb-keyed), albums (MusicBrainz
+    // release-group), and books (OpenLibrary work).
+    private static bool IsDiagnosable(BaseItemKind kind)
+        => kind is BaseItemKind.Movie or BaseItemKind.Series or BaseItemKind.MusicAlbum or BaseItemKind.Book;
+
+    // The provider an item of this kind is keyed on for the id match and the ownership diff.
+    private static string PrimaryProvider(BaseItemKind kind) => kind switch
+    {
+        BaseItemKind.MusicAlbum => "MusicBrainzReleaseGroup",
+        BaseItemKind.Book => "OpenLibrary",
+        _ => "Tmdb"
+    };
+
+    // The display name of the primary provider, for the diagnosis messages.
+    private static string PrimaryProviderLabel(BaseItemKind kind) => kind switch
+    {
+        BaseItemKind.MusicAlbum => "MusicBrainz",
+        BaseItemKind.Book => "OpenLibrary",
+        _ => "TheMovieDb"
+    };
+
+    // The noun for this kind, for the diagnosis messages.
+    private static string Noun(BaseItemKind kind) => kind switch
+    {
+        BaseItemKind.Series => "show",
+        BaseItemKind.MusicAlbum => "album",
+        BaseItemKind.Book => "book",
+        _ => "movie"
+    };
+
+    // The primary id the matching indexes on (TheMovieDb for movies/shows, MusicBrainz release-group for
+    // albums, OpenLibrary work for books); null when absent.
+    private static string? PrimaryId(OwnedItem owned)
+        => owned.ProviderIds.TryGetValue(PrimaryProvider(owned.Kind), out var id) ? id : null;
 
     // A wrong-class id does not fit its provider slot. Only typed-id providers can be judged without a
     // network call: IMDb here (an "nm" person id where a "tt" title belongs). Numeric TheMovieDb/TheTVDB ids
@@ -564,7 +599,9 @@ public sealed class GapDiagnostics
 
         public Dictionary<(BaseItemKind Kind, string Name), List<OwnedItem>> ByTitle { get; } = new();
 
-        public Dictionary<(BaseItemKind Kind, string Id), List<OwnedItem>> ByTmdb { get; } = new();
+        // Owned items keyed by their primary id (TheMovieDb for movies/shows, MusicBrainz release-group for
+        // albums, OpenLibrary work for books), for the id match and the audit's duplicate-id detection.
+        public Dictionary<(BaseItemKind Kind, string Id), List<OwnedItem>> ByPrimaryId { get; } = new();
 
         // Owned items keyed by a secondary id (provider + value), for corroborating a gap whose title was
         // localized but whose IMDb/TheTVDB id still matches.

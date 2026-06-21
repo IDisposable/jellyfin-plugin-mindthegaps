@@ -5,15 +5,17 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
-// GapDiagnostics explains why a movie/show gap is reported missing, and audits the library for the same
-// problem in bulk, by diffing a gap against owned items. These drive the internal seams that take the owned
-// items directly (no library load). Matching is TheMovieDb-keyed, on normalized title and on id.
+// GapDiagnostics explains why a movie, show, album, or book gap is reported missing, and audits the library
+// for the same problem in bulk, by diffing a gap against owned items. These drive the internal seams that
+// take the owned items directly (no library load). Matching is on normalized title and on a per-kind primary
+// id (TheMovieDb for movies/shows, MusicBrainz release-group for albums, OpenLibrary work for books).
 public class GapDiagnosticsTests
 {
     private static Movie OwnedMovie(string name, int? year, params (string Key, string Value)[] ids)
@@ -21,6 +23,12 @@ public class GapDiagnosticsTests
 
     private static Series OwnedSeries(string name, int? year, params (string Key, string Value)[] ids)
         => Owned(new Series(), name, year, ids);
+
+    private static MusicAlbum OwnedAlbum(string name, int? year, params (string Key, string Value)[] ids)
+        => Owned(new MusicAlbum(), name, year, ids);
+
+    private static Book OwnedBook(string name, int? year, params (string Key, string Value)[] ids)
+        => Owned(new Book(), name, year, ids);
 
     private static T Owned<T>(T item, string name, int? year, (string Key, string Value)[] ids)
         where T : BaseItem
@@ -309,14 +317,43 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
-    public void DiagnoseAgainst_NonMovieOrSeriesGap_IsNotDiagnosable()
+    public void DiagnoseAgainst_NonDiagnosableKindGap_IsNotDiagnosable()
     {
+        // Episodes are not a diagnosable kind (only movies, shows, albums, and books are).
         var gap = Gap(BaseItemKind.Episode, "Pilot", 2010, ("Tmdb", "5"));
 
         var d = GapDiagnostics.DiagnoseAgainst(gap, Array.Empty<BaseItem>());
 
         Assert.Null(d.Target);
-        Assert.Contains("movie and show", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("album, and book", d.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_AlbumOwnedUnderDifferentReleaseGroup_FlagsMismatch()
+    {
+        // A music album gap keyed on the MusicBrainz release-group id, owned under a different release-group:
+        // diagnosed as owned under the wrong id, with the MusicBrainz label in the message.
+        var gap = Gap(BaseItemKind.MusicAlbum, "Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-1"));
+        var owned = new BaseItem[] { OwnedAlbum("Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-999")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Single(d.Candidates);
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Contains("MusicBrainz", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_BookGenuinelyMissing_ReportsGap()
+    {
+        var gap = Gap(BaseItemKind.Book, "Dune Messiah", 1969, ("OpenLibrary", "OL1W"));
+        var owned = new BaseItem[] { OwnedBook("Children of Dune", 1976, ("OpenLibrary", "OL2W")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Empty(d.Candidates);
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Equal(BaseItemKind.Book, d.TargetKind);
     }
 
     [Fact]

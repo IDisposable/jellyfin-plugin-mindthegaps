@@ -219,16 +219,14 @@ targeted deletes), so it does not need its own progress. Availability is its own
   surfaced as "owned under the wrong id"; matching a differently-titled member would need fuzzy title/year or
   position matching, which is the masking approach rejected above (surface it, do not guess).
 
-- **Extend the Diagnose action to Music and Books.** `GapDiagnostics` is already provider-agnostic on the
-  data side: a `DiagnosisItem` carries a full `ProviderIds` map and `ProviderLinks` builds its links, so the
-  popup table and the audit render whatever ids an item holds, not a fixed TheMovieDb/IMDb/TheTVDB set. The
-  matching, though, is still TheMovieDb-keyed (the `ByTmdb` index, plus title), so only movie and show gaps
-  are diagnosed. Extending it to a music discography or a book bibliography needs two pieces per domain: a
-  stable "set" identity to diff owned items on (a MusicBrainz release-group for an album, an OpenLibrary work
-  for a book) with the matching keyed on it instead of TMDB, and `ProviderLinks` cases for those providers so
-  the id cells link out. The blocker is less the code than the ids: until owned albums and books reliably
-  carry those provider ids, the diff has nothing to match against. Revisit once suitable set provider ids are
-  present. `CuratedSetGapSource` completes the movies of
+- **Diagnose for Music and Books (done; ids permitting).** `GapDiagnostics` now matches on a per-kind
+  primary id (`PrimaryProvider`): TheMovieDb for movies and shows, the MusicBrainz release-group for albums,
+  the OpenLibrary work for books, plus the normalized-title and year logic shared across kinds. The per-gap
+  Diagnose popup is reachable for album and book rows, and its messages name the right provider. The
+  library-wide audit stays movies and shows only (its duplicate-id section is TheMovieDb-specific). The
+  remaining limit is the ids, not the code: the diff only finds an owned album or book when the library item
+  carries the MusicBrainz release-group or OpenLibrary work id, so on thinly-tagged libraries it falls back to
+  the title and year match. `CuratedSetGapSource` completes the movies of
   a studio or keyword, chosen in settings with a type-ahead chip picker (only the resolved TMDB id is
   stored) or **auto-seeded** from the studios most common on owned movies and series (`AutoSeedStudios`),
   grouped by the set name with per-set page and gap caps. The one input type it does not cover is TMDB
