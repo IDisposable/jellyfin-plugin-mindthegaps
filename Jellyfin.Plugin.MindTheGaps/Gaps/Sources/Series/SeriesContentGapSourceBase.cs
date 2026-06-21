@@ -23,6 +23,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// </summary>
 public abstract class SeriesContentGapSourceBase : IGapSource
 {
+    // The largest plausible gap between an owned series' start year and the first season of the show resolved
+    // for it. Beyond this, the resolved show is almost certainly a same-named reboot, not the same series.
+    private const int RebootYearGap = 3;
+
     private readonly ILibraryManager _libraryManager;
     private readonly ScanCursorStore _cursors;
     private readonly ILogger _logger;
@@ -116,6 +120,19 @@ public abstract class SeriesContentGapSourceBase : IGapSource
                 continue;
             }
 
+            // Guard against resolving a same-named reboot. If the owned series has a year but the show that
+            // was resolved for it has its first season airing in a very different year (V 1984 versus V 2009),
+            // it is a different series, so do not report that show's seasons as missing episodes of this one.
+            if (LooksLikeDifferentSeries(series.ProductionYear, canonical))
+            {
+                _logger.LogInformation(
+                    "{Source}: the show resolved for {Series} ({Year}) starts in a very different year, so it looks like a same-named reboot; skipping it to avoid false missing episodes",
+                    Name,
+                    series.Name,
+                    series.ProductionYear);
+                continue;
+            }
+
             var owned = GetOwnedEpisodeNumbers(series.Id);
             foreach (var episode in SeriesContentDiff.Missing(canonical, owned, episodeCap))
             {
@@ -144,6 +161,36 @@ public abstract class SeriesContentGapSourceBase : IGapSource
         BaseItem series,
         GapScanContext context,
         CancellationToken cancellationToken);
+
+    // True when the owned series has a year and the resolved canonical list's lowest season aired far enough
+    // from it to be a different, same-named series. A correct resolution has season one airing within a year
+    // or two of the series' start year, whatever later seasons do, so this never rejects a legitimate long run
+    // (it compares the lowest season's year to the start year, not every episode's year).
+    internal static bool LooksLikeDifferentSeries(int? seriesYear, IReadOnlyList<CanonicalEpisode> canonical)
+    {
+        if (seriesYear is not int year)
+        {
+            return false;
+        }
+
+        int? lowestSeasonYear = null;
+        var lowestSeason = int.MaxValue;
+        foreach (var episode in canonical)
+        {
+            if (episode.Season < 1 || episode.ReleaseDate is not { } aired)
+            {
+                continue;
+            }
+
+            if (episode.Season < lowestSeason || (episode.Season == lowestSeason && aired.Year < lowestSeasonYear))
+            {
+                lowestSeason = episode.Season;
+                lowestSeasonYear = aired.Year;
+            }
+        }
+
+        return lowestSeasonYear is int first && Math.Abs(first - year) > RebootYearGap;
+    }
 
     private static GapItem BuildGap(BaseItem series, CanonicalEpisode episode)
     {
