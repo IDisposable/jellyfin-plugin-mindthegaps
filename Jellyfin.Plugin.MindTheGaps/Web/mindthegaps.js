@@ -264,11 +264,10 @@
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
                     }
-                    // Diagnose why a movie, show, album, book, or episode is reported missing (usually a
-                    // provider-id mismatch on an owned item, or a same-named reboot for an episode).
-                    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'MusicAlbum' || item.TargetKindName === 'Book' || item.TargetKindName === 'Episode') {
-                        actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
-                    }
+                    // Diagnose why this is reported missing (a provider-id mismatch on an owned item, or a
+                    // same-named reboot for an episode). Every gap kind today is diagnosable; an unsupported
+                    // kind still gets a graceful "not available for this kind" verdict, so always offer it.
+                    actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
                         actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the dismissal (show as missing again)">Clear</button>');
