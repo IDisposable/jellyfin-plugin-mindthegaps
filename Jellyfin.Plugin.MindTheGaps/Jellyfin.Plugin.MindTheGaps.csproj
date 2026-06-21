@@ -10,14 +10,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <!--
-    Standalone build: reference the published Jellyfin.* NuGet packages instead of the server
-    projects. ExcludeAssets="runtime" keeps the Jellyfin.* assemblies compile-only, so the host's own
-    copies load at runtime. TMDbLib is a real runtime dependency (the host does not provide it), so it
-    and its Newtonsoft.Json dependency ship alongside the plugin: they are listed in build.yaml's
-    artifacts so jprm bundles them into the zip. Versions resolve from the repo-level
-    Directory.Packages.props (Jellyfin.* tracks $(JellyfinVersion), the target ABI).
-  -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Jellyfin.Controller" ExcludeAssets="runtime" />
@@ -27,15 +19,6 @@
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
-  <!--
-    The dashboard is authored as separate files for navigability instead of one giant page: Web/mindthegaps.html
-    is the small markup shell with @@MTG_REPORT@@ / @@MTG_CONFIG@@ / @@MTG_CSS@@ / @@MTG_JS@@ placeholders;
-    Web/mindthegaps.report.html is the report panel, Web/mindthegaps.config.html the settings panel,
-    Web/mindthegaps.css the styles, and Web/mindthegaps.js the script. The BuildDashboard target concatenates
-    them at build time into a single generated page, embedded under the same resource name the plugin serves it
-    from, so it still ships as one artifact and stays one runtime page (the gear toggles report against config
-    in place). The source files are ordinary None items (build inputs only).
-  -->
   <UsingTask TaskName="ConcatDashboard" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Shell ParameterType="System.String" Required="true" />
@@ -58,9 +41,6 @@
     </Task>
   </UsingTask>
 
-  <!-- The generated page is a static embedded resource (declared here so it joins the normal resource
-       pipeline from evaluation, which an item added inside a build target does not reliably do). The
-       BuildDashboard target only writes its content, before the compiler reads it. -->
   <ItemGroup>
     <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.html" />
   </ItemGroup>

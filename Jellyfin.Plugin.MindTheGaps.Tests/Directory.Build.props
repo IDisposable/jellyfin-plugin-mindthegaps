@@ -1,5 +1,4 @@
 <Project>
-  <!-- Self-contained; halts inheritance of the server repo's root props (no warnings-as-errors for tests). -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
