@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
-using MediaBrowser.Common.Net;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 
@@ -30,18 +26,15 @@ public sealed class MusicBrainzClient
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<MusicBrainzClient> _logger;
+    private readonly CachedApiClient _api;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MusicBrainzClient"/> class.
     /// </summary>
-    /// <param name="httpClientFactory">The HTTP client factory.</param>
-    /// <param name="logger">The logger.</param>
-    public MusicBrainzClient(IHttpClientFactory httpClientFactory, ILogger<MusicBrainzClient> logger)
+    /// <param name="api">The cached API client.</param>
+    public MusicBrainzClient(CachedApiClient api)
     {
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _api = api;
     }
 
     /// <summary>
@@ -78,45 +71,9 @@ public sealed class MusicBrainzClient
         return groups;
     }
 
-    private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await HttpRetry.SendAsync(
-                client,
-                // HttpRetry adds the descriptive User-Agent (with the plugin version) MusicBrainz requires.
-                () => new HttpRequestMessage(HttpMethod.Get, BaseUrl + path),
-                _logger,
-                "MusicBrainz",
-                path,
-                cancellationToken).ConfigureAwait(false);
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return default;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("MusicBrainz GET {Path} returned {Status}", path, response.StatusCode);
-                return default;
-            }
-
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "MusicBrainz GET {Path} failed", path);
-            return default;
-        }
-    }
+    // CachedApiClient caches the result and adds the descriptive User-Agent (with the plugin version)
+    // MusicBrainz requires, via the shared HttpRetry path.
+    private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+        where T : class
+        => _api.GetJsonAsync<T>("MusicBrainz", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }

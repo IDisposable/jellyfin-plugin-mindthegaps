@@ -2,14 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
-using MediaBrowser.Common.Net;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 
@@ -28,18 +24,15 @@ public sealed class OpenLibraryClient
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<OpenLibraryClient> _logger;
+    private readonly CachedApiClient _api;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenLibraryClient"/> class.
     /// </summary>
-    /// <param name="httpClientFactory">The HTTP client factory.</param>
-    /// <param name="logger">The logger.</param>
-    public OpenLibraryClient(IHttpClientFactory httpClientFactory, ILogger<OpenLibraryClient> logger)
+    /// <param name="api">The cached API client.</param>
+    public OpenLibraryClient(CachedApiClient api)
     {
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _api = api;
     }
 
     /// <summary>
@@ -126,45 +119,8 @@ public sealed class OpenLibraryClient
         return slash >= 0 && slash < key.Length - 1 ? key[(slash + 1)..] : key;
     }
 
-    private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await HttpRetry.SendAsync(
-                client,
-                // HttpRetry adds the plugin's versioned User-Agent.
-                () => new HttpRequestMessage(HttpMethod.Get, BaseUrl + path),
-                _logger,
-                "OpenLibrary",
-                path,
-                cancellationToken).ConfigureAwait(false);
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return default;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("OpenLibrary GET {Path} returned {Status}", path, response.StatusCode);
-                return default;
-            }
-
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "OpenLibrary GET {Path} failed", path);
-            return default;
-        }
-    }
+    // CachedApiClient caches the result and adds the plugin's versioned User-Agent via the shared HttpRetry path.
+    private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+        where T : class
+        => _api.GetJsonAsync<T>("OpenLibrary", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }

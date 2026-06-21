@@ -1,16 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
-using MediaBrowser.Common.Net;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 
@@ -35,18 +31,15 @@ public sealed class DiscogsClient
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<DiscogsClient> _logger;
+    private readonly CachedApiClient _api;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscogsClient"/> class.
     /// </summary>
-    /// <param name="httpClientFactory">The HTTP client factory.</param>
-    /// <param name="logger">The logger.</param>
-    public DiscogsClient(IHttpClientFactory httpClientFactory, ILogger<DiscogsClient> logger)
+    /// <param name="api">The cached API client.</param>
+    public DiscogsClient(CachedApiClient api)
     {
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _api = api;
     }
 
     /// <summary>
@@ -160,57 +153,24 @@ public sealed class DiscogsClient
         return releases;
     }
 
-    private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+    private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+        where T : class
     {
+        // Discogs requires a personal access token to browse; without one configured, nothing to fetch.
         var token = Plugin.Instance?.Configuration.DiscogsToken;
         if (string.IsNullOrEmpty(token))
         {
-            return default;
+            return Task.FromResult<T?>(null);
         }
 
-        try
-        {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await HttpRetry.SendAsync(
-                client,
-                () =>
-                {
-                    var request = new HttpRequestMessage(HttpMethod.Get, BaseUrl + path);
-                    request.Headers.Authorization = new AuthenticationHeaderValue(
-                        "Discogs",
-                        string.Create(CultureInfo.InvariantCulture, $"token={token}"));
-                    return request;
-                },
-                _logger,
+        return _api.GetJsonAsync<T>(
+            "Discogs",
+            BaseUrl + path,
+            CachedApiClient.DefaultCacheDuration,
+            _jsonOptions,
+            request => request.Headers.Authorization = new AuthenticationHeaderValue(
                 "Discogs",
-                path,
-                cancellationToken).ConfigureAwait(false);
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return default;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("Discogs GET {Path} returned {Status}", path, response.StatusCode);
-                return default;
-            }
-
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Discogs GET {Path} failed", path);
-            return default;
-        }
+                string.Create(CultureInfo.InvariantCulture, $"token={token}")),
+            cancellationToken);
     }
 }

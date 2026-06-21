@@ -32,6 +32,7 @@ public sealed class TvdbClient : IDisposable
     };
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly CachedApiClient _api;
     private readonly ILogger<TvdbClient> _logger;
     private readonly SemaphoreSlim _loginLock = new(1, 1);
 
@@ -42,10 +43,12 @@ public sealed class TvdbClient : IDisposable
     /// Initializes a new instance of the <see cref="TvdbClient"/> class.
     /// </summary>
     /// <param name="httpClientFactory">The HTTP client factory.</param>
+    /// <param name="api">The cached API client (a read-through cache around the token-authenticated fetch).</param>
     /// <param name="logger">The logger.</param>
-    public TvdbClient(IHttpClientFactory httpClientFactory, ILogger<TvdbClient> logger)
+    public TvdbClient(IHttpClientFactory httpClientFactory, CachedApiClient api, ILogger<TvdbClient> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _api = api;
         _logger = logger;
     }
 
@@ -108,7 +111,19 @@ public sealed class TvdbClient : IDisposable
         _loginLock.Dispose();
     }
 
-    private async Task<T?> GetAsync<T>(string apiKey, string path, CancellationToken cancellationToken)
+    // CachedApiClient caches the deserialized result by path (the same data regardless of which API key
+    // fetched it); the fetch below carries the bearer-token login and its mid-scan re-auth.
+    private Task<T?> GetAsync<T>(string apiKey, string path, CancellationToken cancellationToken)
+        where T : class
+        => _api.GetOrAddAsync<T>(
+            "TheTVDB",
+            path,
+            CachedApiClient.DefaultCacheDuration,
+            ct => FetchAsync<T>(apiKey, path, ct),
+            cancellationToken);
+
+    private async Task<T?> FetchAsync<T>(string apiKey, string path, CancellationToken cancellationToken)
+        where T : class
     {
         try
         {

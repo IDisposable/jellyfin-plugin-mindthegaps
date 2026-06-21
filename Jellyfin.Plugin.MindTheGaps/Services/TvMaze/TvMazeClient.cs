@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
-using MediaBrowser.Common.Net;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 
@@ -24,18 +20,15 @@ public sealed class TvMazeClient
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ILogger<TvMazeClient> _logger;
+    private readonly CachedApiClient _api;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TvMazeClient"/> class.
     /// </summary>
-    /// <param name="httpClientFactory">The HTTP client factory.</param>
-    /// <param name="logger">The logger.</param>
-    public TvMazeClient(IHttpClientFactory httpClientFactory, ILogger<TvMazeClient> logger)
+    /// <param name="api">The cached API client.</param>
+    public TvMazeClient(CachedApiClient api)
     {
-        _httpClientFactory = httpClientFactory;
-        _logger = logger;
+        _api = api;
     }
 
     /// <summary>
@@ -64,45 +57,8 @@ public sealed class TvMazeClient
             string.Create(CultureInfo.InvariantCulture, $"/shows/{showId}/episodes"),
             cancellationToken);
 
-    private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var client = _httpClientFactory.CreateClient(NamedClient.Default);
-            using var response = await HttpRetry.SendAsync(
-                client,
-                () => new HttpRequestMessage(HttpMethod.Get, BaseUrl + path),
-                _logger,
-                "TVmaze",
-                path,
-                cancellationToken).ConfigureAwait(false);
-
-            // A lookup miss is a normal 404, not an error worth logging.
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return default;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("TVmaze GET {Path} returned {Status}", path, response.StatusCode);
-                return default;
-            }
-
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                return await JsonSerializer.DeserializeAsync<T>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "TVmaze GET {Path} failed", path);
-            return default;
-        }
-    }
+    // CachedApiClient caches the result and routes through the shared HttpRetry path.
+    private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+        where T : class
+        => _api.GetJsonAsync<T>("TVmaze", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }
