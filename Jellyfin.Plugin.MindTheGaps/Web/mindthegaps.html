@@ -277,9 +277,15 @@
                                 <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers.</div>
                             </div>
                             <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="DiscogsLabelIds">Discogs label ids</label>
-                                <input id="DiscogsLabelIds" name="DiscogsLabelIds" type="text" is="emby-input" />
-                                <div class="fieldDescription">Comma-separated Discogs label ids to complete (for example 23528 for Warp Records). A label id is in its discogs.com URL.</div>
+                                <label class="inputLabel inputLabelUnfocused" for="cgLabelInput">Discogs labels</label>
+                                <div class="cgChipField" id="cgLabelField">
+                                    <div class="cgChipBox" id="cgLabelBox">
+                                        <span class="cgChipList" id="cgLabelChips" role="list" aria-label="Selected labels"></span>
+                                        <input id="cgLabelInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search labels..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgLabelSuggest" />
+                                    </div>
+                                    <div class="cgSuggest" id="cgLabelSuggest" role="listbox" aria-label="Label matches"></div>
+                                </div>
+                                <div class="fieldDescription">Search Discogs for a record label and pick it; the releases on it that you do not own become gaps. Needs the token above.</div>
                             </div>
                         </div>
 
@@ -2254,7 +2260,6 @@
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
                     page.querySelector('#ScanDiscogs').checked = config.ScanDiscogs;
                     page.querySelector('#DiscogsToken').value = config.DiscogsToken || '';
-                    page.querySelector('#DiscogsLabelIds').value = config.DiscogsLabelIds || '';
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
                     page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
@@ -2330,7 +2335,7 @@
                         config.ScanBooks = form.querySelector('#ScanBooks').checked;
                         config.ScanDiscogs = form.querySelector('#ScanDiscogs').checked;
                         config.DiscogsToken = form.querySelector('#DiscogsToken').value;
-                        config.DiscogsLabelIds = form.querySelector('#DiscogsLabelIds').value;
+                        config.DiscogsLabelIds = chips.label ? chips.label.ids() : (config.DiscogsLabelIds || '');
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
                         config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
@@ -2484,6 +2489,7 @@
                     };
                     resolve('studio', config.CuratedCompanyIds || '');
                     resolve('keyword', config.CuratedKeywordIds || '');
+                    resolve('label', config.DiscogsLabelIds || '');
                 }
 
                 function bindSettings(page) {
@@ -2496,6 +2502,7 @@
                     page.querySelector('#TvdbEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey'); });
                     setupChips(page, 'studio', 'cgStudioBox', 'cgStudioChips', 'cgStudioInput', 'cgStudioSuggest');
                     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
+                    setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
                     // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
                     var revealBtns = page.querySelectorAll('.cgReveal');
                     for (var rb = 0; rb < revealBtns.length; rb++) {

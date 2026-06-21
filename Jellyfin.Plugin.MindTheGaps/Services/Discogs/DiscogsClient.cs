@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,9 @@ public sealed class DiscogsClient
     // Discogs returns up to 100 items per page; cap paging so a large label does not run away.
     private const int PageSize = 100;
     private const int MaxPages = 20;
+
+    // The settings type-ahead shows a short list, so a partial query does not flood the dropdown.
+    private const int MaxSuggestions = 10;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -74,6 +78,53 @@ public sealed class DiscogsClient
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Searches Discogs labels by name for the settings type-ahead, returning the top matches as id and name
+    /// pairs (the empty result included).
+    /// </summary>
+    /// <param name="query">The partial label name typed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top matches.</returns>
+    public async Task<IReadOnlyList<CuratedSetRef>> SearchLabelsAsync(string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<CuratedSetRef>();
+        }
+
+        var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=label&q={Uri.EscapeDataString(query)}&per_page={MaxSuggestions}");
+        var response = await GetAsync<DiscogsSearchResponse>(path, cancellationToken).ConfigureAwait(false);
+        var refs = new List<CuratedSetRef>();
+        foreach (var result in response?.Results ?? new List<DiscogsSearchResult>())
+        {
+            if (result.Id > 0 && !string.IsNullOrEmpty(result.Title))
+            {
+                refs.Add(new CuratedSetRef { Id = (int)result.Id, Name = result.Title });
+            }
+
+            if (refs.Count >= MaxSuggestions)
+            {
+                break;
+            }
+        }
+
+        return refs;
+    }
+
+    /// <summary>
+    /// Gets a label's display name by its Discogs id, so a stored label id renders as a named chip.
+    /// </summary>
+    /// <param name="labelId">The Discogs label id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The label name, or null.</returns>
+    public async Task<string?> GetLabelNameAsync(long labelId, CancellationToken cancellationToken)
+    {
+        var label = await GetAsync<DiscogsLabel>(
+            string.Create(CultureInfo.InvariantCulture, $"/labels/{labelId}"),
+            cancellationToken).ConfigureAwait(false);
+        return label?.Name;
     }
 
     /// <summary>

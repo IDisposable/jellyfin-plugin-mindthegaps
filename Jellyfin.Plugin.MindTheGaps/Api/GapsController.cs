@@ -10,6 +10,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
+using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +38,7 @@ public class GapsController : ControllerBase
     private readonly ScanCursorStore _cursors;
     private readonly GapDiagnostics _diagnostics;
     private readonly TmdbClient _tmdb;
+    private readonly DiscogsClient _discogs;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -51,7 +53,8 @@ public class GapsController : ControllerBase
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="diagnostics">The gap identification diagnostics.</param>
     /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb)
+    /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -63,6 +66,7 @@ public class GapsController : ControllerBase
         _cursors = cursors;
         _diagnostics = diagnostics;
         _tmdb = tmdb;
+        _discogs = discogs;
     }
 
     /// <summary>
@@ -292,9 +296,20 @@ public class GapsController : ControllerBase
             return new List<CuratedSetRef>();
         }
 
-        var results = IsKeyword(kind)
-            ? await _tmdb.SearchKeywordsAsync(query, cancellationToken).ConfigureAwait(false)
-            : await _tmdb.SearchCompaniesAsync(query, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<CuratedSetRef> results;
+        if (IsLabel(kind))
+        {
+            results = await _discogs.SearchLabelsAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+        else if (IsKeyword(kind))
+        {
+            results = await _tmdb.SearchKeywordsAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            results = await _tmdb.SearchCompaniesAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+
         return results.ToList();
     }
 
@@ -302,7 +317,7 @@ public class GapsController : ControllerBase
     /// Resolves stored curated-set ids to id and name pairs, so the settings page can render a chip per
     /// saved set with its name rather than its id.
     /// </summary>
-    /// <param name="kind">"studio" or "keyword".</param>
+    /// <param name="kind">"studio", "keyword", or "label".</param>
     /// <param name="ids">A comma-separated list of stored ids.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The resolved sets, de-duplicated by id in input order.</returns>
@@ -311,6 +326,7 @@ public class GapsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CuratedSetRef>>> CuratedResolve([FromQuery] string? kind, [FromQuery] string? ids, CancellationToken cancellationToken)
     {
         var keyword = IsKeyword(kind);
+        var label = IsLabel(kind);
         var resolved = new List<CuratedSetRef>();
         var seen = new HashSet<int>();
 
@@ -321,18 +337,33 @@ public class GapsController : ControllerBase
                 continue;
             }
 
-            var name = keyword
-                ? await _tmdb.GetKeywordNameAsync(id, cancellationToken).ConfigureAwait(false)
-                : await _tmdb.GetCompanyNameAsync(id, cancellationToken).ConfigureAwait(false);
+            string? name;
+            if (label)
+            {
+                name = await _discogs.GetLabelNameAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            else if (keyword)
+            {
+                name = await _tmdb.GetKeywordNameAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                name = await _tmdb.GetCompanyNameAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+
             resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id.ToString(CultureInfo.InvariantCulture) : name });
         }
 
         return resolved;
     }
 
-    // Whether a curated-set kind query value means keywords (otherwise studios).
+    // Whether a curated-set kind query value means keywords (otherwise studios, unless it is a label).
     private static bool IsKeyword(string? kind)
         => string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase);
+
+    // Whether a curated-set kind query value means a Discogs label.
+    private static bool IsLabel(string? kind)
+        => string.Equals(kind, "label", StringComparison.OrdinalIgnoreCase);
 
     // Parse a comma-separated list of ids, ignoring blanks and non-numbers.
     private static IEnumerable<int> ParseIds(string? raw)

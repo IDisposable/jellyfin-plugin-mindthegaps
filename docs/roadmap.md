@@ -232,18 +232,16 @@ targeted deletes), so it does not need its own progress. Availability is its own
   grouped by the set name with per-set page and gap caps. The one input type it does not cover is TMDB
   Lists: paste a list id and complete it the same way (TMDbLib `GetListAsync`).
   Keyword auto-seeding (from keywords on owned items) is also possible but lower value than studios.
-- **Grow the curated-set chip picker to Music and Books.** The settings page picks curated studio and
-  keyword sets with a type-ahead chip control: you search TheMovieDb (`GET CuratedSearch` over
-  `TmdbClient.SearchCompaniesAsync`/`SearchKeywordsAsync`), pick a match, and only the id is stored
-  (`CuratedCompanyIds`/`CuratedKeywordIds`); `GET CuratedResolve` turns the stored ids (and any legacy
-  free-text names) back into named chips on load, so the numeric id is never shown. Today it is TMDB-only,
-  so it covers movies. Extending the same control to Music and Books needs, per new chip kind: a provider
-  search behind `CuratedSearch` (music: a record label or artist via MusicBrainz, and via Discogs once that
-  client exists; books: an OpenLibrary subject or author), a matching id-to-name path behind
-  `CuratedResolve`, a config field to store the picked ids (mirroring `CuratedCompanyIds`), a gap source
-  that diffs that curated set against owned items (a label's releases, a subject's books) the way
-  `CuratedSetGapSource` does for studios, and a `setupChips` instance plus markup for the field. The chip
-  JS is kind-agnostic; the work is the per-provider search/resolve endpoints and the gap sources.
+- **Grow the curated-set chip picker (Music done; Books pending).** The settings page picks curated sets
+  with a kind-agnostic type-ahead chip control (`setupChips`): you search a provider (`GET CuratedSearch`),
+  pick a match, and only the id is stored; `GET CuratedResolve` turns the stored ids back into named chips on
+  load, so the numeric id is never shown. Studios and keywords go through `TmdbClient`, and **Discogs labels**
+  (the `label` kind) now go through `DiscogsClient.SearchLabelsAsync`/`GetLabelNameAsync`, stored in
+  `DiscogsLabelIds`, driving `DiscogsLabelGapSource`. Books remain: they need a curated-book **gap source**
+  first (there is no curated-book set today, only the author bibliography from owned books), for example an
+  OpenLibrary subject or author set; once that source and a config field exist, adding the chip kind is just
+  a `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance and markup, the same as the label
+  kind.
 - **Discogs source for music (label sets done; more to do).** `DiscogsClient` (hand-rolled over
   `Services/Http/HttpRetry`, authenticated with a `DiscogsToken` from config) and `DiscogsLabelGapSource`
   complete a curated record **label** set: for each configured label id, it lists the label's releases and
