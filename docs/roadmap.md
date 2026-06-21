@@ -254,17 +254,19 @@ targeted deletes), so it does not need its own progress. Availability is its own
   to name lookup, is a small `/labels/{id}` call). Discogs could also widen
   `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` with richer release/artist matching than
   MusicBrainz alone.
-- **Extend fill-up scanning to recommendations and series.** Filmography fills up over runs:
-  `PeopleGapSource` orders people most-credited-first (configurable `MaxFilmographyPeople` cap), records
-  the people scanned this cycle in `ScanCursorStore`, and advances to the next un-scanned batch each run
-  (starting a fresh cycle once everyone is covered); the engine then carries prior CreatorWorks gaps
-  forward across scans when they are still unowned and were not re-emitted (bounded, gated on a
-  filmography source being enabled), so the whole cast and crew accumulates instead of the un-scanned
-  creators' gaps vanishing. The same cursor-plus-carry-forward pattern could be applied to recommendation
-  seeds and the series cross-checks so those caps also fill up over runs rather than rescanning the same
-  slice. Watch report growth: full filmography coverage of a large library can be tens of thousands of
-  gaps (bounded by the 50k accumulation cap), which the flat dashboard render may eventually want
-  virtualizing.
+- **Fill-up scanning across the slice-scanning sources (done).** The cursor-plus-carry-forward pattern is
+  applied to all three sources that only scan a slice of their seeds per run. Filmography
+  (`PeopleGapSource`) orders people most-credited-first (`MaxFilmographyPeople` cap), recommendations
+  (`RecommendationsGapSource`) build a combined owned-movie-and-series seed pool capped at
+  `MaxRecommendationSeeds`, and the series cross-checks (`SeriesContentGapSourceBase`) walk resolvable
+  series; each records what it scanned this cycle in `ScanCursorStore` and advances to the stalest
+  un-scanned batch next run (fresh cycle once covered), pruning entries for items no longer owned. The
+  engine then carries prior unowned gaps of each pattern forward when they were not re-emitted, gated on the
+  relevant source being enabled: `CreatorWorks` (`GapEngine.AccumulateUnowned`), `Recommendation`, and the
+  cross-check episode gaps (`AccumulateSeriesContent`). So coverage accumulates across runs instead of the
+  un-scanned seeds' gaps vanishing. Remaining watch-item: report growth. Full filmography coverage of a large
+  library can reach tens of thousands of gaps (bounded by the 50k accumulation cap), which the flat dashboard
+  render may eventually want virtualizing (pairs with the dashboard modularization below).
 - **Send a gap to Radarr/Sonarr.** The report dead-ends at a link; power users running the arr stack
   want one click from "missing" to "queued". Gaps already carry the ids these need: a movie gap has a
   TMDB id (Radarr `POST /api/v3/movie` takes a tmdbId), a missing episode carries its series' TheTVDB id
@@ -347,14 +349,15 @@ targeted deletes), so it does not need its own progress. Availability is its own
     minted items via CSS keyed off a stable marker), and only later attempt native-looking shelves (highest
     fragility). Ship the injectable assets as an opt-in, document the third-party dependency, and budget an
     upkeep pass per jellyfin-web release.
-- **Modularize the dashboard (`Web/mindthegaps.html`).** The report page has grown into one large file
-  with inline CSS and a long inline script (filters, tree render, availability, dismissals, saved views,
-  export, acquisition, mint). It works but is hard to navigate. Split the source at least at the
-  authoring level: extract the CSS and the script into separate files grouped by concern (filters/state,
-  tree render, row actions, availability, views/export), then either concatenate them into the single
-  embedded resource at build time with an MSBuild target, or serve them as their own resources the page
-  references. Keep it shipping as few artifacts as before; this is purely maintainability, no behavior
-  change, and wants a small test/build-pipeline change rather than a code rewrite.
+- **Dashboard authoring split (done; finer split optional).** The dashboard is authored as three files,
+  `Web/mindthegaps.{html,css,js}` (the markup shell with `@@MTG_CSS@@`/`@@MTG_JS@@` placeholders, the CSS,
+  and the script), which the `BuildDashboard` MSBuild target concatenates at build time into one generated
+  page embedded under the same resource name the plugin serves, so it still ships as a single artifact. The
+  output is verified byte-identical to the old single file, and `DashboardResourceTests` checks the build
+  embedded it with the CSS and JS folded in. Optional follow-up: split `mindthegaps.js` itself into
+  concern-grouped sections (filters/state, tree render, row actions, availability, views/export) and
+  concatenate them too; the shared IIFE scope makes that a careful, browser-tested change rather than a
+  mechanical one, and the build pipeline is already in place to absorb it.
 - **Mint virtual placeholders for non-movie kinds.** Today only movie gaps are minted. Per kind: missing
   **episodes** and **seasons** need nothing, the server already synthesizes virtual missing episodes and
   the report links straight to them. **Albums** are the natural unit to mint for Music (a pathless virtual

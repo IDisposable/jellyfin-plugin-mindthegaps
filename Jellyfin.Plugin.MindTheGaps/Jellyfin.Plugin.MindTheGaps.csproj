@@ -27,10 +27,44 @@
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!--
+    The dashboard is authored as three files for navigability instead of one giant page: Web/mindthegaps.html
+    (the markup shell, with @@MTG_CSS@@ and @@MTG_JS@@ placeholders), Web/mindthegaps.css, and
+    Web/mindthegaps.js. The BuildDashboard target concatenates them at build time into a single generated
+    page, embedded under the same resource name the plugin serves it from, so it still ships as one artifact
+    with no behavior change. The three source files are ordinary None items (build inputs only).
+  -->
+  <UsingTask TaskName="ConcatDashboard" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Shell ParameterType="System.String" Required="true" />
+      <Css ParameterType="System.String" Required="true" />
+      <Js ParameterType="System.String" Required="true" />
+      <Output ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var html = System.IO.File.ReadAllText(Shell)
+            .Replace("@@MTG_CSS@@", System.IO.File.ReadAllText(Css))
+            .Replace("@@MTG_JS@@", System.IO.File.ReadAllText(Js));
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Output));
+        System.IO.File.WriteAllText(Output, html);
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <!-- The generated page is a static embedded resource (declared here so it joins the normal resource
+       pipeline from evaluation, which an item added inside a build target does not reliably do). The
+       BuildDashboard target only writes its content, before the compiler reads it. -->
   <ItemGroup>
-    <None Remove="Web\mindthegaps.html" />
-    <EmbeddedResource Include="Web\mindthegaps.html" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.html" />
   </ItemGroup>
+
+  <Target Name="BuildDashboard"
+          BeforeTargets="PrepareResources;BeforeCompile;CoreCompile"
+          Inputs="Web\mindthegaps.html;Web\mindthegaps.css;Web\mindthegaps.js"
+          Outputs="$(IntermediateOutputPath)mindthegaps.generated.html">
+    <ConcatDashboard Shell="Web\mindthegaps.html" Css="Web\mindthegaps.css" Js="Web\mindthegaps.js" Output="$(IntermediateOutputPath)mindthegaps.generated.html" />
+  </Target>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Jellyfin.Plugin.MindTheGaps.Tests" />
