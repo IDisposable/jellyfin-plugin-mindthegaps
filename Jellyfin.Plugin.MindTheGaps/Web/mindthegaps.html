@@ -1270,11 +1270,16 @@
                     }).join('');
                 }
 
-                // Build the "Type:" (media domain) selector from the domains actually present in the current
-                // tab's slice (Movies/Shows/Music/Books/MusicVideos), in display order. The domain is the
-                // primary selector here, so there is no "All": it defaults to the first present domain, and the
-                // control hides entirely when a tab has a single domain (nothing to choose). A remembered
-                // domain (page._wantType, from a saved view or the per-browser filters) is applied once.
+                // The media domains the plugin covers, always offered in the "Type:" selector so a domain with
+                // zero entries this scan (for example Music when nothing music is owned) still shows and does
+                // not look unsupported.
+                var ALL_DOMAINS = ['Movies', 'Shows', 'Music', 'Books'];
+
+                // Build the "Type:" (media domain) selector. It always offers every covered domain (plus any
+                // unexpected one actually present), in display order, so the chooser is never hidden and a
+                // domain is never missing just because this scan found nothing for it. It defaults to the first
+                // domain that does have entries, so the report opens on content; a remembered domain
+                // (page._wantType, from a saved view or the per-browser filters) is applied once.
                 function renderTypeFilter(page) {
                     var wrap = page.querySelector('#cgTypeFilterWrap');
                     var sel = page.querySelector('#cgTypeFilter');
@@ -1282,20 +1287,17 @@
                     ((page._report && page._report.Items) || []).forEach(function (it) {
                         if (it.PatternName === page._pattern) { present[categoryOf(it)] = true; }
                     });
-                    var domains = Object.keys(present).sort(function (a, b) {
+                    var domains = ALL_DOMAINS.slice();
+                    Object.keys(present).forEach(function (d) { if (domains.indexOf(d) === -1) { domains.push(d); } });
+                    domains.sort(function (a, b) {
                         return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9);
                     });
-                    if (domains.length <= 1) {
-                        sel.innerHTML = '';
-                        sel.value = '';
-                        if (wrap) { wrap.style.display = 'none'; }
-                        return;
-                    }
                     if (wrap) { wrap.style.display = 'inline-flex'; }
                     // Decide before rebuilding the options (which clears sel.value): a remembered domain wins,
-                    // else keep the current one if still present, else the first.
-                    var desired = (page._wantType && present[page._wantType]) ? page._wantType
-                        : ((sel.value && present[sel.value]) ? sel.value : domains[0]);
+                    // else keep the current one, else the first domain that actually has entries.
+                    var firstWithEntries = domains.filter(function (d) { return present[d]; })[0] || domains[0];
+                    var desired = (page._wantType && domains.indexOf(page._wantType) !== -1) ? page._wantType
+                        : ((sel.value && domains.indexOf(sel.value) !== -1) ? sel.value : firstWithEntries);
                     sel.innerHTML = domains.map(function (d) { return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('');
                     sel.value = desired;
                     // Consume the remembered domain once applied, so a later manual pick is not overridden.
