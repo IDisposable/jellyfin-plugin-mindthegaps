@@ -18,7 +18,9 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// is capped so a background scan never stalls for long: if a call still fails, the last response is
 /// returned (so the caller's existing non-success handling runs) or, for a transient exception, a plain
 /// <see cref="HttpRequestException"/> is thrown so the caller treats it as an error rather than as
-/// cancellation. Real caller cancellation always propagates immediately.
+/// cancellation. Real caller cancellation always propagates immediately. Before each call it also spaces
+/// requests to a rate-limited service through <see cref="ServicePacer"/>, so a service like MusicBrainz that
+/// publishes a steady-state limit is paced proactively rather than only retried after a 429.
 /// </summary>
 internal static class HttpRetry
 {
@@ -57,6 +59,10 @@ internal static class HttpRetry
             logger.LogDebug("{Service} GET {Path}: circuit open, skipping", service, path);
             return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { ReasonPhrase = "Mind the Gaps: service circuit open" };
         }
+
+        // Proactively space requests to a rate-limited service (MusicBrainz) so its steady-state limit is not
+        // tripped in the first place; a no-op for services without a configured interval.
+        await ServicePacer.WaitAsync(service, cancellationToken).ConfigureAwait(false);
 
         for (var attempt = 1; ; attempt++)
         {
