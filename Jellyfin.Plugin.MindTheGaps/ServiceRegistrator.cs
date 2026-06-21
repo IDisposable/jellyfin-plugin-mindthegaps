@@ -9,6 +9,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
@@ -40,6 +41,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<WebhookNotifier>();
+        serviceCollection.AddSingleton<CachedApiClient>();
         serviceCollection.AddSingleton<TraktClient>();
         serviceCollection.AddSingleton<TvMazeClient>();
         serviceCollection.AddSingleton<TvdbClient>();
