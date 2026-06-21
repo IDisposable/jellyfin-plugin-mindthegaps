@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using MediaBrowser.Controller.Entities;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
@@ -10,6 +11,12 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// </summary>
 public sealed class OwnershipIndex
 {
+    /// <summary>
+    /// The synthetic provider name under which an item is also indexed by its normalized name key, so a
+    /// source can fall back to a name match when no shared provider id exists (see <see cref="OwnsByName"/>).
+    /// </summary>
+    public const string NameKeyProvider = "MtgNameKey";
+
     private readonly IReadOnlyDictionary<string, BaseItem> _byKey;
 
     /// <summary>
@@ -35,6 +42,16 @@ public sealed class OwnershipIndex
     /// <returns>A normalized key.</returns>
     public static string MakeKey(BaseItemKind kind, string provider, string id)
         => string.Concat(kind.ToString(), "|", provider, "|", id).ToLowerInvariant();
+
+    /// <summary>
+    /// Builds the normalized name key for an item: its artist and title folded to a comparison key, so a
+    /// source can match by name when no shared provider id exists. Both halves are normalized.
+    /// </summary>
+    /// <param name="artist">The artist (album artist, author, ...), or null.</param>
+    /// <param name="title">The item title.</param>
+    /// <returns>A normalized "artist|title" key.</returns>
+    public static string NameKey(string? artist, string? title)
+        => string.Concat(TextKey.Normalize(artist), "|", TextKey.Normalize(title));
 
     /// <summary>
     /// Determines whether an item of the given kind with the given provider id is owned.
@@ -64,6 +81,20 @@ public sealed class OwnershipIndex
 
         return false;
     }
+
+    /// <summary>
+    /// Determines whether an item of the given kind is owned under a matching name key (artist and title),
+    /// the fallback for a source whose ids do not overlap the library's (a Discogs release against a
+    /// MusicBrainz-tagged album). Conservative: both the artist and the title must match, so it can only fail
+    /// toward still reporting a gap, never hide one. False when the title is empty (nothing to match on).
+    /// </summary>
+    /// <param name="kind">The item kind.</param>
+    /// <param name="artist">The artist to match.</param>
+    /// <param name="title">The title to match.</param>
+    /// <returns><see langword="true"/> if a name-matched item is owned.</returns>
+    public bool OwnsByName(BaseItemKind kind, string? artist, string? title)
+        => TextKey.Normalize(title).Length > 0
+            && _byKey.ContainsKey(MakeKey(kind, NameKeyProvider, NameKey(artist, title)));
 
     /// <summary>
     /// Finds the owned item matching a (kind, provider, id), if any.

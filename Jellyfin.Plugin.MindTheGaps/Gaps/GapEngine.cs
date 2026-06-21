@@ -10,6 +10,7 @@ using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
@@ -529,6 +530,13 @@ public sealed class GapEngine
                     {
                         byKey[OwnershipIndex.MakeKey(kind, providerId.Key, providerId.Value)] = item;
                     }
+                }
+
+                // Also index an album by its artist-and-title name key, so a source whose ids do not overlap
+                // the library's (a Discogs release against a MusicBrainz-tagged album) can still match by name.
+                if (item is MusicAlbum album && !string.IsNullOrEmpty(album.Name))
+                {
+                    byKey[OwnershipIndex.MakeKey(kind, OwnershipIndex.NameKeyProvider, OwnershipIndex.NameKey(album.AlbumArtist, album.Name))] = item;
                 }
             }
         }

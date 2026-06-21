@@ -80,4 +80,50 @@ public class DiscogsLabelMapperTests
         Assert.DoesNotContain(gaps, g => g.ProviderIds["Discogs"] == "100");
         Assert.Equal(2, gaps.Count);
     }
+
+    [Fact]
+    public void Build_SkipsReleasesOwnedByName_WhenNoSharedDiscogsId()
+    {
+        // The library holds release 100 under a MusicBrainz id (no Discogs id); the artist and title match,
+        // so the conservative name fallback still recognises it as owned.
+        var owned = IndexWith(OwnershipIndex.MakeKey(
+            BaseItemKind.MusicAlbum,
+            OwnershipIndex.NameKeyProvider,
+            OwnershipIndex.NameKey("Aphex Twin", "Selected Ambient Works 85-92")));
+
+        var gaps = DiscogsLabelMapper.Build(LabelId, "Warp Records", LoadReleases(), owned, 100).ToList();
+
+        Assert.DoesNotContain(gaps, g => g.ProviderIds["Discogs"] == "100");
+        Assert.Equal(2, gaps.Count);
+    }
+
+    [Fact]
+    public void Build_NameFallback_NormalizesPunctuationAndCase()
+    {
+        // Case and punctuation differences must not block the name match.
+        var owned = IndexWith(OwnershipIndex.MakeKey(
+            BaseItemKind.MusicAlbum,
+            OwnershipIndex.NameKeyProvider,
+            OwnershipIndex.NameKey("APHEX TWIN", "Selected Ambient Works: 85-92!")));
+
+        var gaps = DiscogsLabelMapper.Build(LabelId, "Warp Records", LoadReleases(), owned, 100).ToList();
+
+        Assert.DoesNotContain(gaps, g => g.ProviderIds["Discogs"] == "100");
+    }
+
+    [Fact]
+    public void Build_NameFallback_RequiresArtist_NotTitleAlone()
+    {
+        // A different artist with the same title is a different album, so the gap must stand (conservative:
+        // the fallback can only fail toward still reporting a gap, never hide one).
+        var owned = IndexWith(OwnershipIndex.MakeKey(
+            BaseItemKind.MusicAlbum,
+            OwnershipIndex.NameKeyProvider,
+            OwnershipIndex.NameKey("Someone Else", "Selected Ambient Works 85-92")));
+
+        var gaps = DiscogsLabelMapper.Build(LabelId, "Warp Records", LoadReleases(), owned, 100).ToList();
+
+        Assert.Contains(gaps, g => g.ProviderIds["Discogs"] == "100");
+        Assert.Equal(3, gaps.Count);
+    }
 }

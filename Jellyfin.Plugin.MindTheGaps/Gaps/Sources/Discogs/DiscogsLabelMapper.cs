@@ -9,9 +9,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 
 /// <summary>
 /// Turns a Discogs label's releases into <see cref="GapPattern.SetCompletion"/> gaps for the releases the
-/// library does not own, keyed by Discogs release id. Pure and host-free so the captured-fixture tests can
-/// exercise it directly. Matching is by Discogs id, so it only finds an owned release when the library item
-/// carries a Discogs provider id; a title-based fallback is future work (see roadmap).
+/// library does not own. Ownership is checked by Discogs release id first, then by a conservative artist-and-
+/// title name match (<see cref="OwnershipIndex.OwnsByName"/>), so a release the library holds under a
+/// MusicBrainz id rather than a Discogs one is still recognised as owned. Pure and host-free so the
+/// captured-fixture tests can exercise it directly.
 /// </summary>
 public static class DiscogsLabelMapper
 {
@@ -56,7 +57,8 @@ public static class DiscogsLabelMapper
                 [DiscogsProvider] = release.Id.ToString(CultureInfo.InvariantCulture)
             };
 
-            if (ownership.OwnsAny(BaseItemKind.MusicAlbum, providerIds))
+            if (ownership.OwnsAny(BaseItemKind.MusicAlbum, providerIds)
+                || ownership.OwnsByName(BaseItemKind.MusicAlbum, release.Artist, release.Title))
             {
                 continue;
             }

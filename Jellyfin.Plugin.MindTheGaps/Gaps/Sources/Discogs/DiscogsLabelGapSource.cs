@@ -77,7 +77,10 @@ public sealed class DiscogsLabelGapSource : IGapSource
 
             _logger.LogInformation("Discogs labels: label {LabelId} has {Count} releases", labelId, releases.Count);
 
-            var labelName = string.Create(CultureInfo.InvariantCulture, $"Label {labelId}");
+            // Resolve the label's real name so the set reads "Blue Note" rather than "Label 157"; fall back
+            // to the id when the lookup turns up nothing.
+            var labelName = await _discogs.GetLabelNameAsync(labelId, cancellationToken).ConfigureAwait(false)
+                ?? string.Create(CultureInfo.InvariantCulture, $"Label {labelId}");
             foreach (var gap in DiscogsLabelMapper.Build(labelId, labelName, releases, context.Ownership, MaxGapsPerLabel))
             {
                 yield return gap;
