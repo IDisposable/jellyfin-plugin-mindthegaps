@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
@@ -48,7 +48,7 @@ public static class OpenLibraryMapper
         // not reported missing.
         var groups = works
             .Where(w => !string.IsNullOrEmpty(NormalizeWorkKey(w.Key)) && !string.IsNullOrEmpty(w.Title))
-            .GroupBy(w => NormalizeTitle(w.Title), StringComparer.Ordinal)
+            .GroupBy(w => TextKey.Normalize(w.Title), StringComparer.Ordinal)
             .Where(g => g.Key.Length > 0);
 
         foreach (var group in groups)
@@ -87,27 +87,6 @@ public static class OpenLibraryMapper
 
     // The work's first publish year, when its date parses to one.
     private static int? YearOf(OpenLibraryWork work) => ParseDate(work.FirstPublishDate)?.Year;
-
-    // Lowercase letters and digits only, so case, punctuation, and spacing differences do not split a title
-    // ("Dune" and "DUNE" are one title; "Duna" stays its own).
-    private static string NormalizeTitle(string? title)
-    {
-        if (string.IsNullOrEmpty(title))
-        {
-            return string.Empty;
-        }
-
-        var sb = new StringBuilder(title.Length);
-        foreach (var ch in title)
-        {
-            if (char.IsLetterOrDigit(ch))
-            {
-                sb.Append(char.ToLowerInvariant(ch));
-            }
-        }
-
-        return sb.ToString();
-    }
 
     /// <summary>
     /// Strips the "/works/" prefix OpenLibrary returns so the stored key matches the bare work id a

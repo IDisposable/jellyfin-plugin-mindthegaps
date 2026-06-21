@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -319,7 +318,7 @@ public sealed class GapDiagnostics
         gap.ProviderIds.TryGetValue(PrimaryProvider(kind), out var gapPrimary);
         gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
         gap.ProviderIds.TryGetValue("Tvdb", out var gapTvdb);
-        var wantName = Normalize(gap.Name);
+        var wantName = TextKey.Normalize(gap.Name);
 
         var target = new DiagnosisItem
         {
@@ -596,7 +595,7 @@ public sealed class GapDiagnostics
             var entry = new OwnedItem(
                 item.GetBaseItemKind(),
                 item.Name ?? string.Empty,
-                Normalize(item.Name),
+                TextKey.Normalize(item.Name),
                 item.ProductionYear,
                 ProviderIdsOf(item),
                 item.Id.ToString("N", CultureInfo.InvariantCulture));
@@ -713,28 +712,6 @@ public sealed class GapDiagnostics
         }
 
         list.Add(value);
-    }
-
-    // Lowercase, letters and digits only, so punctuation, spacing, and case differences do not block a
-    // match. The year is kept out of this key and compared separately (see YearConflicts) so a remake that
-    // shares a title is told apart by its year rather than being folded in here.
-    private static string Normalize(string? name)
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            return string.Empty;
-        }
-
-        var sb = new StringBuilder(name.Length);
-        foreach (var ch in name)
-        {
-            if (char.IsLetterOrDigit(ch))
-            {
-                sb.Append(char.ToLowerInvariant(ch));
-            }
-        }
-
-        return sb.ToString();
     }
 
     private readonly record struct OwnedItem(BaseItemKind Kind, string Name, string NormalizedName, int? Year, IReadOnlyDictionary<string, string> ProviderIds, string JellyfinId);

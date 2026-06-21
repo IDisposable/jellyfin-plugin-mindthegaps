@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 
@@ -29,36 +28,17 @@ public static class OpenLibraryAuthorMatcher
             return null;
         }
 
-        var wanted = Normalize(searchedName);
+        // TextKey.Normalize folds out punctuation and spacing ("J. R. R. Tolkien" vs "J.R.R. Tolkien",
+        // "Frank, Herbert" vs "Frank Herbert") so they do not block a name match.
+        var wanted = TextKey.Normalize(searchedName);
         var match = docs
             .Where(d => !string.IsNullOrEmpty(d.Key))
-            .Where(d => wanted.Length == 0 || Normalize(d.Name).Contains(wanted, StringComparison.Ordinal))
-            .OrderBy(d => Normalize(d.Name).Length)
+            .Where(d => wanted.Length == 0 || TextKey.Normalize(d.Name).Contains(wanted, StringComparison.Ordinal))
+            .OrderBy(d => TextKey.Normalize(d.Name).Length)
             .ThenByDescending(d => d.WorkCount)
             .ThenBy(d => d.Key, StringComparer.Ordinal)
             .FirstOrDefault();
 
         return match?.Key;
-    }
-
-    // Lowercase letters and digits only, so punctuation and spacing differences ("J. R. R. Tolkien" vs
-    // "J.R.R. Tolkien", "Frank, Herbert" vs "Frank Herbert") do not block a name match.
-    private static string Normalize(string? name)
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            return string.Empty;
-        }
-
-        var sb = new StringBuilder(name.Length);
-        foreach (var ch in name)
-        {
-            if (char.IsLetterOrDigit(ch))
-            {
-                sb.Append(char.ToLowerInvariant(ch));
-            }
-        }
-
-        return sb.ToString();
     }
 }
