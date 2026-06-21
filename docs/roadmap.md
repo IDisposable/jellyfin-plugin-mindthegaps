@@ -142,11 +142,12 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Scale and architecture
 
-- **Per-client pacing gate (proactive rate limiting).** `HttpRetry` plus `ServiceCircuit` cover the
-  *reactive* half (retry, backoff, per-service breaker). The proactive half, a per-client minimum interval
-  between requests, is open and matters most for MusicBrainz (asks for <= 1 req/s, currently paged with no
-  delay). A source could also consult `ServiceCircuit.IsOpen` to skip its remaining work once a service is
-  given up on. Not urgent at typical library sizes.
+- **Let sources skip a given-up service.** External-call protection is in place: every hand-rolled client
+  fetches through `CachedApiClient` (read-through memory cache) over `HttpRetry` (retry/backoff,
+  `ServicePacer` proactive pacing for MusicBrainz, and the `ServiceCircuit` breaker). The remaining small win
+  is for a source to consult `ServiceCircuit.IsOpen` and skip its remaining per-item work (and warnings) once
+  a service has been given up on, rather than letting each item fast-fail. Other paced services can be added
+  to `ServicePacer` as needed.
 - **Batch the bulk minter's collection saves.** `ICollectionManager.AddToCollectionAsync` saves once per
   call, so the minter does one DB save per missing movie; collect a BoxSet's movies and call `CreateItems`
   plus a single `AddToCollectionAsync` per BoxSet.
