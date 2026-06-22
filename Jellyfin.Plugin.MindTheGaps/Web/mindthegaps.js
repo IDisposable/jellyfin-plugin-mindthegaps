@@ -2,11 +2,25 @@
             (function () {
                 var pluginId = '8c2a93cc-6cc5-493a-880a-2e67ae50e454';
                 var PATTERNS = ['SetCompletion', 'CreatorWorks', 'Recommendation'];
+                // Pattern labels worded for the domain in view (the Type filter): each pattern maps a domain to
+                // its label, with the '' entry the default wording for a domain that has no special label (for
+                // example Movies under SetCompletion) and for an inactive tab. So a movie set is "Set
+                // completion", a show "Series completion", music a "Discography", books a "Bibliography"; a
+                // creator's works are "Artist works"/"Author works" for music/books; Recommendation is "Discover".
                 var PATTERN_LABELS = {
-                    SetCompletion: 'Set completion',
-                    CreatorWorks: 'Creator works',
-                    Recommendation: 'Recommendations'
+                    SetCompletion: { '': 'Set completion', Shows: 'Series completion', Music: 'Discography', Books: 'Bibliography' },
+                    CreatorWorks: { '': 'Creator works', Music: 'Artist works', Books: 'Author works' },
+                    Recommendation: { '': 'Discover' }
                 };
+                function patternLabel(pattern, domain) {
+                    var byDomain = PATTERN_LABELS[pattern] || {};
+                    return byDomain[domain] || byDomain[''] || pattern;
+                }
+                // Lowercase a label and turn every run of whitespace into a single hyphen, for a download
+                // filename, so a multi-word domain or pattern label stays one clean token.
+                function slugify(s) {
+                    return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, '-');
+                }
                 var CATEGORY_ORDER = { Movies: 0, Shows: 1, Music: 2, Books: 3 };
                 var MONETIZATION_LABELS = { flatrate: 'Subscription', free: 'Free', ads: 'With ads', rent: 'Rent', buy: 'Buy' };
 
@@ -691,16 +705,16 @@
                 // The "kind of set" a SetCompletion gap completes, from its owning item's type, so the tab can
                 // group collections, studios, keywords, series, and discographies into separate sections.
                 var SET_KIND_ORDER = { 'Collections & franchises': 0, 'Series': 1, 'Discography': 2, 'Labels': 3, 'Studios': 4, 'Keywords': 5, 'Other': 9 };
+                var SET_KIND_LABELS = {
+                    BoxSet: 'Collections & franchises',
+                    Series: 'Series',
+                    MusicArtist: 'Discography',
+                    MusicLabel: 'Record labels',
+                    Studio: 'Studios',
+                    Keyword: 'Keywords'
+                };
                 function setKindLabel(sourceItemType) {
-                    switch (sourceItemType) {
-                        case 'BoxSet': return 'Collections & franchises';
-                        case 'Series': return 'Series';
-                        case 'MusicArtist': return 'Discography';
-                        case 'MusicLabel': return 'Labels';
-                        case 'Studio': return 'Studios';
-                        case 'Keyword': return 'Keywords';
-                        default: return 'Other';
-                    }
+                    return SET_KIND_LABELS[sourceItemType] || 'Other';
                 }
 
                 // The H2 source group for the Markdown export, mirroring the on-screen tree: a set's kind for
@@ -838,10 +852,14 @@
                     if (!page._pattern || !counts[page._pattern]) {
                         page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
                     }
+                    // The active tab is worded for the domain in view (Series completion, Discography, ...);
+                    // the others keep their generic wording, since each tab carries its own Type selection.
+                    var domain = page.querySelector('#cgTypeFilter').value;
                     page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
                         var active = p === page._pattern ? ' cgActive' : '';
+                        var lbl = patternLabel(p, p === page._pattern ? domain : '');
                         return '<button type="button" is="emby-button" class="raised cgTab' + active + '" data-pattern="' + p + '" style="margin-right:.4em;">'
-                            + esc(PATTERN_LABELS[p]) + ' (' + (counts[p] || 0) + ')</button>';
+                            + esc(lbl) + ' (' + (counts[p] || 0) + ')</button>';
                     }).join('');
                 }
 
@@ -968,7 +986,6 @@
                     var report = page._report || { Items: [] };
                     var pass = buildFilter(page);
                     var items = (report.Items || []).filter(function (it) { return it.PatternName === page._pattern && pass(it); });
-                    var label = PATTERN_LABELS[page._pattern];
                     // Angle brackets around the URL so encoded filter values cannot break the markdown link.
                     var out = ['_[' + items.length + ' gaps, exported ' + new Date().toLocaleString() + '](<' + shareUrl(page) + '>)_', ''];
 
@@ -981,11 +998,15 @@
 
                     // Model the document (domains -> source groups) and allocate anchors in render order.
                     var sections = byCat.order.map(function (cat) {
-                        var heading = 'Mind the Gaps: ' + cat + ' ' + label;
+                        // The pattern label is per domain, so a Shows section reads "Shows Series completion",
+                        // music "Music Discography", and so on, regardless of the Type filter's current value.
+                        var catLabel = patternLabel(page._pattern, cat);
+                        var heading = 'Mind the Gaps: ' + cat + ' ' + catLabel;
                         var byGroup = groupBy(byCat.map[cat], exportGroupLabel);
                         byGroup.order.sort(groupSort);
                         return {
                             cat: cat,
+                            catLabel: catLabel,
                             heading: heading,
                             anchor: anchorFor(heading),
                             groups: byGroup.order.map(function (g) {
@@ -999,7 +1020,7 @@
                     if (groupCount > 1) {
                         out.push('## Contents', '');
                         sections.forEach(function (s) {
-                            out.push('- [' + mdHeading(s.cat + ' ' + label) + '](#' + s.anchor + ')');
+                            out.push('- [' + mdHeading(s.cat + ' ' + s.catLabel) + '](#' + s.anchor + ')');
                             s.groups.forEach(function (g) {
                                 out.push('    - [' + mdHeading(g.label) + '](#' + g.anchor + ')');
                             });
@@ -2308,11 +2329,14 @@
                     });
                     page.querySelector('#cgExport').addEventListener('click', function () {
                         if (!page._report) { return; }
-                        // The export is scoped to the active domain (the Type filter), so name the file by it,
-                        // otherwise every domain's export of a pattern collides on one filename.
+                        // Name the file by the active domain and the domain-aware pattern label (the same words
+                        // shown on screen), each lowercased with all whitespace turned to hyphens, so it reads
+                        // consistently and each domain's export of a pattern keeps its own filename.
                         var typeSel = page.querySelector('#cgTypeFilter');
-                        var domain = typeSel && typeSel.value ? typeSel.value.toLowerCase() + '-' : '';
-                        downloadText('mind-the-gaps-' + domain + (page._pattern || 'report') + '.md', buildMarkdown(page));
+                        var domainValue = (typeSel && typeSel.value) || '';
+                        var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
+                        var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
+                        downloadText(`mind-the-gaps-${parts}.md`, buildMarkdown(page));
                     });
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
