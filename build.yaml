@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.3.0"
+version: "10.11.3.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,21 +20,9 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.3.0 - A new Discogs source completes curated record labels and an owned artist's discography (needs a
-  Discogs token), chosen with the same type-ahead chip picker as studios and keywords. Diagnose goes deeper and wider: a
-  networked "Deeper analysis" compares external ids to tell a real misidentification from a coincidental title
-  clash, episode and season gaps get their own diagnosis that spots a same-named reboot mis-tagged onto a
-  series (the V 1984 versus V 2009 case), and album and book gaps are diagnosable too. The report now links
-  out everywhere: music rows link to MusicBrainz and Discogs, books to OpenLibrary, the Diagnose ids are
-  clickable, and each creator or set group header links the source itself (an author's OpenLibrary page, an
-  actor or director's TMDB page, an artist's MusicBrainz or Discogs page, a studio, keyword, label, or
-  collection page); every link carries a per-provider CSS class, a data-provider attribute, and a title and
-  aria-label, so a theme can inject service icons (the README has a ready-to-paste snippet under Advanced CSS
-  customization). Under the hood, every external call now sits behind a read-through cache with proactive
-  per-service rate pacing (MusicBrainz and Discogs) and a circuit breaker that moves the scan past a down
-  service, the scan runs its sources concurrently and streams results into the report per item so a slow
-  provider no longer holds up the others, and stable id-to-name lookups are cached for far longer. The library
-  no longer reports a reboot's later seasons as missing episodes of the single-season original, a Name-plus-
-  year match now prefers an exact-year hit over the one-year tolerance, and the Books (OpenLibrary) source is
-  hardened against real-world author data. In settings, the Discogs toggle and token sit in the Data sources
-  section, and Markdown exports are named by domain so different tabs no longer overwrite each other.
+  10.11.3.2 - MDBList community lists and TMDB lists join as discovery sources, so you can complete or
+  explore a curated list the way you complete a collection. The Discover tab now groups its results by
+  source, collapsing each list or recommending title under its own name to match the Markdown export. Tab
+  and group labels follow the media type in view (Series completion for shows, Discography and Artist works
+  for music, Author works for books, and Discover for recommendations), and shareable view links now stay
+  within URL length limits.

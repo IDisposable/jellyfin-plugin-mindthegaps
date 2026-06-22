@@ -35,9 +35,38 @@ Every gap is one of three kinds, surfaced as the report's three tabs:
 |---|---|---|
 | **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
 | **Creator works** | other work by a person or artist you own | a film an owned actor or director made; a music artist's wider catalogue; an author's other books |
-| **Recommendations** | related titles worth adding (discovery; off by default) | TMDB "similar" titles for things you own |
+| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB or MDBList list |
 
 Movies and shows work out of the box; music and books are opt-in sources.
+
+How the pieces connect: the providers and lists you enable feed three gap patterns, and each pattern
+surfaces as one report tab, labelled for the media type you are viewing.
+
+```mermaid
+flowchart LR
+    classDef movies fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
+    classDef shows fill:#ede7f6,stroke:#5e35b1,color:#311b92;
+    classDef music fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef books fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+
+    col["TMDB collections and BoxSets"]:::movies --> SET
+    cur["Curated studios and keywords"]:::movies --> SET
+    ser["Series content (Jellyfin, TVmaze, TheTVDB)"]:::shows --> SET
+    mbd["MusicBrainz discography, Discogs labels"]:::music --> SET
+
+    ppl["TMDB people"]:::movies --> CRE
+    trk["Trakt filmography"]:::movies --> CRE
+    art["MusicBrainz and Discogs artists"]:::music --> CRE
+    aut["OpenLibrary authors"]:::books --> CRE
+
+    sim["TMDB similar titles"] --> DIS
+    tli["TMDB lists"] --> DIS
+    mli["MDBList lists"] --> DIS
+
+    SET["Set completion<br/>Movies: Set completion<br/>Shows: Series completion<br/>Music: Discography"]
+    CRE["Creator works<br/>Movies and Shows: Creator works<br/>Music: Artist works<br/>Books: Author works"]
+    DIS["Discover<br/>related titles and curated lists"]
+```
 
 ## Features
 
@@ -58,8 +87,14 @@ Movies and shows work out of the box; music and books are opt-in sources.
 - **Music and books (off by default)**: complete an album artist's discography and discover a
   track-only artist's wider catalogue (MusicBrainz, with Discogs covering artists MusicBrainz cannot resolve),
   and surface other books in an owned author's bibliography (OpenLibrary). Some need a key or token.
-- **Recommendations**: TMDB "similar" titles; opt-in. Each result lists every owned title that recommends
-  it, not just the first; a TMDB vote floor trims the obscure long tail.
+- **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
+  that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
+  groups each suggestion under the owned title that surfaced it.
+- **Discovery lists (TMDB and MDBList)**: point the report at a curated list and complete it the way you
+  complete a collection. Add a **TMDB list** or an **MDBList community list** with the same type-ahead chip
+  picker (search, pick a match, it becomes a removable chip); the titles on it you do not own surface in the
+  Discover tab, grouped under the list's name (MDBList lists can include shows as well as movies). Opt-in,
+  and MDBList needs a free API key.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
@@ -151,6 +186,7 @@ settings page has per-source toggles plus:
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
 | TMDB API key | Optional; falls back to the built-in public key. |
+| MDBList API key | Optional (free); enables MDBList community lists as a discovery source. |
 
 ## Virtual placeholders (opt-in)
 

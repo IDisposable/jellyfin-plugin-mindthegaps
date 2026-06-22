@@ -90,6 +90,14 @@ of them. Drafts in [docs/upstream/](upstream/).
   `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains before it is
   on by default: real-world validation across a varied library, and optionally a config-time author-to-key
   override for the cases the matcher still gets wrong.
+- **People drive Shows, not just movies.** The TMDB people source surfaces a person's missing *films* only:
+  `PeopleGapSource` fetches credits with `PersonMethods.MovieCredits`, `FilmographyGapMapper` hardcodes
+  `domain: Movies, targetKind: Movie`, and the source's `OwnedKinds` is `{ Movie }`. The input for Shows is
+  already there (people are harvested from owned series casts too, and owned movie-plus-series credits rank
+  which people to scan), so the gap is the *output*: add `PersonMethods.TvCredits` to the fetch and a
+  Shows/Series mapping path (CreatorWorks, `domain: Shows`, `targetKind: Series`) alongside the movie one,
+  widening `OwnedKinds` to include `Series`. Net-new Creator works coverage: an owned actor or director's
+  unowned series become gaps. Trakt's filmography cross-check could grow the same way.
 
 ### Acquisition handoff
 
