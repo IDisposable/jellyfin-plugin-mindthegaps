@@ -17,10 +17,12 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 internal static class ServicePacer
 {
     // Minimum milliseconds between requests, per service. MusicBrainz asks for at most one request per
-    // second; the small margin over 1000 ms keeps a burst safely under that. Other services pass through.
+    // second, and Discogs allows 60 authenticated requests a minute (one a second); the small margin over
+    // 1000 ms keeps a burst safely under both. Other services pass through.
     private static readonly ConcurrentDictionary<string, int> _minIntervalMs = new(StringComparer.Ordinal)
     {
-        ["MusicBrainz"] = 1100
+        ["MusicBrainz"] = 1100,
+        ["Discogs"] = 1100
     };
 
     private static readonly ConcurrentDictionary<string, Gate> _gates = new(StringComparer.Ordinal);

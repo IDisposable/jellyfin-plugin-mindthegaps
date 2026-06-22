@@ -156,6 +156,59 @@ public sealed class DiscogsClient
         return releases;
     }
 
+    /// <summary>
+    /// Resolves a Discogs artist id from an artist name, conservatively: the highest-ranked result whose name
+    /// matches exactly, or null when none does (so a namesake is not scanned as if it were the owned artist).
+    /// </summary>
+    /// <param name="name">The artist name to search for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The Discogs artist id, or null.</returns>
+    public async Task<long?> SearchArtistAsync(string name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        // An artist's Discogs id is stable, so cache the name resolution for far longer than a scan.
+        var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=artist&q={Uri.EscapeDataString(name)}&per_page={MaxSuggestions}");
+        var response = await GetAsync<DiscogsSearchResponse>(path, CachedApiClient.StableCacheDuration, cancellationToken).ConfigureAwait(false);
+        return DiscogsArtistMatcher.Pick(response?.Results, name);
+    }
+
+    /// <summary>
+    /// Browses every release credited to a Discogs artist, paging through the result set up to the page cap.
+    /// </summary>
+    /// <param name="artistId">The Discogs artist id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The artist's releases (masters and individual releases), or an empty list on failure.</returns>
+    public async Task<IReadOnlyList<DiscogsRelease>> GetArtistReleasesAsync(long artistId, CancellationToken cancellationToken)
+    {
+        var releases = new List<DiscogsRelease>();
+        for (var page = 1; page <= MaxPages; page++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var path = string.Create(CultureInfo.InvariantCulture, $"/artists/{artistId}/releases?sort=year&per_page={PageSize}&page={page}");
+            var response = await GetAsync<DiscogsLabelReleasesResponse>(path, CachedApiClient.DefaultCacheDuration, cancellationToken).ConfigureAwait(false);
+            var pageReleases = response?.Releases;
+            if (pageReleases is null || pageReleases.Count == 0)
+            {
+                break;
+            }
+
+            releases.AddRange(pageReleases);
+
+            var totalPages = response!.Pagination?.Pages ?? page;
+            if (page >= totalPages)
+            {
+                break;
+            }
+        }
+
+        return releases;
+    }
+
     private Task<T?> GetAsync<T>(string path, TimeSpan cacheDuration, CancellationToken cancellationToken)
         where T : class
     {

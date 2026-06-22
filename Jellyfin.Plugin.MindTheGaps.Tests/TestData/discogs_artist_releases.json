@@ -1,0 +1,11 @@
+{
+  "pagination": { "page": 1, "pages": 1, "items": 6 },
+  "releases": [
+    { "id": 100, "type": "master", "role": "Main", "title": "First Album", "year": 1990, "artist": "Test Artist" },
+    { "id": 101, "type": "release", "role": "Main", "title": "First Album (Reissue)", "year": 2001, "artist": "Test Artist" },
+    { "id": 102, "type": "master", "role": "Appearance", "title": "Some Compilation", "year": 1995, "artist": "Various" },
+    { "id": 100, "type": "master", "role": "Main", "title": "First Album", "year": 1990, "artist": "Test Artist" },
+    { "id": 103, "type": "master", "role": "Main", "title": "Second Album", "year": 1993, "artist": "Test Artist" },
+    { "id": 104, "type": "master", "role": "Main", "title": "Owned Album", "year": 1997, "artist": "Test Artist" }
+  ]
+}
