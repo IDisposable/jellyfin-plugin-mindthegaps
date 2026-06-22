@@ -93,9 +93,10 @@ of them. Drafts in [docs/upstream/](upstream/).
   MusicBrainz-tagged libraries). Remaining: let Discogs also widen
   `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` with richer release/artist matching than
   MusicBrainz alone.
-- **De-experimentalize Books.** What remains: capture fixtures for the two OpenLibrary endpoints the
-  hardening added (a `/works/{key}.json` and a `/search.json?author_key=` response) so they are tested
-  against real data, optionally a config-time author-to-key override, and real-world validation.
+- **De-experimentalize Books.** The two OpenLibrary endpoints the hardening added (`/works/{key}.json` and
+  `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains: real-world
+  validation across a varied library, and optionally a config-time author-to-key override for the cases the
+  matcher still gets wrong.
 
 ### Acquisition handoff
 
@@ -122,6 +123,12 @@ of them. Drafts in [docs/upstream/](upstream/).
 - **Background scheduled minting.** A scheduled task that keeps a chosen set of patterns/domains
   materialized (mint new, reconcile owned) on the scan cadence, reusing `MintRunner` and the container
   strategy. Open: the selection UI and guardrails against flooding a library.
+- **Move resolutions onto the minted item (once everything is minted).** Per-gap resolutions ("not really
+  missing", with a note) live in `resolutions.json` keyed by gap id (ADR-0008). Once every gap is
+  materialized as a virtual item, a resolution could instead ride on that item as a provider id / tag, so the
+  host prunes it automatically when the item is removed and it travels with the item, rather than the plugin
+  maintaining a separate keyed file that can drift from the report. Gated on minting everything (a resolution
+  needs an item to hang on); until then the JSON store stands.
 
 ### Native page integration
 
