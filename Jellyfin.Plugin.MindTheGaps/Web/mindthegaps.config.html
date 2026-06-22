@@ -154,6 +154,13 @@
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
+                                    <input id="ReuseInstalledProviderKeys" name="ReuseInstalledProviderKeys" type="checkbox" is="emby-checkbox" />
+                                    <span>Reuse an installed plugin's key when ours is blank (best-effort)</span>
+                                </label>
+                                <div class="fieldDescription">When the TheTVDB key above is blank, try reading the matching installed metadata plugin's configured key (the in-box TheTVDB plugin). There is no supported host API for this, so it is best-effort and version-fragile, and falls back silently to the keys above. Off by default. See docs/credentials-spike.md.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
                                     <input id="ScanDiscogs" name="ScanDiscogs" type="checkbox" is="emby-checkbox" />
                                     <span>Use Discogs to complete record labels and artist discographies</span>
                                 </label>

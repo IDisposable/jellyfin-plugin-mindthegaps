@@ -6,6 +6,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
@@ -51,6 +52,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<VirtualMovieMinter>();
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
+        serviceCollection.AddSingleton<InstalledPluginCredentials>();
 
         // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();

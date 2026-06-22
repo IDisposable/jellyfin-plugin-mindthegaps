@@ -1836,6 +1836,7 @@
                     page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
                     page.querySelector('#TvdbEnabled').checked = config.TvdbEnabled;
                     page.querySelector('#TvdbApiKey').value = config.TvdbApiKey || '';
+                    page.querySelector('#ReuseInstalledProviderKeys').checked = config.ReuseInstalledProviderKeys;
                     page.querySelector('#MetadataCountryCode').value = config.MetadataCountryCode || '';
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
@@ -1912,6 +1913,7 @@
                         config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;
                         config.TvdbEnabled = form.querySelector('#TvdbEnabled').checked;
                         config.TvdbApiKey = form.querySelector('#TvdbApiKey').value;
+                        config.ReuseInstalledProviderKeys = form.querySelector('#ReuseInstalledProviderKeys').checked;
                         config.MetadataCountryCode = form.querySelector('#MetadataCountryCode').value;
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;

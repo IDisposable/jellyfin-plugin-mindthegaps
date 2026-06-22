@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using MediaBrowser.Controller.Entities;
@@ -20,6 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
 {
     private readonly TvdbClient _client;
+    private readonly InstalledPluginCredentials _credentials;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TvdbContentGapSource"/> class.
@@ -27,11 +29,13 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="client">The TheTVDB client.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
+    /// <param name="credentials">Best-effort reuse of an installed plugin's TheTVDB key when ours is blank.</param>
     /// <param name="logger">The logger.</param>
-    public TvdbContentGapSource(ILibraryManager libraryManager, TvdbClient client, ScanCursorStore cursors, ILogger<TvdbContentGapSource> logger)
+    public TvdbContentGapSource(ILibraryManager libraryManager, TvdbClient client, ScanCursorStore cursors, InstalledPluginCredentials credentials, ILogger<TvdbContentGapSource> logger)
         : base(libraryManager, cursors, logger)
     {
         _client = client;
+        _credentials = credentials;
     }
 
     /// <inheritdoc />
@@ -45,7 +49,7 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config)
-        => config.ScanSeries && config.TvdbEnabled && !string.IsNullOrWhiteSpace(config.TvdbApiKey);
+        => config.ScanSeries && config.TvdbEnabled && !string.IsNullOrWhiteSpace(ResolveApiKey(config));
 
     /// <inheritdoc />
     protected override bool HasLookupId(BaseItem series)
@@ -59,7 +63,7 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
         GapScanContext context,
         CancellationToken cancellationToken)
     {
-        var apiKey = context.Config.TvdbApiKey;
+        var apiKey = ResolveApiKey(context.Config);
 
         var seriesId = await ResolveSeriesIdAsync(series, apiKey, cancellationToken).ConfigureAwait(false);
         if (seriesId is null)
@@ -73,6 +77,19 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
 
     private static string? Id(BaseItem item, string provider)
         => item.TryGetProviderId(provider, out var value) && !string.IsNullOrEmpty(value) ? value : null;
+
+    // Prefer the user's own configured TheTVDB key. Only when it is blank and reuse is opted in do we try a
+    // best-effort read of an installed TheTVDB plugin's key; a discovery failure falls back to empty (the
+    // source then reports itself disabled), so this never breaks the scan.
+    private string ResolveApiKey(PluginConfiguration config)
+    {
+        if (!string.IsNullOrWhiteSpace(config.TvdbApiKey))
+        {
+            return config.TvdbApiKey;
+        }
+
+        return config.ReuseInstalledProviderKeys ? _credentials.TryGetTvdbApiKey() ?? string.Empty : string.Empty;
+    }
 
     private async Task<long?> ResolveSeriesIdAsync(BaseItem series, string apiKey, CancellationToken cancellationToken)
     {
