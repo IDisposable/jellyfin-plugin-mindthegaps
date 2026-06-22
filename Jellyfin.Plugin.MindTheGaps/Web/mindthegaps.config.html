@@ -78,18 +78,6 @@
                                     <span>Scan books for other works by the author (OpenLibrary)</span>
                                 </label>
                             </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="ScanDiscogs" name="ScanDiscogs" type="checkbox" is="emby-checkbox" />
-                                    <span>Scan curated Discogs labels for missing releases (needs a token and label ids below)</span>
-                                </label>
-                            </div>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="DiscogsToken">Discogs token</label>
-                                <input id="DiscogsToken" name="DiscogsToken" type="password" autocomplete="off" is="emby-input" />
-                                <button id="RevealDiscogsToken" is="emby-button" type="button" class="raised cgReveal" data-target="DiscogsToken" style="margin:.25em 0;"><span>Show</span></button>
-                                <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers.</div>
-                            </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="cgLabelInput">Discogs labels</label>
                                 <div class="cgChipField" id="cgLabelField">
@@ -99,7 +87,7 @@
                                     </div>
                                     <div class="cgSuggest" id="cgLabelSuggest" role="listbox" aria-label="Label matches"></div>
                                 </div>
-                                <div class="fieldDescription">Search Discogs for a record label and pick it; the releases on it that you do not own become gaps. Needs the token above.</div>
+                                <div class="fieldDescription">Search Discogs for a record label and pick it; the releases on it that you do not own become gaps. Needs the Discogs token, set under Data sources.</div>
                             </div>
                         </div>
 
@@ -133,11 +121,6 @@
                                 <button id="RevealTmdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TmdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
                             </div>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="WebhookUrl">Webhook URL (optional)</label>
-                                <input id="WebhookUrl" name="WebhookUrl" type="text" is="emby-input" />
-                                <div class="fieldDescription">Posted to when a scan or the "where to watch" pass finishes (a summary, Discord-compatible). Leave blank to disable.</div>
-                            </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
                                     <input id="TraktEnabled" name="TraktEnabled" type="checkbox" is="emby-checkbox" />
@@ -168,6 +151,23 @@
                                 <input id="TvdbApiKey" name="TvdbApiKey" type="password" autocomplete="off" is="emby-input" />
                                 <button id="RevealTvdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanDiscogs" name="ScanDiscogs" type="checkbox" is="emby-checkbox" />
+                                    <span>Use Discogs to complete record labels and artist discographies</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="DiscogsToken">Discogs token</label>
+                                <input id="DiscogsToken" name="DiscogsToken" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealDiscogsToken" is="emby-button" type="button" class="raised cgReveal" data-target="DiscogsToken" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers. Pick which labels to complete under "What to scan".</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="WebhookUrl">Webhook URL (optional)</label>
+                                <input id="WebhookUrl" name="WebhookUrl" type="text" is="emby-input" />
+                                <div class="fieldDescription">Posted to when a scan or the "where to watch" pass finishes (a summary, Discord-compatible). Leave blank to disable.</div>
                             </div>
                         </div>
 

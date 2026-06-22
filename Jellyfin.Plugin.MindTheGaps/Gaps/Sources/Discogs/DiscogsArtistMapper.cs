@@ -58,9 +58,13 @@ public static class DiscogsArtistMapper
                 continue;
             }
 
+            // The gap id keys on the master id (stable per album), but the provider id keys on the master's
+            // canonical release (main_release) so the Discogs link resolves to a real release page and the
+            // ownership match lines up with a release id a library item would carry. Fall back to the master.
+            var discogsId = release.MainRelease is > 0 ? release.MainRelease.Value : release.Id;
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [DiscogsLabelMapper.DiscogsProvider] = release.Id.ToString(CultureInfo.InvariantCulture)
+                [DiscogsLabelMapper.DiscogsProvider] = discogsId.ToString(CultureInfo.InvariantCulture)
             };
 
             // Match against the owned artist's name (the library's canonical spelling), not the Discogs
@@ -82,6 +86,7 @@ public static class DiscogsArtistMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: artistName,
                 sourceItemType: "MusicArtist",
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [DiscogsLabelMapper.DiscogsProvider] = artistId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: release.Year > 0 ? new DateTime(release.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) : null);
         }
     }

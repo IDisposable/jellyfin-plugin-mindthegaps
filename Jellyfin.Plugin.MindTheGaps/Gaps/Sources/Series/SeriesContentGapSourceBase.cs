@@ -12,6 +12,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
@@ -224,6 +225,9 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             sourceItemId: series.Id.ToString("N", CultureInfo.InvariantCulture),
             sourceItemName: series.Name,
             sourceItemType: "Series",
+            sourceProviderIds: series.TryGetProviderId(MetadataProvider.Tmdb, out var seriesTmdb) && !string.IsNullOrEmpty(seriesTmdb)
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = seriesTmdb }
+                : null,
             releaseDate: episode.ReleaseDate,
             overview: episode.Overview,
             season: episode.Season,

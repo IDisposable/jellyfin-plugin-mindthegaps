@@ -105,6 +105,33 @@ public class ProviderLinksTests
     }
 
     [Fact]
+    public void Build_MusicBrainzReleaseGroup_ProducesReleaseGroupUrl()
+    {
+        var links = ProviderLinks.Build(BaseItemKind.MusicAlbum, new Dictionary<string, string> { ["MusicBrainzReleaseGroup"] = "f4a31f0a" });
+        var link = Assert.Single(links);
+        Assert.Equal("MusicBrainz", link.Name);
+        Assert.Equal("https://musicbrainz.org/release-group/f4a31f0a", link.Url);
+    }
+
+    [Fact]
+    public void Build_Discogs_ProducesReleaseUrl()
+    {
+        var links = ProviderLinks.Build(BaseItemKind.MusicAlbum, new Dictionary<string, string> { ["Discogs"] = "100" });
+        var link = Assert.Single(links);
+        Assert.Equal("Discogs", link.Name);
+        Assert.Equal("https://www.discogs.com/release/100", link.Url);
+    }
+
+    [Fact]
+    public void Build_OpenLibrary_ProducesWorksUrl()
+    {
+        var links = ProviderLinks.Build(BaseItemKind.Book, new Dictionary<string, string> { ["OpenLibrary"] = "OL45804W" });
+        var link = Assert.Single(links);
+        Assert.Equal("OpenLibrary", link.Name);
+        Assert.Equal("https://openlibrary.org/works/OL45804W", link.Url);
+    }
+
+    [Fact]
     public void Build_MultipleProviders_ProducesEach()
     {
         var links = ProviderLinks.Build(

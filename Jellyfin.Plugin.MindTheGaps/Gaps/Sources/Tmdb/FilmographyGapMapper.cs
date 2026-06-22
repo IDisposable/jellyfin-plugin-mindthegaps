@@ -81,6 +81,7 @@ public static class FilmographyGapMapper
                     role.Popularity,
                     sourceItemId,
                     sourceItemName,
+                    person.Id,
                     ownership,
                     posterUrl);
                 if (gap is not null)
@@ -105,7 +106,7 @@ public static class FilmographyGapMapper
                     continue;
                 }
 
-                var gap = BuildGap(job.Id, job.Title, job.ReleaseDate, job.PosterPath, job.Job, null, sourceItemId, sourceItemName, ownership, posterUrl);
+                var gap = BuildGap(job.Id, job.Title, job.ReleaseDate, job.PosterPath, job.Job, null, sourceItemId, sourceItemName, person.Id, ownership, posterUrl);
                 if (gap is not null)
                 {
                     emitted++;
@@ -127,6 +128,7 @@ public static class FilmographyGapMapper
         double? popularity,
         string sourceItemId,
         string? sourceItemName,
+        int sourcePersonTmdbId,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl)
     {
@@ -155,6 +157,7 @@ public static class FilmographyGapMapper
             sourceItemId: sourceItemId,
             sourceItemName: sourceItemName,
             sourceItemType: "Person",
+            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
             releaseDate: releaseDate,
             imageUrl: posterUrl(posterPath),
             overview: role,

@@ -113,6 +113,13 @@ public class GapItem
     public int? SourceItemYear { get; set; }
 
     /// <summary>
+    /// Gets or sets external links to the source/creator's own page (an actor's TMDB page, an author's
+    /// OpenLibrary page, an artist's Discogs/MusicBrainz page, a studio's or label's page), built from the
+    /// source's provider ids. Empty when the source carries no linkable external id.
+    /// </summary>
+    public IReadOnlyList<ExternalLink> SourceLinks { get; set; } = Array.Empty<ExternalLink>();
+
+    /// <summary>
     /// Gets or sets additional owned items that surfaced this same gap, beyond the primary one in
     /// <see cref="SourceItemName"/>. The engine accumulates these when the same recommendation target is
     /// surfaced by several owned titles, so the report can list every recommending source. Null (omitted

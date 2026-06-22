@@ -77,6 +77,7 @@ public static class OpenLibraryMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: authorName,
                 sourceItemType: "Book",
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [OpenLibraryProvider] = authorKey },
                 releaseDate: ParseDate(work.FirstPublishDate));
         }
     }

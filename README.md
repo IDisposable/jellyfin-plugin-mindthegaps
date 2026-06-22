@@ -174,6 +174,41 @@ emit, so TMDB and IMDb links come from core, and a **JustWatch** link lights up 
 separate [Jellyfin.Plugin.JustWatch](https://github.com/IDisposable/jellyfin-plugin-justwatch) is
 installed. For the architecture behind this, see [CONTRIBUTING](CONTRIBUTING.md).
 
+## Advanced CSS customization
+
+Every outbound link in the report (the per-row provider links, the links on a creator or set group
+header, and the ids in the Diagnose popup) is tagged so a stylesheet can target a specific service, for
+example to inject a service icon. Each link carries:
+
+- a per-provider class, `cgProvider-<service>`, with the service name lowercased and stripped to letters
+  and digits: `cgProvider-tmdb`, `cgProvider-imdb`, `cgProvider-thetvdb`, `cgProvider-tvmaze`,
+  `cgProvider-trakt`, `cgProvider-musicbrainz`, `cgProvider-discogs`, `cgProvider-openlibrary`,
+  `cgProvider-justwatch`;
+- a `data-provider` attribute with the original service name (`data-provider="TheTVDB"`), for attribute
+  selectors.
+
+Drop CSS into your server via the community
+[Custom CSS](https://github.com/sealednut/jellyfin-custom-css) or
+[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) plugins (this
+plugin ships no CSS itself). For example, to put an icon before each Discogs and MusicBrainz link:
+
+```css
+.cgProvider-discogs::before,
+.cgProvider-musicbrainz::before {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: .3em;
+  vertical-align: text-bottom;
+  background: center / contain no-repeat;
+}
+.cgProvider-discogs::before     { background-image: url("/path/to/discogs.svg"); }
+.cgProvider-musicbrainz::before { background-image: url("/path/to/musicbrainz.svg"); }
+```
+
+These class and attribute names are a stable contract; the link text and layout around them are not.
+
 ## Documentation
 
 - **[Configuration reference](docs/configuration.md)** - every setting, what it does, and what changes

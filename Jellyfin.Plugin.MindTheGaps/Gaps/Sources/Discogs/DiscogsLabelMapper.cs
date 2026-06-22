@@ -74,6 +74,7 @@ public static class DiscogsLabelMapper
                 sourceItemId: string.Create(CultureInfo.InvariantCulture, $"discogs-label-{labelId}"),
                 sourceItemName: labelName,
                 sourceItemType: "MusicLabel",
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [DiscogsProvider] = labelId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: release.Year > 0 ? new DateTime(release.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) : null);
         }
     }

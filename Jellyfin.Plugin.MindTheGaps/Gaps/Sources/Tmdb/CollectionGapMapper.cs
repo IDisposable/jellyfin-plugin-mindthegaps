@@ -63,6 +63,7 @@ public static class CollectionGapMapper
                 sourceItemId: boxSetId,
                 sourceItemName: boxSetName,
                 sourceItemType: "BoxSet",
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = collectionId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: part.ReleaseDate,
                 imageUrl: posterUrl(part.PosterPath),
                 overview: part.Overview,

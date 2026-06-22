@@ -54,6 +54,18 @@ public static class ProviderLinks
                         : "https://www.justwatch.com" + (id[0] == '/' ? id : "/" + id);
                     links.Add(new ExternalLink("JustWatch", justWatchUrl));
                     break;
+                case "musicbrainzreleasegroup":
+                    links.Add(new ExternalLink("MusicBrainz", string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/release-group/{id}")));
+                    break;
+                case "discogs":
+                    // The id is a Discogs release id (the label source, and the artist source's canonical
+                    // main_release), so it resolves to a real release page.
+                    links.Add(new ExternalLink("Discogs", string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/release/{id}")));
+                    break;
+                case "openlibrary":
+                    // The id is a bare OpenLibrary work key (for example "OL45804W").
+                    links.Add(new ExternalLink("OpenLibrary", string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/works/{id}")));
+                    break;
             }
         }
 

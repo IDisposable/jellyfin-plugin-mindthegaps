@@ -25,6 +25,7 @@ public static class GapItemFactory
     /// <param name="sourceItemId">Id (N-format guid) of the owned item that surfaced this gap.</param>
     /// <param name="sourceItemName">Name of the owned item that surfaced this gap.</param>
     /// <param name="sourceItemType">The owning item's type label.</param>
+    /// <param name="sourceProviderIds">The source/creator's own provider ids, for building links to its page.</param>
     /// <param name="releaseDate">The release date, if known.</param>
     /// <param name="imageUrl">A poster/image URL.</param>
     /// <param name="overview">A short overview / role description.</param>
@@ -45,6 +46,7 @@ public static class GapItemFactory
         string sourceItemId,
         string? sourceItemName,
         string sourceItemType,
+        IReadOnlyDictionary<string, string>? sourceProviderIds = null,
         DateTime? releaseDate = null,
         string? imageUrl = null,
         string? overview = null,
@@ -81,6 +83,7 @@ public static class GapItemFactory
             SourceItemId = sourceItemId,
             SourceItemName = sourceItemName,
             SourceItemType = sourceItemType,
+            SourceLinks = CreatorLinks.Build(sourceItemType, sourceProviderIds),
             SourceItemYear = sourceItemYear,
             SetOwnedCount = setOwnedCount,
             SetTotalCount = setTotalCount,

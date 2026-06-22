@@ -217,6 +217,7 @@ public sealed class SeriesContentGapSource : IGapSource
             sourceItemId: episode.SeriesId.ToString("N", CultureInfo.InvariantCulture),
             sourceItemName: episode.SeriesName,
             sourceItemType: "Series",
+            sourceProviderIds: string.IsNullOrEmpty(seriesTmdb) ? null : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = seriesTmdb },
             releaseDate: episode.PremiereDate,
             overview: episode.Overview,
             season: season,

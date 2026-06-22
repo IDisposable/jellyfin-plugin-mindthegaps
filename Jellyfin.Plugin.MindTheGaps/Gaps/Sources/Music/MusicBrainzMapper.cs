@@ -20,6 +20,11 @@ public static class MusicBrainzMapper
     public static readonly string ReleaseGroupProvider = MetadataProvider.MusicBrainzReleaseGroup.ToString();
 
     /// <summary>
+    /// The provider name for the artist's MusicBrainz id, used to link the source to its MusicBrainz page.
+    /// </summary>
+    public static readonly string ArtistProvider = MetadataProvider.MusicBrainzArtist.ToString();
+
+    /// <summary>
     /// Builds gaps for an artist's unowned studio-album release-groups. The pattern and id prefix tell
     /// the two music sources apart: an album artist you collect yields a <see cref="GapPattern.SetCompletion"/>
     /// "discography" gap, an artist you only own tracks by yields a <see cref="GapPattern.CreatorWorks"/>
@@ -74,6 +79,7 @@ public static class MusicBrainzMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: sourceItemName,
                 sourceItemType: "MusicArtist",
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ArtistProvider] = artistMbid },
                 releaseDate: ParseDate(group.FirstReleaseDate));
         }
     }

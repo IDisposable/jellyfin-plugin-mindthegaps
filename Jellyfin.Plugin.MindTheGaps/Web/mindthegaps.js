@@ -235,7 +235,7 @@
                     if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
 
                     var providerLinks = (item.Links || []).map(function (l) {
-                        return '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                        return '<a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
                     }).join('');
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
@@ -434,7 +434,7 @@
                     });
                     (item.Links || []).forEach(function (l) {
                         var tok = diagToken(l.Name);
-                        if (out[tok] && out[tok].url == null) { out[tok].url = l.Url; }
+                        if (out[tok] && out[tok].url == null) { out[tok].url = l.Url; out[tok].name = l.Name; }
                     });
                     return out;
                 }
@@ -454,7 +454,7 @@
                 function diagCell(cell, asMarkdown) {
                     if (!cell || cell.id == null) { return asMarkdown ? '' : '<span style="opacity:.4;">-</span>'; }
                     if (asMarkdown) { return cell.url ? '[' + cell.id + '](' + cell.url + ')' : String(cell.id); }
-                    return cell.url ? '<a href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
+                    return cell.url ? '<a class="' + providerClass(cell.name).trim() + '" data-provider="' + esc(cell.name || '') + '" href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
                 }
 
                 function renderDiagnosis(res) {
@@ -550,6 +550,23 @@
                     return items.some(function (it) { return it.Availability && it.Availability.length && filterOffers(it.Availability).length; });
                 }
                 function streamDot(items) { return anyStream(items) ? STREAM_DOT : ''; }
+
+                // A CSS-safe per-provider class so a stylesheet can target a specific service's link (inject a
+                // service icon, recolor it): "TMDB" -> "cgProvider-tmdb", "TheTVDB" -> "cgProvider-thetvdb",
+                // "MusicBrainz" -> "cgProvider-musicbrainz". The raw name is also on a data-provider attribute.
+                function providerClass(name) {
+                    var slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+                    return slug ? ' cgProvider-' + slug : '';
+                }
+
+                // Links to the source's own page (an author on OpenLibrary, an actor or director on TMDB, an
+                // artist on Discogs/MusicBrainz, a studio/keyword/label/collection on its provider), shown on
+                // the group header so you can open the creator or set itself, not just its missing items.
+                function sourceLinks(item) {
+                    return ((item && item.SourceLinks) || []).map(function (l) {
+                        return ' <a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                    }).join('');
+                }
 
                 function coverageBadge(item) {
                     if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
@@ -735,7 +752,8 @@
                         + coverageBadge(covItem)
                         + searchIcon(src, searchScope)
                         + openIcon(srcItems[0].SourceItemId)
-                        + (isEpisodic ? batchDismissBtns(src) : '');
+                        + (isEpisodic ? batchDismissBtns(src) : '')
+                        + sourceLinks(srcItems[0]);
                     return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
                 }
 
@@ -760,7 +778,7 @@
                             // tab with tens of thousands of rows renders just the headers up front.
                             var token = 'lz' + (++cgGroupSeq);
                             lazyBodies[token] = function () { return sortRows(cItems).map(renderRow).join(''); };
-                            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src), token);
+                            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src) + sourceLinks(cItems[0]), token);
                         }).join('');
                     }
 
@@ -2290,7 +2308,11 @@
                     });
                     page.querySelector('#cgExport').addEventListener('click', function () {
                         if (!page._report) { return; }
-                        downloadText('mind-the-gaps-' + (page._pattern || 'report') + '.md', buildMarkdown(page));
+                        // The export is scoped to the active domain (the Type filter), so name the file by it,
+                        // otherwise every domain's export of a pattern collides on one filename.
+                        var typeSel = page.querySelector('#cgTypeFilter');
+                        var domain = typeSel && typeSel.value ? typeSel.value.toLowerCase() + '-' : '';
+                        downloadText('mind-the-gaps-' + domain + (page._pattern || 'report') + '.md', buildMarkdown(page));
                     });
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
