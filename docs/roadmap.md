@@ -88,11 +88,12 @@ of them. Drafts in [docs/upstream/](upstream/).
   `Recommendation` gap per unowned title, keyed by the TMDB/IMDb id the list already carries so it drops
   straight into the ownership diff and the existing link building. Opt-in like the other cross-checks; needs
   an MDBList API key and a way to pick which list(s) (a chip picker over the public lists would fit).
-- **Discogs: widen the music sources.** Label sets resolve the real label name and recognise an owned
-  release by a conservative artist-and-title name match as well as by Discogs id (so they work on
-  MusicBrainz-tagged libraries). Remaining: let Discogs also widen
-  `MusicDiscographyGapSource`/`MusicArtistWorksGapSource` with richer release/artist matching than
-  MusicBrainz alone.
+- **Discogs: complete an artist's discography across both providers.** `DiscogsArtistGapSource` already
+  covers the artists the MusicBrainz sources cannot (no MusicBrainz id), so the two span disjoint artists with
+  no duplication. The open piece is *completeness* widening: for an artist MusicBrainz *does* cover, also
+  consult Discogs and merge the two release lists (de-duplicated by normalized title) so an album one provider
+  lists and the other misses still surfaces. Deferred because the cross-provider, name-keyed release de-dup is
+  fuzzy and would change the MusicBrainz gap-id scheme (a persisted-id contract, ADR-0008).
 - **De-experimentalize Books.** The two OpenLibrary endpoints the hardening added (`/works/{key}.json` and
   `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains: real-world
   validation across a varied library, and optionally a config-time author-to-key override for the cases the
@@ -149,12 +150,6 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Scale and architecture
 
-- **Let sources skip a given-up service.** External-call protection is in place: every hand-rolled client
-  fetches through `CachedApiClient` (read-through memory cache) over `HttpRetry` (retry/backoff,
-  `ServicePacer` proactive pacing for MusicBrainz, and the `ServiceCircuit` breaker). The remaining small win
-  is for a source to consult `ServiceCircuit.IsOpen` and skip its remaining per-item work (and warnings) once
-  a service has been given up on, rather than letting each item fast-fail. Other paced services can be added
-  to `ServicePacer` as needed.
 - **Batch the bulk minter's collection saves.** `ICollectionManager.AddToCollectionAsync` saves once per
   call, so the minter does one DB save per missing movie; collect a BoxSet's movies and call `CreateItems`
   plus a single `AddToCollectionAsync` per BoxSet.
