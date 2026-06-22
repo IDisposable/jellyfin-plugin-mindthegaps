@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
@@ -123,11 +124,13 @@ public sealed class GapEngine
 
         // Run the sources concurrently so a slow, rate-paced provider (MusicBrainz, Discogs at one request a
         // second) does not hold up the fast ones: the scan takes about as long as the slowest service rather
-        // than the sum of them all. This is safe because each source collects into its own list (no shared
-        // state written during the concurrent phase), same-service calls still serialize through ServicePacer,
-        // and the shared HTTP cache/circuit and the ownership index are read-only or thread-safe. Results are
-        // then merged and de-duped on this thread, awaited in enabled order so the de-dup outcome stays
-        // deterministic and each completed source is still a checkpoint boundary.
+        // than the sum of them all. Each source produces its gaps into a channel as it resolves each item, and
+        // this thread is the single consumer that merges, de-dups, and checkpoints, so a gap lands in the
+        // report within the checkpoint throttle of its item being resolved rather than waiting for the whole
+        // source to finish. Safe because only the consumer touches the shared report state, same-service calls
+        // still serialize through ServicePacer, and the cache/circuit and ownership index are thread-safe or
+        // read-only. De-dup is order-tolerant (MergeDuplicateSource only unions recommendation source-refs,
+        // which come from a single source), so the streamed, completion-order merge is fine.
         var fractions = new double[Math.Max(1, total)];
         void ReportAggregate()
         {
@@ -140,7 +143,9 @@ public sealed class GapEngine
             progress?.Report(sum / Math.Max(1, total) * 100.0);
         }
 
-        async Task<List<GapItem>> CollectAsync(IGapSource source, int slot)
+        var channel = Channel.CreateUnbounded<GapItem>(new UnboundedChannelOptions { SingleReader = true });
+
+        async Task ProduceAsync(IGapSource source, int slot)
         {
             // Each source gets its own context (sharing the read-only config and ownership index) so its
             // progress reporting does not race the others'.
@@ -151,12 +156,13 @@ public sealed class GapEngine
                 ReportAggregate();
             });
 
-            var collected = new List<GapItem>();
+            var produced = 0;
             try
             {
                 await foreach (var gap in source.FindGapsAsync(sourceContext, cancellationToken).ConfigureAwait(false))
                 {
-                    collected.Add(gap);
+                    await channel.Writer.WriteAsync(gap, cancellationToken).ConfigureAwait(false);
+                    produced++;
                 }
             }
             catch (OperationCanceledException)
@@ -167,54 +173,56 @@ public sealed class GapEngine
             {
                 _logger.LogError(ex, "Gap source {Source} failed", source.Name);
             }
-
-            return collected;
+            finally
+            {
+                fractions[slot] = 1.0;
+                ReportAggregate();
+                _logger.LogInformation("Gap source {Source} produced {Count} gaps", source.Name, produced);
+            }
         }
 
-        var tasks = enabled.Select((source, i) => CollectAsync(source, i)).ToList();
+        var producers = enabled.Select((source, i) => ProduceAsync(source, i)).ToList();
+
+        // Close the channel once every source has finished producing, so the consumer loop ends.
+        async Task DrainProducersAsync()
+        {
+            try
+            {
+                await Task.WhenAll(producers).ConfigureAwait(false);
+            }
+            finally
+            {
+                channel.Writer.Complete();
+            }
+        }
+
+        var draining = DrainProducersAsync();
         try
         {
-            for (var i = 0; i < tasks.Count; i++)
+            // Consume as each item resolves: merge, de-dup, and checkpoint (throttled) so the report grows
+            // incrementally rather than in per-source batches.
+            await foreach (var gap in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
-                // Await in enabled order (the others keep querying meanwhile), then merge on this thread.
-                var sourceGaps = await tasks[i].ConfigureAwait(false);
-                var beforeCount = gaps.Count;
-                foreach (var gap in sourceGaps)
+                if (byId.TryGetValue(gap.Id, out var existing))
                 {
-                    if (byId.TryGetValue(gap.Id, out var existing))
-                    {
-                        MergeDuplicateSource(existing, gap);
-                    }
-                    else
-                    {
-                        byId[gap.Id] = gap;
-                        gaps.Add(gap);
-                    }
+                    MergeDuplicateSource(existing, gap);
+                }
+                else
+                {
+                    byId[gap.Id] = gap;
+                    gaps.Add(gap);
                 }
 
-                fractions[i] = 1.0;
-                ReportAggregate();
-
-                _logger.LogInformation(
-                    "Gap source {Source} contributed {Count} gaps",
-                    enabled[i].Name,
-                    gaps.Count - beforeCount);
-
-                // Each completed source is a natural batch boundary: persist what we have so far.
-                Checkpoint(force: true);
+                Checkpoint(force: false);
             }
+
+            // Flush the complete scan results before the (in-memory) enrichment phase.
+            Checkpoint(force: true);
         }
         finally
         {
-            // Make sure every started source has finished (for example after cancellation) so none is orphaned.
-            try
-            {
-                await Task.WhenAll(tasks).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // Per-source failures were logged inside CollectAsync; cancellation propagates from the loop.
-            }
+            // Observe producer completion: propagates cancellation; per-source failures were already logged.
+            await draining.ConfigureAwait(false);
         }
 
         // Carry the previous report's enrichment forward by id (resolved external ids and "where to
