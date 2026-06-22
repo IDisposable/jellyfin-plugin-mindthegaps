@@ -242,6 +242,13 @@
                     return esc(name) + suffix + openIcon(id) + dismiss;
                 }
 
+                // The dismiss control for a recommendation source, shown on its group header. Restoring a muted
+                // source is done from the "Muted sources" picker, so a dismissed source shows no button here.
+                function recSourceDismissBtn(guid, name) {
+                    if (!guid || recSourceDismissed(guid)) { return ''; }
+                    return ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(guid) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this source" aria-label="Stop recommendations from this source">&times;</a>';
+                }
+
                 function renderRow(item) {
                     var meta = [];
                     if (item.Year) { meta.push(item.Year); }
@@ -315,11 +322,11 @@
                         : '';
 
                     var detailParts = [];
-                    if (item.PatternName === 'Recommendation' && item.SourceItemName) {
+                    if (item.PatternName === 'Recommendation' && (item.OtherSources || []).length) {
+                        // The primary source is the group header now, so the row lists only the other sources.
                         var srcs = [];
-                        if (!recSourceDismissed(item.SourceItemId)) { srcs.push(recSource(item.SourceItemName, item.SourceItemYear, item.SourceItemType, item.SourceItemId)); }
                         (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
-                        if (srcs.length) { detailParts.push('<div style="opacity:.85;">Recommended by: ' + srcs.join(', ') + '</div>'); }
+                        if (srcs.length) { detailParts.push('<div style="opacity:.85;">Also recommended by: ' + srcs.join(', ') + '</div>'); }
                     }
                     if (item.Overview) { detailParts.push(esc(item.Overview)); }
                     var details = detailParts.length
@@ -691,7 +698,7 @@
                 // A title that leads with "The" also files under the next word's letter (see titleLetters).
                 function itemLetters(it, pattern) {
                     if (pattern === 'CreatorWorks') { return personLetters(it.SourceItemName || it.Name); }
-                    if (pattern === 'Recommendation') { return titleLetters(it.Name); }
+                    if (pattern === 'Recommendation') { return titleLetters(it.SourceItemName || it.Name); }
                     return titleLetters(it.SourceItemName || it.Name);
                 }
 
@@ -780,7 +787,18 @@
                     lazyBodies = {}; // tokens are per-render; drop the previous render's builders
 
                     if (pattern === 'Recommendation') {
-                        return sortRows(items).map(renderRow).join('');
+                        // Group discovery gaps under their source (a recommending owned title, or a curated
+                        // list) the way Creator works groups by creator and the Markdown export already does, so
+                        // a list's missing movies collapse under the list's name. A multi-source gap files under
+                        // its primary source; its other sources stay on the row ("Also recommended by").
+                        var bySource = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
+                        bySource.order.sort(ci);
+                        return bySource.order.map(function (src) {
+                            var sItems = bySource.map[src];
+                            var token = 'lz' + (++cgGroupSeq);
+                            lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
+                            return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
+                        }).join('');
                     }
 
                     if (pattern === 'CreatorWorks') {
