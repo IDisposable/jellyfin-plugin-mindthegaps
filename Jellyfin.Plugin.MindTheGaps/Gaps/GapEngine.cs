@@ -84,7 +84,6 @@ public sealed class GapEngine
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
 
         var total = enabled.Count;
-        var completed = 0;
 
         // Persist progress mid-scan so a crash or shutdown does not lose the batch. A checkpoint is the prior
         // report overlaid with the fresh gaps found so far (so it never drops gaps the report already had),
@@ -119,78 +118,103 @@ public sealed class GapEngine
             });
         }
 
-        // Each scan starts with a clean circuit; a service that trips during this run requests a checkpoint
-        // (consumed below), so the work gathered so far lands on disk the moment a service is given up on.
+        // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
         ServiceCircuit.ResetAll();
-        var tripRequested = new int[1];
-        ServiceCircuit.OnTrip = _ => Interlocked.Exchange(ref tripRequested[0], 1);
+
+        // Run the sources concurrently so a slow, rate-paced provider (MusicBrainz, Discogs at one request a
+        // second) does not hold up the fast ones: the scan takes about as long as the slowest service rather
+        // than the sum of them all. This is safe because each source collects into its own list (no shared
+        // state written during the concurrent phase), same-service calls still serialize through ServicePacer,
+        // and the shared HTTP cache/circuit and the ownership index are read-only or thread-safe. Results are
+        // then merged and de-duped on this thread, awaited in enabled order so the de-dup outcome stays
+        // deterministic and each completed source is still a checkpoint boundary.
+        var fractions = new double[Math.Max(1, total)];
+        void ReportAggregate()
+        {
+            double sum = 0;
+            foreach (var f in fractions)
+            {
+                sum += f;
+            }
+
+            progress?.Report(sum / Math.Max(1, total) * 100.0);
+        }
+
+        async Task<List<GapItem>> CollectAsync(IGapSource source, int slot)
+        {
+            // Each source gets its own context (sharing the read-only config and ownership index) so its
+            // progress reporting does not race the others'.
+            var sourceContext = new GapScanContext(config, context.Ownership);
+            sourceContext.SetProgressSink(f =>
+            {
+                fractions[slot] = Math.Clamp(f, 0.0, 1.0);
+                ReportAggregate();
+            });
+
+            var collected = new List<GapItem>();
+            try
+            {
+                await foreach (var gap in source.FindGapsAsync(sourceContext, cancellationToken).ConfigureAwait(false))
+                {
+                    collected.Add(gap);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Gap source {Source} failed", source.Name);
+            }
+
+            return collected;
+        }
+
+        var tasks = enabled.Select((source, i) => CollectAsync(source, i)).ToList();
         try
         {
-            foreach (var source in enabled)
+            for (var i = 0; i < tasks.Count; i++)
             {
-                // Fold this source's own 0..1 progress into its slice of the overall bar so a slow source
-                // (per-item API calls) does not sit at one value for minutes.
-                var sliceBase = completed / (double)total;
-                var slice = 1.0 / total;
-                context.SetProgressSink(f => progress?.Report((sliceBase + (Math.Clamp(f, 0.0, 1.0) * slice)) * 100.0));
-
-                var sourceStarted = stopwatch.ElapsedMilliseconds;
+                // Await in enabled order (the others keep querying meanwhile), then merge on this thread.
+                var sourceGaps = await tasks[i].ConfigureAwait(false);
                 var beforeCount = gaps.Count;
-                try
+                foreach (var gap in sourceGaps)
                 {
-                    await foreach (var gap in source.FindGapsAsync(context, cancellationToken).ConfigureAwait(false))
+                    if (byId.TryGetValue(gap.Id, out var existing))
                     {
-                        if (byId.TryGetValue(gap.Id, out var existing))
-                        {
-                            MergeDuplicateSource(existing, gap);
-                        }
-                        else
-                        {
-                            byId[gap.Id] = gap;
-                            gaps.Add(gap);
-                        }
-
-                        // A circuit trip is an out-of-band save now; otherwise checkpoint on the time throttle
-                        // so a long-running source's progress is not all riding in memory.
-                        if (Interlocked.Exchange(ref tripRequested[0], 0) == 1)
-                        {
-                            Checkpoint(force: true);
-                        }
-                        else
-                        {
-                            Checkpoint(force: false);
-                        }
+                        MergeDuplicateSource(existing, gap);
+                    }
+                    else
+                    {
+                        byId[gap.Id] = gap;
+                        gaps.Add(gap);
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Gap source {Source} failed", source.Name);
-                }
-                finally
-                {
-                    context.SetProgressSink(null);
-                }
+
+                fractions[i] = 1.0;
+                ReportAggregate();
 
                 _logger.LogInformation(
-                    "Gap source {Source} contributed {Count} gaps in {Ms} ms",
-                    source.Name,
-                    gaps.Count - beforeCount,
-                    stopwatch.ElapsedMilliseconds - sourceStarted);
+                    "Gap source {Source} contributed {Count} gaps",
+                    enabled[i].Name,
+                    gaps.Count - beforeCount);
 
-                completed++;
-                progress?.Report(completed * 100.0 / total);
-
-                // Each source is a natural batch boundary: persist what we have before starting the next.
+                // Each completed source is a natural batch boundary: persist what we have so far.
                 Checkpoint(force: true);
             }
         }
         finally
         {
-            ServiceCircuit.OnTrip = null;
+            // Make sure every started source has finished (for example after cancellation) so none is orphaned.
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Per-source failures were logged inside CollectAsync; cancellation propagates from the loop.
+            }
         }
 
         // Carry the previous report's enrichment forward by id (resolved external ids and "where to
