@@ -167,7 +167,7 @@ public sealed class TmdbAvailabilitySource : IAvailabilitySource
             client,
             () => new HttpRequestMessage(HttpMethod.Get, url),
             _logger,
-            "TMDB",
+            ServiceNames.Tmdb,
             string.Create(CultureInfo.InvariantCulture, $"{path}/{tmdbId}/watch/providers"),
             cancellationToken).ConfigureAwait(false);
         if (!http.IsSuccessStatusCode)

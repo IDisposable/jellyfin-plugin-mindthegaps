@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -40,7 +41,7 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
     protected override int MaxSeries => 300;
 
     /// <inheritdoc />
-    protected override string ServiceName => "TheTVDB";
+    protected override string ServiceName => ServiceNames.Tvdb;
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config)

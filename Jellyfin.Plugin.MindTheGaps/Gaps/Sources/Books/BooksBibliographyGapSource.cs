@@ -75,7 +75,7 @@ public sealed class BooksBibliographyGapSource : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, books.Count));
 
-            if (ServiceCircuit.IsOpen("OpenLibrary"))
+            if (ServiceCircuit.IsOpen(ServiceNames.OpenLibrary))
             {
                 _logger.LogInformation("Bibliography: OpenLibrary is unavailable this run; skipping the remaining authors");
                 break;

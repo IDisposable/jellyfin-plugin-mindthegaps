@@ -60,5 +60,5 @@ public sealed class TvMazeClient
     // CachedApiClient caches the result and routes through the shared HttpRetry path.
     private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class
-        => _api.GetJsonAsync<T>("TVmaze", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
+        => _api.GetJsonAsync<T>(ServiceNames.TvMaze, BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }

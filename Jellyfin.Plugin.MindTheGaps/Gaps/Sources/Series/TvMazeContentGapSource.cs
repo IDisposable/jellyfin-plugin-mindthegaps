@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -43,7 +44,7 @@ public sealed class TvMazeContentGapSource : SeriesContentGapSourceBase
     protected override int MaxSeries => 300;
 
     /// <inheritdoc />
-    protected override string ServiceName => "TVmaze";
+    protected override string ServiceName => ServiceNames.TvMaze;
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config) => config.ScanSeries && config.TvMazeEnabled;

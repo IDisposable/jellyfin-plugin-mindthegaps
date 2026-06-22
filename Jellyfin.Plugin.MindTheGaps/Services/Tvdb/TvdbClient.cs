@@ -116,7 +116,7 @@ public sealed class TvdbClient : IDisposable
     private Task<T?> GetAsync<T>(string apiKey, string path, CancellationToken cancellationToken)
         where T : class
         => _api.GetOrAddAsync<T>(
-            "TheTVDB",
+            ServiceNames.Tvdb,
             path,
             CachedApiClient.DefaultCacheDuration,
             ct => FetchAsync<T>(apiKey, path, ct),
@@ -191,7 +191,7 @@ public sealed class TvdbClient : IDisposable
                 return request;
             },
             _logger,
-            "TheTVDB",
+            ServiceNames.Tvdb,
             path,
             cancellationToken).ConfigureAwait(false);
     }
@@ -219,7 +219,7 @@ public sealed class TvdbClient : IDisposable
                     Content = JsonContent.Create(new Dictionary<string, string> { ["apikey"] = apiKey })
                 },
                 _logger,
-                "TheTVDB",
+                ServiceNames.Tvdb,
                 "/login",
                 cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

@@ -64,7 +64,7 @@ public sealed class DiscogsLabelGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (ServiceCircuit.IsOpen("Discogs"))
+            if (ServiceCircuit.IsOpen(ServiceNames.Discogs))
             {
                 _logger.LogInformation("Discogs labels: Discogs is unavailable this run; skipping the remaining labels");
                 break;

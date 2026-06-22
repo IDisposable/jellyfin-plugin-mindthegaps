@@ -21,8 +21,8 @@ internal static class ServicePacer
     // 1000 ms keeps a burst safely under both. Other services pass through.
     private static readonly ConcurrentDictionary<string, int> _minIntervalMs = new(StringComparer.Ordinal)
     {
-        ["MusicBrainz"] = 1100,
-        ["Discogs"] = 1100
+        [ServiceNames.MusicBrainz] = 1100,
+        [ServiceNames.Discogs] = 1100
     };
 
     private static readonly ConcurrentDictionary<string, Gate> _gates = new(StringComparer.Ordinal);

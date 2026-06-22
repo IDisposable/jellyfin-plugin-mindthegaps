@@ -75,5 +75,5 @@ public sealed class MusicBrainzClient
     // MusicBrainz requires, via the shared HttpRetry path.
     private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class
-        => _api.GetJsonAsync<T>("MusicBrainz", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
+        => _api.GetJsonAsync<T>(ServiceNames.MusicBrainz, BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }

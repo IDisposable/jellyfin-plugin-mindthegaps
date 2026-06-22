@@ -100,7 +100,7 @@ public abstract class MusicArtistGapSourceBase : IGapSource
 
             // MusicBrainz has been given up on for this run (its circuit is open); each remaining artist would
             // only fast-fail, so stop here rather than churn through them. Next run starts fresh.
-            if (ServiceCircuit.IsOpen("MusicBrainz"))
+            if (ServiceCircuit.IsOpen(ServiceNames.MusicBrainz))
             {
                 _logger.LogInformation("{Source}: MusicBrainz is unavailable this run; skipping the remaining artists", Name);
                 break;

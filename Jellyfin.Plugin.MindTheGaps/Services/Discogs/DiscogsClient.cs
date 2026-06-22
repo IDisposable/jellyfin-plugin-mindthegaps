@@ -220,10 +220,12 @@ public sealed class DiscogsClient
         }
 
         return _api.GetJsonAsync<T>(
-            "Discogs",
+            ServiceNames.Discogs,
             BaseUrl + path,
             cacheDuration,
             _jsonOptions,
+            // "Discogs" here is the HTTP auth scheme Discogs requires ("Authorization: Discogs token=..."),
+            // not the service name.
             request => request.Headers.Authorization = new AuthenticationHeaderValue(
                 "Discogs",
                 string.Create(CultureInfo.InvariantCulture, $"token={token}")),

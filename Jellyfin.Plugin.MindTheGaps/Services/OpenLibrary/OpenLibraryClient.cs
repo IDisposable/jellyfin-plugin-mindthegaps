@@ -122,5 +122,5 @@ public sealed class OpenLibraryClient
     // CachedApiClient caches the result and adds the plugin's versioned User-Agent via the shared HttpRetry path.
     private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class
-        => _api.GetJsonAsync<T>("OpenLibrary", BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
+        => _api.GetJsonAsync<T>(ServiceNames.OpenLibrary, BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
 }

@@ -77,7 +77,7 @@ public sealed class DiscogsArtistGapSource : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, artists.Count));
 
-            if (ServiceCircuit.IsOpen("Discogs"))
+            if (ServiceCircuit.IsOpen(ServiceNames.Discogs))
             {
                 _logger.LogInformation("Discogs artists: Discogs is unavailable this run; skipping the remaining artists");
                 break;

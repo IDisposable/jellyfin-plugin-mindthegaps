@@ -70,7 +70,7 @@ public sealed class TraktClient
     private Task<T?> GetAsync<T>(string clientId, string path, CancellationToken cancellationToken)
         where T : class
         => _api.GetJsonAsync<T>(
-            "Trakt",
+            ServiceNames.Trakt,
             BaseUrl + path,
             CachedApiClient.DefaultCacheDuration,
             _jsonOptions,

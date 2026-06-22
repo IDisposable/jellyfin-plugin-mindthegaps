@@ -74,7 +74,7 @@ public sealed class TraktFilmographyGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (ServiceCircuit.IsOpen("Trakt"))
+            if (ServiceCircuit.IsOpen(ServiceNames.Trakt))
             {
                 _logger.LogInformation("Trakt filmography: Trakt is unavailable this run; skipping the remaining people");
                 break;
