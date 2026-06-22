@@ -104,8 +104,9 @@ public sealed class DiscogsArtistGapSource : IGapSource
             }
 
             // Prefer a Discogs id already on the item; otherwise resolve the artist by name (conservatively).
+            // DiscogsProvider is the provider-id key an item carries (distinct from the HTTP service name).
             long? artistId = null;
-            if (artist.TryGetProviderId("Discogs", out var tagged)
+            if (artist.TryGetProviderId(DiscogsLabelMapper.DiscogsProvider, out var tagged)
                 && long.TryParse(tagged, NumberStyles.Integer, CultureInfo.InvariantCulture, out var taggedId)
                 && taggedId > 0)
             {
