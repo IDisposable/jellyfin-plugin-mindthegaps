@@ -14,14 +14,17 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 // Captured from the live OpenLibrary API (keyless, public). To recapture:
 //   curl -s 'https://openlibrary.org/search/authors.json?q=Frank%20Herbert' > openlibrary_authorsearch.json
 //   curl -s 'https://openlibrary.org/authors/OL79034A/works.json?limit=100' > openlibrary_works.json
+//   curl -s 'https://openlibrary.org/works/OL893415W.json' > openlibrary_workdetail.json
+//   curl -s 'https://openlibrary.org/search.json?author_key=OL79034A&fields=key,title,first_publish_year&limit=100' > openlibrary_authorworks_search.json
 //
 // The real data carries the rough edges the Books-source hardening handles, which these tests exercise:
 //  - the author search's first result is a different "Frank Herbert" (Hayward); the Dune author OL79034A is
 //    further down, so OpenLibraryAuthorMatcher picks by shortest exact name and work count, not docs[0];
 //  - several works share a title ("Dune" appears more than once as distinct work keys), which the mapper
-//    de-duplicates to one gap per title.
-// The third edge, the author-works endpoint carrying no publish dates, is handled in production by switching
-// to the search endpoint (it returns first_publish_year); this captured works list still has none.
+//    de-duplicates to one gap per title;
+//  - the author-works endpoint carries no publish dates, so the source reads an owned work's author directly
+//    (works/{key}.json names the author, dodging the name search) and lists works via search.json (which
+//    carries first_publish_year). The work-detail and author-works-search fixtures cover those two calls.
 public class OpenLibraryCapturedDataTests
 {
     private const string AuthorKey = "OL79034A";
@@ -74,6 +77,43 @@ public class OpenLibraryCapturedDataTests
         Assert.Equal(100, works.Count);
         Assert.Equal("Duna", works[0].Title);
         Assert.Equal("/works/OL45588324W", works[0].Key);
+    }
+
+    [Fact]
+    public void WorkDetail_ResolvesAuthorKey()
+    {
+        var detail = JsonSerializer.Deserialize<OpenLibraryWorkDetail>(
+            TestData.Read("openlibrary_workdetail.json"),
+            Options);
+
+        Assert.NotNull(detail);
+
+        // Reading a work's author directly (works/{key}.json) sidesteps the name search's namesake problem:
+        // Dune's record names the real Frank Herbert (OL79034A), the same author the other fixtures use.
+        var authorKey = detail!.Authors!
+            .Select(a => a.Author?.Key)
+            .FirstOrDefault(k => !string.IsNullOrEmpty(k));
+        Assert.Equal("/authors/" + AuthorKey, authorKey);
+        Assert.Equal(AuthorKey, authorKey!.Split('/').Last());
+    }
+
+    [Fact]
+    public void AuthorWorksSearch_ParsesDocsWithYears()
+    {
+        var response = JsonSerializer.Deserialize<OpenLibrarySearchResponse>(
+            TestData.Read("openlibrary_authorworks_search.json"),
+            Options);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response!.Docs);
+        Assert.Equal(100, response.Docs!.Count);
+
+        // Unlike the author-works endpoint, search results carry the first publish year, which is the whole
+        // reason the source switched to it: Dune resolves with its 1965 date.
+        var dune = response.Docs!.First(d => d.Key == "/works/OL893415W");
+        Assert.Equal("Dune", dune.Title);
+        Assert.Equal(1965, dune.FirstPublishYear);
+        Assert.Contains(response.Docs!, d => d.FirstPublishYear.HasValue);
     }
 
     [Fact]
