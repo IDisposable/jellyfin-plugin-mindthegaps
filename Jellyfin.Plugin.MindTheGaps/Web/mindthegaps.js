@@ -235,7 +235,7 @@
                     if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
 
                     var providerLinks = (item.Links || []).map(function (l) {
-                        return '<a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                        return '<a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" title="Open on ' + esc(l.Name) + '" aria-label="Open on ' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
                     }).join('');
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
@@ -454,7 +454,7 @@
                 function diagCell(cell, asMarkdown) {
                     if (!cell || cell.id == null) { return asMarkdown ? '' : '<span style="opacity:.4;">-</span>'; }
                     if (asMarkdown) { return cell.url ? '[' + cell.id + '](' + cell.url + ')' : String(cell.id); }
-                    return cell.url ? '<a class="' + providerClass(cell.name).trim() + '" data-provider="' + esc(cell.name || '') + '" href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
+                    return cell.url ? '<a class="' + providerClass(cell.name).trim() + '" data-provider="' + esc(cell.name || '') + '" title="Open ' + esc(cell.id) + ' on ' + esc(cell.name || '') + '" aria-label="Open ' + esc(cell.id) + ' on ' + esc(cell.name || '') + '" href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
                 }
 
                 function renderDiagnosis(res) {
@@ -564,7 +564,7 @@
                 // the group header so you can open the creator or set itself, not just its missing items.
                 function sourceLinks(item) {
                     return ((item && item.SourceLinks) || []).map(function (l) {
-                        return ' <a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                        return ' <a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" title="Open on ' + esc(l.Name) + '" aria-label="Open on ' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
                     }).join('');
                 }
 
