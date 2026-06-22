@@ -42,6 +42,7 @@ public class PluginConfiguration : BasePluginConfiguration
         TvdbApiKey = string.Empty;
         TmdbApiKey = string.Empty;
         WebhookUrl = string.Empty;
+        ReuseInstalledProviderKeys = false;
     }
 
     /// <summary>
@@ -214,4 +215,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// finishes. The payload leads with a Discord-friendly "content" string. Empty disables it.
     /// </summary>
     public string WebhookUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether, when one of this plugin's own provider keys is blank, it may
+    /// make a best-effort read of the matching installed metadata plugin's configured key (for example the
+    /// in-box TheTVDB plugin). There is no supported host API for this, so it is version-fragile and falls
+    /// back silently to this plugin's own keys. Off by default.
+    /// </summary>
+    public bool ReuseInstalledProviderKeys { get; set; }
 }
