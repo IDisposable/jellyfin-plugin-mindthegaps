@@ -1451,11 +1451,33 @@
                     };
                 }
 
+                // The share link carries only what differs from the defaults and omits the streaming-provider
+                // filter: it is the bulk of the data and is server-specific, so a recipient's providers are not
+                // the sharer's anyway. This keeps the link well under URL length limits. Saved views
+                // (localStorage, no length limit) keep the full state via captureView.
+                function compactView(page) {
+                    var v = captureView(page);
+                    delete v.disabledProviders;
+                    if (!v.type) { delete v.type; }
+                    if (!v.search) { delete v.search; }
+                    if (v.letter == null) { delete v.letter; }
+                    if (!v.hideSpecials) { delete v.hideSpecials; }
+                    if (!v.hideUpcoming) { delete v.hideUpcoming; }
+                    if (!v.showResolved) { delete v.showResolved; }
+                    if (!v.streamable) { delete v.streamable; }
+                    if (v.mon) {
+                        var allOn = true;
+                        for (var k in v.mon) { if (!v.mon[k]) { allOn = false; break; } }
+                        if (allOn) { delete v.mon; }
+                    }
+                    return v;
+                }
+
                 // Build a link to the current view by stamping the captured view object into a "cgview" query
                 // param on the page's hash (Jellyfin is a hash router), so a paste re-opens the same tab and
                 // filters. Any existing cgview is replaced.
                 function shareUrl(page) {
-                    var encoded = encodeURIComponent(JSON.stringify(captureView(page)));
+                    var encoded = encodeURIComponent(JSON.stringify(compactView(page)));
                     var href = window.location.href;
                     var hashIdx = href.indexOf('#');
                     var base = hashIdx === -1 ? href : href.slice(0, hashIdx);
