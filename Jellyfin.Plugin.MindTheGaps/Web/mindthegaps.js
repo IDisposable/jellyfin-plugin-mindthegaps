@@ -1891,6 +1891,8 @@
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
                     page.querySelector('#ScanDiscogs').checked = config.ScanDiscogs;
                     page.querySelector('#DiscogsToken').value = config.DiscogsToken || '';
+                    page.querySelector('#ScanMdbList').checked = config.ScanMdbList;
+                    page.querySelector('#MdbListApiKey').value = config.MdbListApiKey || '';
                     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
                     page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
                     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
@@ -1968,6 +1970,9 @@
                         config.ScanDiscogs = form.querySelector('#ScanDiscogs').checked;
                         config.DiscogsToken = form.querySelector('#DiscogsToken').value;
                         config.DiscogsLabelIds = chips.label ? chips.label.ids() : (config.DiscogsLabelIds || '');
+                        config.ScanMdbList = form.querySelector('#ScanMdbList').checked;
+                        config.MdbListApiKey = form.querySelector('#MdbListApiKey').value.trim();
+                        config.MdbListListIds = chips.mdblist ? chips.mdblist.ids() : (config.MdbListListIds || '');
                         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
                         config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
                         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
@@ -2122,6 +2127,7 @@
                     resolve('studio', config.CuratedCompanyIds || '');
                     resolve('keyword', config.CuratedKeywordIds || '');
                     resolve('label', config.DiscogsLabelIds || '');
+                    resolve('mdblist', config.MdbListListIds || '');
                 }
 
                 function bindSettings(page) {
@@ -2135,6 +2141,7 @@
                     setupChips(page, 'studio', 'cgStudioBox', 'cgStudioChips', 'cgStudioInput', 'cgStudioSuggest');
                     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
                     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
+                    setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest');
                     // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
                     var revealBtns = page.querySelectorAll('.cgReveal');
                     for (var rb = 0; rb < revealBtns.length; rb++) {

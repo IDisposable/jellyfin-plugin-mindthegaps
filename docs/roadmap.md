@@ -80,12 +80,6 @@ of them. Drafts in [docs/upstream/](upstream/).
   keywords, and Discogs labels; Books needs a curated-book **gap source** first (none today, only the author
   bibliography from owned books), for example an OpenLibrary subject or author set. Once that source and a
   config field exist, the chip kind is a `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance.
-- **MDBList toplists as a recommendation source.** [mdblist.com/toplists](https://mdblist.com/toplists/)
-  publishes ranked, frequently-updated community lists (top watched, trending, by genre) aggregated across
-  IMDb/Trakt/TMDB. A source could pull one or more configured lists via the MDBList API and emit a
-  `Recommendation` gap per unowned title, keyed by the TMDB/IMDb id the list already carries so it drops
-  straight into the ownership diff and the existing link building. Opt-in like the other cross-checks; needs
-  an MDBList API key and a way to pick which list(s) (a chip picker over the public lists would fit).
 - **Discogs: complete an artist's discography across both providers.** `DiscogsArtistGapSource` already
   covers the artists the MusicBrainz sources cannot (no MusicBrainz id), so the two span disjoint artists with
   no duplication. The open piece is *completeness* widening: for an artist MusicBrainz *does* cover, also

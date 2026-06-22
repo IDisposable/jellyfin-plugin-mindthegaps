@@ -26,6 +26,9 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanDiscogs = false;
         DiscogsToken = string.Empty;
         DiscogsLabelIds = string.Empty;
+        ScanMdbList = false;
+        MdbListApiKey = string.Empty;
+        MdbListListIds = string.Empty;
         IncludeAvailability = true;
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
@@ -123,6 +126,25 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a comma-separated list of Discogs label ids to complete as curated sets.
     /// </summary>
     public string DiscogsLabelIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned titles from curated MDBList community
+    /// lists as discovery (Recommendation) gaps. Needs an MDBList API key and at least one chosen list.
+    /// Off by default.
+    /// </summary>
+    public bool ScanMdbList { get; set; }
+
+    /// <summary>
+    /// Gets or sets the MDBList API key used to authenticate MDBList API calls (a free key from
+    /// mdblist.com). Without it the MDBList source and its list search stay off.
+    /// </summary>
+    public string MdbListApiKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of MDBList list ids to surface as discovery gaps. The settings
+    /// page maintains this from its MDBList chip picker; the ids are never shown directly.
+    /// </summary>
+    public string MdbListListIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where

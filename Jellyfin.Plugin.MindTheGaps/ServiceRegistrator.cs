@@ -2,6 +2,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Library;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
@@ -10,6 +11,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
@@ -48,6 +50,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<MusicBrainzClient>();
         serviceCollection.AddSingleton<OpenLibraryClient>();
         serviceCollection.AddSingleton<DiscogsClient>();
+        serviceCollection.AddSingleton<MdbListClient>();
         serviceCollection.AddSingleton<VirtualMovieMinter>();
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
@@ -71,5 +74,6 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, BooksBibliographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
+        serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
     }
 }

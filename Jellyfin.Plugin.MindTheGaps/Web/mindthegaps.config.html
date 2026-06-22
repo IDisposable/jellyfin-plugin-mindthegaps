@@ -73,6 +73,23 @@
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
+                                    <input id="ScanMdbList" name="ScanMdbList" type="checkbox" is="emby-checkbox" />
+                                    <span>Discover unowned titles from MDBList community lists</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="cgMdbListInput">MDBList lists</label>
+                                <div class="cgChipField" id="cgMdbListField">
+                                    <div class="cgChipBox" id="cgMdbListBox">
+                                        <span class="cgChipList" id="cgMdbListChips" role="list" aria-label="Selected MDBList lists"></span>
+                                        <input id="cgMdbListInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search MDBList lists..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgMdbListSuggest" />
+                                    </div>
+                                    <div class="cgSuggest" id="cgMdbListSuggest" role="listbox" aria-label="MDBList list matches"></div>
+                                </div>
+                                <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps. Needs the MDBList API key, set under Data sources.</div>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
                                     <input id="ScanMusic" name="ScanMusic" type="checkbox" is="emby-checkbox" />
                                     <span>Scan music artists for missing studio albums (MusicBrainz)</span>
                                 </label>
@@ -168,6 +185,12 @@
                                 <input id="DiscogsToken" name="DiscogsToken" type="password" autocomplete="off" is="emby-input" />
                                 <button id="RevealDiscogsToken" is="emby-button" type="button" class="raised cgReveal" data-target="DiscogsToken" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers. Pick which labels to complete under "What to scan".</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="MdbListApiKey">MDBList API key</label>
+                                <input id="MdbListApiKey" name="MdbListApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealMdbListApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="MdbListApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                                <div class="fieldDescription">A free MDBList API key (mdblist.com, under Preferences). Needed to search and read MDBList lists. Pick which lists to surface under "What to scan".</div>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="WebhookUrl">Webhook URL (optional)</label>

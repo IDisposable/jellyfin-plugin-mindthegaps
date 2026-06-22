@@ -30,4 +30,7 @@ public static class ServiceNames
 
     /// <summary>Discogs.</summary>
     public const string Discogs = "Discogs";
+
+    /// <summary>MDBList.</summary>
+    public const string MdbList = "MDBList";
 }

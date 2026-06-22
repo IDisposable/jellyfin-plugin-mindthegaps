@@ -1,0 +1,10 @@
+{
+  "movies": [
+    { "id": 1, "rank": 1, "title": "The Matrix", "imdb_id": "tt0133093", "tvdb_id": null, "tmdb_id": 603, "mediatype": "movie", "release_year": 1999 },
+    { "id": 2, "rank": 2, "title": "Another Film", "imdb_id": "tt0111161", "tvdb_id": null, "tmdb_id": 278, "mediatype": "movie", "release_year": 1994 },
+    { "id": 3, "rank": 3, "title": "No Ids Film", "imdb_id": "", "tvdb_id": null, "tmdb_id": 0, "mediatype": "movie", "release_year": 2000 }
+  ],
+  "shows": [
+    { "id": 4, "rank": 1, "title": "Breaking Bad", "imdb_id": "tt0903747", "tvdb_id": 81189, "tmdb_id": 1396, "mediatype": "show", "release_year": 2008 }
+  ]
+}

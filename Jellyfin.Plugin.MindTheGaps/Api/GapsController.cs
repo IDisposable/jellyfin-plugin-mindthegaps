@@ -11,6 +11,7 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
+using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,7 @@ public class GapsController : ControllerBase
     private readonly GapDiagnostics _diagnostics;
     private readonly TmdbClient _tmdb;
     private readonly DiscogsClient _discogs;
+    private readonly MdbListClient _mdblist;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -54,7 +56,8 @@ public class GapsController : ControllerBase
     /// <param name="diagnostics">The gap identification diagnostics.</param>
     /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
     /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs)
+    /// <param name="mdblist">The MDBList client, for the MDBList list type-ahead and id resolution.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -67,6 +70,7 @@ public class GapsController : ControllerBase
         _diagnostics = diagnostics;
         _tmdb = tmdb;
         _discogs = discogs;
+        _mdblist = mdblist;
     }
 
     /// <summary>
@@ -301,6 +305,10 @@ public class GapsController : ControllerBase
         {
             results = await _discogs.SearchLabelsAsync(query, cancellationToken).ConfigureAwait(false);
         }
+        else if (IsMdbList(kind))
+        {
+            results = await _mdblist.SearchListsAsync(query, cancellationToken).ConfigureAwait(false);
+        }
         else if (IsKeyword(kind))
         {
             results = await _tmdb.SearchKeywordsAsync(query, cancellationToken).ConfigureAwait(false);
@@ -327,6 +335,7 @@ public class GapsController : ControllerBase
     {
         var keyword = IsKeyword(kind);
         var label = IsLabel(kind);
+        var mdblist = IsMdbList(kind);
         var resolved = new List<CuratedSetRef>();
         var seen = new HashSet<int>();
 
@@ -341,6 +350,10 @@ public class GapsController : ControllerBase
             if (label)
             {
                 name = await _discogs.GetLabelNameAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            else if (mdblist)
+            {
+                name = await _mdblist.GetListNameAsync(id, cancellationToken).ConfigureAwait(false);
             }
             else if (keyword)
             {
@@ -364,6 +377,10 @@ public class GapsController : ControllerBase
     // Whether a curated-set kind query value means a Discogs label.
     private static bool IsLabel(string? kind)
         => string.Equals(kind, "label", StringComparison.OrdinalIgnoreCase);
+
+    // Whether a curated-set kind query value means an MDBList list.
+    private static bool IsMdbList(string? kind)
+        => string.Equals(kind, "mdblist", StringComparison.OrdinalIgnoreCase);
 
     // Parse a comma-separated list of ids, ignoring blanks and non-numbers.
     private static IEnumerable<int> ParseIds(string? raw)
