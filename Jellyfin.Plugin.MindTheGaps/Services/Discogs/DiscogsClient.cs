@@ -56,7 +56,7 @@ public sealed class DiscogsClient
         }
 
         var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=label&q={Uri.EscapeDataString(name)}&per_page=5");
-        var response = await GetAsync<DiscogsSearchResponse>(path, cancellationToken).ConfigureAwait(false);
+        var response = await GetAsync<DiscogsSearchResponse>(path, CachedApiClient.DefaultCacheDuration, cancellationToken).ConfigureAwait(false);
         if (response?.Results is null)
         {
             return null;
@@ -88,7 +88,7 @@ public sealed class DiscogsClient
         }
 
         var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=label&q={Uri.EscapeDataString(query)}&per_page={MaxSuggestions}");
-        var response = await GetAsync<DiscogsSearchResponse>(path, cancellationToken).ConfigureAwait(false);
+        var response = await GetAsync<DiscogsSearchResponse>(path, CachedApiClient.DefaultCacheDuration, cancellationToken).ConfigureAwait(false);
         var refs = new List<CuratedSetRef>();
         foreach (var result in response?.Results ?? new List<DiscogsSearchResult>())
         {
@@ -114,8 +114,11 @@ public sealed class DiscogsClient
     /// <returns>The label name, or null.</returns>
     public async Task<string?> GetLabelNameAsync(long labelId, CancellationToken cancellationToken)
     {
+        // A label name is stable, so cache it for far longer than a scan; this also backs the chip picker's
+        // CuratedResolve, which would otherwise re-fetch every name each time the settings page loads.
         var label = await GetAsync<DiscogsLabel>(
             string.Create(CultureInfo.InvariantCulture, $"/labels/{labelId}"),
+            CachedApiClient.StableCacheDuration,
             cancellationToken).ConfigureAwait(false);
         return label?.Name;
     }
@@ -134,7 +137,7 @@ public sealed class DiscogsClient
             cancellationToken.ThrowIfCancellationRequested();
 
             var path = string.Create(CultureInfo.InvariantCulture, $"/labels/{labelId}/releases?per_page={PageSize}&page={page}");
-            var response = await GetAsync<DiscogsLabelReleasesResponse>(path, cancellationToken).ConfigureAwait(false);
+            var response = await GetAsync<DiscogsLabelReleasesResponse>(path, CachedApiClient.DefaultCacheDuration, cancellationToken).ConfigureAwait(false);
             var pageReleases = response?.Releases;
             if (pageReleases is null || pageReleases.Count == 0)
             {
@@ -153,7 +156,7 @@ public sealed class DiscogsClient
         return releases;
     }
 
-    private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
+    private Task<T?> GetAsync<T>(string path, TimeSpan cacheDuration, CancellationToken cancellationToken)
         where T : class
     {
         // Discogs requires a personal access token to browse; without one configured, nothing to fetch.
@@ -166,7 +169,7 @@ public sealed class DiscogsClient
         return _api.GetJsonAsync<T>(
             "Discogs",
             BaseUrl + path,
-            CachedApiClient.DefaultCacheDuration,
+            cacheDuration,
             _jsonOptions,
             request => request.Headers.Authorization = new AuthenticationHeaderValue(
                 "Discogs",

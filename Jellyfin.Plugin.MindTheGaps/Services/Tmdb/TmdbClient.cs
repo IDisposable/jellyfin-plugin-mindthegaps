@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Microsoft.Extensions.Caching.Memory;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
@@ -310,8 +311,22 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The company name, or null if not found.</returns>
     public async Task<string?> GetCompanyNameAsync(int companyId, CancellationToken cancellationToken)
     {
+        // A studio name is stable, so cache it well beyond a scan. This also backs the chip picker's
+        // CuratedResolve, which would otherwise re-fetch every name each time the settings page loads.
+        var key = string.Create(CultureInfo.InvariantCulture, $"tmdb:companyname:{companyId}");
+        if (_cache.TryGetValue(key, out string? cached))
+        {
+            return cached;
+        }
+
         var company = await _client.GetCompanyAsync(companyId, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return company?.Name;
+        var name = company?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            _cache.Set(key, name, CachedApiClient.StableCacheDuration);
+        }
+
+        return name;
     }
 
     /// <summary>
@@ -323,8 +338,21 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The keyword name, or null if not found.</returns>
     public async Task<string?> GetKeywordNameAsync(int keywordId, CancellationToken cancellationToken)
     {
+        // A keyword name is stable, so cache it well beyond a scan (same rationale as the company name).
+        var key = string.Create(CultureInfo.InvariantCulture, $"tmdb:keywordname:{keywordId}");
+        if (_cache.TryGetValue(key, out string? cached))
+        {
+            return cached;
+        }
+
         var keyword = await _client.GetKeywordAsync(keywordId, cancellationToken).ConfigureAwait(false);
-        return keyword?.Name;
+        var name = keyword?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            _cache.Set(key, name, CachedApiClient.StableCacheDuration);
+        }
+
+        return name;
     }
 
     /// <summary>

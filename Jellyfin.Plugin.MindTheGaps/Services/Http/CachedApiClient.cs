@@ -28,6 +28,13 @@ public sealed class CachedApiClient
     /// </summary>
     public static readonly TimeSpan DefaultCacheDuration = TimeSpan.FromHours(12);
 
+    /// <summary>
+    /// The cache time for a stable id-to-name (text) lookup: a studio, keyword, or label name effectively
+    /// never changes, so there is no reason to re-fetch it on the next scan. Held much longer than
+    /// <see cref="DefaultCacheDuration"/> (in memory, so in practice until the server restarts or this elapses).
+    /// </summary>
+    public static readonly TimeSpan StableCacheDuration = TimeSpan.FromDays(30);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CachedApiClient> _logger;
