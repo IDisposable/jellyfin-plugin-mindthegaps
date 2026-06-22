@@ -6,6 +6,7 @@ using System.Threading;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -73,6 +74,12 @@ public sealed class BooksBibliographyGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, books.Count));
+
+            if (ServiceCircuit.IsOpen("OpenLibrary"))
+            {
+                _logger.LogInformation("Bibliography: OpenLibrary is unavailable this run; skipping the remaining authors");
+                break;
+            }
 
             if (processed >= MaxAuthors)
             {

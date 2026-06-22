@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -55,6 +56,12 @@ public abstract class SeriesContentGapSourceBase : IGapSource
     /// Gets the maximum number of series to hit the external API for in a single run.
     /// </summary>
     protected abstract int MaxSeries { get; }
+
+    /// <summary>
+    /// Gets the service name this source calls (for example "TVmaze"), so it can stop once that service's
+    /// circuit has opened (it has been given up on for the run).
+    /// </summary>
+    protected abstract string ServiceName { get; }
 
     /// <inheritdoc />
     public abstract bool IsEnabled(PluginConfiguration config);
@@ -110,6 +117,14 @@ public abstract class SeriesContentGapSourceBase : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index / Math.Max(1, batch.Count));
+
+            // The service has been given up on for this run (its circuit is open); each remaining series would
+            // only fast-fail, so stop here. The series not marked scanned stay stalest, so next run retries them.
+            if (ServiceCircuit.IsOpen(ServiceName))
+            {
+                _logger.LogInformation("{Source}: {Service} is unavailable this run; skipping the remaining series", Name, ServiceName);
+                break;
+            }
 
             var series = batch[index].Series;
             scannedKeys.Add(batch[index].Key);

@@ -40,6 +40,9 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
     protected override int MaxSeries => 300;
 
     /// <inheritdoc />
+    protected override string ServiceName => "TheTVDB";
+
+    /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config)
         => config.ScanSeries && config.TvdbEnabled && !string.IsNullOrWhiteSpace(config.TvdbApiKey);
 

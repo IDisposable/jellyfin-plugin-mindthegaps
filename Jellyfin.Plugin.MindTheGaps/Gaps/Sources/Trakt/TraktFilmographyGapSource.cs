@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -72,6 +73,12 @@ public sealed class TraktFilmographyGapSource : IGapSource
         foreach (var person in people)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (ServiceCircuit.IsOpen("Trakt"))
+            {
+                _logger.LogInformation("Trakt filmography: Trakt is unavailable this run; skipping the remaining people");
+                break;
+            }
 
             if (processed >= MaxPeople)
             {

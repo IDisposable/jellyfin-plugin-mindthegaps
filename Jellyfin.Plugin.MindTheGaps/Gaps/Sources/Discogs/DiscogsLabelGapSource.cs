@@ -8,6 +8,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -62,6 +63,12 @@ public sealed class DiscogsLabelGapSource : IGapSource
         foreach (var labelId in labelIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (ServiceCircuit.IsOpen("Discogs"))
+            {
+                _logger.LogInformation("Discogs labels: Discogs is unavailable this run; skipping the remaining labels");
+                break;
+            }
 
             IReadOnlyList<DiscogsRelease> releases;
             try

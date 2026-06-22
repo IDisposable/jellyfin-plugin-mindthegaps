@@ -43,6 +43,9 @@ public sealed class TvMazeContentGapSource : SeriesContentGapSourceBase
     protected override int MaxSeries => 300;
 
     /// <inheritdoc />
+    protected override string ServiceName => "TVmaze";
+
+    /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config) => config.ScanSeries && config.TvMazeEnabled;
 
     /// <inheritdoc />

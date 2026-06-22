@@ -7,6 +7,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -75,6 +76,12 @@ public sealed class DiscogsArtistGapSource : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, artists.Count));
+
+            if (ServiceCircuit.IsOpen("Discogs"))
+            {
+                _logger.LogInformation("Discogs artists: Discogs is unavailable this run; skipping the remaining artists");
+                break;
+            }
 
             if (processed >= MaxArtists)
             {

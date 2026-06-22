@@ -6,6 +6,7 @@ using System.Threading;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -96,6 +97,14 @@ public abstract class MusicArtistGapSourceBase : IGapSource
         {
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, artists.Count));
+
+            // MusicBrainz has been given up on for this run (its circuit is open); each remaining artist would
+            // only fast-fail, so stop here rather than churn through them. Next run starts fresh.
+            if (ServiceCircuit.IsOpen("MusicBrainz"))
+            {
+                _logger.LogInformation("{Source}: MusicBrainz is unavailable this run; skipping the remaining artists", Name);
+                break;
+            }
 
             if (processed >= MaxArtists)
             {
