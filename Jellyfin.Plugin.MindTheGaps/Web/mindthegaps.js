@@ -1867,6 +1867,7 @@
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
                     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
+                    page.querySelector('#CuratedTmdbListIds').value = config.CuratedTmdbListIds || '';
                     loadChips(page, config);
                     page.querySelector('#ScanMusic').checked = config.ScanMusic;
                     page.querySelector('#ScanBooks').checked = config.ScanBooks;
@@ -1939,6 +1940,7 @@
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
                         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
+                        config.CuratedTmdbListIds = form.querySelector('#CuratedTmdbListIds').value.trim();
                         // The chips hold the ids; nothing else to persist for curated sets.
                         var chips = page._chipState || {};
                         config.CuratedCompanyIds = chips.studio ? chips.studio.ids() : (config.CuratedCompanyIds || '');

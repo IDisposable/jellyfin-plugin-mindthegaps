@@ -24,7 +24,11 @@ public static class CuratedSetGapMapper
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perSet">The maximum gaps to emit for this set.</param>
-    /// <returns>The set-completion gaps.</returns>
+    /// <param name="pattern">The gap pattern: SetCompletion for a curated studio/keyword set; Recommendation
+    /// for a discovery list (a TMDB list), which the dashboard shows under the discover tab.</param>
+    /// <param name="sourceItemId">A stable per-source id (so a discovery list can be dismissed on its own);
+    /// empty for the studio/keyword sets, which group by name and type instead.</param>
+    /// <returns>The gaps for the set's unowned members.</returns>
     public static IEnumerable<GapItem> BuildMovies(
         IEnumerable<SearchMovie> results,
         string setKey,
@@ -32,7 +36,9 @@ public static class CuratedSetGapMapper
         string setType,
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
-        int perSet)
+        int perSet,
+        GapPattern pattern = GapPattern.SetCompletion,
+        string? sourceItemId = null)
     {
         var emitted = 0;
         foreach (var movie in results)
@@ -57,12 +63,12 @@ public static class CuratedSetGapMapper
             emitted++;
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"curated:{setKey}:{movie.Id}"),
-                pattern: GapPattern.SetCompletion,
+                pattern: pattern,
                 domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,
                 name: movie.Title,
                 providerIds: providerIds,
-                sourceItemId: string.Empty,
+                sourceItemId: sourceItemId ?? string.Empty,
                 sourceItemName: setLabel,
                 sourceItemType: setType,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = setKey.Split(':')[^1] },

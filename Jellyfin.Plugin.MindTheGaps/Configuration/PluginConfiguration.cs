@@ -19,6 +19,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanCuratedSets = false;
         CuratedCompanyIds = string.Empty;
         CuratedKeywordIds = string.Empty;
+        CuratedTmdbListIds = string.Empty;
         AutoSeedStudios = false;
         ScanMusic = false;
         ScanBooks = false;
@@ -87,6 +88,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// maintains this from its keyword chip picker; the ids are never shown directly.
     /// </summary>
     public string CuratedKeywordIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of TMDB list ids to surface as discovery (Recommendation) gaps.
+    /// A list is fetched by id (TMDB has no list search), so the settings page takes the ids directly.
+    /// </summary>
+    public string CuratedTmdbListIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to scan owned music artists for missing studio-album

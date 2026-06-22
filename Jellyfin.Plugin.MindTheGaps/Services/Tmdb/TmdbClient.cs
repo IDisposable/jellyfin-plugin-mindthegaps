@@ -198,6 +198,35 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets a TMDB list's movie members and the list's display name. The list is fetched whole (TMDB lists
+    /// are not paginated); non-movie members are ignored, since the curated-set source is movies only.
+    /// </summary>
+    /// <param name="listId">The TMDB list id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The list name (or null) and its movie members.</returns>
+    public async Task<(string? Name, IReadOnlyList<SearchMovie> Movies)> GetListMoviesAsync(int listId, string? language, CancellationToken cancellationToken)
+    {
+        var idText = listId.ToString(CultureInfo.InvariantCulture);
+        var list = await _client.GetListAsync(idText, language, cancellationToken).ConfigureAwait(false);
+        if (list?.Items is null || list.Items.Count == 0)
+        {
+            return (list?.Name, Array.Empty<SearchMovie>());
+        }
+
+        var movies = new List<SearchMovie>();
+        foreach (var item in list.Items)
+        {
+            if (item is SearchMovie movie)
+            {
+                movies.Add(movie);
+            }
+        }
+
+        return (list.Name, movies);
+    }
+
+    /// <summary>
     /// Resolves a studio/company name to its best-match TMDB company id and canonical name (cached, and a
     /// null result is cached too). Returns null when there is no match.
     /// </summary>

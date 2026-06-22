@@ -82,6 +82,7 @@ public static class CreatorLinks
         "BoxSet" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/collection/{id}"),
         "Studio" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/company/{id}"),
         "Keyword" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/keyword/{id}"),
+        "List" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/list/{id}"),
         "Movie" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/movie/{id}"),
         "Series" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/tv/{id}"),
         _ => null

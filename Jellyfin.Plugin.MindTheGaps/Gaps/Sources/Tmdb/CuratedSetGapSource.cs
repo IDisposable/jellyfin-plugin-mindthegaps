@@ -60,6 +60,7 @@ public sealed class CuratedSetGapSource : IGapSource
         => config.ScanCuratedSets
             && (ParseIds(config.CuratedCompanyIds).Count > 0
                 || ParseIds(config.CuratedKeywordIds).Count > 0
+                || ParseIds(config.CuratedTmdbListIds).Count > 0
                 || config.AutoSeedStudios);
 
     /// <inheritdoc />
@@ -70,9 +71,10 @@ public sealed class CuratedSetGapSource : IGapSource
         var language = context.Config.MetadataLanguage;
         var companySets = await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false);
         var keywordIds = ParseIds(context.Config.CuratedKeywordIds);
-        var total = Math.Max(1, companySets.Count + keywordIds.Count);
+        var listIds = ParseIds(context.Config.CuratedTmdbListIds);
+        var total = Math.Max(1, companySets.Count + keywordIds.Count + listIds.Count);
         var done = 0;
-        _logger.LogInformation("Curated sets: scanning {Companies} studios and {Keywords} keywords", companySets.Count, keywordIds.Count);
+        _logger.LogInformation("Curated sets: scanning {Companies} studios, {Keywords} keywords, and {Lists} TMDB lists", companySets.Count, keywordIds.Count, listIds.Count);
 
         foreach (var (companyId, label) in companySets)
         {
@@ -115,6 +117,32 @@ public sealed class CuratedSetGapSource : IGapSource
                 context.Ownership,
                 _tmdb.GetPosterUrl,
                 MaxGapsPerSet))
+            {
+                yield return gap;
+            }
+
+            context.ReportProgress((double)++done / total);
+        }
+
+        foreach (var listId in listIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var list = await _tmdb.GetListMoviesAsync(listId, language, cancellationToken).ConfigureAwait(false);
+            var label = string.IsNullOrEmpty(list.Name)
+                ? string.Create(CultureInfo.InvariantCulture, $"List {listId}")
+                : list.Name;
+            _logger.LogInformation("Curated sets: TMDB list '{Label}' ({Id}) has {Count} movies", label, listId, list.Movies.Count);
+
+            foreach (var gap in CuratedSetGapMapper.BuildMovies(
+                list.Movies,
+                string.Create(CultureInfo.InvariantCulture, $"list:{listId}"),
+                label,
+                "List",
+                context.Ownership,
+                _tmdb.GetPosterUrl,
+                MaxGapsPerSet,
+                GapPattern.Recommendation,
+                string.Create(CultureInfo.InvariantCulture, $"tmdblist-{listId}")))
             {
                 yield return gap;
             }

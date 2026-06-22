@@ -50,6 +50,31 @@ public class CuratedSetGapMapperTests
     }
 
     [Fact]
+    public void BuildMovies_TmdbList_IsDiscovery_SkipsOwned_AndTagsListSource()
+    {
+        var results = new[] { Movie(101, "On the list, owned"), Movie(102, "On the list, missing") };
+
+        var gaps = CuratedSetGapMapper.BuildMovies(
+            results,
+            "list:8267559",
+            "Best Sci-Fi",
+            "List",
+            OwnsMovie(101),
+            _ => null,
+            perSet: 100,
+            GapPattern.Recommendation,
+            "tmdblist-8267559").ToList();
+
+        var gap = Assert.Single(gaps);
+        Assert.Equal("curated:list:8267559:102", gap.Id);
+        Assert.Equal(GapPattern.Recommendation, gap.Pattern);
+        Assert.Equal("tmdblist-8267559", gap.SourceItemId);
+        Assert.Equal("List", gap.SourceItemType);
+        Assert.Equal("Best Sci-Fi", gap.SourceItemName);
+        Assert.Contains(gap.SourceLinks, l => l.Name == "TMDB" && l.Url == "https://www.themoviedb.org/list/8267559");
+    }
+
+    [Fact]
     public void BuildMovies_RespectsPerSetCap()
     {
         var results = Enumerable.Range(10, 20).Select(i => Movie(i, "Film " + i)).ToArray();

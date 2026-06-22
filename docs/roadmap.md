@@ -76,8 +76,6 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **TMDB Lists as a curated-set input.** `CuratedSetGapSource` covers studios and keywords; paste a TMDB
-  list id and complete it the same way (TMDbLib `GetListAsync`).
 - **Curated-book gap source, then Books chips.** The chip picker is kind-agnostic and covers studios,
   keywords, and Discogs labels; Books needs a curated-book **gap source** first (none today, only the author
   bibliography from owned books), for example an OpenLibrary subject or author set. Once that source and a
