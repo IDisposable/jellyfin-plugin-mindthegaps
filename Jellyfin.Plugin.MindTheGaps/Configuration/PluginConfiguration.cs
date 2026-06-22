@@ -90,19 +90,19 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets a value indicating whether to scan owned music artists for missing studio-album
-    /// release-groups (MusicBrainz discography). Experimental; defaults off.
+    /// release-groups (MusicBrainz discography). Off by default.
     /// </summary>
     public bool ScanMusic { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to scan owned books for other entries in the author's
-    /// bibliography or the book's series (OpenLibrary). Experimental; defaults off.
+    /// bibliography or the book's series (OpenLibrary). Off by default.
     /// </summary>
     public bool ScanBooks { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to surface missing releases from curated Discogs record
-    /// labels. Needs a Discogs token and at least one label id. Experimental; defaults off.
+    /// labels. Needs a Discogs token and at least one label id. Off by default.
     /// </summary>
     public bool ScanDiscogs { get; set; }
 

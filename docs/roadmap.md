@@ -37,9 +37,9 @@ of them. Drafts in [docs/upstream/](upstream/).
 - **Acquisition handoff (Radarr/Sonarr, Jellyseerr/Overseerr).** The report dead-ends at a link; the
   highest-value next feature is a per-row "Send" that hands a gap to an arr or request stack. Two spike
   branches already prototype it and need rebasing onto current main (see backlog).
-- **Promote the experimental sources.** Books is hardened in code; what remains is capturing the new
-  OpenLibrary fixtures and real-world validation. Discogs (labels) is new and wants validation. Music wants
-  the per-client pacing gate.
+- **Enable the music and book sources by default.** They ship off by default until validated against real
+  data. Books is hardened and its OpenLibrary fixtures are captured; Discogs (labels and artist discography)
+  is new; both want real-world validation across a varied library before defaulting on.
 - **Upstream ask A** ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)): merged, it
   gives mintable collection movies their native greyed "Missing" badge.
 - **Shareable-link size** is a latent bug (links can exceed URL limits); cheap to de-risk.
@@ -94,10 +94,10 @@ of them. Drafts in [docs/upstream/](upstream/).
   consult Discogs and merge the two release lists (de-duplicated by normalized title) so an album one provider
   lists and the other misses still surfaces. Deferred because the cross-provider, name-keyed release de-dup is
   fuzzy and would change the MusicBrainz gap-id scheme (a persisted-id contract, ADR-0008).
-- **De-experimentalize Books.** The two OpenLibrary endpoints the hardening added (`/works/{key}.json` and
-  `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains: real-world
-  validation across a varied library, and optionally a config-time author-to-key override for the cases the
-  matcher still gets wrong.
+- **Default the Books source on.** The two OpenLibrary endpoints the hardening added (`/works/{key}.json` and
+  `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains before it is
+  on by default: real-world validation across a varied library, and optionally a config-time author-to-key
+  override for the cases the matcher still gets wrong.
 
 ### Acquisition handoff
 

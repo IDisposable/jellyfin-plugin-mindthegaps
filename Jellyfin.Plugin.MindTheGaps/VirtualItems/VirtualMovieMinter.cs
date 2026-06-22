@@ -20,7 +20,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.VirtualItems;
 
 /// <summary>
-/// EXPERIMENTAL and TEMPORARY. Mints pathless virtual <see cref="Movie"/> items into BoxSets for the
+/// TEMPORARY. Mints pathless virtual <see cref="Movie"/> items into BoxSets for the
 /// missing parts of an owned TMDB collection, so they render greyed-out the way missing episodes do.
 /// <para>
 /// This deliberately does, from a plugin, something the server has no supported API for. It exists to
@@ -171,7 +171,7 @@ public sealed class VirtualMovieMinter : IDisposable
     }
 
     /// <summary>
-    /// EXPERIMENTAL debug aid: mints a single gap from the report. A collection gap (SourceItemType
+    /// Temporary debug aid: mints a single gap from the report. A collection gap (SourceItemType
     /// "BoxSet") goes into its BoxSet; any other gap (filmography, recommendation) goes into the
     /// catch-all collection, and a filmography gap (SourceItemType "Person") additionally attaches the
     /// owning person so the movie surfaces on that person's page. Only Movie gaps are mintable.

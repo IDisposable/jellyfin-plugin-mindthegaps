@@ -33,7 +33,7 @@ Scans also run on a schedule, alongside a "Refresh where to watch" pass, under *
 ## The three pattern tabs (axes)
 
 The report is split by *pattern*, the kind of gap. Each tab groups by media domain (**Movies** /
-**Shows**, and **Music** / **Books** when those experimental sources are on), so you can work one axis
+**Shows**, and **Music** / **Books** when those sources are on), so you can work one axis
 at a time.
 
 ### Set completion
@@ -54,7 +54,7 @@ collapsed series, the batch controls appear on hover.
 
 ![Set completion, a series expanded to its seasons and episodes](screenshots/report-shows-set-completion-expanded.png)
 
-With the experimental **music** source on, an album artist you collect is a Set-completion gap too: their
+With the **music** source on, an album artist you collect is a Set-completion gap too: their
 missing studio albums (a "discography").
 
 ![A music artist's missing discography](screenshots/report-music-set-completion.png)
@@ -132,7 +132,7 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
   button fetches it on demand; the background **Look up where to watch** pass does many at once.
 - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
   the gap shows greyed in place. Fully reversible; a later scan drops it once you own the real file. See
-  the [README's virtual-placeholders section](../README.md#virtual-placeholders-experimental-opt-in).
+  the [README's virtual-placeholders section](../README.md#virtual-placeholders-opt-in).
 - **Dismissals** (so a gap stops cluttering the list, surviving rescans):
   - **Resolve**: "not really missing." Optionally add a note.
   - **Not interested**: a real gap you do not want.

@@ -17,8 +17,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// <summary>
 /// Surfaces missing releases from curated Discogs record labels: for each configured label, lists the
 /// label's releases and diffs them against the library by Discogs id, emitting a
-/// <see cref="GapPattern.SetCompletion"/> gap per unowned release. Opt-in and experimental; needs a Discogs
-/// token and at least one label id.
+/// <see cref="GapPattern.SetCompletion"/> gap per unowned release. Opt-in; needs a Discogs token and at
+/// least one label id.
 /// </summary>
 public sealed class DiscogsLabelGapSource : IGapSource
 {

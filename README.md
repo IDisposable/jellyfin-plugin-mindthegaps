@@ -37,7 +37,7 @@ Every gap is one of three kinds, surfaced as the report's three tabs:
 | **Creator works** | other work by a person or artist you own | a film an owned actor or director made; a music artist's wider catalogue; an author's other books |
 | **Recommendations** | related titles worth adding (discovery; off by default) | TMDB "similar" titles for things you own |
 
-Movies and shows work out of the box; music and books are experimental, opt-in sources.
+Movies and shows work out of the box; music and books are opt-in sources.
 
 ## Features
 
@@ -51,9 +51,13 @@ Movies and shows work out of the box; music and books are experimental, opt-in s
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
   configured metadata provider doesn't list. TVmaze is keyless; TheTVDB needs your own v4 API key.
-- **Curated sets (studio / keyword)**: complete the movies of a studio ("every A24 film", "every Studio
-  Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers. Opt-in: list the TMDB company and
-  keyword ids to track.
+- **Curated sets (studio / keyword / label)**: complete the movies of a studio ("every A24 film", "every
+  Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, plus a record label's releases
+  via Discogs. Opt-in: pick studios, keywords, and labels with a type-ahead chip picker
+  (search, pick a match, it becomes a removable chip), no id-hunting required.
+- **Music and books (off by default)**: complete an album artist's discography and discover a
+  track-only artist's wider catalogue (MusicBrainz, with Discogs covering artists MusicBrainz cannot resolve),
+  and surface other books in an owned author's bibliography (OpenLibrary). Some need a key or token.
 - **Recommendations**: TMDB "similar" titles; opt-in. Each result lists every owned title that recommends
   it, not just the first; a TMDB vote floor trims the obscure long tail.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
@@ -67,6 +71,11 @@ Movies and shows work out of the box; music and books are experimental, opt-in s
   export the current view to Markdown. Links to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link
   provider the host has, including the JustWatch plugin), an "open in Jellyfin" jump to items you already
   hold, and a search icon that opens a scoped Jellyfin search for any title, series, collection, or creator.
+- **Diagnose why something is "missing"**: a per-gap popup explains the verdict, laying the gap beside the
+  owned items that look like it (owned under the wrong id, an owned item already holds this id, a same-named
+  reboot like V 1984 versus V 2009, or genuinely missing). A "Deeper analysis" confirms against the source
+  provider, and a library-wide identification audit runs the same check across everything and downloads as
+  Markdown.
 - **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
   season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
 - **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a
@@ -75,7 +84,7 @@ Movies and shows work out of the box; music and books are experimental, opt-in s
   via a "Show dismissed" filter.
 - **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
   when a scan or the "where to watch" pass finishes.
-- **Virtual placeholders** (experimental, opt-in): mint greyed-out "missing" placeholders in place,
+- **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place,
   the way a missing episode renders inside a series. See below.
 
 ## Installation
@@ -143,10 +152,10 @@ settings page has per-source toggles plus:
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
 | TMDB API key | Optional; falls back to the built-in public key. |
 
-## Virtual placeholders (experimental, opt-in)
+## Virtual placeholders (opt-in)
 
 Off by default, the plugin can mint pathless "virtual" placeholder items so a gap renders greyed-out in
-place. It is an experimental stand-in for proper server support: the server does not reconcile or
+place. It is a stand-in for proper server support: the server does not reconcile or
 garbage-collect these, so the plugin does it itself, and everything minted is tagged and fully reversible.
 
 Minting is driven from the report, one gap at a time: each movie row has a **Mint** button, and you can
@@ -171,7 +180,7 @@ installed. For the architecture behind this, see [CONTRIBUTING](CONTRIBUTING.md)
   when you set or clear it.
 - **[Report guide](docs/report-guide.md)** - the three tabs, the filters and saved views, and the per-row
   actions.
-- **[Roadmap and status](docs/roadmap.md)** - what is built, what is experimental, and what is not.
+- **[Roadmap and status](docs/roadmap.md)** - what is built, what is planned, and what is deliberately not.
 
 ## Contributing
 

@@ -66,7 +66,7 @@ public class OpenLibraryCapturedDataTests
         Assert.Equal("Frank Herbert", herbert.Name);
 
         // The first result is a different "Frank Herbert", so picking docs[0] would resolve the wrong
-        // author. This is a known limitation of the experimental Books source (see roadmap).
+        // author. This is a known limitation of the Books source (see roadmap).
         Assert.NotEqual(AuthorKey, response.Docs!.First().Key);
     }
 

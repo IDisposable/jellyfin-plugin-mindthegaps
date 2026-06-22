@@ -22,8 +22,8 @@ does not delete anything from your library. Leaving everything off produces an e
 | **People (filmographies)** (`ScanPeople`) | On | For each owned actor/director/writer, lists films from their TMDB filmography you do not own. People are scanned stalest-first in batches capped by **Max creators scanned per run**, so coverage accumulates over repeated runs. | No filmography gaps. |
 | **Recommendations (similar titles)** (`ScanRecommendations`) | Off | For each owned movie/series, surfaces TMDB "similar" titles you do not own. Can be noisy; this is discovery, not completion. Owned titles are used as seeds stalest-first, capped per run. | No recommendation gaps. |
 | **Curated studio / keyword sets** (`ScanCuratedSets`) | Off | Treats the studios and keywords below as sets to complete: lists films from those TMDB companies/keywords you do not own. | The curated lists and auto-seed below are ignored. |
-| **Music (artist discographies)** (`ScanMusic`) | Off | Experimental. For each owned music artist, lists missing studio-album release-groups from the MusicBrainz discography. An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works" (discover their wider catalogue). | No music gaps. |
-| **Books (author bibliographies)** (`ScanBooks`) | Off | Experimental. For each owned book, lists other entries in the author's bibliography (OpenLibrary). Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). | No book gaps. |
+| **Music (artist discographies)** (`ScanMusic`) | Off | For each owned music artist, lists missing studio-album release-groups from the MusicBrainz discography. An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works" (discover their wider catalogue). | No music gaps. |
+| **Books (author bibliographies)** (`ScanBooks`) | Off | For each owned book, lists other entries in the author's bibliography (OpenLibrary). Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). | No book gaps. |
 
 ### Curated set inputs
 
@@ -94,14 +94,14 @@ You rarely need it: each scan automatically prunes rotation entries for items th
 library, so the table stays the size of the library on its own. Use it after raising a cap, or if you
 suspect the rotation is stuck.
 
-## Experimental: virtual items
+## Virtual items
 
 ![Virtual items settings](screenshots/config-actions.png)
 
 Off by default and clearly marked. Lets the plugin mint pathless "virtual" placeholder items so a gap
 renders greyed-out in place, and reconcile/remove them. This is a stand-in for proper server support;
 everything minted is tagged and fully reversible. See the
-[virtual placeholders section of the README](../README.md#virtual-placeholders-experimental-opt-in)
+[virtual placeholders section of the README](../README.md#virtual-placeholders-opt-in)
 and [ADR-0004](adr/) for the rationale, and the [report guide](report-guide.md) for the per-row Mint
 controls. The settings page itself keeps only **Remove minted movies** (with a dry-run preview) to undo
 everything at once.

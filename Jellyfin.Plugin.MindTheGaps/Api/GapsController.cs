@@ -47,7 +47,7 @@ public class GapsController : ControllerBase
     /// <param name="scanRunner">The background scan runner.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="availabilityRunner">The background availability enrichment runner.</param>
-    /// <param name="minter">The experimental virtual-movie minter.</param>
+    /// <param name="minter">The virtual-movie minter.</param>
     /// <param name="mintRunner">The background mint runner.</param>
     /// <param name="resolutions">The store of per-gap resolution notes.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
@@ -199,7 +199,7 @@ public class GapsController : ControllerBase
         => new MintStatus { Running = _mintRunner.IsRunning, Progress = _mintRunner.Progress, Message = _mintRunner.LastMessage };
 
     /// <summary>
-    /// EXPERIMENTAL debug aid. Mints a single gap (posted from a dashboard row) as a virtual movie. A
+    /// Temporary debug aid. Mints a single gap (posted from a dashboard row) as a virtual movie. A
     /// collection gap goes into its BoxSet; a filmography gap goes into a catch-all collection and
     /// attaches the person so it surfaces on that person's page. Movie gaps only. Reverse with
     /// <see cref="RemoveMintedMovies"/>.
@@ -222,7 +222,7 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
-    /// EXPERIMENTAL. Starts a background mint of several gaps (the report's multi-select). Each goes
+    /// Temporary. Starts a background mint of several gaps (the report's multi-select). Each goes
     /// through the same one-off path as <see cref="MintGap"/>. Runs in the background so a large
     /// selection cannot time out the request; poll <see cref="GetMintStatus"/>.
     /// </summary>

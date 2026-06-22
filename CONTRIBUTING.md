@@ -87,7 +87,7 @@ Jellyfin.Plugin.MindTheGaps/            # the plugin
   Api/GapsController.cs                 # the dashboard's HTTP endpoints
   Web/mindthegaps.html                  # the dashboard (the gear toggles an inline settings panel)
   Configuration/PluginConfiguration.cs
-  VirtualItems/VirtualMovieMinter.cs    # experimental, opt-in
+  VirtualItems/VirtualMovieMinter.cs    # temporary, opt-in
 .editorconfig                           # code style + analyzer severities
 Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures
 ```

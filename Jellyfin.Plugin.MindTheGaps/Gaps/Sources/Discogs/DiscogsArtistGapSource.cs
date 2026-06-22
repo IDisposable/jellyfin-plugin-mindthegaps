@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// discography against the library. Because it handles exactly the artists MusicBrainz skips, the two never
 /// report the same album twice. The pattern follows the same split as the MusicBrainz sources: an album
 /// artist you collect yields a <see cref="GapPattern.SetCompletion"/> discography, an artist you only own a
-/// track by yields <see cref="GapPattern.CreatorWorks"/>. Opt-in and experimental; needs a Discogs token.
+/// track by yields <see cref="GapPattern.CreatorWorks"/>. Opt-in; needs a Discogs token.
 /// </summary>
 public sealed class DiscogsArtistGapSource : IGapSource
 {
