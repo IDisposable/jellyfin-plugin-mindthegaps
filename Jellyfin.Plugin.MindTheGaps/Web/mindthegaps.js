@@ -912,11 +912,11 @@
                 }
 
                 // Escape the markdown control characters so a title cannot break the output.
-                function mdEsc(s) { return (s == null ? '' : String(s)).replace(/([\\`*_\[\]()<>#|])/g, '\\$1'); }
+                function mdEsc(s) { return (s == null ? '' : String(s)).replace(/([\\`*_[\]()<>#|])/g, '\\$1'); }
 
                 // Like mdEsc but for heading text: parentheses are left alone (they are safe in a heading, and
                 // escaping them shows literal backslashes in some renderers, which also breaks the anchor).
-                function mdHeading(s) { return (s == null ? '' : String(s)).replace(/([\\`*_\[\]<>#|])/g, '\\$1'); }
+                function mdHeading(s) { return (s == null ? '' : String(s)).replace(/([\\`*_[\]<>#|])/g, '\\$1'); }
 
                 // A gap's H2 heading text (no leading "##"): the linked title and its year/kind.
                 function gapHeading(it) {

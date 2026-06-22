@@ -1,0 +1,12 @@
+{
+  "name": "jellyfin-plugin-mindthegaps",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lint tooling for the Mind the Gaps dashboard JavaScript (Jellyfin.Plugin.MindTheGaps/Web).",
+  "scripts": {
+    "lint": "oxlint --deny-warnings Jellyfin.Plugin.MindTheGaps/Web"
+  },
+  "devDependencies": {
+    "oxlint": "1.71.0"
+  }
+}

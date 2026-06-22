@@ -128,6 +128,19 @@ jobs:
           name: pkg-${{ matrix.abi }}
           path: artifacts/*.zip
 
+  # Lint the dashboard JavaScript (oxlint). Independent of the .NET build/ABI matrix.
+  lint:
+    name: lint (dashboard js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
   # Fan-in: one job attaches every ABI's zip and writes a single manifest commit (avoids push races).
   publish:
     needs: build

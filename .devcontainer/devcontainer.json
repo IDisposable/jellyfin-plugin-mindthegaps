@@ -3,6 +3,13 @@
     // Not the Jellyfin server devcontainer; no ffmpeg, docker-in-docker, or workloads.
     "name": "jellyfin-plugin-justwatch",
     "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
+    // Node is for the dashboard JavaScript lint only (oxlint); the plugin itself is .NET.
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
+    "postCreateCommand": "npm ci",
     "customizations": {
         "vscode": {
             "extensions": [
