@@ -242,6 +242,46 @@
                                     <span>Remove minted movies</span>
                                 </button>
                             </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="BulkMintCap">Mint all cap (per click)</label>
+                                <input id="BulkMintCap" name="BulkMintCap" type="number" min="1" is="emby-input" />
+                                <div class="fieldDescription">The most gaps one "Mint all in this tab" click materializes; the rest fill in on the next click.</div>
+                            </div>
+                            <h3 class="checkboxListLabel" style="margin-top:1em;">Scheduled auto-mint</h3>
+                            <p class="fieldDescription" style="color:#e08000;">
+                                Off by default. When on, the "Auto-mint gaps" scheduled task (give it a schedule under
+                                Scheduled Tasks) mints new materializable gaps in the patterns picked below. Reconciliation
+                                of placeholders the library later owns for real runs at the end of every scan regardless.
+                            </p>
+                            <div class="checkboxContainer">
+                                <label class="emby-checkbox-label">
+                                    <input id="AutoMint" name="AutoMint" type="checkbox" is="emby-checkbox" />
+                                    <span>Auto-mint on the scan schedule</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer">
+                                <label class="emby-checkbox-label">
+                                    <input id="AutoMintSetCompletion" name="AutoMintSetCompletion" type="checkbox" is="emby-checkbox" />
+                                    <span>Auto-mint Set completion (collection) gaps</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer">
+                                <label class="emby-checkbox-label">
+                                    <input id="AutoMintCreatorWorks" name="AutoMintCreatorWorks" type="checkbox" is="emby-checkbox" />
+                                    <span>Auto-mint Creator works (filmography) gaps</span>
+                                </label>
+                            </div>
+                            <div class="checkboxContainer">
+                                <label class="emby-checkbox-label">
+                                    <input id="AutoMintRecommendations" name="AutoMintRecommendations" type="checkbox" is="emby-checkbox" />
+                                    <span>Auto-mint Recommendation gaps</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="AutoMintCap">Auto-mint cap (per run)</label>
+                                <input id="AutoMintCap" name="AutoMintCap" type="number" min="1" is="emby-input" />
+                                <div class="fieldDescription">The most gaps one unattended run materializes; the rest fill in over later runs.</div>
+                            </div>
                         </div>
 
                         <div>

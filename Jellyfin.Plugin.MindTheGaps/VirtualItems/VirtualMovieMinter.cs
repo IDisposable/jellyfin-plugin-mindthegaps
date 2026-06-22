@@ -184,22 +184,15 @@ public sealed class VirtualMovieMinter : IDisposable
     {
         var stopwatch = Stopwatch.StartNew();
 
-        if (gap.TargetKind != BaseItemKind.Movie)
+        var classification = MintClassifier.Classify(gap);
+        if (!classification.IsMaterializable)
         {
-            _logger.LogInformation(
-                "One-off mint skipped: '{Name}' is a {Kind}; only Movie gaps are mintable today",
-                gap.Name,
-                gap.TargetKind);
-            return string.Create(CultureInfo.InvariantCulture, $"Only Movie gaps can be minted today; '{gap.Name}' is a {gap.TargetKind}.");
+            _logger.LogInformation("One-off mint skipped: {Reason}", classification.Reason);
+            return classification.Reason;
         }
 
-        if (!gap.ProviderIds.TryGetValue("Tmdb", out var tmdbId) || string.IsNullOrEmpty(tmdbId))
-        {
-            _logger.LogWarning("One-off mint skipped: '{Name}' has no TMDB id", gap.Name);
-            return string.Create(CultureInfo.InvariantCulture, $"'{gap.Name}' has no TMDB id; cannot mint.");
-        }
-
-        var personName = string.Equals(gap.SourceItemType, "Person", StringComparison.Ordinal) ? gap.SourceItemName : null;
+        var tmdbId = classification.TmdbId!;
+        var personName = classification.PersonName;
         var personSuffix = string.IsNullOrEmpty(personName)
             ? string.Empty
             : string.Create(CultureInfo.InvariantCulture, $" and attach person '{personName}'");
@@ -315,9 +308,7 @@ public sealed class VirtualMovieMinter : IDisposable
 
             // The report only offers Mint on movie gaps with a TMDB id; count anything else as skipped
             // rather than minted, so the total reflects actual mint attempts (MintGapAsync would no-op it).
-            if (gap.TargetKind != BaseItemKind.Movie
-                || !gap.ProviderIds.TryGetValue("Tmdb", out var tmdbId)
-                || string.IsNullOrEmpty(tmdbId))
+            if (!MintClassifier.Classify(gap).IsMaterializable)
             {
                 skipped++;
                 continue;
@@ -349,6 +340,55 @@ public sealed class VirtualMovieMinter : IDisposable
         return failed == 0
             ? string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s){skippedSuffix}.")
             : string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s){skippedSuffix}, {failed} failed. Check the server logs.");
+    }
+
+    /// <summary>
+    /// Mints every candidate gap that matches a filter and is materializable, up to a cap. Shared by the
+    /// bulk "mint all in this tab" action and the scheduled auto-mint task, both of which pass the current
+    /// report's items and a pattern/domain filter. Reconciliation of already-owned placeholders runs at the
+    /// end of every scan, independent of this.
+    /// </summary>
+    /// <param name="candidates">The gaps to consider (typically the current report's items); null is treated as empty.</param>
+    /// <param name="filter">Selects which gaps to mint.</param>
+    /// <param name="cap">The most gaps to mint this run; zero or less uses the built-in cap.</param>
+    /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
+    /// <param name="progress">Optional progress sink (0-100).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A human-readable status message.</returns>
+    public async Task<string> MintMatchingAsync(IReadOnlyList<GapItem>? candidates, Func<GapItem, bool> filter, int cap, bool dryRun, IProgress<double>? progress, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var effectiveCap = cap > 0 ? Math.Min(cap, MaxMintSelection) : MaxMintSelection;
+        var selected = new List<GapItem>();
+        var overCap = false;
+        foreach (var gap in candidates ?? Array.Empty<GapItem>())
+        {
+            if (!filter(gap) || !MintClassifier.Classify(gap).IsMaterializable)
+            {
+                continue;
+            }
+
+            if (selected.Count >= effectiveCap)
+            {
+                overCap = true;
+                break;
+            }
+
+            selected.Add(gap);
+        }
+
+        if (selected.Count == 0)
+        {
+            return "No materializable gaps matched.";
+        }
+
+        if (overCap)
+        {
+            _logger.LogInformation("Bulk mint: matched more than the cap of {Cap}; the rest are left for the next run", effectiveCap);
+        }
+
+        return await MintGapsAsync(selected, dryRun, progress, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<BaseItem?> ResolveContainerAsync(GapItem gap, bool dryRun, CancellationToken cancellationToken)

@@ -42,6 +42,12 @@ public class PluginConfiguration : BasePluginConfiguration
         TvdbApiKey = string.Empty;
         TmdbApiKey = string.Empty;
         WebhookUrl = string.Empty;
+        BulkMintCap = 200;
+        AutoMint = false;
+        AutoMintSetCompletion = true;
+        AutoMintCreatorWorks = false;
+        AutoMintRecommendations = false;
+        AutoMintCap = 50;
     }
 
     /// <summary>
@@ -214,4 +220,37 @@ public class PluginConfiguration : BasePluginConfiguration
     /// finishes. The payload leads with a Discord-friendly "content" string. Empty disables it.
     /// </summary>
     public string WebhookUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most gaps a single "Mint all in this tab" click materializes; the rest are left for
+    /// the next click. A guardrail against flooding a library in one action.
+    /// </summary>
+    public int BulkMintCap { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the scheduled auto-mint task mints new materializable gaps in
+    /// the selected patterns on the scan cadence. Off by default; reconciliation runs regardless.
+    /// </summary>
+    public bool AutoMint { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether auto-mint includes Set completion (collection) gaps.
+    /// </summary>
+    public bool AutoMintSetCompletion { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether auto-mint includes Creator works (filmography) gaps.
+    /// </summary>
+    public bool AutoMintCreatorWorks { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether auto-mint includes Recommendation gaps.
+    /// </summary>
+    public bool AutoMintRecommendations { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most gaps one unattended auto-mint run materializes; the rest fill in over later
+    /// runs. A guardrail against flooding a library.
+    /// </summary>
+    public int AutoMintCap { get; set; }
 }

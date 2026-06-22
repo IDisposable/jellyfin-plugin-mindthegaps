@@ -1336,6 +1336,19 @@
                 // no rows until expanded, so the bar is re-evaluated when a group is opened, not just on render.
                 function refreshSelectBar(page) {
                     page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
+                    updateMintAll(page);
+                }
+
+                // Count the materializable gaps in the current tab (movies with a TMDB id; the server applies
+                // the same rule) and show the "Mint all in this tab" button only when there are some.
+                function updateMintAll(page) {
+                    var bar = page.querySelector('#cgMintAllBar');
+                    if (!bar) { return; }
+                    var n = ((page._report && page._report.Items) || []).filter(function (it) {
+                        return it.PatternName === page._pattern && it.TargetKindName === 'Movie' && it.ProviderIds && it.ProviderIds.Tmdb;
+                    }).length;
+                    page.querySelector('#cgMintAllCount').textContent = n;
+                    bar.style.display = n ? 'flex' : 'none';
                 }
 
                 // The ids of the checked rows. Mint rehydrates each from the stored report server-side, so the
@@ -1846,6 +1859,12 @@
                     page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
                     page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
                     page.querySelector('#MaxCastBillingOrder').value = config.MaxCastBillingOrder;
+                    page.querySelector('#BulkMintCap').value = config.BulkMintCap;
+                    page.querySelector('#AutoMint').checked = config.AutoMint;
+                    page.querySelector('#AutoMintSetCompletion').checked = config.AutoMintSetCompletion;
+                    page.querySelector('#AutoMintCreatorWorks').checked = config.AutoMintCreatorWorks;
+                    page.querySelector('#AutoMintRecommendations').checked = config.AutoMintRecommendations;
+                    page.querySelector('#AutoMintCap').value = config.AutoMintCap;
                     bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId');
                     bindSettingsToggle(page, 'TvdbEnabled', 'TvdbApiKey');
                     // Freshly loaded values are not unsaved edits (assigning .value/.checked fires no events).
@@ -1922,6 +1941,12 @@
                         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
                         config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
                         config.MaxCastBillingOrder = parseInt(form.querySelector('#MaxCastBillingOrder').value || '0', 10);
+                        config.BulkMintCap = parseInt(form.querySelector('#BulkMintCap').value || '200', 10);
+                        config.AutoMint = form.querySelector('#AutoMint').checked;
+                        config.AutoMintSetCompletion = form.querySelector('#AutoMintSetCompletion').checked;
+                        config.AutoMintCreatorWorks = form.querySelector('#AutoMintCreatorWorks').checked;
+                        config.AutoMintRecommendations = form.querySelector('#AutoMintRecommendations').checked;
+                        config.AutoMintCap = parseInt(form.querySelector('#AutoMintCap').value || '50', 10);
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             page._settingsDirty = false;
                             cgRegion = (config.MetadataCountryCode || '').trim().toLowerCase();
@@ -2226,6 +2251,44 @@
                           .catch(function () {
                             done('Bulk mint failed. Check the server logs.');
                         });
+                    });
+                    page.querySelector('#cgMintAll').addEventListener('click', function () {
+                        var pattern = page._pattern;
+                        var count = page.querySelector('#cgMintAllCount').textContent || '0';
+                        if (!window.confirm('Mint ' + count + ' materializable item(s) in this tab as virtual placeholders? Bounded by the configured cap; the rest fill in on the next click.')) { return; }
+                        var btn = this;
+                        var label = btn.querySelectorAll('span')[1];
+                        var labelHtml = label ? label.innerHTML : '';
+                        btn.disabled = true;
+
+                        function done(msg) {
+                            if (label) { label.innerHTML = labelHtml; }
+                            btn.disabled = false;
+                            if (msg) { Dashboard.alert(msg); }
+                        }
+                        function pollMint() {
+                            if (!pageActive(page)) { return; }
+                            ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/MintStatus'), dataType: 'json' })
+                                .then(function (s) {
+                                    if (s && s.Running) {
+                                        if (label) { label.textContent = 'Minting… ' + Math.round(s.Progress || 0) + '%'; }
+                                        setTimeout(pollMint, 1500);
+                                    } else {
+                                        done();
+                                        Dashboard.alert((s && s.Message) || 'Done.');
+                                        load(page);
+                                    }
+                                })
+                                .catch(function () { done('Lost contact while minting. Check the server logs.'); });
+                        }
+
+                        if (label) { label.textContent = 'Minting…'; }
+                        ApiClient.ajax({
+                            type: 'POST',
+                            url: ApiClient.getUrl('MindTheGaps/MintAll', { pattern: pattern || '' }),
+                            dataType: 'json'
+                        }).then(function () { setTimeout(pollMint, 800); })
+                          .catch(function () { done('Mint all failed. Check the server logs.'); });
                     });
                     page.querySelector('#cgRescan').addEventListener('click', function () {
                         startScan(page, this);

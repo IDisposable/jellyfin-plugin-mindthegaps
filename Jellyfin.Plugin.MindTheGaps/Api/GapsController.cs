@@ -247,6 +247,33 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
+    /// Starts a background mint of every materializable gap in the current report that matches an optional
+    /// pattern and/or domain (the dashboard's "Mint all in this tab"). Bounded by the configured cap, so a
+    /// large tab fills in over several clicks; poll <see cref="GetMintStatus"/>.
+    /// </summary>
+    /// <param name="pattern">An optional pattern name (for example SetCompletion); omitted matches all.</param>
+    /// <param name="domain">An optional domain name (for example Movies); omitted matches all.</param>
+    /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
+    /// <returns>The mint status.</returns>
+    [HttpPost("MintAll")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<MintStatus> MintAll([FromQuery] string? pattern, [FromQuery] string? domain, [FromQuery] bool dryRun)
+    {
+        var report = _store.LoadSnapshot();
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+
+        GapPattern? patternFilter = Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var p) ? p : null;
+        MediaDomain? domainFilter = Enum.TryParse<MediaDomain>(domain, ignoreCase: true, out var d) ? d : null;
+
+        bool Filter(GapItem g) => (patternFilter is null || g.Pattern == patternFilter)
+            && (domainFilter is null || g.Domain == domainFilter);
+
+        var items = report.Items;
+        var started = _mintRunner.TryStart((progress, ct) => _minter.MintMatchingAsync(items, Filter, config.BulkMintCap, dryRun, progress, ct));
+        return new MintStatus { Running = true, Started = started };
+    }
+
+    /// <summary>
     /// Diagnoses why a gap is reported missing: most often a metadata mismatch where the library already
     /// holds the title under a different (or absent) provider id. Library-only, so it returns immediately.
     /// </summary>
