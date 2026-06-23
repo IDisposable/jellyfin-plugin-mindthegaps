@@ -331,18 +331,20 @@
                         <div class="verticalSection">
                             <h2 class="sectionTitle">Virtual items</h2>
                             <p class="fieldDescription" style="color:#e08000;">
-                                The plugin can write pathless "virtual" placeholder items into your library so missing
-                                entries render greyed-out, the way missing episodes do. It is a temporary stand-in for
-                                proper server support; the server will not reconcile or garbage-collect these for you.
-                                Mint individual gaps, or a multi-select batch, from the <strong>Mint</strong> buttons on
-                                the report. Use <strong>Remove minted movies</strong> here to undo everything at once.
+                                The plugin can write a tagged, reversible "virtual" placeholder into your library for any
+                                missing movie, series, album, or book, so the gap renders greyed-out the way missing
+                                episodes do. This is off by default and loudly temporary: a stand-in for proper server
+                                support that belongs in core, so the server will not reconcile or garbage-collect these
+                                for you. Mint individual gaps, or a multi-select batch, from the <strong>Mint</strong>
+                                buttons on the report. Every placeholder is fully removable; use
+                                <strong>Remove minted items</strong> here to undo everything at once.
                             </p>
                             <div style="margin: 0.5em 0 1.5em 0;">
                                 <button id="RemovePreview" is="emby-button" type="button" class="raised emby-button">
                                     <span>Preview removal (dry run)</span>
                                 </button>
                                 <button id="RemoveMinted" is="emby-button" type="button" class="raised emby-button">
-                                    <span>Remove minted movies</span>
+                                    <span>Remove minted items</span>
                                 </button>
                             </div>
                         </div>

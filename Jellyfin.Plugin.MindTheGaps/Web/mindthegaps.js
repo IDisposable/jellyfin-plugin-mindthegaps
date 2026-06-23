@@ -336,6 +336,24 @@
                     return ' ' + idAnchor('cgDismissRecSource', guid, 'Stop recommendations from this source', { 'data-name': name || '', 'aria-label': 'Stop recommendations from this source' }, '&times;');
                 }
 
+                // A gap is mintable when its kind is one the server can mint and it carries that kind's
+                // primary provider id: Tmdb for a Movie or Series, MusicBrainzReleaseGroup for a MusicAlbum,
+                // OpenLibrary for a Book. Episodes are native in core, so they are never minted here.
+                function isMintable(item) {
+                    var ids = item.ProviderIds || {};
+                    switch (item.TargetKindName) {
+                        case 'Movie':
+                        case 'Series':
+                            return !!ids.Tmdb;
+                        case 'MusicAlbum':
+                            return !!ids.MusicBrainzReleaseGroup;
+                        case 'Book':
+                            return !!ids.OpenLibrary;
+                        default:
+                            return false;
+                    }
+                }
+
                 function renderRow(item) {
                     var meta = [];
                     if (item.Year) { meta.push(esc(item.Year)); }
@@ -366,8 +384,9 @@
                             actions.push(newTab(false, { 'class': 'cgLink', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name), title: 'Search JustWatch for where to watch' }, 'JustWatch search'));
                         }
                     }
-                    // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
-                    if (tmdb && item.TargetKindName === 'Movie') {
+                    // Experimental: mint this single gap as a virtual placeholder (any mintable kind; episodes
+                    // are native in core, so they are excluded by isMintable).
+                    if (isMintable(item)) {
                         actions.push(actionBtn('cgMint', { 'data-gapid': item.Id, title: 'Mint a virtual placeholder for this item' }, icon('eco', 'cgIconLead') + 'Mint'));
                     }
                     // Acquisition handoff (opt-in): a Send button appears only for a configured target. Radarr
@@ -437,8 +456,8 @@
                         ? h('img', { src: item.ImageUrl, loading: 'lazy', style: 'width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;' }).outerHTML
                         : h('div', { style: 'width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;' }).outerHTML;
 
-                    // Only Movie gaps are mintable, so only they get a multi-select checkbox.
-                    var selBox = (tmdb && item.TargetKindName === 'Movie')
+                    // Any mintable gap gets a multi-select checkbox (Movie, Series, MusicAlbum, Book).
+                    var selBox = isMintable(item)
                         ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint', style: 'margin-right:.5em;flex:none;' }).outerHTML
                         : h('span', { style: 'display:inline-block;width:1.4em;flex:none;' }).outerHTML;
 

@@ -54,7 +54,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<OpenLibraryClient>();
         serviceCollection.AddSingleton<DiscogsClient>();
         serviceCollection.AddSingleton<MdbListClient>();
-        serviceCollection.AddSingleton<VirtualMovieMinter>();
+        serviceCollection.AddSingleton<VirtualItemMinter>();
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
         serviceCollection.AddSingleton<AcquisitionService>();

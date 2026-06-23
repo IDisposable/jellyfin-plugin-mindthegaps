@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 public sealed class GapScanRunner
 {
     private readonly GapEngine _engine;
-    private readonly VirtualMovieMinter _minter;
+    private readonly VirtualItemMinter _minter;
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<GapScanRunner> _logger;
     private readonly object _lock = new();
@@ -30,7 +30,7 @@ public sealed class GapScanRunner
     /// <param name="minter">The minter (reconciles minted placeholders now owned for real).</param>
     /// <param name="lifetime">The plugin-lifetime cancellation, so a scan stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public GapScanRunner(GapEngine engine, VirtualMovieMinter minter, PluginLifetime lifetime, ILogger<GapScanRunner> logger)
+    public GapScanRunner(GapEngine engine, VirtualItemMinter minter, PluginLifetime lifetime, ILogger<GapScanRunner> logger)
     {
         _engine = engine;
         _minter = minter;

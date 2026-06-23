@@ -37,7 +37,7 @@ public class GapsController : ControllerBase
     private readonly ExploreRunner _exploreRunner;
     private readonly AvailabilityService _availabilityService;
     private readonly AvailabilityRunner _availabilityRunner;
-    private readonly VirtualMovieMinter _minter;
+    private readonly VirtualItemMinter _minter;
     private readonly MintRunner _mintRunner;
     private readonly ResolutionStore _resolutions;
     private readonly TodoStore _todo;
@@ -57,7 +57,7 @@ public class GapsController : ControllerBase
     /// <param name="exploreRunner">The background ad-hoc explore runner.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="availabilityRunner">The background availability enrichment runner.</param>
-    /// <param name="minter">The virtual-movie minter.</param>
+    /// <param name="minter">The virtual-item minter.</param>
     /// <param name="mintRunner">The background mint runner.</param>
     /// <param name="resolutions">The store of per-gap resolution notes.</param>
     /// <param name="todo">The personal todo-list store.</param>
@@ -68,7 +68,7 @@ public class GapsController : ControllerBase
     /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
     /// <param name="mdblist">The MDBList client, for the MDBList list type-ahead and id resolution.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr/Jellyseerr).</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, TodoStore todo, ILibraryManager libraryManager, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist, AcquisitionService acquisition)
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualItemMinter minter, MintRunner mintRunner, ResolutionStore resolutions, TodoStore todo, ILibraryManager libraryManager, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist, AcquisitionService acquisition)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -246,7 +246,7 @@ public class GapsController : ControllerBase
         => _store.RemoveAdhocGaps(source);
 
     /// <summary>
-    /// Starts a background removal of every virtual movie this plugin has minted. Poll <see cref="GetMintStatus"/>.
+    /// Starts a background removal of every virtual item this plugin has minted. Poll <see cref="GetMintStatus"/>.
     /// </summary>
     /// <param name="dryRun">When true, logs what would be removed without deleting anything.</param>
     /// <returns>The mint status.</returns>
@@ -257,7 +257,7 @@ public class GapsController : ControllerBase
         var started = _mintRunner.TryStart(async (_, _) =>
         {
             var n = await _minter.RemoveAllAsync(dryRun).ConfigureAwait(false);
-            return string.Create(CultureInfo.InvariantCulture, $"{(dryRun ? "Would remove" : "Removed")} {n} minted virtual movies.");
+            return string.Create(CultureInfo.InvariantCulture, $"{(dryRun ? "Would remove" : "Removed")} {n} minted virtual items.");
         });
         return new MintStatus { Running = true, Started = started };
     }
@@ -272,10 +272,11 @@ public class GapsController : ControllerBase
         => new MintStatus { Running = _mintRunner.IsRunning, Progress = _mintRunner.Progress, Message = _mintRunner.LastMessage };
 
     /// <summary>
-    /// Temporary debug aid. Mints a single gap (posted from a dashboard row) as a virtual movie. A
-    /// collection gap goes into its BoxSet; a filmography gap goes into a catch-all collection and
-    /// attaches the person so it surfaces on that person's page. Movie gaps only. Reverse with
-    /// <see cref="RemoveMintedMovies"/>.
+    /// Temporary debug aid. Mints a single gap (posted from a dashboard row) as the right virtual item for
+    /// its kind (a Movie, Series, MusicAlbum, or Book). A collection gap goes into its BoxSet; a music-album
+    /// gap whose owning artist resolves goes under that artist; any other gap goes into a catch-all
+    /// collection, and a filmography gap attaches the person so it surfaces on that person's page. Movie,
+    /// Series, MusicAlbum, and Book gaps are mintable. Reverse with <see cref="RemoveMintedMovies"/>.
     /// </summary>
     /// <param name="dryRun">When true, logs what would happen without writing anything.</param>
     /// <param name="id">The stable id of the gap to mint (rehydrated from the stored report).</param>

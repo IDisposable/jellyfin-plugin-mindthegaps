@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.ScheduledTasks;
 public sealed class GapScanTask : IScheduledTask
 {
     private readonly GapEngine _engine;
-    private readonly VirtualMovieMinter _minter;
+    private readonly VirtualItemMinter _minter;
     private readonly ILogger<GapScanTask> _logger;
 
     /// <summary>
@@ -24,7 +24,7 @@ public sealed class GapScanTask : IScheduledTask
     /// <param name="engine">The gap engine.</param>
     /// <param name="minter">The minter (reconciles minted placeholders now owned for real).</param>
     /// <param name="logger">The logger.</param>
-    public GapScanTask(GapEngine engine, VirtualMovieMinter minter, ILogger<GapScanTask> logger)
+    public GapScanTask(GapEngine engine, VirtualItemMinter minter, ILogger<GapScanTask> logger)
     {
         _engine = engine;
         _minter = minter;
