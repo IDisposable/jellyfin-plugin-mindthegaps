@@ -47,6 +47,17 @@ public class PluginConfiguration : BasePluginConfiguration
         TvdbApiKey = string.Empty;
         TmdbApiKey = string.Empty;
         WebhookUrl = string.Empty;
+        SeerrUrl = string.Empty;
+        SeerrApiKey = string.Empty;
+        RadarrUrl = string.Empty;
+        RadarrApiKey = string.Empty;
+        RadarrQualityProfileId = 0;
+        RadarrRootFolderPath = string.Empty;
+        SonarrUrl = string.Empty;
+        SonarrApiKey = string.Empty;
+        SonarrQualityProfileId = 0;
+        SonarrRootFolderPath = string.Empty;
+        SonarrMonitor = "all";
     }
 
     /// <summary>
@@ -251,4 +262,65 @@ public class PluginConfiguration : BasePluginConfiguration
     /// finishes. The payload leads with a Discord-friendly "content" string. Empty disables it.
     /// </summary>
     public string WebhookUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jellyseerr/Overseerr base URL (for example http://localhost:5055). Empty disables
+    /// the "Request" handoff.
+    /// </summary>
+    public string SeerrUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jellyseerr/Overseerr API key. Required, with <see cref="SeerrUrl"/>, for the handoff.
+    /// </summary>
+    public string SeerrApiKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Radarr base URL (for example http://localhost:7878). Empty disables the Radarr handoff.
+    /// </summary>
+    public string RadarrUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Radarr API key. Required, with <see cref="RadarrUrl"/>, for the Radarr handoff.
+    /// </summary>
+    public string RadarrApiKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Radarr quality profile id a sent movie is added with. Must be set (greater than zero)
+    /// for the Radarr handoff.
+    /// </summary>
+    public int RadarrQualityProfileId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Radarr root folder path a sent movie is added under (for example /movies). Required
+    /// for the Radarr handoff.
+    /// </summary>
+    public string RadarrRootFolderPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sonarr base URL (for example http://localhost:8989). Empty disables the Sonarr handoff.
+    /// </summary>
+    public string SonarrUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sonarr API key. Required, with <see cref="SonarrUrl"/>, for the Sonarr handoff.
+    /// </summary>
+    public string SonarrApiKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sonarr quality profile id a sent series is added with. Must be set (greater than zero)
+    /// for the Sonarr handoff.
+    /// </summary>
+    public int SonarrQualityProfileId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sonarr root folder path a sent series is added under (for example /tv). Required for
+    /// the Sonarr handoff.
+    /// </summary>
+    public string SonarrRootFolderPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Sonarr monitor option for a sent series (for example all, future, missing,
+    /// firstSeason, latestSeason, pilot, none). Defaults to all.
+    /// </summary>
+    public string SonarrMonitor { get; set; }
 }

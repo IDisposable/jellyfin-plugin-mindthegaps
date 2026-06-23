@@ -212,6 +212,60 @@
                         </div>
 
                         <div class="verticalSection">
+                            <h2 class="sectionTitle">Acquisition stack (optional)</h2>
+                            <div class="fieldDescription" style="margin-bottom:.5em;">Hand a gap off to your downloaders. A per-row Send button appears only for a target you fill in here. Radarr takes movies, Sonarr takes a series (it grabs the owned series' missing episodes), and Jellyseerr/Overseerr requests either. Keys stay on the server.</div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SeerrUrl">Jellyseerr/Overseerr URL</label>
+                                <input id="SeerrUrl" name="SeerrUrl" type="text" is="emby-input" placeholder="http://localhost:5055" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SeerrApiKey">Jellyseerr/Overseerr API key</label>
+                                <input id="SeerrApiKey" name="SeerrApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealSeerrApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="SeerrApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="RadarrUrl">Radarr URL</label>
+                                <input id="RadarrUrl" name="RadarrUrl" type="text" is="emby-input" placeholder="http://localhost:7878" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="RadarrApiKey">Radarr API key</label>
+                                <input id="RadarrApiKey" name="RadarrApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealRadarrApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="RadarrApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="RadarrQualityProfileId">Radarr quality profile id</label>
+                                <input id="RadarrQualityProfileId" name="RadarrQualityProfileId" type="number" min="0" is="emby-input" />
+                                <div class="fieldDescription">The numeric quality profile id Radarr adds a movie with (Settings, Profiles in Radarr).</div>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="RadarrRootFolderPath">Radarr root folder</label>
+                                <input id="RadarrRootFolderPath" name="RadarrRootFolderPath" type="text" is="emby-input" placeholder="/movies" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SonarrUrl">Sonarr URL</label>
+                                <input id="SonarrUrl" name="SonarrUrl" type="text" is="emby-input" placeholder="http://localhost:8989" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SonarrApiKey">Sonarr API key</label>
+                                <input id="SonarrApiKey" name="SonarrApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <button id="RevealSonarrApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="SonarrApiKey" style="margin:.25em 0;"><span>Show</span></button>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SonarrQualityProfileId">Sonarr quality profile id</label>
+                                <input id="SonarrQualityProfileId" name="SonarrQualityProfileId" type="number" min="0" is="emby-input" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SonarrRootFolderPath">Sonarr root folder</label>
+                                <input id="SonarrRootFolderPath" name="SonarrRootFolderPath" type="text" is="emby-input" placeholder="/tv" />
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="SonarrMonitor">Sonarr monitor</label>
+                                <input id="SonarrMonitor" name="SonarrMonitor" type="text" is="emby-input" placeholder="all" />
+                                <div class="fieldDescription">Which episodes Sonarr monitors on add: all, future, missing, existing, firstSeason, latestSeason, pilot, or none. Defaults to all.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
                             <h2 class="sectionTitle">Region</h2>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="MetadataCountryCode">Country code</label>

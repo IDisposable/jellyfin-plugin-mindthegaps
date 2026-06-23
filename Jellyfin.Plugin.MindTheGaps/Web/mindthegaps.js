@@ -142,6 +142,11 @@
                 // pageshow; empty until then, so the label falls back to "Jellyfin".
                 var cgServerName = '';
 
+                // Which acquisition targets (Radarr/Sonarr/Jellyseerr) are configured, so a row shows a Send
+                // button only for a set-up target. Loaded on pageshow and refreshed on save; null until then,
+                // so no Send buttons appear.
+                var acqConfig = null;
+
                 // Monotonic counter for per-render group body ids (aria-controls targets).
                 var cgGroupSeq = 0;
 
@@ -364,6 +369,20 @@
                     // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
                         actions.push(actionBtn('cgMint', { 'data-gapid': item.Id, title: 'Mint a virtual placeholder for this item' }, icon('eco', 'cgIconLead') + 'Mint'));
+                    }
+                    // Acquisition handoff (opt-in): a Send button appears only for a configured target. Radarr
+                    // takes a movie, Sonarr takes the owning series, Jellyseerr/Overseerr requests either. The
+                    // server resolves the ids and routes by kind, so a missing id fails with a clear message.
+                    if (acqConfig) {
+                        if (acqConfig.RadarrConfigured && item.TargetKindName === 'Movie' && tmdb) {
+                            actions.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send this movie to Radarr' }, icon('movie', 'cgIconLead') + 'Radarr'));
+                        }
+                        if (acqConfig.SonarrConfigured && (item.TargetKindName === 'Series' || item.TargetKindName === 'Episode')) {
+                            actions.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send the owning series to Sonarr' }, icon('live_tv', 'cgIconLead') + 'Sonarr'));
+                        }
+                        if (acqConfig.SeerrConfigured && watchTmdb) {
+                            actions.push(actionBtn('cgSendSeerr', { 'data-gapid': item.Id, title: 'Request this title in Jellyseerr' }, icon('playlist_add', 'cgIconLead') + 'Request'));
+                        }
                     }
                     // Diagnose why this is reported missing (a provider-id mismatch on an owned item, or a
                     // same-named reboot for an episode). Every gap kind today is diagnosable; an unsupported
@@ -1479,6 +1498,16 @@
                     return 'set';
                 }
 
+                // Best-effort fetch of which acquisition targets are configured; re-renders the report so the
+                // Send buttons appear/disappear to match. A failure just leaves no Send buttons.
+                function refreshAcqConfig(page) {
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/AcquisitionConfig'), dataType: 'json' })
+                        .then(function (c) {
+                            acqConfig = c || null;
+                            if (page && page._report) { applyAndRender(page); }
+                        }, function () { acqConfig = null; });
+                }
+
                 function applyAndRender(page) {
                     var report = page._report || { Items: [] };
                     currentSort = page.querySelector('#cgSort').value || 'title';
@@ -2360,6 +2389,17 @@
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
+                    page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
+                    page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
+                    page.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
+                    page.querySelector('#RadarrApiKey').value = config.RadarrApiKey || '';
+                    page.querySelector('#RadarrQualityProfileId').value = config.RadarrQualityProfileId || 0;
+                    page.querySelector('#RadarrRootFolderPath').value = config.RadarrRootFolderPath || '';
+                    page.querySelector('#SonarrUrl').value = config.SonarrUrl || '';
+                    page.querySelector('#SonarrApiKey').value = config.SonarrApiKey || '';
+                    page.querySelector('#SonarrQualityProfileId').value = config.SonarrQualityProfileId || 0;
+                    page.querySelector('#SonarrRootFolderPath').value = config.SonarrRootFolderPath || '';
+                    page.querySelector('#SonarrMonitor').value = config.SonarrMonitor || 'all';
                     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
                     page.querySelector('#MinRecommendationVotes').value = config.MinRecommendationVotes;
                     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
@@ -2441,6 +2481,17 @@
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.WebhookUrl = form.querySelector('#WebhookUrl').value;
+                        config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
+                        config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();
+                        config.RadarrUrl = form.querySelector('#RadarrUrl').value.trim();
+                        config.RadarrApiKey = form.querySelector('#RadarrApiKey').value.trim();
+                        config.RadarrQualityProfileId = parseInt(form.querySelector('#RadarrQualityProfileId').value || '0', 10);
+                        config.RadarrRootFolderPath = form.querySelector('#RadarrRootFolderPath').value.trim();
+                        config.SonarrUrl = form.querySelector('#SonarrUrl').value.trim();
+                        config.SonarrApiKey = form.querySelector('#SonarrApiKey').value.trim();
+                        config.SonarrQualityProfileId = parseInt(form.querySelector('#SonarrQualityProfileId').value || '0', 10);
+                        config.SonarrRootFolderPath = form.querySelector('#SonarrRootFolderPath').value.trim();
+                        config.SonarrMonitor = form.querySelector('#SonarrMonitor').value.trim() || 'all';
                         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
                         config.MinRecommendationVotes = parseInt(form.querySelector('#MinRecommendationVotes').value || '0', 10);
                         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
@@ -2450,6 +2501,7 @@
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             page._settingsDirty = false;
                             cgRegion = (config.MetadataCountryCode || '').trim().toLowerCase();
+                            refreshAcqConfig(page);
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
@@ -2692,6 +2744,7 @@
                     ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
                         cgRegion = (cfg.MetadataCountryCode || '').trim().toLowerCase();
                     });
+                    refreshAcqConfig(page);
                     // Cache the server's display name so exported links back to it can be labelled with it.
                     ApiClient.getPublicSystemInfo().then(function (info) {
                         cgServerName = (info && info.ServerName) || '';
@@ -3071,6 +3124,32 @@
                                 Dashboard.alert('Mint failed. Check the server logs.');
                                 mintBtn.innerHTML = mintHtml;
                                 mintBtn.disabled = false;
+                            });
+                            return;
+                        }
+
+                        var sendArrBtn = e.target.closest('.cgSendArr');
+                        var sendSeerrBtn = e.target.closest('.cgSendSeerr');
+                        var sendBtn = sendArrBtn || sendSeerrBtn;
+                        if (sendBtn) {
+                            var sgid = sendBtn.getAttribute('data-gapid');
+                            if (!sgid) { return; }
+                            var sendEndpoint = sendArrBtn ? 'SendToArr' : 'SendToSeerr';
+                            var sendHtml = sendBtn.innerHTML;
+                            sendBtn.textContent = 'Sending…';
+                            sendBtn.disabled = true;
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('MindTheGaps/' + sendEndpoint, { id: sgid }),
+                                dataType: 'json'
+                            }).then(function (r) {
+                                Dashboard.alert((r && r.Message) ? String(r.Message) : 'Sent.');
+                                sendBtn.innerHTML = sendHtml;
+                                sendBtn.disabled = false;
+                            }).catch(function () {
+                                Dashboard.alert('Send failed. Check the server logs.');
+                                sendBtn.innerHTML = sendHtml;
+                                sendBtn.disabled = false;
                             });
                             return;
                         }

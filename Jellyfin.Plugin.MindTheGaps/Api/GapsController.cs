@@ -8,6 +8,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
@@ -42,6 +43,7 @@ public class GapsController : ControllerBase
     private readonly TmdbClient _tmdb;
     private readonly DiscogsClient _discogs;
     private readonly MdbListClient _mdblist;
+    private readonly AcquisitionService _acquisition;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -59,7 +61,8 @@ public class GapsController : ControllerBase
     /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
     /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
     /// <param name="mdblist">The MDBList client, for the MDBList list type-ahead and id resolution.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist)
+    /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr/Jellyseerr).</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist, AcquisitionService acquisition)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -74,6 +77,7 @@ public class GapsController : ControllerBase
         _tmdb = tmdb;
         _discogs = discogs;
         _mdblist = mdblist;
+        _acquisition = acquisition;
     }
 
     /// <summary>
@@ -305,6 +309,133 @@ public class GapsController : ControllerBase
 
         var started = _mintRunner.TryStart((progress, ct) => _minter.MintGapsAsync(gaps, dryRun, progress, ct));
         return new MintStatus { Running = true, Started = started };
+    }
+
+    /// <summary>
+    /// Tells the dashboard which acquisition targets are configured, so a Send button appears on a row only
+    /// for a target that is set up. Keys and URLs stay on the server.
+    /// </summary>
+    /// <returns>The per-target configured flags.</returns>
+    [HttpGet("AcquisitionConfig")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<AcquisitionConfigStatus> GetAcquisitionConfig()
+    {
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        return new AcquisitionConfigStatus
+        {
+            RadarrConfigured = AcquisitionService.RadarrConfigured(config),
+            SonarrConfigured = AcquisitionService.SonarrConfigured(config),
+            SeerrConfigured = AcquisitionService.SeerrConfigured(config)
+        };
+    }
+
+    /// <summary>
+    /// Sends one gap to Radarr (a movie) or Sonarr (a series/episode), rehydrated server-side by its id.
+    /// </summary>
+    /// <param name="id">The stable id of the gap to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The outcome.</returns>
+    [HttpPost("SendToArr")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<AcquisitionSendResult>> SendToArr([FromQuery] string? id, CancellationToken cancellationToken)
+        => await SendOneAsync(id, _acquisition.SendToArrAsync, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Sends several selected gaps to Radarr/Sonarr, rehydrated server-side by their ids. One failed send
+    /// does not stop the rest.
+    /// </summary>
+    /// <param name="ids">The stable ids of the gaps to send.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The aggregate outcome.</returns>
+    [HttpPost("SendToArrBulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<AcquisitionSendResult>> SendToArrBulk([FromBody] IReadOnlyList<string> ids, CancellationToken cancellationToken)
+        => await SendManyAsync(ids, _acquisition.SendToArrAsync, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Requests one gap in Jellyseerr/Overseerr, rehydrated server-side by its id.
+    /// </summary>
+    /// <param name="id">The stable id of the gap to request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The outcome.</returns>
+    [HttpPost("SendToSeerr")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<AcquisitionSendResult>> SendToSeerr([FromQuery] string? id, CancellationToken cancellationToken)
+        => await SendOneAsync(id, _acquisition.SendToSeerrAsync, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Requests several selected gaps in Jellyseerr/Overseerr, rehydrated server-side by their ids.
+    /// </summary>
+    /// <param name="ids">The stable ids of the gaps to request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The aggregate outcome.</returns>
+    [HttpPost("SendToSeerrBulk")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<AcquisitionSendResult>> SendToSeerrBulk([FromBody] IReadOnlyList<string> ids, CancellationToken cancellationToken)
+        => await SendManyAsync(ids, _acquisition.SendToSeerrAsync, cancellationToken).ConfigureAwait(false);
+
+    // Run one send for a gap rehydrated from the stored report (never trust a client-posted gap object).
+    private async Task<AcquisitionSendResult> SendOneAsync(string? id, Func<GapItem, PluginConfiguration, CancellationToken, Task<AcquisitionResult>> send, CancellationToken cancellationToken)
+    {
+        var gap = RehydrateGap(id);
+        if (gap is null)
+        {
+            return new AcquisitionSendResult { Success = false, Failed = 1, Message = "That gap is no longer in the current report; rescan and try again." };
+        }
+
+        var config = Plugin.Instance?.Configuration;
+        if (config is null)
+        {
+            return new AcquisitionSendResult { Success = false, Failed = 1, Message = "The plugin has not been set up yet." };
+        }
+
+        var result = await send(gap, config, cancellationToken).ConfigureAwait(false);
+        return new AcquisitionSendResult
+        {
+            Success = result.Success,
+            Succeeded = result.Success ? 1 : 0,
+            Failed = result.Success ? 0 : 1,
+            Message = result.Message
+        };
+    }
+
+    // Run a send for each rehydrated gap, continuing past failures and aggregating the outcome.
+    private async Task<AcquisitionSendResult> SendManyAsync(IReadOnlyList<string> ids, Func<GapItem, PluginConfiguration, CancellationToken, Task<AcquisitionResult>> send, CancellationToken cancellationToken)
+    {
+        var wanted = new HashSet<string>(ids ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var gaps = _store.LoadSnapshot().Items.Where(i => wanted.Contains(i.Id)).ToArray();
+        if (gaps.Length == 0)
+        {
+            return new AcquisitionSendResult { Success = false, Message = "None of those gaps are in the current report; rescan and try again." };
+        }
+
+        var config = Plugin.Instance?.Configuration;
+        if (config is null)
+        {
+            return new AcquisitionSendResult { Success = false, Failed = gaps.Length, Message = "The plugin has not been set up yet." };
+        }
+
+        var succeeded = 0;
+        var failed = 0;
+        string? firstFailure = null;
+        foreach (var gap in gaps)
+        {
+            var result = await send(gap, config, cancellationToken).ConfigureAwait(false);
+            if (result.Success)
+            {
+                succeeded++;
+            }
+            else
+            {
+                failed++;
+                firstFailure ??= result.Message;
+            }
+        }
+
+        var message = failed == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"Sent {succeeded} item(s).")
+            : string.Create(CultureInfo.InvariantCulture, $"Sent {succeeded}, {failed} failed. First failure: {firstFailure}");
+        return new AcquisitionSendResult { Success = failed == 0, Succeeded = succeeded, Failed = failed, Message = message };
     }
 
     /// <summary>
