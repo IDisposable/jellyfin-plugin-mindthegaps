@@ -38,6 +38,85 @@
                     return /^https?:\/\//i.test(s) ? s : '#';
                 }
 
+                // A tiny hyperscript: build an element with its attributes escaped and its text set as
+                // textContent, so an external string (a provider name, a title) can never be parsed as markup
+                // and href/src are sanitized through safeUrl, leaving no manual esc()/safeUrl() at the call
+                // site. Callers serialize with .outerHTML (directly or via wrap) to compose into a row's markup;
+                // an emby-* element is built plain and upgrades when that markup is parsed by innerHTML.
+                function h(tag, attrs, text) {
+                    var el = document.createElement(tag);
+                    if (attrs) {
+                        Object.keys(attrs).forEach(function (k) {
+                            var v = attrs[k];
+                            if (v == null || v === false) { return; }
+                            if (k === 'class') { el.className = v; }
+                            else if (k === 'href' || k === 'src') { el.setAttribute(k, safeUrl(v)); }
+                            else { el.setAttribute(k, v); }
+                        });
+                    }
+                    if (text != null && text !== false) { el.textContent = String(text); }
+                    return el;
+                }
+
+                // Wrap already-built child markup in an element whose attributes h() escapes/sanitizes: build the
+                // empty element, then splice the child string in front of its (non-void) closing tag. Containers
+                // use this; pure-text leaves use h(tag, attrs, text).
+                function wrap(tag, attrs, innerHtml) {
+                    var outer = h(tag, attrs).outerHTML;
+                    var close = '</' + tag + '>';
+                    return outer.slice(0, -close.length) + (innerHtml || '') + close;
+                }
+
+                // A material-icons glyph (name auto-escaped via h's textContent). Sizing and alignment come from
+                // CSS (.cgLink .material-icons); pass cls 'cgIconLead' for an icon that leads button text.
+                function icon(name, cls) {
+                    return h('span', { 'class': 'material-icons' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' }, name).outerHTML;
+                }
+
+                // A new-tab link over wrap: target=_blank always, rel flips on the external flag (an external
+                // link drops the referrer with noreferrer; an internal Jellyfin link keeps it).
+                function newTab(external, attrs, innerHtml) {
+                    return wrap('a', Object.assign({ target: '_blank', rel: external ? 'noopener noreferrer' : 'noopener' }, attrs), innerHtml);
+                }
+
+                // External provider link: a labelled new-tab emby-linkbutton; the name is the escaped label.
+                function providerLink(l) {
+                    return newTab(true, {
+                        is: 'emby-linkbutton',
+                        'class': 'cgLink' + providerClass(l.Name),
+                        'data-provider': l.Name,
+                        title: 'Open on ' + l.Name,
+                        'aria-label': 'Open on ' + l.Name,
+                        href: l.Url
+                    }, esc(l.Name));
+                }
+
+                // Internal Jellyfin link: a new-tab anchor that keeps the referrer since it stays on this server.
+                // innerHtml is already-built child markup (an icon). itemUrl/searchUrl return absolute http(s)
+                // URLs, so href clears safeUrl.
+                function jellyfinLink(attrs, innerHtml) {
+                    return newTab(false, attrs, innerHtml);
+                }
+
+                // A row action button: the shared "cgLink cg<Action>" button with its data-* attributes built
+                // safely by h(); innerHtml is the (literal) label, optionally led by an icon().
+                function actionBtn(cls, attrs, innerHtml) {
+                    return wrap('button', Object.assign({ type: 'button', 'class': 'cgLink ' + cls }, attrs), innerHtml);
+                }
+
+                // A click-handled cgLink anchor (no href): the dismiss, restore, and batch controls whose clicks
+                // are caught by delegation. cls is the action class; innerHtml is the label, an icon(), or the
+                // &times; glyph.
+                function cgAnchor(cls, attrs, innerHtml) {
+                    return wrap('a', Object.assign({ 'class': 'cgLink' + (cls ? ' ' + cls : '') }, attrs), innerHtml);
+                }
+
+                // A cgAnchor bound to a gap or source id, with its tooltip: the click delegation reads data-gapid
+                // to know what was clicked, and title is the other attribute these controls always carry.
+                function idAnchor(cls, id, title, attrs, innerHtml) {
+                    return cgAnchor(cls, Object.assign({ 'data-gapid': id, title: title }, attrs), innerHtml);
+                }
+
                 // The gap's media domain (Movies/Shows/Music/Books) straight from the model.
                 function categoryOf(item) { return item.DomainName || 'Other'; }
 
@@ -137,17 +216,17 @@
                 function creatorDismissBtn(guid, name) {
                     if (!guid) { return ''; }
                     if (creatorDismissed(guid)) {
-                        return ' <a class="cgLink cgRestoreCreator" data-gapid="' + esc(guid) + '" title="Scan this creator again">Restore</a>';
+                        return ' ' + idAnchor('cgRestoreCreator', guid, 'Scan this creator again', null, 'Restore');
                     }
-                    return ' <a class="cgLink cgDismissCreator" data-gapid="' + esc(guid) + '" data-name="' + esc(name || '') + '" title="Never delve into this creator (stop scanning and hide their gaps)">Not interested in creator</a>';
+                    return ' ' + idAnchor('cgDismissCreator', guid, 'Never delve into this creator (stop scanning and hide their gaps)', { 'data-name': name || '' }, 'Not interested in creator');
                 }
 
                 // Resolve-all / Not-interested-all controls for a series or season group header: they dismiss
                 // every listed gap under the group in one batch. The click handler collects the ids from the
                 // group's rows, so the label is only for the confirm prompt.
                 function batchDismissBtns(label) {
-                    return ' <a class="cgLink cgBatchResolve" data-label="' + esc(label) + '" title="Resolve all listed items here (not really missing)" aria-label="Resolve all listed items here (not really missing)"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">done</span></a>'
-                        + ' <a class="cgLink cgBatchNotInterested" data-label="' + esc(label) + '" title="Mark all listed items here as not interested" aria-label="Mark all listed items here as not interested"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">close</span></a>';
+                    return ' ' + cgAnchor('cgBatchResolve', { 'data-label': label, title: 'Resolve all listed items here (not really missing)', 'aria-label': 'Resolve all listed items here (not really missing)' }, icon('done'))
+                        + ' ' + cgAnchor('cgBatchNotInterested', { 'data-label': label, title: 'Mark all listed items here as not interested', 'aria-label': 'Mark all listed items here as not interested' }, icon('close'));
                 }
 
                 // The greyed status line for a dismissed gap.
@@ -181,21 +260,21 @@
                     // "Enable all" only when some are off; "disable all" only when some are on.
                     var toggles = '';
                     if (enabledCount < total) {
-                        toggles += '<a class="cgLink cgProvAll" title="Enable every provider" aria-label="Enable every provider"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">done_all</span></a>';
+                        toggles += cgAnchor('cgProvAll', { title: 'Enable every provider', 'aria-label': 'Enable every provider' }, icon('done_all'));
                     }
                     if (enabledCount > 0) {
-                        toggles += '<a class="cgLink cgProvNone" title="Disable every provider" aria-label="Disable every provider"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">clear</span></a>';
+                        toggles += cgAnchor('cgProvNone', { title: 'Disable every provider', 'aria-label': 'Disable every provider' }, icon('clear'));
                     }
 
                     // Collapsible: a header (with a caret and the enabled-of-total count) toggles the long list.
-                    var header = '<span class="cgProvToggle" title="Show or hide the provider list">'
-                        + '<span class="cgCaret" style="' + (providersExpanded ? 'transform:rotate(90deg);' : '') + '"></span>'
-                        + 'Providers (' + enabledCount + ' of ' + total + ')</span> ' + toggles;
-                    var list = '<div class="cgProvList" style="display:' + (providersExpanded ? 'flex' : 'none') + ';flex-wrap:wrap;margin-top:.25em;">'
-                        + knownProviders.map(function (name) {
-                            return '<label class="cgProvLabel"><input type="checkbox" class="cgProv" data-prov="' + esc(name) + '"'
-                                + (disabledProviders[name] ? '' : ' checked') + ' /> ' + esc(name) + '</label>';
-                        }).join('') + '</div>';
+                    var caret = h('span', { 'class': 'cgCaret' + (providersExpanded ? ' cgCaretOpen' : '') }).outerHTML;
+                    var header = wrap('span', { 'class': 'cgProvToggle', title: 'Show or hide the provider list' },
+                        caret + esc('Providers (' + enabledCount + ' of ' + total + ')')) + ' ' + toggles;
+                    var list = wrap('div', { 'class': 'cgProvList' + (providersExpanded ? ' cgProvListOpen' : '') },
+                        knownProviders.map(function (name) {
+                            var box = h('input', Object.assign({ type: 'checkbox', 'class': 'cgProv', 'data-prov': name }, disabledProviders[name] ? {} : { checked: 'checked' })).outerHTML;
+                            return wrap('label', { 'class': 'cgProvLabel' }, box + ' ' + esc(name));
+                        }).join(''));
                     el.innerHTML = header + list;
                 }
 
@@ -226,7 +305,10 @@
                     var url = '';
                     for (var i = 0; i < offers.length; i++) { if (offers[i].Url) { url = offers[i].Url; break; } }
                     var button = url
-                        ? '<a is="emby-linkbutton" class="cgLink" href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener noreferrer" title="Open the watch page" aria-label="Open the watch page">Watch <span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a> '
+                        ? newTab(true, {
+                            is: 'emby-linkbutton', 'class': 'cgLink', href: url,
+                            title: 'Open the watch page', 'aria-label': 'Open the watch page'
+                        }, 'Watch ' + icon('open_in_new')) + ' '
                         : '';
                     return button + names;
                 }
@@ -238,7 +320,7 @@
                     if (year) { meta.push(year); }
                     if (type) { meta.push(esc(type)); }
                     var suffix = meta.length ? ' (' + meta.join(' &middot; ') + ')' : '';
-                    var dismiss = id ? ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(id) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this title" aria-label="Stop recommendations from this title">&times;</a>' : '';
+                    var dismiss = id ? ' ' + idAnchor('cgDismissRecSource', id, 'Stop recommendations from this title', { 'data-name': name || '', 'aria-label': 'Stop recommendations from this title' }, '&times;') : '';
                     return esc(name) + suffix + openIcon(id) + dismiss;
                 }
 
@@ -246,18 +328,16 @@
                 // source is done from the "Muted sources" picker, so a dismissed source shows no button here.
                 function recSourceDismissBtn(guid, name) {
                     if (!guid || recSourceDismissed(guid)) { return ''; }
-                    return ' <a class="cgLink cgDismissRecSource" data-gapid="' + esc(guid) + '" data-name="' + esc(name || '') + '" title="Stop recommendations from this source" aria-label="Stop recommendations from this source">&times;</a>';
+                    return ' ' + idAnchor('cgDismissRecSource', guid, 'Stop recommendations from this source', { 'data-name': name || '', 'aria-label': 'Stop recommendations from this source' }, '&times;');
                 }
 
                 function renderRow(item) {
                     var meta = [];
-                    if (item.Year) { meta.push(item.Year); }
+                    if (item.Year) { meta.push(esc(item.Year)); }
                     meta.push(esc(item.TargetKindName));
-                    if (item.IsUpcoming) { meta.push('<span style="color:#f0ad4e;">Upcoming</span>'); }
+                    if (item.IsUpcoming) { meta.push(h('span', { style: 'color:#f0ad4e;' }, 'Upcoming').outerHTML); }
 
-                    var providerLinks = (item.Links || []).map(function (l) {
-                        return '<a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" title="Open on ' + esc(l.Name) + '" aria-label="Open on ' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
-                    }).join('');
+                    var providerLinks = (item.Links || []).map(providerLink).join('');
 
                     var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
                     // "Where to watch" looks up the title itself for a movie/series, or the owning series
@@ -271,54 +351,53 @@
                     // Offer the on-demand look-up only when we have not looked yet. Once checked, an empty
                     // result is shown as "no sources" instead (below), not a button that comes back empty.
                     if (watchable && !hasAvail && !item.AvailabilityChecked) {
-                        actions.push('<button type="button" class="cgLink cgWatch" data-tmdb="' + esc(watchTmdb) + '" data-type="' + esc(watchKind) + '">Where to watch</button>');
+                        actions.push(actionBtn('cgWatch', { 'data-tmdb': watchTmdb, 'data-type': watchKind }, 'Where to watch'));
                     }
                     // A JustWatch search for movies/shows that have no JustWatch link of their own (the JustWatch
                     // plugin only links owned items), so there is always a quick "where can I watch this" path.
                     if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
                         var hasJw = (item.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
                         if (!hasJw) {
-                            actions.push('<a class="cgLink" href="' + esc('https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name)) + '" target="_blank" rel="noopener" title="Search JustWatch for where to watch">JustWatch search</a>');
+                            actions.push(newTab(false, { 'class': 'cgLink', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name), title: 'Search JustWatch for where to watch' }, 'JustWatch search'));
                         }
                     }
                     // Experimental: mint this single gap as a virtual movie (Movie gaps only; episodes are native in core).
                     if (tmdb && item.TargetKindName === 'Movie') {
-                        actions.push('<button type="button" class="cgLink cgMint" data-gapid="' + esc(item.Id) + '" title="Mint a virtual placeholder for this item"><span class="material-icons" aria-hidden="true">eco</span>Mint</button>');
+                        actions.push(actionBtn('cgMint', { 'data-gapid': item.Id, title: 'Mint a virtual placeholder for this item' }, icon('eco', 'cgIconLead') + 'Mint'));
                     }
                     // Diagnose why this is reported missing (a provider-id mismatch on an owned item, or a
                     // same-named reboot for an episode). Every gap kind today is diagnosable; an unsupported
                     // kind still gets a graceful "not available for this kind" verdict, so always offer it.
-                    actions.push('<button type="button" class="cgLink cgDiagnose" data-gapid="' + esc(item.Id) + '" data-name="' + esc(item.Name) + '" title="Why is this listed as missing?"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">troubleshoot</span> Diagnose</button>');
+                    actions.push(actionBtn('cgDiagnose', { 'data-gapid': item.Id, 'data-name': item.Name, title: 'Why is this listed as missing?' }, icon('troubleshoot', 'cgIconLead') + 'Diagnose'));
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
-                        actions.push('<button type="button" class="cgLink cgClearResolve" data-gapid="' + esc(item.Id) + '" title="Clear the dismissal (show as missing again)">Clear</button>');
+                        actions.push(actionBtn('cgClearResolve', { 'data-gapid': item.Id, title: 'Clear the dismissal (show as missing again)' }, 'Clear'));
                     } else {
-                        actions.push('<button type="button" class="cgLink cgResolve" data-gapid="' + esc(item.Id) + '" title="Mark resolved (not really missing)"><span class="material-icons" aria-hidden="true" style="font-size:1em;vertical-align:text-bottom;">done</span> Resolve</button>');
-                        actions.push('<button type="button" class="cgLink cgNotInterested" data-gapid="' + esc(item.Id) + '" title="Not interested (a real gap you do not want)">Not interested</button>');
+                        actions.push(actionBtn('cgResolve', { 'data-gapid': item.Id, title: 'Mark resolved (not really missing)' }, icon('done', 'cgIconLead') + 'Resolve'));
+                        actions.push(actionBtn('cgNotInterested', { 'data-gapid': item.Id, title: 'Not interested (a real gap you do not want)' }, 'Not interested'));
                         if (item.IsUpcoming && item.ReleaseDate) {
-                            actions.push('<button type="button" class="cgLink cgSnooze" data-gapid="' + esc(item.Id) + '" data-until="' + esc(item.ReleaseDate) + '" title="Hide until it is released">Snooze</button>');
+                            actions.push(actionBtn('cgSnooze', { 'data-gapid': item.Id, 'data-until': item.ReleaseDate, title: 'Hide until it is released' }, 'Snooze'));
                         }
                     }
 
                     // Provider links can run long because the host's own providers contribute too, so let them
                     // wrap on the left and keep the action buttons (Where to watch, Mint) flush right.
                     var linksRow = (providerLinks || actions.length)
-                        ? '<div class="cgLinks" style="display:flex;flex-wrap:wrap;align-items:center;gap:.25em;margin-top:.3em;">'
-                            + providerLinks
-                            + (actions.length ? '<span class="cgActions" style="margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:.25em;align-items:center;">' + actions.join('') + '</span>' : '')
-                            + '</div>'
+                        ? wrap('div', { 'class': 'cgLinks', style: 'display:flex;flex-wrap:wrap;align-items:center;gap:.25em;margin-top:.3em;' },
+                            providerLinks
+                            + (actions.length ? wrap('span', { 'class': 'cgActions', style: 'margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:.25em;align-items:center;' }, actions.join('')) : ''))
                         : '';
 
                     var avail = '';
                     var shownOffers = filterOffers(item.Availability);
                     if (shownOffers.length) {
-                        avail = '<div class="fieldDescription" style="margin-top:.2em;">Where to watch: ' + availLinks(shownOffers) + '</div>';
+                        avail = wrap('div', { 'class': 'fieldDescription cgRowNote' }, 'Where to watch: ' + availLinks(shownOffers));
                     } else if (watchable && item.AvailabilityChecked && !hasAvail) {
-                        avail = '<div class="fieldDescription" style="margin-top:.2em;opacity:.6;">No streaming sources found.</div>';
+                        avail = wrap('div', { 'class': 'fieldDescription cgRowNote cgRowNoteMuted' }, 'No streaming sources found.');
                     }
 
                     var resolvedLine = res
-                        ? '<div class="fieldDescription" style="margin-top:.2em;color:#3ddc97;">' + dismissalLabel(res) + '</div>'
+                        ? wrap('div', { 'class': 'fieldDescription cgRowNote cgRowNoteResolved' }, dismissalLabel(res))
                         : '';
 
                     var detailParts = [];
@@ -326,36 +405,30 @@
                         // The primary source is the group header now, so the row lists only the other sources.
                         var srcs = [];
                         (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
-                        if (srcs.length) { detailParts.push('<div style="opacity:.85;">Also recommended by: ' + srcs.join(', ') + '</div>'); }
+                        if (srcs.length) { detailParts.push(wrap('div', { style: 'opacity:.85;' }, 'Also recommended by: ' + srcs.join(', '))); }
                     }
                     if (item.Overview) { detailParts.push(esc(item.Overview)); }
                     var details = detailParts.length
-                        ? '<div class="cgDetails" style="display:none;">' + detailParts.join('') + '</div>'
+                        ? wrap('div', { 'class': 'cgDetails', style: 'display:none;' }, detailParts.join(''))
                         : '';
 
                     var poster = item.ImageUrl
-                        ? '<img src="' + esc(item.ImageUrl) + '" loading="lazy" style="width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;" />'
-                        : '<div style="width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;"></div>';
+                        ? h('img', { src: item.ImageUrl, loading: 'lazy', style: 'width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;' }).outerHTML
+                        : h('div', { style: 'width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;' }).outerHTML;
 
                     // Only Movie gaps are mintable, so only they get a multi-select checkbox.
                     var selBox = (tmdb && item.TargetKindName === 'Movie')
-                        ? '<input type="checkbox" class="cgSel" data-gapid="' + esc(item.Id) + '" title="Select to mint" style="margin-right:.5em;flex:none;" />'
-                        : '<span style="display:inline-block;width:1.4em;flex:none;"></span>';
+                        ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint', style: 'margin-right:.5em;flex:none;' }).outerHTML
+                        : h('span', { style: 'display:inline-block;width:1.4em;flex:none;' }).outerHTML;
 
-                    return '<div class="listItem cgRow" data-gapid="' + esc(item.Id) + '" style="display:flex;align-items:center;padding:.35em .25em;' + (res ? 'opacity:.55;' : '') + '">'
-                        + selBox
-                        + poster
-                        + '<div style="flex:1;min-width:0;">'
-                        + '<div class="listItemBodyText">' + esc(item.Name)
-                        + searchIcon(item.Name, domainScope(item.DomainName))
-                        + openIcon(item.LibraryItemId) + '</div>'
-                        + '<div class="listItemBodyText secondary">' + meta.join(' &middot; ') + '</div>'
-                        + details
-                        + avail
-                        + resolvedLine
-                        + linksRow
-                        + '</div>'
-                        + '</div>';
+                    var titleLine = wrap('div', { 'class': 'listItemBodyText' },
+                        esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId));
+                    var secondaryLine = wrap('div', { 'class': 'listItemBodyText secondary' }, meta.join(' &middot; '));
+                    var body = wrap('div', { style: 'flex:1;min-width:0;' },
+                        titleLine + secondaryLine + details + avail + resolvedLine + linksRow);
+
+                    return wrap('div', { 'class': 'listItem cgRow', 'data-gapid': item.Id, style: 'display:flex;align-items:center;padding:.35em .25em;' + (res ? 'opacity:.55;' : '') },
+                        selBox + poster + body);
                 }
 
                 function groupBy(items, keyFn) {
@@ -379,7 +452,9 @@
                 // header click ignore it so it does not toggle the collapse.
                 function openIcon(id) {
                     if (!id) { return ''; }
-                    return ' <a class="cgLink cgOpen" href="' + itemUrl(id) + '" target="_blank" rel="noopener" title="Open in Jellyfin" aria-label="Open in Jellyfin"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">open_in_new</span></a>';
+                    return ' ' + jellyfinLink(
+                        { 'class': 'cgLink cgOpen', href: itemUrl(id), title: 'Open in Jellyfin', 'aria-label': 'Open in Jellyfin' },
+                        icon('open_in_new'));
                 }
 
                 // The "Diagnose" popup: ask the server why a movie/show is reported missing (usually an owned
@@ -395,7 +470,7 @@
                     modal._gapId = gapId;
                     modal._name = rawName || '';
                     document.getElementById('cgDiagTitle').textContent = rawName ? ('Why is “' + rawName + '” missing?') : 'Diagnose';
-                    body.innerHTML = '<p class="fieldDescription">' + (deeper ? 'Confirming&hellip;' : 'Checking your library&hellip;') + '</p>';
+                    body.innerHTML = h('p', { 'class': 'fieldDescription' }, deeper ? 'Confirming…' : 'Checking your library…').outerHTML;
                     modal.style.display = 'flex';
                     var args = { id: gapId };
                     if (deeper) { args.deeper = true; }
@@ -408,7 +483,7 @@
                             }
                             body.innerHTML = renderDiagnosis(res);
                         })
-                        .catch(function () { body.innerHTML = '<p class="fieldDescription">Could not run the diagnosis. Check the server logs.</p>'; });
+                        .catch(function () { body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not run the diagnosis. Check the server logs.').outerHTML; });
                 }
 
                 function closeDiagnose() {
@@ -473,9 +548,15 @@
                 // One id cell both the modal table and the audit Markdown render from: the id linked to its
                 // provider page, or the absent marker. asMarkdown picks the output flavour.
                 function diagCell(cell, asMarkdown) {
-                    if (!cell || cell.id == null) { return asMarkdown ? '' : '<span style="opacity:.4;">-</span>'; }
+                    if (!cell || cell.id == null) { return asMarkdown ? '' : h('span', { 'class': 'cgDiagMissing' }, '-').outerHTML; }
                     if (asMarkdown) { return cell.url ? '[' + cell.id + '](' + cell.url + ')' : String(cell.id); }
-                    return cell.url ? '<a class="' + providerClass(cell.name).trim() + '" data-provider="' + esc(cell.name || '') + '" title="Open ' + esc(cell.id) + ' on ' + esc(cell.name || '') + '" aria-label="Open ' + esc(cell.id) + ' on ' + esc(cell.name || '') + '" href="' + esc(cell.url) + '" target="_blank" rel="noopener">' + esc(cell.id) + '</a>' : esc(cell.id);
+                    return cell.url
+                        ? newTab(false, {
+                            'class': providerClass(cell.name).trim(), 'data-provider': cell.name || '',
+                            title: 'Open ' + cell.id + ' on ' + (cell.name || ''), 'aria-label': 'Open ' + cell.id + ' on ' + (cell.name || ''),
+                            href: cell.url
+                        }, esc(cell.id))
+                        : esc(cell.id);
                 }
 
                 function renderDiagnosis(res) {
@@ -485,39 +566,42 @@
                     (res.Candidates || []).forEach(function (c) { rows.push(c); });
 
                     var verdict = DIAG_REASON[res.ReasonName];
+                    // The verdict badge keeps its provider colour inline (it is data-driven, one value per reason).
                     var html = verdict
-                        ? '<div style="margin:0 0 .5em 0;"><span style="display:inline-block;padding:.15em .6em;border-radius:.8em;background:' + verdict.color + ';color:#111;font-weight:600;font-size:.85em;">' + esc(verdict.label) + '</span></div>'
+                        ? wrap('div', { 'class': 'cgDiagVerdict' }, h('span', { 'class': 'cgDiagBadge', style: 'background:' + verdict.color + ';' }, verdict.label).outerHTML)
                         : '';
-                    html += '<p style="margin:.2em 0 .8em 0;">' + esc(res.Summary || '') + '</p>';
+                    html += h('p', { 'class': 'cgDiagSummary' }, res.Summary || '').outerHTML;
                     if (rows.length) {
                         var cols = diagColumns(rows);
-                        var th = function (t) { return '<th style="padding:.3em .45em;font-weight:600;">' + esc(t) + '</th>'; };
-                        html += '<table style="width:100%;border-collapse:collapse;font-size:.92em;">'
-                            + '<thead><tr style="text-align:left;border-bottom:1px solid #444;">'
-                            + th('Title') + th('Year')
+                        var th = function (t) { return h('th', null, t).outerHTML; };
+                        var head = wrap('thead', null, wrap('tr', null,
+                            th('Title') + th('Year')
                             + cols.map(function (t) { return th(DIAG_PROVIDER_LABEL[t] || t); }).join('')
-                            + th('In library')
-                            + '</tr></thead><tbody>';
-                        rows.forEach(function (r) {
+                            + th('In library')));
+                        var bodyRows = rows.map(function (r) {
                             var isTarget = r.Relation === 'target';
                             var inLib = isTarget
-                                ? '<span style="opacity:.7;">Missing</span>'
-                                : (r.JellyfinItemId ? '<a href="' + esc(itemUrl(r.JellyfinItemId)) + '" target="_blank" rel="noopener">Open</a>' : 'Owned');
+                                ? h('span', { 'class': 'cgDiagMissingLabel' }, 'Missing').outerHTML
+                                : (r.JellyfinItemId ? newTab(false, { href: itemUrl(r.JellyfinItemId) }, 'Open') : 'Owned');
                             var cells = diagCells(r);
-                            var td = function (c) { return '<td style="padding:.3em .45em;vertical-align:top;">' + c + '</td>'; };
-                            html += '<tr style="border-bottom:1px solid #2a2a2a;' + (isTarget ? 'background:rgba(74,163,223,.1);' : '') + '">'
-                                + td('<b>' + esc(r.Name || '') + '</b>' + (r.Note ? '<br><span style="opacity:.65;font-size:.85em;">' + esc(r.Note) + '</span>' : ''))
-                                + td(r.Year ? esc(r.Year) : '<span style="opacity:.4;">-</span>')
+                            var td = function (c) { return wrap('td', null, c); };
+                            var nameCell = h('b', null, r.Name || '').outerHTML
+                                + (r.Note ? h('br').outerHTML + h('span', { 'class': 'cgDiagNote' }, r.Note).outerHTML : '');
+                            return wrap('tr', { 'class': isTarget ? 'cgDiagTarget' : null },
+                                td(nameCell)
+                                + td(r.Year ? esc(r.Year) : h('span', { 'class': 'cgDiagMissing' }, '-').outerHTML)
                                 + cols.map(function (t) { return td(diagCell(cells[t], false)); }).join('')
-                                + td(inLib)
-                                + '</tr>';
-                        });
-                        html += '</tbody></table>';
+                                + td(inLib));
+                        }).join('');
+                        html += wrap('table', { 'class': 'cgDiagTable' }, head + wrap('tbody', null, bodyRows));
                     }
                     // Offer the networked confirmation, or note it already ran.
                     html += res.Deepened
-                        ? '<div style="margin-top:.8em;opacity:.7;font-size:.85em;">Confirmed.</div>'
-                        : '<div style="margin-top:.8em;"><button is="emby-button" type="button" class="raised cgDeepen" title="Resolve ids against the source provider to confirm the verdict and catch matches your local metadata missed.">Deeper analysis</button></div>';
+                        ? h('div', { 'class': 'cgDiagDone' }, 'Confirmed.').outerHTML
+                        : wrap('div', { 'class': 'cgDiagDeepenWrap' }, h('button', {
+                            is: 'emby-button', type: 'button', 'class': 'raised cgDeepen',
+                            title: 'Resolve ids against the source provider to confirm the verdict and catch matches your local metadata missed.'
+                        }, 'Deeper analysis').outerHTML);
                     return html;
                 }
 
@@ -546,20 +630,28 @@
                 // the referrer (noopener only, not noreferrer) so the search page knows it came from here.
                 function searchIcon(name, collectionType) {
                     if (!name) { return ''; }
-                    return ' <a class="cgLink cgSearch" href="' + esc(searchUrl(name, collectionType)) + '" target="_blank" rel="noopener" title="Search this Jellyfin for &ldquo;' + esc(name) + '&rdquo;" aria-label="Search Jellyfin for ' + esc(name) + '"><span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">search</span></a>';
+                    return ' ' + jellyfinLink(
+                        { 'class': 'cgLink cgSearch', href: searchUrl(name, collectionType),
+                            title: 'Search this Jellyfin for “' + name + '”', 'aria-label': 'Search Jellyfin for ' + name },
+                        icon('search'));
                 }
 
                 function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyToken) {
                     // A per-render id ties the header to its body for assistive tech (aria-controls), and
                     // aria-expanded mirrors the collapse state (kept in sync on toggle and re-render).
                     var bodyId = 'cgBody' + (++cgGroupSeq);
+                    var hdr = wrap('div', {
+                        'class': 'cgHdr cgHdr' + level, role: 'button', tabindex: '0',
+                        'aria-expanded': collapsed ? 'false' : 'true', 'aria-controls': bodyId
+                    }, h('span', { 'class': 'cgCaret' }).outerHTML
+                        + h('span', { 'class': 'cgLabel' }, label).outerHTML
+                        + ' ' + h('span', { 'class': 'cgCount' }, '(' + count + ')').outerHTML
+                        + (extra || '') + openIcon(itemId));
                     // A deferred group ships an empty body plus a token; ensureGroupBody fills it on expand.
-                    var lazyAttr = lazyToken ? ' data-cglazy="' + esc(lazyToken) + '"' : '';
-                    return '<div class="cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : '') + '" data-cglabel="' + esc(label) + '"' + lazyAttr + '>'
-                        + '<div class="cgHdr cgHdr' + level + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? 'false' : 'true') + '" aria-controls="' + bodyId + '">'
-                        + '<span class="cgCaret"></span><span class="cgLabel">' + esc(label) + '</span>'
-                        + ' <span class="cgCount">(' + count + ')</span>' + (extra || '') + openIcon(itemId) + '</div>'
-                        + '<div class="cgBody" id="' + bodyId + '">' + inner + '</div></div>';
+                    return wrap('div', {
+                        'class': 'cgGroup cgL' + level + (collapsed ? ' cgCollapsed' : ''),
+                        'data-cglabel': label, 'data-cglazy': lazyToken
+                    }, hdr + wrap('div', { 'class': 'cgBody', id: bodyId }, inner));
                 }
 
                 // A coverage badge ("6 of 9 owned, 67%") for a set whose owned/total counts are known.
@@ -585,7 +677,7 @@
                 // the group header so you can open the creator or set itself, not just its missing items.
                 function sourceLinks(item) {
                     return ((item && item.SourceLinks) || []).map(function (l) {
-                        return ' <a is="emby-linkbutton" class="cgLink' + providerClass(l.Name) + '" data-provider="' + esc(l.Name) + '" title="Open on ' + esc(l.Name) + '" aria-label="Open on ' + esc(l.Name) + '" href="' + esc(safeUrl(l.Url)) + '" target="_blank" rel="noopener noreferrer">' + esc(l.Name) + '</a>';
+                        return ' ' + providerLink(l);
                     }).join('');
                 }
 
@@ -593,15 +685,16 @@
                     if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
                     var pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
                     var full = item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%';
-                    return ' <span class="cgCoverage" title="' + esc(full) + '"><span class="cgCovFull">' + full + '</span><span class="cgCovPct">' + pct + '%</span></span>';
+                    return ' ' + wrap('span', { 'class': 'cgCoverage', title: full },
+                        h('span', { 'class': 'cgCovFull' }, full).outerHTML + h('span', { 'class': 'cgCovPct' }, pct + '%').outerHTML);
                 }
 
                 // A compact Diagnose control for a season header, run against one of the season's episodes, so
                 // the popup can say whether the season belongs to the series you own or a same-named reboot.
                 function seasonDiagnoseBtn(gapId, name) {
-                    return ' <a class="cgLink cgDiagnose" data-gapid="' + esc(gapId) + '" data-name="' + esc(name)
-                        + '" title="Is this season really part of the series you own?" aria-label="Diagnose this season">'
-                        + '<span class="material-icons" aria-hidden="true" style="font-size:1.05em;vertical-align:middle;">troubleshoot</span></a>';
+                    return ' ' + idAnchor('cgDiagnose', gapId, 'Is this season really part of the series you own?', {
+                        'data-name': name, 'aria-label': 'Diagnose this season'
+                    }, icon('troubleshoot'));
                 }
 
                 // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
@@ -826,8 +919,8 @@
                         var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
                         bySrc.order.sort(ci);
                         var srcHtml = bySrc.order.map(function (src) { return setSourceCell(src, bySrc.map[src]); }).join('');
-                        var heading = multiKind ? '<h3 class="cgSetKind">' + esc(kind) + '</h3>' : '';
-                        return heading + '<div class="cgGridWrap">' + srcHtml + '</div>';
+                        var heading = multiKind ? h('h3', { 'class': 'cgSetKind' }, kind).outerHTML : '';
+                        return heading + wrap('div', { 'class': 'cgGridWrap' }, srcHtml);
                     }).join('');
                 }
 
@@ -876,8 +969,9 @@
                     page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
                         var active = p === page._pattern ? ' cgActive' : '';
                         var lbl = patternLabel(p, p === page._pattern ? domain : '');
-                        return '<button type="button" is="emby-button" class="raised cgTab' + active + '" data-pattern="' + p + '" style="margin-right:.4em;">'
-                            + esc(lbl) + ' (' + (counts[p] || 0) + ')</button>';
+                        return h('button', {
+                            type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-pattern': p
+                        }, lbl + ' (' + (counts[p] || 0) + ')').outerHTML;
                     }).join('');
                 }
 
@@ -909,7 +1003,7 @@
                     var firstWithEntries = domains.filter(function (d) { return present[d]; })[0] || domains[0];
                     var desired = (page._wantType && domains.indexOf(page._wantType) !== -1) ? page._wantType
                         : ((sel.value && domains.indexOf(sel.value) !== -1) ? sel.value : firstWithEntries);
-                    sel.innerHTML = domains.map(function (d) { return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('');
+                    sel.innerHTML = domains.map(function (d) { return h('option', { value: d }, d).outerHTML; }).join('');
                     sel.value = desired;
                     // Consume the remembered domain once applied, so a later manual pick is not overridden.
                     if (page._wantType && desired === page._wantType) { page._wantType = ''; }
@@ -1224,9 +1318,9 @@
                 function renderLetterBar(page, letters, sel) {
                     var bar = page.querySelector('#cgJump');
                     if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-                    var html = '<a class="cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : '') + '" data-l="*" title="Show all letters">*</a>';
+                    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters' }, '*').outerHTML;
                     html += letters.map(function (L) {
-                        return '<a class="cgJumpL' + (sel === L ? ' cgJumpSel' : '') + '" data-l="' + esc(L) + '">' + esc(L) + '</a>';
+                        return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L }, L).outerHTML;
                     }).join('');
                     bar.innerHTML = html;
                     bar.style.display = 'flex';
@@ -1250,8 +1344,8 @@
                             }
                         });
                         var nGroups = Object.keys(groups).length;
-                        var cov = totalSum ? ' <span class="cgRollupCov">(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)</span>' : '';
-                        return '<b>' + esc(cat) + '</b>: ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov;
+                        var cov = totalSum ? ' ' + h('span', { 'class': 'cgRollupCov' }, '(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)').outerHTML : '';
+                        return h('b', null, cat).outerHTML + ': ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov;
                     });
                     return parts.join(' &nbsp;&middot;&nbsp; ');
                 }
@@ -1287,9 +1381,9 @@
                     var streamable = page.querySelector('#cgStreamable').checked;
                     var empty;
                     if (streamable && !(report.Items || []).some(function (it) { return it.AvailabilityChecked; })) {
-                        empty = '<p class="fieldDescription">No "where to watch" data yet, so this filter has nothing to act on. Look it up in the background, then it fills in here.</p>'
-                            + '<button is="emby-button" type="button" id="cgEnableAvail" class="raised button-submit">'
-                            + '<span>Look up where to watch</span></button>';
+                        empty = h('p', { 'class': 'fieldDescription' }, 'No "where to watch" data yet, so this filter has nothing to act on. Look it up in the background, then it fills in here.').outerHTML
+                            + wrap('button', { is: 'emby-button', type: 'button', id: 'cgEnableAvail', 'class': 'raised button-submit' },
+                                h('span', null, 'Look up where to watch').outerHTML);
                     } else {
                         // The pattern has gaps overall (summary count) but none pass the filters: name the
                         // filters that are on so the user knows what to relax, rather than a dead-end blank.
@@ -1305,16 +1399,16 @@
                         if (page.querySelector('#cgHideUpcoming').checked) { active.push('"Hide upcoming"'); }
                         if (streamable) { active.push('"Hide items with no sources"'); }
                         if (selDomain && !selDomainHasRaw && rawItems.length) {
-                            empty = '<p class="fieldDescription">No ' + esc(selDomain) + ' gaps on this tab. Pick another type from the menu above.</p>';
+                            empty = h('p', { 'class': 'fieldDescription' }, 'No ' + selDomain + ' gaps on this tab. Pick another type from the menu above.').outerHTML;
                         } else if (rawForPattern > 0 && active.length) {
                             var list = active.length === 1 ? active[0]
                                 : active.slice(0, -1).join(', ') + ' or ' + active[active.length - 1];
-                            empty = '<p class="fieldDescription">No gaps match the current filters. Try clearing ' + list + '.</p>';
+                            empty = h('p', { 'class': 'fieldDescription' }, 'No gaps match the current filters. Try clearing ' + list + '.').outerHTML;
                         } else if (rawForPattern > 0) {
                             // No filters on, yet nothing shows: the rows are all dismissed.
-                            empty = '<p class="fieldDescription">Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.</p>';
+                            empty = h('p', { 'class': 'fieldDescription' }, 'Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.').outerHTML;
                         } else {
-                            empty = '<p class="fieldDescription">No gaps on this tab. Pick another tab, or rescan to refresh.</p>';
+                            empty = h('p', { 'class': 'fieldDescription' }, 'No gaps on this tab. Pick another tab, or rescan to refresh.').outerHTML;
                         }
                     }
 
@@ -1616,17 +1710,17 @@
                         : 'Owned titles you dismissed as a recommendation seed produce no suggestions. Pick one and Bring back to suggest from it again.';
                     el.style.display = '';
                     el.title = help;
-                    el.innerHTML = '<span style="opacity:.7;margin-left:1em;" title="' + esc(help) + '">' + esc(label) + '</span> '
-                        + '<select is="emby-select" id="cgHiddenCreatorSel" class="emby-select" style="width:auto;" title="' + esc(help) + '">'
-                        + entries.map(function (en) { return '<option value="' + esc(en.key) + '">' + esc(en.name) + '</option>'; }).join('')
-                        + '</select> <button is="emby-button" type="button" id="cgRestoreCreatorBtn" class="raised" style="margin:0;" title="' + esc(help) + '"><span>Bring back</span></button>';
+                    el.innerHTML = h('span', { style: 'opacity:.7;margin-left:1em;', title: help }, label).outerHTML + ' '
+                        + wrap('select', { is: 'emby-select', id: 'cgHiddenCreatorSel', 'class': 'emby-select', style: 'width:auto;', title: help },
+                            entries.map(function (en) { return h('option', { value: en.key }, en.name).outerHTML; }).join(''))
+                        + ' ' + wrap('button', { is: 'emby-button', type: 'button', id: 'cgRestoreCreatorBtn', 'class': 'raised', style: 'margin:0;', title: help }, h('span', null, 'Bring back').outerHTML);
                 }
 
                 function renderViews(page) {
                     var views = loadViews();
                     var names = Object.keys(views).sort(function (a, b) { return ci(a, b); });
-                    page.querySelector('#cgViews').innerHTML = '<option value="">(choose a saved view)</option>'
-                        + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+                    page.querySelector('#cgViews').innerHTML = h('option', { value: '' }, '(choose a saved view)').outerHTML
+                        + names.map(function (n) { return h('option', { value: n }, n).outerHTML; }).join('');
                 }
 
                 // Fetch one pattern's items on demand (cached per pattern), so a large report is not shipped
@@ -2041,8 +2135,11 @@
                     function announce(msg) { var live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
                     function render() {
                         list.innerHTML = state.chips.map(function (c, i) {
-                            return '<span class="cgChip" role="listitem">' + esc(c.Name)
-                                + '<button type="button" class="cgChipX" data-i="' + i + '" aria-label="Remove ' + esc(c.Name) + '" title="Remove ' + esc(c.Name) + '">&times;</button></span>';
+                            var x = wrap('button', {
+                                type: 'button', 'class': 'cgChipX', 'data-i': i,
+                                'aria-label': 'Remove ' + (c.Name || ''), title: 'Remove ' + (c.Name || '')
+                            }, '&times;');
+                            return wrap('span', { 'class': 'cgChip', role: 'listitem' }, esc(c.Name) + x);
                         }).join('');
                     }
                     function closeSuggest() {
@@ -2062,8 +2159,13 @@
                     }
                     function renderSuggest() {
                         suggest.innerHTML = state.items.length
-                            ? state.items.map(function (it, i) { return '<div class="cgSuggestItem' + (i === state.sel ? ' cgSuggestSel' : '') + '" role="option" id="' + suggestId + '-opt-' + i + '" aria-selected="' + (i === state.sel ? 'true' : 'false') + '" data-i="' + i + '">' + esc(it.Name) + '</div>'; }).join('')
-                            : '<div class="cgSuggestEmpty">No matches</div>';
+                            ? state.items.map(function (it, i) {
+                                return h('div', {
+                                    'class': 'cgSuggestItem' + (i === state.sel ? ' cgSuggestSel' : ''), role: 'option',
+                                    id: suggestId + '-opt-' + i, 'aria-selected': i === state.sel ? 'true' : 'false', 'data-i': i
+                                }, it.Name).outerHTML;
+                            }).join('')
+                            : h('div', { 'class': 'cgSuggestEmpty' }, 'No matches').outerHTML;
                         suggest.classList.add('cgShown');
                         input.setAttribute('aria-expanded', 'true');
                         input.setAttribute('aria-activedescendant', state.sel >= 0 ? (suggestId + '-opt-' + state.sel) : '');
@@ -2385,7 +2487,7 @@
                         var domainValue = (typeSel && typeSel.value) || '';
                         var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
                         var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
-                        downloadText(`mind-the-gaps-${parts}.md`, buildMarkdown(page));
+                        downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
                     });
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
@@ -2665,4 +2767,3 @@
                     load(page);
                 });
             })();
-        

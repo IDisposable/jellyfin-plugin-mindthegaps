@@ -38,7 +38,13 @@
             .cgL3 .listItem { padding-left: 3.9em; }
             .cgRow { cursor: pointer; }
             .cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; white-space: pre-line; }
+            .cgTab { margin-right: .4em; }
             .cgTab.cgActive { background: #00a4dc; color: #fff; }
+            /* A note line under a row (where to watch, no sources, dismissal). The base sits a hair below the
+               line above; the muted and resolved variants tint it. */
+            .cgRowNote { margin-top: .2em; }
+            .cgRowNoteMuted { opacity: .6; }
+            .cgRowNoteResolved { color: #3ddc97; }
             .cgLink {
                 display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
                 font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
@@ -47,11 +53,17 @@
             .cgLink:hover { background: rgba(255,255,255,.14); }
             .cgMint { border-color: #3ddc97; color: #3ddc97; }
             .cgMint:hover { background: rgba(61,220,151,.16); }
-            .cgMint .material-icons { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
+            .cgLink .material-icons { font-size: 1.05em; vertical-align: middle; }
+            .cgLink .material-icons.cgIconLead { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
             /* Keep each provider's checkbox and name together, and never break a multi-word name. */
             .cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
             .cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }
             .cgProvToggle .cgCaret { border-left-color: currentColor; }
+            /* A caret rotated open, shared by the provider toggle (the group caret rotates via its own rule). */
+            .cgCaretOpen { transform: rotate(90deg); }
+            /* The collapsible streaming-provider checkbox list: hidden until its toggle is open. */
+            .cgProvList { display: none; flex-wrap: wrap; margin-top: .25em; }
+            .cgProvList.cgProvListOpen { display: flex; }
             /* A-Z jump bar for the letter-grouped tabs (Creator works, Recommendations). */
             #cgJump { position: sticky; top: 0; z-index: 5; background: rgba(16,16,16,.95); flex-wrap: wrap; gap: .1em; padding: .25em 0; margin-bottom: .2em; }
             #cgJump.cgJumpShown { display: flex; }
@@ -76,4 +88,20 @@
             .cgSuggestItem { padding: .4em .6em; cursor: pointer; font-size: .92em; }
             .cgSuggestItem:hover, .cgSuggestItem.cgSuggestSel { background: #00a4dc; color: #fff; }
             .cgSuggestEmpty { padding: .4em .6em; opacity: .6; font-size: .9em; }
+            /* The Diagnose popup: the verdict badge, the summary line, the comparison table, and the
+               deeper-analysis footer. The badge keeps its colour inline (one value per reason). */
+            .cgDiagVerdict { margin: 0 0 .5em 0; }
+            .cgDiagBadge { display: inline-block; padding: .15em .6em; border-radius: .8em; color: #111; font-weight: 600; font-size: .85em; }
+            .cgDiagSummary { margin: .2em 0 .8em 0; }
+            .cgDiagTable { width: 100%; border-collapse: collapse; font-size: .92em; }
+            .cgDiagTable thead tr { text-align: left; border-bottom: 1px solid #444; }
+            .cgDiagTable th { padding: .3em .45em; font-weight: 600; }
+            .cgDiagTable td { padding: .3em .45em; vertical-align: top; }
+            .cgDiagTable tbody tr { border-bottom: 1px solid #2a2a2a; }
+            .cgDiagTable tr.cgDiagTarget { background: rgba(74,163,223,.1); }
+            .cgDiagMissing { opacity: .4; }
+            .cgDiagMissingLabel { opacity: .7; }
+            .cgDiagNote { opacity: .65; font-size: .85em; }
+            .cgDiagDone { margin-top: .8em; opacity: .7; font-size: .85em; }
+            .cgDiagDeepenWrap { margin-top: .8em; }
         

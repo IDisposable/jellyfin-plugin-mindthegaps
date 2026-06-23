@@ -98,6 +98,14 @@ of them. Drafts in [docs/upstream/](upstream/).
   Shows/Series mapping path (CreatorWorks, `domain: Shows`, `targetKind: Series`) alongside the movie one,
   widening `OwnedKinds` to include `Series`. Net-new Creator works coverage: an owned actor or director's
   unowned series become gaps. Trakt's filmography cross-check could grow the same way.
+- **Easier list entry, and a searchable list source.** TMDB lists are the one curated source still entered
+  as raw comma-separated ids (`CuratedTmdbListIds`); TMDB has no list-search API (only `/list/{id}`), so a
+  name type-ahead is impossible. Near-term fix: accept a pasted `themoviedb.org/list/{id}` URL (or a bare id)
+  in a chip input and resolve it to a confirmed chip via the existing list fetch (name plus count), a
+  `tmdblist` branch in `CuratedResolve`, turning id-hunting into a paste. For genuinely searchable discovery
+  lists, MDBList already has the type-ahead; **Trakt lists** would be a natural searchable sibling (Trakt
+  exposes `/lists/popular`, `/lists/trending`, and list search, and its lists carry TMDB and IMDb ids), a new
+  source shaped like MdbList.
 
 ### Acquisition handoff
 
@@ -111,6 +119,15 @@ of them. Drafts in [docs/upstream/](upstream/).
   routing by `TargetKind`. Both handoffs are opt-in and config-gated (the button appears only when
   configured). Two spike branches already prototype both (`Services/Acquisition|Arr|Seerr`, settings UI, Send
   buttons) and need rebasing onto current main.
+- **A manual want list (the to-acquire list).** Today a gap's fates are: resolve it (hide as not really
+  missing), leave it (the backfill drops it once the file lands), or hand it to an arr/Seerr stack (above).
+  That leaves the manual acquirer, who hunts titles down by hand, with nowhere to record "yes, I want this,
+  it is on my list to get." Add a per-gap **Want** flag persisted by gap id the way resolutions are
+  (`want.json`, atomic write, survives rescans, ADR-0008), distinct from a resolution: a wanted gap is still
+  missing, just claimed. Surface it as a report view/filter ("Want list") and a grouped Markdown export (the
+  manual person's shopping list). It is the bridge from "what is missing" to a personal acquisition plan, and
+  it composes with the arr/Seerr handoff (flag a batch, then send the list at once). Mirrors `ResolutionStore`
+  and the dashboard's resolved-overlay, so most of the machinery already exists.
 
 ### Minting
 
