@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.3.2"
+version: "10.11.3.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,9 +20,7 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.3.2 - MDBList community lists and TMDB lists join as discovery sources, so you can complete or
-  explore a curated list the way you complete a collection. The Discover tab now groups its results by
-  source, collapsing each list or recommending title under its own name to match the Markdown export. Tab
-  and group labels follow the media type in view (Series completion for shows, Discography and Artist works
-  for music, Author works for books, and Discover for recommendations), and shareable view links now stay
-  within URL length limits.
+  10.11.3.3 - Fixes the Markdown export filename, which saved as mind-the-gaps-parts.md instead of being
+  named for the domain and tab in view. Under the hood the report rendering was rebuilt onto a small set of
+  shared element builders with consistent HTML escaping, and repeated inline styles moved into CSS classes so
+  a custom theme has cleaner hooks; the report itself looks and behaves the same.
