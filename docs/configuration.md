@@ -81,6 +81,12 @@ opt-in cross-checks that need your own credentials.
 > Note: API keys are sensitive. The key fields are masked (password inputs) with a **Show** toggle to
 > reveal one when you need to check it. If a key ever ends up in a URL or browser history, rotate it.
 
+## Diagnostics
+
+| Setting | Default | What it does | When off |
+|---|---|---|---|
+| **Detailed API logging** (`DetailedApiLogging`) | Off | Logs every external API request and response to the server log: the hand-rolled clients through the shared HTTP layer, the acquisition sends, the TMDB calls, and the webhook. Turn it on to debug a source or an acquisition target that is not behaving, then turn it back off. Api keys and tokens ride in headers and are never logged. | No request or response logging; failures are still logged. |
+
 ## Acquisition stack (optional)
 
 ![Acquisition stack settings](screenshots/config-data-sources.png)

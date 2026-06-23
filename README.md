@@ -204,6 +204,7 @@ For every setting, what it does, and what changes when you set or clear it, see 
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Acquisition stack | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action. |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |
+| Detailed API logging | Off by default; turn it on to log every external API request and response (the sources, the acquisition sends, TMDB, and the webhook) to the server log while debugging a misbehaving target, then turn it back off. |
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
 | Discogs token | Enables the opt-in Discogs label and artist source. |

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.People;
@@ -34,15 +35,18 @@ public sealed class TmdbClient : IDisposable
     private const string PosterSize = "w500";
 
     private readonly IMemoryCache _cache;
+    private readonly ILogger<TmdbClient>? _logger;
     private readonly TMDbClient _client;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TmdbClient"/> class.
     /// </summary>
     /// <param name="cache">The shared memory cache.</param>
-    public TmdbClient(IMemoryCache cache)
+    /// <param name="logger">The logger, for the gated detailed-API logging. Optional so tests can omit it.</param>
+    public TmdbClient(IMemoryCache cache, ILogger<TmdbClient>? logger = null)
     {
         _cache = cache;
+        _logger = logger;
 
         // MaxRetryCount turns on TMDbLib's own handling of TMDB rate limiting (HTTP 429): it waits for the
         // response's Retry-After and retries, up to this many times, which is the TMDB analogue of the
@@ -76,6 +80,7 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: GetCollection {TmdbId} lang {Language}", tmdbId, language);
         var collection = await _client.GetCollectionAsync(
             tmdbId,
             NormalizeLanguage(language, country),
@@ -86,6 +91,10 @@ public sealed class TmdbClient : IDisposable
         if (collection is not null)
         {
             _cache.Set(key, collection, TimeSpan.FromHours(CacheDurationHours));
+        }
+        else
+        {
+            _logger?.LogWarning("TMDB: GetCollection {TmdbId} returned nothing", tmdbId);
         }
 
         return collection;
@@ -107,6 +116,7 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: GetPerson {TmdbId} lang {Language}", tmdbId, language);
         var person = await _client.GetPersonAsync(
             tmdbId,
             NormalizeLanguage(language, country),
@@ -116,6 +126,10 @@ public sealed class TmdbClient : IDisposable
         if (person is not null)
         {
             _cache.Set(key, person, TimeSpan.FromHours(CacheDurationHours));
+        }
+        else
+        {
+            _logger?.LogWarning("TMDB: GetPerson {TmdbId} returned nothing", tmdbId);
         }
 
         return person;
@@ -131,8 +145,15 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The results and the total page count.</returns>
     public async Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetMovieSimilarPageAsync(int tmdbId, int page, string? language, CancellationToken cancellationToken)
     {
+        _logger.Detailed("TMDB: GetMovieSimilar {TmdbId} page {Page} lang {Language}", tmdbId, page, language);
         var results = await _client.GetMovieSimilarAsync(tmdbId, language, page, cancellationToken).ConfigureAwait(false);
-        return results?.Results is null || results.Results.Count == 0
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: GetMovieSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
+            return (Array.Empty<SearchMovie>(), 0);
+        }
+
+        return results.Results.Count == 0
             ? (Array.Empty<SearchMovie>(), 0)
             : (results.Results, results.TotalPages);
     }
@@ -147,8 +168,15 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The results and the total page count.</returns>
     public async Task<(IReadOnlyList<SearchTv> Results, int TotalPages)> GetSeriesSimilarPageAsync(int tmdbId, int page, string? language, CancellationToken cancellationToken)
     {
+        _logger.Detailed("TMDB: GetSeriesSimilar {TmdbId} page {Page} lang {Language}", tmdbId, page, language);
         var results = await _client.GetTvShowSimilarAsync(tmdbId, language, page, cancellationToken).ConfigureAwait(false);
-        return results?.Results is null || results.Results.Count == 0
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: GetSeriesSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
+            return (Array.Empty<SearchTv>(), 0);
+        }
+
+        return results.Results.Count == 0
             ? (Array.Empty<SearchTv>(), 0)
             : (results.Results, results.TotalPages);
     }
@@ -169,8 +197,15 @@ public sealed class TmdbClient : IDisposable
             query = query.WhereLanguageIs(language);
         }
 
+        _logger.Detailed("TMDB: DiscoverMoviesByCompany {CompanyId} page {Page} lang {Language}", companyId, page, language);
         var results = await query.Query(page, cancellationToken).ConfigureAwait(false);
-        return results?.Results is null || results.Results.Count == 0
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: DiscoverMoviesByCompany {CompanyId} page {Page} returned nothing", companyId, page);
+            return (Array.Empty<SearchMovie>(), 0);
+        }
+
+        return results.Results.Count == 0
             ? (Array.Empty<SearchMovie>(), 0)
             : (results.Results, results.TotalPages);
     }
@@ -191,8 +226,15 @@ public sealed class TmdbClient : IDisposable
             query = query.WhereLanguageIs(language);
         }
 
+        _logger.Detailed("TMDB: DiscoverMoviesByKeyword {KeywordId} page {Page} lang {Language}", keywordId, page, language);
         var results = await query.Query(page, cancellationToken).ConfigureAwait(false);
-        return results?.Results is null || results.Results.Count == 0
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: DiscoverMoviesByKeyword {KeywordId} page {Page} returned nothing", keywordId, page);
+            return (Array.Empty<SearchMovie>(), 0);
+        }
+
+        return results.Results.Count == 0
             ? (Array.Empty<SearchMovie>(), 0)
             : (results.Results, results.TotalPages);
     }
@@ -208,7 +250,13 @@ public sealed class TmdbClient : IDisposable
     public async Task<(string? Name, IReadOnlyList<SearchMovie> Movies)> GetListMoviesAsync(int listId, string? language, CancellationToken cancellationToken)
     {
         var idText = listId.ToString(CultureInfo.InvariantCulture);
+        _logger.Detailed("TMDB: GetList {ListId} lang {Language}", idText, language);
         var list = await _client.GetListAsync(idText, language, cancellationToken).ConfigureAwait(false);
+        if (list is null)
+        {
+            _logger?.LogWarning("TMDB: GetList {ListId} returned nothing", idText);
+        }
+
         if (list?.Items is null || list.Items.Count == 0)
         {
             return (list?.Name, Array.Empty<SearchMovie>());
@@ -246,7 +294,13 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: SearchCompany {Name}", name);
         var results = await _client.SearchCompanyAsync(name, 0, cancellationToken).ConfigureAwait(false);
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: SearchCompany {Name} returned nothing", name);
+        }
+
         var first = results?.Results is { Count: > 0 } list ? list[0] : null;
         (int Id, string Name)? match = first is null ? null : (first.Id, string.IsNullOrEmpty(first.Name) ? name : first.Name);
         _cache.Set(key, match, TimeSpan.FromHours(CacheDurationHours));
@@ -273,7 +327,13 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: SearchCompanies {Query}", query);
         var results = await _client.SearchCompanyAsync(query, 0, cancellationToken).ConfigureAwait(false);
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: SearchCompanies {Query} returned nothing", query);
+        }
+
         var refs = new List<CuratedSetRef>();
         foreach (var company in results?.Results ?? new List<SearchCompany>())
         {
@@ -313,7 +373,13 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: SearchKeywords {Query}", query);
         var results = await _client.SearchKeywordAsync(query, 0, cancellationToken).ConfigureAwait(false);
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: SearchKeywords {Query} returned nothing", query);
+        }
+
         var refs = new List<CuratedSetRef>();
         foreach (var keyword in results?.Results ?? new List<SearchKeyword>())
         {
@@ -348,7 +414,13 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: GetCompany {CompanyId}", companyId);
         var company = await _client.GetCompanyAsync(companyId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (company is null)
+        {
+            _logger?.LogWarning("TMDB: GetCompany {CompanyId} returned nothing", companyId);
+        }
+
         var name = company?.Name;
         if (!string.IsNullOrEmpty(name))
         {
@@ -374,7 +446,13 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
+        _logger.Detailed("TMDB: GetKeyword {KeywordId}", keywordId);
         var keyword = await _client.GetKeywordAsync(keywordId, cancellationToken).ConfigureAwait(false);
+        if (keyword is null)
+        {
+            _logger?.LogWarning("TMDB: GetKeyword {KeywordId} returned nothing", keywordId);
+        }
+
         var name = keyword?.Name;
         if (!string.IsNullOrEmpty(name))
         {
@@ -404,19 +482,29 @@ public sealed class TmdbClient : IDisposable
         string? tvdb = null;
         if (isSeries)
         {
+            _logger.Detailed("TMDB: GetSeriesExternalIds {TmdbId}", tmdbId);
             var ids = await _client.GetTvShowExternalIdsAsync(tmdbId, cancellationToken).ConfigureAwait(false);
             if (ids is not null)
             {
                 imdb = ids.ImdbId;
                 tvdb = string.IsNullOrEmpty(ids.TvdbId) ? null : ids.TvdbId;
             }
+            else
+            {
+                _logger?.LogWarning("TMDB: GetSeriesExternalIds {TmdbId} returned nothing", tmdbId);
+            }
         }
         else
         {
+            _logger.Detailed("TMDB: GetMovieExternalIds {TmdbId}", tmdbId);
             var ids = await _client.GetMovieExternalIdsAsync(tmdbId, cancellationToken).ConfigureAwait(false);
             if (ids is not null)
             {
                 imdb = ids.ImdbId;
+            }
+            else
+            {
+                _logger?.LogWarning("TMDB: GetMovieExternalIds {TmdbId} returned nothing", tmdbId);
             }
         }
 

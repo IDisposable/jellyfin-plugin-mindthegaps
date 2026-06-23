@@ -81,9 +81,20 @@ public sealed class WebhookNotifier
                 payload[field.Key] = field.Value;
             }
 
-            using var body = new StringContent(JsonSerializer.Serialize(payload, _jsonOptions), Encoding.UTF8, "application/json");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            using var body = new StringContent(json, Encoding.UTF8, "application/json");
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            if (Plugin.DetailedApiLogging)
+            {
+                _logger.LogInformation("Webhook: POST {Url} body {Body}", uri, json);
+            }
+
             using var response = await client.PostAsync(uri, body, cancellationToken).ConfigureAwait(false);
+            if (Plugin.DetailedApiLogging)
+            {
+                _logger.LogInformation("Webhook: POST {Url} returned {Status}", uri, (int)response.StatusCode);
+            }
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Webhook returned {Status} for event '{Event}'", (int)response.StatusCode, eventName);

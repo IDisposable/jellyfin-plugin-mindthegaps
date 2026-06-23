@@ -212,6 +212,17 @@
                         </div>
 
                         <div class="verticalSection">
+                            <h2 class="sectionTitle">Diagnostics</h2>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="DetailedApiLogging" name="DetailedApiLogging" type="checkbox" is="emby-checkbox" />
+                                    <span>Detailed API logging</span>
+                                </label>
+                                <div class="fieldDescription">Logs every external API request and response to the server log. Turn this on to debug a source or acquisition target that is not behaving, then turn it back off. Off by default to keep the log quiet; api keys and tokens are never logged.</div>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
                             <h2 class="sectionTitle">Acquisition stack (optional)</h2>
                             <div class="fieldDescription" style="margin-bottom:.5em;">Hand a gap off to your downloaders. A per-row Send button appears only for a target you fill in here. Radarr takes movies, Sonarr takes a series (it grabs the owned series' missing episodes), and Jellyseerr/Overseerr requests either. Keys stay on the server.</div>
                             <div class="inputContainer">

@@ -71,7 +71,16 @@ internal static class HttpRetry
             {
                 using var request = requestFactory();
                 EnsureUserAgent(request);
+                if (Plugin.DetailedApiLogging)
+                {
+                    logger.LogInformation("{Service}: GET {Path}", service, path);
+                }
+
                 response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if (Plugin.DetailedApiLogging)
+                {
+                    logger.LogInformation("{Service}: GET {Path} returned {Status}", service, path, (int)response.StatusCode);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

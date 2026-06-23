@@ -59,6 +59,7 @@ public class PluginConfiguration : BasePluginConfiguration
         SonarrRootFolderPath = string.Empty;
         SonarrMonitor = "all";
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
+        DetailedApiLogging = false;
     }
 
     /// <summary>
@@ -331,4 +332,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// URL-encoded query (the title and year).
     /// </summary>
     public string SearchUrlTemplate { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the plugin logs every external API request and response, for
+    /// debugging. Off by default to keep the log quiet; turn it on to follow an integration end to end in the
+    /// server log. Api keys, tokens, and bearers ride in headers and are never logged.
+    /// </summary>
+    public bool DetailedApiLogging { get; set; }
 }

@@ -108,6 +108,7 @@ public sealed class AcquisitionService
             var tmdbId = ResolveTmdbId(gap);
             if (tmdbId is null)
             {
+                _logger.LogWarning("Radarr send skipped: '{Name}' has no TMDB id", gap.Name);
                 return AcquisitionResult.Fail("This movie has no TMDB id to send to Radarr.");
             }
 
@@ -131,6 +132,7 @@ public sealed class AcquisitionService
         var tvdbId = ResolveSeriesTvdbId(gap);
         if (tvdbId is null)
         {
+            _logger.LogWarning("Sonarr send skipped: '{Series}' has no TheTVDB id", gap.SourceItemName ?? gap.Name);
             return AcquisitionResult.Fail("This series has no TheTVDB id, which Sonarr needs.");
         }
 
@@ -172,6 +174,7 @@ public sealed class AcquisitionService
         var tmdbId = ResolveTmdbId(gap);
         if (tmdbId is null)
         {
+            _logger.LogWarning("Jellyseerr request skipped: '{Name}' has no TMDB id", gap.Name);
             return AcquisitionResult.Fail("This title has no TMDB id to request.");
         }
 
@@ -220,16 +223,27 @@ public sealed class AcquisitionService
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
             using var request = new HttpRequestMessage(HttpMethod.Post, uri);
             request.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
-            request.Content = new StringContent(JsonSerializer.Serialize(payload, _jsonOptions), Encoding.UTF8, "application/json");
+            var json = JsonSerializer.Serialize(payload, _jsonOptions);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            if (Plugin.DetailedApiLogging)
+            {
+                _logger.LogInformation("{Service}: POST {Url} body {Body}", service, uri, json);
+            }
 
             using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
+                if (Plugin.DetailedApiLogging)
+                {
+                    _logger.LogInformation("{Service}: {Status} accepted POST {Url}", service, (int)response.StatusCode, uri);
+                }
+
                 return AcquisitionResult.Ok(successMessage);
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogWarning("{Service} returned {Status} for {Path}", service, (int)response.StatusCode, path);
+            _logger.LogWarning("{Service}: {Status} from POST {Url} body {Body}", service, (int)response.StatusCode, uri, body);
 
             // A 4xx is common and expected (already requested, already owned, no matching item); report the
             // service's own message so the user sees why.
@@ -244,7 +258,7 @@ public sealed class AcquisitionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Service} send failed", service);
+            _logger.LogWarning(ex, "{Service} send failed for POST {Url}", service, url);
             return AcquisitionResult.Fail(string.Create(CultureInfo.InvariantCulture, $"Could not reach {service}. Check the URL and that it is running."));
         }
     }

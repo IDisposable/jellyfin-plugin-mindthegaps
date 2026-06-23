@@ -2616,6 +2616,7 @@
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
                     page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
+                    page.querySelector('#DetailedApiLogging').checked = config.DetailedApiLogging;
                     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
                     page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
                     page.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
@@ -2709,6 +2710,7 @@
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
                         config.WebhookUrl = form.querySelector('#WebhookUrl').value;
+                        config.DetailedApiLogging = form.querySelector('#DetailedApiLogging').checked;
                         config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
                         config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();
                         config.RadarrUrl = form.querySelector('#RadarrUrl').value.trim();

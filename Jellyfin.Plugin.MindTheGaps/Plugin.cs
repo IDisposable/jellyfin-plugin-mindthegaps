@@ -31,6 +31,12 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// </summary>
     public static Plugin? Instance { get; private set; }
 
+    /// <summary>
+    /// Gets a value indicating whether detailed external-API logging is enabled, so the verbose request and
+    /// response logging is gated on it. Off when no plugin instance or configuration is available.
+    /// </summary>
+    public static bool DetailedApiLogging => Instance?.Configuration?.DetailedApiLogging == true;
+
     /// <inheritdoc />
     public override string Name => "Mind the Gaps";
 
