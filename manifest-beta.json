@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.4",
+                "changelog": "10.11.3.4 - Explore a source ad-hoc: a Run now beside each studio, keyword, Discogs label, TMDB list, and MDBList list picker finds its unowned titles and adds them straight to the report without a full scan, so you can try a source before committing to it; Clear explorations removes them again, and a later full scan drops any you did not save. Also fixes a provider link on a group header that also collapsed the group, and stops the browser from offering to save the API key fields as a login password.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.4/mind-the-gaps_10.11.3.4.zip",
+                "checksum": "4575495e786de4f92256929cf1d3676d",
+                "timestamp": "2026-06-23T07:35:55Z"
+            },
+            {
                 "version": "10.11.3.3",
                 "changelog": "10.11.3.3 - Fixes the Markdown export filename, which saved as mind-the-gaps-parts.md instead of being named for the domain and tab in view. Under the hood the report rendering was rebuilt onto a small set of shared element builders with consistent HTML escaping, and repeated inline styles moved into CSS classes so a custom theme has cleaner hooks; the report itself looks and behaves the same.\n",
                 "targetAbi": "10.11.0.0",
