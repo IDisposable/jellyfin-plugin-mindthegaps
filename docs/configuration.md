@@ -2,40 +2,55 @@
 
 Every setting on the **Dashboard > Plugins > Mind the Gaps** page, what it does, and what happens when
 you set or clear it. The page is grouped into the sections below in the same order. Nothing here is
-required to get a useful report: the defaults scan collections, series, and filmographies against the
-built-in TMDB key. Each setting is saved when you press **Save**; most take effect on the next scan
-(press **Rescan now** on the report, or wait for the scheduled task).
+required to get a useful report: the defaults scan collections, series, filmographies, music, and books
+against the built-in TMDB key. Each setting is saved when you press **Save**; most take effect on the
+next scan (press **Rescan now** on the report, or wait for the scheduled task).
 
 For how to read the results, see the [report guide](report-guide.md).
 
-## What to scan
+The source toggles are split into two sections by what they do. **Complete what you own** fills in or
+extends something already in your library; **Discover new titles** surfaces titles not tied to a
+specific owned set. Turning one off removes its gaps from the next report; it does not delete anything
+from your library. Leaving everything off produces an empty report.
+
+## Complete what you own
 
 ![What to scan settings](screenshots/config-what-to-scan.png)
-
-These toggles decide which gap sources run. Turning one off removes its gaps from the next report; it
-does not delete anything from your library. Leaving everything off produces an empty report.
 
 | Setting | Default | When set | When cleared |
 |---|---|---|---|
 | **Collections / franchises** (`ScanCollections`) | On | For each owned movie that belongs to a TMDB collection (box set), lists the other films in that collection you do not own. Your BoxSets need a TMDB id for this to fire. | No collection-completion gaps. |
 | **Series (missing seasons / episodes)** (`ScanSeries`) | On | Lists seasons and episodes a series should have but the library is missing, from the series' own metadata. Capped per show by **Max missing episodes per show**. | No missing-episode gaps from the library source (the TVmaze/TheTVDB cross-checks below are separate). |
-| **People (filmographies)** (`ScanPeople`) | On | For each owned actor/director/writer, lists films from their TMDB filmography you do not own. People are scanned stalest-first in batches capped by **Max creators scanned per run**, so coverage accumulates over repeated runs. | No filmography gaps. |
-| **Recommendations (similar titles)** (`ScanRecommendations`) | Off | For each owned movie/series, surfaces TMDB "similar" titles you do not own. Can be noisy; this is discovery, not completion. Owned titles are used as seeds stalest-first, capped per run. | No recommendation gaps. |
-| **Curated studio / keyword sets** (`ScanCuratedSets`) | Off | Treats the studios and keywords below as sets to complete: lists films from those TMDB companies/keywords you do not own. | The curated lists and auto-seed below are ignored. |
-| **Music (artist discographies)** (`ScanMusic`) | Off | For each owned music artist, lists missing studio-album release-groups from the MusicBrainz discography. An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works" (discover their wider catalogue). | No music gaps. |
-| **Books (author bibliographies)** (`ScanBooks`) | Off | For each owned book, lists other entries in the author's bibliography (OpenLibrary). Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). | No book gaps. |
+| **People (filmographies)** (`ScanPeople`) | On | For each owned actor/director/writer, lists films and series from their TMDB filmography you do not own. Films land on Creator works in the Movies domain; series land on Creator works in the Shows domain. People are scanned stalest-first in batches capped by **Max creators scanned per run**, so coverage accumulates over repeated runs. | No filmography gaps. |
+| **Track curated sets** (`ScanCuratedSets`) | Off | Treats the studios and keywords below as sets to complete: lists films from those TMDB companies/keywords you do not own. Gates only the studio and keyword inputs (the TMDB lists in the next section have their own toggle). | The curated studios, keywords, and auto-seed below are ignored. |
+| **Auto-seed studios from your library** (`AutoSeedStudios`) | Off | Tracks the studios most common across your owned movies and series without you picking anything. Combine with the chips or use alone. Only matters when **Track curated sets** is on. | Only the studios/keywords you picked are tracked. |
+| **Music (artist discographies)** (`ScanMusic`) | On | For each owned music artist, lists missing studio-album release-groups from the MusicBrainz discography. An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works" (discover their wider catalogue). | No music gaps. |
+| **Books (author bibliographies)** (`ScanBooks`) | On | For each owned book, lists other entries in the author's bibliography (OpenLibrary). Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). | No book gaps. |
 
 ### Curated set inputs
 
-These only matter when **Curated studio / keyword sets** is on.
+The **Studios** and **Keywords** chip pickers only matter when **Track curated sets** is on; the
+**Discogs labels** picker needs the Discogs token (under [Data sources](#data-sources)).
 
 | Setting | When set | When cleared |
 |---|---|---|
 | **Studios** (`CuratedCompanyIds`) | Search TheMovieDb for a studio in the chip box and pick a match (for example A24 or Studio Ghibli); each becomes a removable chip. Only the matched TMDB company id is stored, so there is no resolution guesswork at scan time. | No studio sets. |
 | **Keywords** (`CuratedKeywordIds`) | Search TheMovieDb for a keyword (a theme or motif) and pick a match; each becomes a chip. Only the keyword id is stored. | No keyword sets. |
-| **Auto-seed studios from your library** (`AutoSeedStudios`) | Tracks the studios most common across your owned movies and series without you picking anything. Combine with the chips or use alone. | Only the studios/keywords you picked are tracked. |
+| **Discogs labels** (`DiscogsLabelIds`) | Search Discogs for a record label and pick a match; each becomes a chip. The releases on that label you do not own become Set-completion gaps. Needs the **Discogs token** under Data sources. | No label sets. |
 
-> **Breaking change (10.11.2.0):** studios and keywords are now chosen with a type-ahead chip picker instead of free-text fields. The old free-text **studio names** input (`CuratedCompanyNames`) was removed; any studios you had configured **by name** are dropped and must be re-picked. Studio and keyword **ids** you had set are unaffected.
+## Discover new titles
+
+These sources surface titles not tied to a specific owned set. They land on the report's **Discover**
+(Recommendations) tab. A title that is both on a curated list and recommended groups under the list,
+with the recommendation kept as a secondary source, so each list reads as its own group.
+
+| Setting | Default | When set | When cleared |
+|---|---|---|---|
+| **Recommendations (similar titles)** (`ScanRecommendations`) | Off | For each owned movie/series, surfaces TMDB "similar" titles you do not own. Can be noisy; this is discovery, not completion. Owned titles are used as seeds stalest-first, capped per run. | No recommendation gaps. |
+| **Scan TMDB lists** (`ScanTmdbLists`) | Off | Surfaces the unowned movies from the TMDB lists named below. Separate from **Track curated sets**, so a discovery list can run without the studio and keyword sources. | The TMDB list ids are ignored. |
+| **TMDB list ids** (`CuratedTmdbListIds`) | Empty | Comma-separated TMDB list ids; a list id is the number in its `themoviedb.org/list/<id>` URL. TMDB has no list search, so paste the id. Only matters when **Scan TMDB lists** is on. | No TMDB-list gaps. |
+| **Scan MDBList community lists** (`ScanMdbList`) | Off | Surfaces the unowned titles (movies and shows) from the MDBList lists chosen below. Needs the **MDBList API key** under Data sources. | The MDBList lists are ignored. |
+| **MDBList lists** (`MdbListListIds`) | Empty | Search MDBList for a public list and pick a match in the chip box; each becomes a removable chip. Only the chosen list id is stored. Only matters when **Scan MDBList community lists** is on. | No MDBList gaps. |
 
 ## Where to watch
 
@@ -60,9 +75,32 @@ opt-in cross-checks that need your own credentials.
 | **Trakt cross-check** (`TraktEnabled` + `TraktClientId`) | Off | Adds a Trakt filmography cross-check alongside TMDB, catching credits TMDB misses. Requires a free Trakt app **Client ID** from [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications); opt-in per Trakt's terms. | No Trakt cross-check. |
 | **TVmaze cross-check** (`TvMazeEnabled`) | Off | Keyless. Catches episodes a series' configured metadata provider does not list. Shares episode ids with the library and TheTVDB sources, so duplicates are de-duped. Series are cross-checked stalest-first in capped batches (rate-limited API), so coverage accumulates over runs. | No TVmaze cross-check. |
 | **TheTVDB cross-check** (`TvdbEnabled` + `TvdbApiKey`) | Off | Adds a TheTVDB series-content cross-check. Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). Also rotated stalest-first over runs. | No TheTVDB cross-check. |
+| **Discogs source** (`ScanDiscogs` + `DiscogsToken`) | Off | Enables the Discogs label and artist source (the **Discogs labels** picker under Complete what you own, plus Discogs cover for artists MusicBrainz cannot resolve). Needs a Discogs personal access token (Discogs requires authentication to browse the catalogue); create one on discogs.com under Settings, Developers. | No Discogs gaps. |
+| **MDBList API key** (`MdbListApiKey`) | Empty | A free key from [mdblist.com](https://mdblist.com) (under Preferences); enables searching and reading MDBList community lists (the discovery source above). | The MDBList list search and source stay off. |
 
 > Note: API keys are sensitive. The key fields are masked (password inputs) with a **Show** toggle to
 > reveal one when you need to check it. If a key ever ends up in a URL or browser history, rotate it.
+
+## Acquisition stack (optional)
+
+![Acquisition stack settings](screenshots/config-data-sources.png)
+
+Hand a gap off to your downloaders. Each report row gets a **Send** action, but a button appears only for
+a target you have filled in here. Radarr takes a movie, Sonarr takes the owning series (it grabs that
+series' missing episodes), and Jellyseerr/Overseerr requests either. Keys stay on the server, so the
+report's **Send** action posts to the plugin and the plugin calls your downloader. All fields are empty
+by default, which leaves the matching Send button off.
+
+| Setting | When set |
+|---|---|
+| **Jellyseerr/Overseerr URL** (`SeerrUrl`) + **API key** (`SeerrApiKey`) | Enables the per-row **Request** action; the title is requested in Jellyseerr/Overseerr (for example `http://localhost:5055`). |
+| **Radarr URL** (`RadarrUrl`) + **API key** (`RadarrApiKey`) | Enables the per-row **Radarr** action on a missing movie (for example `http://localhost:7878`). |
+| **Radarr quality profile id** (`RadarrQualityProfileId`) | The numeric quality profile a sent movie is added with (Settings, Profiles in Radarr). Must be greater than zero for the Radarr handoff. |
+| **Radarr root folder** (`RadarrRootFolderPath`) | The root folder a sent movie is added under (for example `/movies`). Required for the Radarr handoff. |
+| **Sonarr URL** (`SonarrUrl`) + **API key** (`SonarrApiKey`) | Enables the per-row **Sonarr** action on a missing series or episode; the owning series is sent (for example `http://localhost:8989`). |
+| **Sonarr quality profile id** (`SonarrQualityProfileId`) | The numeric quality profile a sent series is added with. Must be greater than zero for the Sonarr handoff. |
+| **Sonarr root folder** (`SonarrRootFolderPath`) | The root folder a sent series is added under (for example `/tv`). Required for the Sonarr handoff. |
+| **Sonarr monitor** (`SonarrMonitor`) | Which episodes Sonarr monitors on add: `all`, `future`, `missing`, `existing`, `firstSeason`, `latestSeason`, `pilot`, or `none`. Defaults to `all`. |
 
 ## Region
 

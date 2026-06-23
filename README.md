@@ -34,10 +34,11 @@ Every gap is one of three kinds, surfaced as the report's three tabs:
 | Tab | What it finds | Examples |
 |---|---|---|
 | **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
-| **Creator works** | other work by a person or artist you own | a film an owned actor or director made; a music artist's wider catalogue; an author's other books |
-| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB or MDBList list |
+| **Creator works** | other work by a person or artist you own | a film or series an owned actor or director made; a music artist's wider catalogue; an author's other books |
+| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB or MDBList list, each list shown as its own group |
 
-Movies and shows work out of the box; music and books are opt-in sources.
+Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
+and MDBList are opt-in cross-checks and sources that need their own credentials.
 
 How the pieces connect: the providers and lists you enable feed three gap patterns, and each pattern
 surfaces as one report tab, labelled for the media type you are viewing.
@@ -72,7 +73,8 @@ flowchart LR
 
 - **Collection gaps**: missing movies in a partially-owned TMDB collection or BoxSet. Movie-franchise
   only by design (TMDB collections don't model shows).
-- **Filmography gaps (TMDB)**: an owned actor or director's films that aren't in your library. A big cast
+- **Filmography gaps (TMDB)**: an owned actor or director's films and series that aren't in your library;
+  films land in the Movies domain and series in the Shows domain, both on the Creator works tab. A big cast
   and crew is covered a bit at a time across repeated scans, so the list builds up rather than arriving all
   at once. A relevance filter (a minimum-votes threshold, plus an optional cast-billing limit) drops obscure
   and bit-part credits so the list stays useful on a large library.
@@ -84,17 +86,20 @@ flowchart LR
   Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, plus a record label's releases
   via Discogs. Opt-in: pick studios, keywords, and labels with a type-ahead chip picker
   (search, pick a match, it becomes a removable chip), no id-hunting required.
-- **Music and books (off by default)**: complete an album artist's discography and discover a
-  track-only artist's wider catalogue (MusicBrainz, with Discogs covering artists MusicBrainz cannot resolve),
-  and surface other books in an owned author's bibliography (OpenLibrary). Some need a key or token.
+- **Music and books (on by default)**: complete an album artist's discography and discover a
+  track-only artist's wider catalogue (MusicBrainz, with the opt-in Discogs source covering artists
+  MusicBrainz cannot resolve), and surface other books in an owned author's bibliography (OpenLibrary).
+  Discogs needs a personal access token.
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
   that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
   groups each suggestion under the owned title that surfaced it.
 - **Discovery lists (TMDB and MDBList)**: point the report at a curated list and complete it the way you
-  complete a collection. Add a **TMDB list** or an **MDBList community list** with the same type-ahead chip
-  picker (search, pick a match, it becomes a removable chip); the titles on it you do not own surface in the
-  Discover tab, grouped under the list's name (MDBList lists can include shows as well as movies). Opt-in,
-  and MDBList needs a free API key.
+  complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list ids pasted
+  in) or an **MDBList community list** (a type-ahead chip picker: search, pick a match, it becomes a
+  removable chip); the titles on it you do not own surface in the Discover tab, grouped under the list's
+  name (MDBList lists can include shows as well as movies). A title that is both on a curated list and
+  recommended groups under the list, with the recommendation kept as a secondary source, so the list stays
+  its own group. Opt-in, and MDBList needs a free API key.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
@@ -109,7 +114,9 @@ flowchart LR
 - **Diagnose why something is "missing"**: a per-gap popup explains the verdict, laying the gap beside the
   owned items that look like it (owned under the wrong id, an owned item already holds this id, a same-named
   reboot like V 1984 versus V 2009, or genuinely missing). A "Deeper analysis" confirms against the source
-  provider, and a library-wide identification audit runs the same check across everything and downloads as
+  provider, an "Export for AI analysis" button downloads the diagnosis as a Markdown dossier (the missing
+  item, the matching rules, the plugin verdict, the owned candidates, and an analysis prompt) to hand to any
+  AI, and a library-wide identification audit runs the same check across everything and downloads as
   Markdown.
 - **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
   season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
@@ -117,6 +124,15 @@ flowchart LR
   single combined file), **not interested** (a real gap you do not want), or **snooze until release** (an
   upcoming title, which resurfaces on its own once released). Dismissed gaps drop off the list, recoverable
   via a "Show dismissed" filter.
+- **Send to your acquisition stack** (opt-in): hand a missing movie or series off to **Radarr**,
+  **Sonarr**, or **Jellyseerr/Overseerr** with a per-row **Send** action. Radarr takes a movie, Sonarr
+  takes the owning series (it grabs that series' missing episodes), and Jellyseerr/Overseerr requests
+  either. Configured under an "Acquisition stack" settings section (base URLs, API keys, quality profile,
+  root folder, monitor); a Send button appears only for a target you have filled in.
+- **Explore a source on demand**: an **Explore a source** button on the report toolbar opens a modal where
+  you pick a kind (studio, keyword, Discogs label, TMDB list, MDBList list) and a source, run it, and its
+  unowned titles merge into the report without a full rescan and without changing your saved settings.
+  **Clear explorations** removes them again.
 - **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
   when a scan or the "where to watch" pass finishes.
 - **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place,
@@ -166,13 +182,15 @@ TMDB id (from the TMDB box-set provider). The scan also runs on a schedule (edit
 **Dashboard > Scheduled Tasks**).
 
 See the [report guide](docs/report-guide.md) for the three pattern tabs (Set completion, Creator works,
-Recommendations), the filters and saved views, and the per-row actions (where to watch, mint, dismiss).
+Recommendations), the filters and saved views, and the per-row actions (where to watch, send, mint, dismiss).
 
 ## Configuration
 
-In the dashboard, go to **Plugins > Mind the Gaps**. For every setting, what it does, and what changes
-when you set or clear it, see the [configuration reference](docs/configuration.md). In brief, the
-settings page has per-source toggles plus:
+In the dashboard, go to **Plugins > Mind the Gaps**. The source toggles are grouped into **Complete what
+you own** (collections, studios, keywords, Discogs labels, series, music discography, books, and an owned
+actor or director's filmography) and **Discover new titles** (recommendations, TMDB lists, MDBList lists).
+For every setting, what it does, and what changes when you set or clear it, see the
+[configuration reference](docs/configuration.md). In brief, alongside those toggles:
 
 | Setting | Description |
 |---|---|
@@ -180,11 +198,15 @@ settings page has per-source toggles plus:
 | Max related per item | Caps how many "similar" titles each owned item contributes. |
 | Max creators scanned per run | Caps the filmography scan; people are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster. |
 | Relevance floors | Minimum TMDB votes for filmography and recommendation gaps (plus an optional cast-billing limit), so Creator works and Recommendations stay actionable on a large library. |
-| Curated studio / keyword ids | Comma-separated TMDB company and keyword ids to complete (for example 41077 for A24). |
+| Track curated sets | Gates the studio and keyword sets (the ids below feed it). |
+| Curated studio / keyword ids | TMDB company and keyword ids to complete, picked with a type-ahead chip picker. |
+| Scan TMDB lists | Gates the TMDB discovery lists (the list ids beside it feed it). |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
+| Acquisition stack | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action. |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |
 | TheTVDB API key | Your own v4 key; enables the TheTVDB series-content cross-check. |
+| Discogs token | Enables the opt-in Discogs label and artist source. |
 | TMDB API key | Optional; falls back to the built-in public key. |
 | MDBList API key | Optional (free); enables MDBList community lists as a discovery source. |
 

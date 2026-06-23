@@ -17,7 +17,7 @@ it, see the [configuration reference](configuration.md).
 - **Rescan now**: runs a full scan in the background and shows progress. A scan can take a while; the
   page polls and reloads when it finishes. Scans also run on a schedule (**Dashboard > Scheduled
   Tasks**).
-- **Toolbar**: filters, search, saved views, export (below).
+- **Toolbar**: filters, search, saved views, export, **Explore a source** (below).
 - **Pattern tabs**: Set completion, Creator works, Recommendations (below). Only tabs with gaps show.
 - **A-Z jump bar** and **rollup**: on the letter-grouped tabs, for quick navigation.
 - **Back to top** button, bottom-right.
@@ -61,8 +61,9 @@ missing studio albums (a "discography").
 
 ### Creator works
 
-Films from an owned person's **filmography** (actor/director/writer) that you do not own. Grouped by
-domain, then alphabetically by the creator's initials, then by creator, then the missing titles.
+Films and series from an owned person's **filmography** (actor/director/writer) that you do not own.
+Films land in the Movies domain and series in the Shows domain, both on this tab. Grouped by domain, then
+alphabetically by the creator's initials, then by creator, then the missing titles.
 
 Because filmographies are scanned stalest-first in capped batches, this list **accumulates** over
 several scans rather than appearing all at once. A creator you are not collecting can be muted wholesale
@@ -80,10 +81,12 @@ With the **music** source on, a track-only artist's wider catalogue ("artist wor
 
 ### Recommendations
 
-TMDB "similar" titles for things you own, that you do not own. This is **discovery**, not completion,
-so it is off by default and can be noisy. Grouped by domain, then alphabetically by the title, with the
-seed title shown so you know why something was suggested. A seed you do not want suggestions from can be
-muted (the small x on a recommendation, or the picker described below).
+TMDB "similar" titles for things you own, that you do not own, plus the unowned titles from any curated
+TMDB or MDBList list you have added. This is **discovery**, not completion, so it is off by default and
+can be noisy. Grouped by domain, then alphabetically by the title, with the seed title shown so you know
+why something was suggested. A curated list shows as its own group; a title that is both on a list and
+recommended groups under the list, with the recommendation kept as a secondary source. A seed you do not
+want suggestions from can be muted (the small x on a recommendation, or the picker described below).
 
 ![Recommendations tab](screenshots/report-movie-recommendations.png)
 
@@ -111,6 +114,7 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 | **Search** | Free-text filter on the title. |
 | **Saved views** | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser. |
 | **Copy link** | Copy a URL that re-opens this exact view (active tab plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser. |
+| **Explore a source** | Open a modal that pulls the unowned titles from one source right now and merges them into the report, without a full rescan and without changing your saved settings. See [Explore a source on demand](#explore-a-source-on-demand). |
 
 ![Where to watch](screenshots/report-streaming-providers.png)
 
@@ -130,6 +134,12 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
   under the wrong id. See [Diagnose](#diagnose-is-it-really-missing) below.
 - **Where to watch / Watch**: streaming-availability links. If a row has not been looked up yet, the
   button fetches it on demand; the background **Look up where to watch** pass does many at once.
+- **Send** (when an acquisition target is configured): hands the gap off to your downloaders. A
+  **Radarr** button sends a missing movie, a **Sonarr** button sends the owning series of a missing
+  series or episode (Sonarr grabs that series' missing episodes), and a **Request** button hands either
+  off to Jellyseerr/Overseerr. A button appears only for a target you filled in under the
+  [Acquisition stack settings](configuration.md#acquisition-stack-optional); the plugin holds the keys
+  and makes the call, so they never reach the browser.
 - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
   the gap shows greyed in place. Fully reversible; a later scan drops it once you own the real file. See
   the [README's virtual-placeholders section](../README.md#virtual-placeholders-opt-in).
@@ -158,9 +168,22 @@ you own under a localized name, and it weighs both title and year, so a remake t
 something you own is not mistaken for it. A **Deeper analysis** button confirms against the source provider
 and fills in any missing ids.
 
+An **Export for AI analysis** button downloads the diagnosis as a Markdown dossier: the missing item, the
+matching rules, the plugin's verdict, the owned candidates it weighed, and an analysis prompt. Hand the
+file to any AI to work out why the title was not matched.
+
 The report also runs a library-wide **identification audit**: the same check across your whole library,
 downloaded as Markdown grouped by reason, with a link on each finding back into Jellyfin so you can fix the
 metadata and rescan.
+
+## Explore a source on demand
+
+The toolbar's **Explore a source** button opens a modal that pulls one source's unowned titles into the
+report right now, without a full rescan and without changing your saved settings. Pick a **kind** (studio,
+keyword, Discogs label, TMDB list, or MDBList list), choose the source (search and pick a match, or for a
+TMDB list paste its ids), then **Run**. The unowned titles merge into the report alongside the scanned
+gaps. **Clear explorations** removes everything you added this way; a full rescan also drops any
+exploration that is not also saved in your settings.
 
 ## Minting several at once
 
