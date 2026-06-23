@@ -26,6 +26,7 @@ public sealed class GapEngine
 {
     private readonly ILibraryManager _libraryManager;
     private readonly IEnumerable<IGapSource> _sources;
+    private readonly ExploreRegistry _explore;
     private readonly GapStore _store;
     private readonly ExternalLinkEnricher _externalLinks;
     private readonly Services.Webhook.WebhookNotifier _webhook;
@@ -37,6 +38,7 @@ public sealed class GapEngine
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="sources">The registered gap sources.</param>
+    /// <param name="explore">The explore-kind registry, for ad-hoc explore runs.</param>
     /// <param name="store">The gap store.</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
@@ -45,6 +47,7 @@ public sealed class GapEngine
     public GapEngine(
         ILibraryManager libraryManager,
         IEnumerable<IGapSource> sources,
+        ExploreRegistry explore,
         GapStore store,
         ExternalLinkEnricher externalLinks,
         Services.Webhook.WebhookNotifier webhook,
@@ -53,27 +56,13 @@ public sealed class GapEngine
     {
         _libraryManager = libraryManager;
         _sources = sources;
+        _explore = explore;
         _store = store;
         _externalLinks = externalLinks;
         _webhook = webhook;
         _resolutions = resolutions;
         _logger = logger;
     }
-
-    /// <summary>
-    /// Gets the explore kinds this engine can run ad-hoc by id, each mapping to the source and seam that
-    /// surface its picked ids. These are the by-id, chip-pickable curated and discovery sources; owned-derived
-    /// sources (collections, people/Trakt filmographies, series content) are not added by id and are absent.
-    /// </summary>
-    public static IReadOnlyCollection<string> ExploreKinds { get; } = new[] { "studio", "keyword", "tmdblist", "label", "mdblist" };
-
-    /// <summary>
-    /// Whether the given kind is a supported ad-hoc explore kind.
-    /// </summary>
-    /// <param name="kind">The kind string (case-insensitive), for example "studio" or "mdblist".</param>
-    /// <returns><see langword="true"/> if the kind can be explored ad-hoc.</returns>
-    public static bool IsExploreKind(string? kind)
-        => kind is not null && ExploreKinds.Any(k => string.Equals(k, kind, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Runs all enabled sources and saves the resulting report.
@@ -324,7 +313,7 @@ public sealed class GapEngine
     /// a source" path: it does not accumulate un-scanned prior gaps, reconcile minted placeholders, or save
     /// (the caller merges the result additively), so it only ever surfaces this source's gaps for these ids.
     /// The ownership index is scoped to just that source's <see cref="IGapSource.OwnedKinds"/>. Supported
-    /// kinds are <see cref="ExploreKinds"/>.
+    /// kinds are those the registered sources declare (see <see cref="ExploreRegistry"/>).
     /// </summary>
     /// <param name="kind">The explore kind: "studio", "keyword", "tmdblist", "label", or "mdblist".</param>
     /// <param name="ids">The explicit descriptor ids to run the source for (for example MDBList list ids).</param>
@@ -337,14 +326,17 @@ public sealed class GapEngine
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(ids);
 
-        var (source, makeStream) = ResolveExplore(kind, ids);
+        var descriptor = _explore.Find(kind)
+            ?? throw new ArgumentException(
+                string.Create(CultureInfo.InvariantCulture, $"'{kind}' is not a supported explore kind."),
+                nameof(kind));
 
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
-        var ownership = BuildOwnershipIndex(source.OwnedKinds.Distinct().ToArray());
+        var ownership = BuildOwnershipIndex(descriptor.Source.OwnedKinds.Distinct().ToArray());
         var context = new GapScanContext(config, ownership);
         context.SetProgressSink(f => progress?.Report(Math.Clamp(f, 0.0, 1.0) * 100.0));
 
-        _logger.LogInformation("Ad-hoc explore: running {Kind} source {Source} for {Count} id(s)", kind, source.Name, ids.Count);
+        _logger.LogInformation("Ad-hoc explore: running {Kind} source {Source} for {Count} id(s)", kind, descriptor.Source.Name, ids.Count);
 
         // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
         ServiceCircuit.ResetAll();
@@ -352,7 +344,7 @@ public sealed class GapEngine
         var gaps = new List<GapItem>();
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
 
-        await foreach (var gap in makeStream(context, ct).ConfigureAwait(false))
+        await foreach (var gap in descriptor.Run(context, ids, ct).ConfigureAwait(false))
         {
             gap.Adhoc = true;
             if (byId.TryGetValue(gap.Id, out var existing))
@@ -373,7 +365,7 @@ public sealed class GapEngine
         // Let the host's external-url providers contribute links, as a full scan does.
         _externalLinks.Enrich(gaps);
 
-        _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", source.Name, gaps.Count);
+        _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", descriptor.Source.Name, gaps.Count);
 
         return new GapReport
         {
@@ -382,51 +374,6 @@ public sealed class GapEngine
             TotalGaps = gaps.Count,
             Items = gaps
         };
-    }
-
-    // Route an explore kind to its source and the seam that streams the picked ids through it. The TMDB
-    // curated sets (studio/keyword/tmdblist) share one source and one seam, differing only by the kind it is
-    // handed; the Discogs labels and MDBList lists each have their own. The picked ids arrive as ints (the
-    // chip picker's vocabulary); Discogs label ids widen to long for that source's seam.
-    private (IGapSource Source, Func<GapScanContext, CancellationToken, IAsyncEnumerable<GapItem>> MakeStream) ResolveExplore(string kind, IReadOnlyList<int> ids)
-    {
-        if (string.Equals(kind, "studio", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kind, "tmdblist", StringComparison.OrdinalIgnoreCase))
-        {
-            var curated = RequireSource<Sources.Tmdb.CuratedSetGapSource>(kind);
-            return (curated, (context, ct) => curated.FindGapsForSetsAsync(context, kind, ids, ct));
-        }
-
-        if (string.Equals(kind, "label", StringComparison.OrdinalIgnoreCase))
-        {
-            var discogs = RequireSource<Sources.Discogs.DiscogsLabelGapSource>(kind);
-            var labelIds = ids.Select(id => (long)id).ToList();
-            return (discogs, (context, ct) => discogs.FindGapsForLabelsAsync(context, labelIds, ct));
-        }
-
-        if (string.Equals(kind, "mdblist", StringComparison.OrdinalIgnoreCase))
-        {
-            var mdblist = RequireSource<Sources.MdbList.MdbListGapSource>(kind);
-            return (mdblist, (context, ct) => mdblist.FindGapsForListsAsync(context, ids, ct));
-        }
-
-        throw new ArgumentException(
-            string.Create(CultureInfo.InvariantCulture, $"'{kind}' is not a supported explore kind."),
-            nameof(kind));
-    }
-
-    private TSource RequireSource<TSource>(string kind)
-        where TSource : class, IGapSource
-    {
-        var source = _sources.OfType<TSource>().FirstOrDefault();
-        if (source is null)
-        {
-            throw new InvalidOperationException(
-                string.Create(CultureInfo.InvariantCulture, $"The source for explore kind '{kind}' is not registered."));
-        }
-
-        return source;
     }
 
     // Carry prior gaps of one capped pattern forward across scans so its coverage accumulates: a gap that

@@ -21,13 +21,14 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// by the TMDB/IMDb ids the list already carries. Opt-in: needs a Discover toggle, an MDBList API key, and
 /// at least one chosen list.
 /// </summary>
-public sealed class MdbListGapSource : IGapSource
+public sealed class MdbListGapSource : IGapSource, IExploreSource
 {
     // Cap a single list so a huge community list does not flood the discovery feed.
     private const int MaxGapsPerList = 200;
 
     private readonly MdbListClient _mdblist;
     private readonly ILogger<MdbListGapSource> _logger;
+    private readonly IReadOnlyCollection<ExploreDescriptor> _exploreDescriptors;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MdbListGapSource"/> class.
@@ -38,6 +39,18 @@ public sealed class MdbListGapSource : IGapSource
     {
         _mdblist = mdblist;
         _logger = logger;
+        _exploreDescriptors = new[]
+        {
+            new ExploreDescriptor
+            {
+                Kind = "mdblist",
+                Label = "MDBList list",
+                Source = this,
+                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids, ct),
+                Search = (query, ct) => _mdblist.SearchListsAsync(query, ct),
+                Resolve = (id, ct) => _mdblist.GetListNameAsync(id, ct)
+            }
+        };
     }
 
     /// <inheritdoc />
@@ -45,6 +58,9 @@ public sealed class MdbListGapSource : IGapSource
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)

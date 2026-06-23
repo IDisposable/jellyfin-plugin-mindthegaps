@@ -19,6 +19,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 public sealed class ExploreRunner
 {
     private readonly GapEngine _engine;
+    private readonly ExploreRegistry _explore;
     private readonly PluginLifetime _lifetime;
     private readonly GapStore _store;
     private readonly ILogger<ExploreRunner> _logger;
@@ -32,13 +33,15 @@ public sealed class ExploreRunner
     /// <summary>
     /// Initializes a new instance of the <see cref="ExploreRunner"/> class.
     /// </summary>
-    /// <param name="engine">The gap engine, which routes the explore kind to its source.</param>
+    /// <param name="engine">The gap engine, which runs the explore for a kind.</param>
+    /// <param name="explore">The explore-kind registry, for validating a requested kind.</param>
     /// <param name="lifetime">The plugin-lifetime cancellation, so an explore stops on shutdown.</param>
     /// <param name="store">The gap store, into which the result is merged additively.</param>
     /// <param name="logger">The logger.</param>
-    public ExploreRunner(GapEngine engine, PluginLifetime lifetime, GapStore store, ILogger<ExploreRunner> logger)
+    public ExploreRunner(GapEngine engine, ExploreRegistry explore, PluginLifetime lifetime, GapStore store, ILogger<ExploreRunner> logger)
     {
         _engine = engine;
+        _explore = explore;
         _lifetime = lifetime;
         _store = store;
         _logger = logger;
@@ -67,12 +70,12 @@ public sealed class ExploreRunner
     /// Starts an ad-hoc explore of one by-id source kind for the given ids in the background if one is not
     /// already running and the kind is supported.
     /// </summary>
-    /// <param name="kind">The explore kind: one of <see cref="GapEngine.ExploreKinds"/>.</param>
+    /// <param name="kind">The explore kind, one the registered sources declare (see <see cref="ExploreRegistry"/>).</param>
     /// <param name="ids">The ids to explore (a studio/keyword/list/label/list id, depending on the kind).</param>
     /// <returns><see langword="true"/> if this call started an explore; <see langword="false"/> if one was already running, the kind is unsupported, or no ids were given.</returns>
     public bool TryStartExplore(string kind, IReadOnlyList<int> ids)
     {
-        if (!GapEngine.IsExploreKind(kind) || ids is null || ids.Count == 0)
+        if (!_explore.IsKnown(kind) || ids is null || ids.Count == 0)
         {
             return false;
         }

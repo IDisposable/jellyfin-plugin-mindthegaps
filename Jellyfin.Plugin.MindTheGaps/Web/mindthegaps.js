@@ -2222,11 +2222,21 @@
                 // Run posts to Explore and reuses startExplore's poll-and-reload flow; Clear reuses
                 // clearExplorations. State lives on the modal element so the picker survives reopening.
 
+                // Whether a kind is entered by raw id (no chip picker). Driven by the server's kinds list once
+                // loaded; falls back to the known raw kind (a TMDB list) until then.
+                function isRawKind(kind) {
+                    var modal = document.getElementById('cgExploreModal');
+                    if (modal && modal._kinds && Object.prototype.hasOwnProperty.call(modal._kinds, kind)) {
+                        return !modal._kinds[kind];
+                    }
+                    return kind === 'tmdblist';
+                }
+
                 // The picked numeric ids for the modal's current kind: the chip ids for a searchable kind, or
-                // the raw comma-separated input (trimmed) for tmdblist.
+                // the raw comma-separated input (trimmed) for a raw-id kind.
                 function exploreIds(page) {
                     var kind = page.querySelector('#cgExploreKind').value;
-                    if (kind === 'tmdblist') {
+                    if (isRawKind(kind)) {
                         var raw = page.querySelector('#cgExploreRaw');
                         return raw ? (raw.value || '').trim() : '';
                     }
@@ -2239,7 +2249,7 @@
                 // reset the picked chips, since ids do not carry across kinds.
                 function syncExploreKind(page) {
                     var kind = page.querySelector('#cgExploreKind').value;
-                    var raw = kind === 'tmdblist';
+                    var raw = isRawKind(kind);
                     page.querySelector('#cgExploreSearchWrap').style.display = raw ? 'none' : '';
                     page.querySelector('#cgExploreRawWrap').style.display = raw ? '' : 'none';
                     var modal = document.getElementById('cgExploreModal');
@@ -2281,6 +2291,25 @@
                     modal._sel = -1;
                     modal._seq = 0;
                     modal._timer = 0;
+                    modal._kinds = null;
+                    // Populate the kind dropdown from the server's registered explore kinds, so a new source's
+                    // kind appears without editing this page, and remember which kinds are searchable (a chip
+                    // picker) versus raw-id entry. The static options stay as a fallback if this does not load.
+                    var kindSelect = page.querySelector('#cgExploreKind');
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Explore/Kinds'), dataType: 'json' }).then(function (kinds) {
+                        if (!kinds || !kinds.length) { return; }
+                        var map = {};
+                        kindSelect.innerHTML = '';
+                        kinds.forEach(function (k) {
+                            map[k.Kind] = !!k.Searchable;
+                            var opt = document.createElement('option');
+                            opt.value = k.Kind;
+                            opt.textContent = k.Label;
+                            kindSelect.appendChild(opt);
+                        });
+                        modal._kinds = map;
+                        syncExploreKind(page);
+                    }, function () { /* keep the static options as a fallback */ });
                     var input = page.querySelector('#cgExploreSearch');
                     var suggest = page.querySelector('#cgExploreSuggest');
 
@@ -2350,7 +2379,7 @@
                         var kind = page.querySelector('#cgExploreKind').value;
                         var ids = exploreIds(page);
                         if (!ids) {
-                            Dashboard.alert(kind === 'tmdblist' ? 'Type at least one TMDB list id.' : 'Pick at least one source before running.');
+                            Dashboard.alert(isRawKind(kind) ? 'Type at least one id.' : 'Pick at least one source before running.');
                             return;
                         }
                         // startExplore reloads the report on completion; close the modal and confirm too.

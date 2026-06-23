@@ -20,13 +20,14 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// <see cref="GapPattern.SetCompletion"/> gap per unowned release. Opt-in; needs a Discogs token and at
 /// least one label id.
 /// </summary>
-public sealed class DiscogsLabelGapSource : IGapSource
+public sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
 {
     // Cap the gaps emitted for one label so a broad label does not flood the list.
     private const int MaxGapsPerLabel = 150;
 
     private readonly DiscogsClient _discogs;
     private readonly ILogger<DiscogsLabelGapSource> _logger;
+    private readonly IReadOnlyCollection<ExploreDescriptor> _exploreDescriptors;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscogsLabelGapSource"/> class.
@@ -37,6 +38,19 @@ public sealed class DiscogsLabelGapSource : IGapSource
     {
         _discogs = discogs;
         _logger = logger;
+        _exploreDescriptors = new[]
+        {
+            new ExploreDescriptor
+            {
+                Kind = "label",
+                Label = "Discogs label",
+                Source = this,
+                // Discogs label ids are long; the chip picker works in ints, so widen here.
+                Run = (context, ids, ct) => FindGapsForLabelsAsync(context, ids.Select(id => (long)id).ToList(), ct),
+                Search = (query, ct) => _discogs.SearchLabelsAsync(query, ct),
+                Resolve = (id, ct) => _discogs.GetLabelNameAsync(id, ct)
+            }
+        };
     }
 
     /// <inheritdoc />
@@ -44,6 +58,9 @@ public sealed class DiscogsLabelGapSource : IGapSource
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.MusicAlbum };
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)

@@ -11,9 +11,6 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
-using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
-using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
-using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -44,9 +41,7 @@ public class GapsController : ControllerBase
     private readonly ILibraryManager _libraryManager;
     private readonly ScanCursorStore _cursors;
     private readonly GapDiagnostics _diagnostics;
-    private readonly TmdbClient _tmdb;
-    private readonly DiscogsClient _discogs;
-    private readonly MdbListClient _mdblist;
+    private readonly ExploreRegistry _explore;
     private readonly AcquisitionService _acquisition;
 
     /// <summary>
@@ -64,11 +59,9 @@ public class GapsController : ControllerBase
     /// <param name="libraryManager">The library manager, used to verify a todo entry against the library.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="diagnostics">The gap identification diagnostics.</param>
-    /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
-    /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
-    /// <param name="mdblist">The MDBList client, for the MDBList list type-ahead and id resolution.</param>
+    /// <param name="explore">The explore-kind registry, backing the curated type-ahead, id resolution, and kinds list.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr/Jellyseerr).</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualItemMinter minter, MintRunner mintRunner, ResolutionStore resolutions, TodoStore todo, ILibraryManager libraryManager, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist, AcquisitionService acquisition)
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualItemMinter minter, MintRunner mintRunner, ResolutionStore resolutions, TodoStore todo, ILibraryManager libraryManager, ScanCursorStore cursors, GapDiagnostics diagnostics, ExploreRegistry explore, AcquisitionService acquisition)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -82,9 +75,7 @@ public class GapsController : ControllerBase
         _libraryManager = libraryManager;
         _cursors = cursors;
         _diagnostics = diagnostics;
-        _tmdb = tmdb;
-        _discogs = discogs;
-        _mdblist = mdblist;
+        _explore = explore;
         _acquisition = acquisition;
     }
 
@@ -207,11 +198,11 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public ActionResult<ScanStatus> Explore([FromQuery] string? kind, [FromQuery] string? ids)
     {
-        if (!GapEngine.IsExploreKind(kind))
+        if (!_explore.IsKnown(kind))
         {
             return BadRequest(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Unknown explore kind '{kind}'. Supported kinds: {string.Join(", ", GapEngine.ExploreKinds)}."));
+                $"Unknown explore kind '{kind}'. Supported kinds: {string.Join(", ", _explore.KindTokens)}."));
         }
 
         var picked = ParseIds(ids).Distinct().ToList();
@@ -481,10 +472,20 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
-    /// Type-ahead for the curated-set settings: searches TheMovieDb studios or keywords by name so the
-    /// settings page can offer matches to pick, never exposing the numeric id.
+    /// Lists the chip-pickable explore kinds (token, label, and whether searchable) the registered sources
+    /// declare, so the dashboard's "Explore a source" dropdown is derived rather than hard-coded.
     /// </summary>
-    /// <param name="kind">"studio" or "keyword".</param>
+    /// <returns>The explore kinds.</returns>
+    [HttpGet("Explore/Kinds")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<ExploreKindInfo>> ExploreKinds() => _explore.Kinds.ToList();
+
+    /// <summary>
+    /// Type-ahead for a chip-pickable explore kind: runs that kind's search so the settings page can offer
+    /// matches to pick by name, never exposing the numeric id. Empty for a kind with no search (a TMDB list,
+    /// entered by raw id) or an unknown kind.
+    /// </summary>
+    /// <param name="kind">The explore kind, for example "studio", "keyword", "label", or "mdblist".</param>
     /// <param name="query">The partial name typed.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The top matches as id and name pairs.</returns>
@@ -492,37 +493,21 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<CuratedSetRef>>> CuratedSearch([FromQuery] string? kind, [FromQuery] string? query, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(query))
+        var search = _explore.Find(kind)?.Search;
+        if (search is null || string.IsNullOrWhiteSpace(query))
         {
             return new List<CuratedSetRef>();
         }
 
-        IReadOnlyList<CuratedSetRef> results;
-        if (IsLabel(kind))
-        {
-            results = await _discogs.SearchLabelsAsync(query, cancellationToken).ConfigureAwait(false);
-        }
-        else if (IsMdbList(kind))
-        {
-            results = await _mdblist.SearchListsAsync(query, cancellationToken).ConfigureAwait(false);
-        }
-        else if (IsKeyword(kind))
-        {
-            results = await _tmdb.SearchKeywordsAsync(query, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            results = await _tmdb.SearchCompaniesAsync(query, cancellationToken).ConfigureAwait(false);
-        }
-
+        var results = await search(query, cancellationToken).ConfigureAwait(false);
         return results.ToList();
     }
 
     /// <summary>
-    /// Resolves stored curated-set ids to id and name pairs, so the settings page can render a chip per
-    /// saved set with its name rather than its id.
+    /// Resolves stored explore-kind ids to id and name pairs, so the settings page can render a chip per saved
+    /// set with its name rather than its id. A kind with no resolve (a raw-id kind) keeps the id as the name.
     /// </summary>
-    /// <param name="kind">"studio", "keyword", or "label".</param>
+    /// <param name="kind">The explore kind, for example "studio", "keyword", "label", or "mdblist".</param>
     /// <param name="ids">A comma-separated list of stored ids.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The resolved sets, de-duplicated by id in input order.</returns>
@@ -530,9 +515,7 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<CuratedSetRef>>> CuratedResolve([FromQuery] string? kind, [FromQuery] string? ids, CancellationToken cancellationToken)
     {
-        var keyword = IsKeyword(kind);
-        var label = IsLabel(kind);
-        var mdblist = IsMdbList(kind);
+        var resolve = _explore.Find(kind)?.Resolve;
         var resolved = new List<CuratedSetRef>();
         var seen = new HashSet<int>();
 
@@ -543,41 +526,12 @@ public class GapsController : ControllerBase
                 continue;
             }
 
-            string? name;
-            if (label)
-            {
-                name = await _discogs.GetLabelNameAsync(id, cancellationToken).ConfigureAwait(false);
-            }
-            else if (mdblist)
-            {
-                name = await _mdblist.GetListNameAsync(id, cancellationToken).ConfigureAwait(false);
-            }
-            else if (keyword)
-            {
-                name = await _tmdb.GetKeywordNameAsync(id, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                name = await _tmdb.GetCompanyNameAsync(id, cancellationToken).ConfigureAwait(false);
-            }
-
+            var name = resolve is null ? null : await resolve(id, cancellationToken).ConfigureAwait(false);
             resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id.ToString(CultureInfo.InvariantCulture) : name });
         }
 
         return resolved;
     }
-
-    // Whether a curated-set kind query value means keywords (otherwise studios, unless it is a label).
-    private static bool IsKeyword(string? kind)
-        => string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase);
-
-    // Whether a curated-set kind query value means a Discogs label.
-    private static bool IsLabel(string? kind)
-        => string.Equals(kind, "label", StringComparison.OrdinalIgnoreCase);
-
-    // Whether a curated-set kind query value means an MDBList list.
-    private static bool IsMdbList(string? kind)
-        => string.Equals(kind, "mdblist", StringComparison.OrdinalIgnoreCase);
 
     // Parse a comma-separated list of ids, ignoring blanks and non-numbers.
     private static IEnumerable<int> ParseIds(string? raw)

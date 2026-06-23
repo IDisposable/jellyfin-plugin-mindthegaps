@@ -41,6 +41,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TodoStore>();
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
+        serviceCollection.AddSingleton<ExploreRegistry>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<ExploreRunner>();
@@ -80,10 +81,10 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
 
-        // The by-id, chip-pickable sources (CuratedSetGapSource for studios/keywords/TMDB lists,
-        // DiscogsLabelGapSource, MdbListGapSource) are also driven ad-hoc by ExploreRunner, which routes a
-        // picked (kind, ids) through GapEngine. The engine finds each concrete source by type in the
-        // registered IGapSource set, so the scan and the explore share one instance (and its cache); no
-        // separate concrete registration is needed.
+        // The chip-pickable sources (CuratedSetGapSource for studios/keywords/TMDB lists, DiscogsLabelGapSource,
+        // MdbListGapSource) also implement IExploreSource, declaring their explore kinds. ExploreRegistry
+        // aggregates those descriptors so the engine (ad-hoc explore), the API (search/resolve and the kinds
+        // dropdown), and ExploreRunner share one derived list rather than each hard-coding the kinds. The scan
+        // and the explore share one source instance (and its cache); no separate concrete registration is needed.
     }
 }

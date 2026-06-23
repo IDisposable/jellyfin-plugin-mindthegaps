@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// company) or tagged with a keyword. Tracks the studios/keywords the user configures (by TMDB id) and
 /// surfaces the ones the library does not own, grouped by the set's name. Opt-in (off by default).
 /// </summary>
-public sealed class CuratedSetGapSource : IGapSource
+public sealed class CuratedSetGapSource : IGapSource, IExploreSource
 {
     // 20 results per discover page; cap pages and emitted gaps so a broad studio does not flood the list.
     private const int MaxPagesPerSet = 10;
@@ -35,6 +35,7 @@ public sealed class CuratedSetGapSource : IGapSource
     private readonly TmdbClient _tmdb;
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<CuratedSetGapSource> _logger;
+    private readonly IReadOnlyCollection<ExploreDescriptor> _exploreDescriptors;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CuratedSetGapSource"/> class.
@@ -47,6 +48,35 @@ public sealed class CuratedSetGapSource : IGapSource
         _tmdb = tmdb;
         _libraryManager = libraryManager;
         _logger = logger;
+        _exploreDescriptors = new[]
+        {
+            new ExploreDescriptor
+            {
+                Kind = "studio",
+                Label = "Studio",
+                Source = this,
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "studio", ids, ct),
+                Search = (query, ct) => _tmdb.SearchCompaniesAsync(query, ct),
+                Resolve = (id, ct) => _tmdb.GetCompanyNameAsync(id, ct)
+            },
+            new ExploreDescriptor
+            {
+                Kind = "keyword",
+                Label = "Keyword",
+                Source = this,
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "keyword", ids, ct),
+                Search = (query, ct) => _tmdb.SearchKeywordsAsync(query, ct),
+                Resolve = (id, ct) => _tmdb.GetKeywordNameAsync(id, ct)
+            },
+            new ExploreDescriptor
+            {
+                // TMDB has no list-name search, so a list is entered by raw id (no Search/Resolve).
+                Kind = "tmdblist",
+                Label = "TMDB list",
+                Source = this,
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "tmdblist", ids, ct)
+            }
+        };
     }
 
     /// <inheritdoc />
@@ -54,6 +84,9 @@ public sealed class CuratedSetGapSource : IGapSource
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie };
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
