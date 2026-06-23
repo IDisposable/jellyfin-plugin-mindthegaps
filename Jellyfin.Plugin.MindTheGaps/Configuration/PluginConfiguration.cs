@@ -336,7 +336,8 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets a value indicating whether the plugin logs every external API request and response, for
     /// debugging. Off by default to keep the log quiet; turn it on to follow an integration end to end in the
-    /// server log. Api keys, tokens, and bearers ride in headers and are never logged.
+    /// server log. Api keys, tokens, and bearers ride in request headers; the few carried in a query string are
+    /// redacted before logging, so no secret reaches the log.
     /// </summary>
     public bool DetailedApiLogging { get; set; }
 }

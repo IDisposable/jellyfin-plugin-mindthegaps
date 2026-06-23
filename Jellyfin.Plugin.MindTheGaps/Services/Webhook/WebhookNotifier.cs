@@ -84,15 +84,18 @@ public sealed class WebhookNotifier
             var json = JsonSerializer.Serialize(payload, _jsonOptions);
             using var body = new StringContent(json, Encoding.UTF8, "application/json");
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
+
+            // A Discord or Slack webhook carries its secret token in the URL path, so log only the host.
+            var safeUrl = uri.GetLeftPart(UriPartial.Authority);
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogInformation("Webhook: POST {Url} body {Body}", uri, json);
+                _logger.LogInformation("Webhook: POST {Url} body {Body}", safeUrl, json);
             }
 
             using var response = await client.PostAsync(uri, body, cancellationToken).ConfigureAwait(false);
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogInformation("Webhook: POST {Url} returned {Status}", uri, (int)response.StatusCode);
+                _logger.LogInformation("Webhook: POST {Url} returned {Status}", safeUrl, (int)response.StatusCode);
             }
 
             if (!response.IsSuccessStatusCode)

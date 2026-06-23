@@ -124,6 +124,9 @@ public sealed class CachedApiClient
         CancellationToken cancellationToken)
         where T : class
     {
+        // The URL is the real request and cache key; what gets logged is the redacted form (a key in the
+        // query string, like MDBList's apikey, would otherwise land in the log).
+        var logUrl = LogSafe.Redact(url);
         try
         {
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
@@ -137,7 +140,7 @@ public sealed class CachedApiClient
                 },
                 _logger,
                 service,
-                url,
+                logUrl,
                 cancellationToken).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
@@ -147,7 +150,7 @@ public sealed class CachedApiClient
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("{Service} GET {Url} returned {Status}", service, url, response.StatusCode);
+                _logger.LogWarning("{Service} GET {Url} returned {Status}", service, logUrl, response.StatusCode);
                 return null;
             }
 
@@ -163,7 +166,7 @@ public sealed class CachedApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Service} GET {Url} failed", service, url);
+            _logger.LogWarning(ex, "{Service} GET {Url} failed", service, logUrl);
             return null;
         }
     }
