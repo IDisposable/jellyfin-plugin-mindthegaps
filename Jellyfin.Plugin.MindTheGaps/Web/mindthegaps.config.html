@@ -6,7 +6,8 @@
                         </div>
 
                         <div class="verticalSection">
-                            <h2 class="sectionTitle">What to scan</h2>
+                            <h2 class="sectionTitle">Complete what you own</h2>
+                            <div class="fieldDescription">Sources that fill in or extend something already in your library: collections and franchises, studios, keywords, record labels, series episodes, an artist's discography, an author's other works, and an owned actor or director's filmography.</div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
                                     <input id="ScanCollections" name="ScanCollections" type="checkbox" is="emby-checkbox" />
@@ -23,12 +24,6 @@
                                 <label class="emby-checkbox-label">
                                     <input id="ScanPeople" name="ScanPeople" type="checkbox" is="emby-checkbox" />
                                     <span>Scan actor/director filmographies for unowned titles</span>
-                                </label>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
-                                    <span>Include recommendations / similar titles (discovery)</span>
                                 </label>
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
@@ -68,30 +63,6 @@
                                 <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="keyword" style="margin:.25em 0;" title="Find the unowned movies tagged with the picked keywords right now and add them to the report."><span>Run now</span></button>
                                 <div id="cgChipLive" class="cgSrOnly" role="status" aria-live="polite"></div>
                             </div>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="CuratedTmdbListIds">TMDB list ids</label>
-                                <input id="CuratedTmdbListIds" name="CuratedTmdbListIds" type="text" is="emby-input" placeholder="e.g. 8267559, 10" />
-                                <div class="fieldDescription">Comma-separated TMDB list ids; the movies on each that you do not own become gaps. A list id is the number in its themoviedb.org/list/&lt;id&gt; URL. TMDB has no list search, so paste the id.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="tmdblist" data-cginput="CuratedTmdbListIds" style="margin:.25em 0;" title="Find the unowned movies on the TMDB lists typed above right now and add them to the report."><span>Run now</span></button>
-                            </div>
-                            <div class="checkboxContainer checkboxContainer-withDescription">
-                                <label class="emby-checkbox-label">
-                                    <input id="ScanMdbList" name="ScanMdbList" type="checkbox" is="emby-checkbox" />
-                                    <span>Discover unowned titles from MDBList community lists</span>
-                                </label>
-                            </div>
-                            <div class="inputContainer">
-                                <label class="inputLabel inputLabelUnfocused" for="cgMdbListInput">MDBList lists</label>
-                                <div class="cgChipField" id="cgMdbListField">
-                                    <div class="cgChipBox" id="cgMdbListBox">
-                                        <span class="cgChipList" id="cgMdbListChips" role="list" aria-label="Selected MDBList lists"></span>
-                                        <input id="cgMdbListInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search MDBList lists..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgMdbListSuggest" />
-                                    </div>
-                                    <div class="cgSuggest" id="cgMdbListSuggest" role="listbox" aria-label="MDBList list matches"></div>
-                                </div>
-                                <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps. Needs the MDBList API key, set under Data sources.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="mdblist" style="margin:.25em 0;" title="Find the unowned titles on the picked MDBList lists right now and add them to the report."><span>Run now</span></button>
-                            </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
                                     <input id="ScanMusic" name="ScanMusic" type="checkbox" is="emby-checkbox" />
@@ -115,6 +86,41 @@
                                 </div>
                                 <div class="fieldDescription">Search Discogs for a record label and pick it; the releases on it that you do not own become gaps. Needs the Discogs token, set under Data sources.</div>
                                 <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="label" style="margin:.25em 0;" title="Find the unowned releases on the picked record labels right now and add them to the report."><span>Run now</span></button>
+                            </div>
+                        </div>
+
+                        <div class="verticalSection">
+                            <h2 class="sectionTitle">Discover new titles</h2>
+                            <div class="fieldDescription">Sources that surface titles not tied to a specific owned set: recommendations from similar titles, curated TMDB lists, and MDBList community lists.</div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
+                                    <span>Include recommendations / similar titles (discovery)</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="CuratedTmdbListIds">TMDB list ids</label>
+                                <input id="CuratedTmdbListIds" name="CuratedTmdbListIds" type="text" is="emby-input" placeholder="e.g. 8267559, 10" />
+                                <div class="fieldDescription">Comma-separated TMDB list ids; the movies on each that you do not own become gaps. A list id is the number in its themoviedb.org/list/&lt;id&gt; URL. TMDB has no list search, so paste the id.</div>
+                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="tmdblist" data-cginput="CuratedTmdbListIds" style="margin:.25em 0;" title="Find the unowned movies on the TMDB lists typed above right now and add them to the report."><span>Run now</span></button>
+                            </div>
+                            <div class="checkboxContainer checkboxContainer-withDescription">
+                                <label class="emby-checkbox-label">
+                                    <input id="ScanMdbList" name="ScanMdbList" type="checkbox" is="emby-checkbox" />
+                                    <span>Discover unowned titles from MDBList community lists</span>
+                                </label>
+                            </div>
+                            <div class="inputContainer">
+                                <label class="inputLabel inputLabelUnfocused" for="cgMdbListInput">MDBList lists</label>
+                                <div class="cgChipField" id="cgMdbListField">
+                                    <div class="cgChipBox" id="cgMdbListBox">
+                                        <span class="cgChipList" id="cgMdbListChips" role="list" aria-label="Selected MDBList lists"></span>
+                                        <input id="cgMdbListInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search MDBList lists..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgMdbListSuggest" />
+                                    </div>
+                                    <div class="cgSuggest" id="cgMdbListSuggest" role="listbox" aria-label="MDBList list matches"></div>
+                                </div>
+                                <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps. Needs the MDBList API key, set under Data sources.</div>
+                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="mdblist" style="margin:.25em 0;" title="Find the unowned titles on the picked MDBList lists right now and add them to the report."><span>Run now</span></button>
                             </div>
                         </div>
 
