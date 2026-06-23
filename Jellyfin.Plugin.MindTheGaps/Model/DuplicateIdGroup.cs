@@ -33,5 +33,5 @@ public sealed class DuplicateIdGroup
     /// <summary>
     /// Gets or sets the owned items that share the id.
     /// </summary>
-    public IReadOnlyList<DiagnosisItem> Items { get; set; } = Array.Empty<DiagnosisItem>();
+    public IReadOnlyList<DiagnosisItem> Items { get; set; } = [];
 }

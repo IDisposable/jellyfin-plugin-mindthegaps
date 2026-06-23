@@ -35,7 +35,7 @@ public class GapSummary
     /// Gets or sets the distinct streaming-provider names present anywhere in the report's availability,
     /// so the provider filter is fully populated before the per-pattern items load.
     /// </summary>
-    public IReadOnlyList<string> Providers { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<string> Providers { get; set; } = [];
 
     /// <summary>
     /// Gets or sets a value indicating whether availability ("where to watch") is enabled in config.

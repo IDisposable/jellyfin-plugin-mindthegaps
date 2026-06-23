@@ -27,5 +27,5 @@ public class GapReport
     /// <summary>
     /// Gets or sets the gap items.
     /// </summary>
-    public IReadOnlyList<GapItem> Items { get; set; } = Array.Empty<GapItem>();
+    public IReadOnlyList<GapItem> Items { get; set; } = [];
 }

@@ -70,13 +70,13 @@ public abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBase
         if (!artist.TryGetProviderId(MetadataProvider.MusicBrainzArtist, out var artistMbid)
             || string.IsNullOrEmpty(artistMbid))
         {
-            return (Array.Empty<GapItem>(), false);
+            return ([], false);
         }
 
         // Classify against the library (a cheap indexed lookup) before spending a MusicBrainz call.
         if (!Handles(artist))
         {
-            return (Array.Empty<GapItem>(), false);
+            return ([], false);
         }
 
         IReadOnlyList<MusicBrainzReleaseGroup> albums;
@@ -87,7 +87,7 @@ public abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Logger.LogWarning(ex, "{Source}: failed to fetch MusicBrainz albums for {Name} ({Mbid})", Name, artist.Name, artistMbid);
-            return (Array.Empty<GapItem>(), true);
+            return ([], true);
         }
 
         var gaps = MusicBrainzMapper.Build(

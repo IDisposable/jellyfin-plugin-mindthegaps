@@ -66,7 +66,7 @@ public class SeriesContentRebootGuardTests
     public void NoMissingEpisodes_EraIsTheOwnedRun()
     {
         Assert.Equal((1984, 1985), EpisodeEra.Expand((1984, 1985), null));
-        Assert.Equal((1984, 1985), EpisodeEra.Expand((1984, 1985), Array.Empty<int>()));
+        Assert.Equal((1984, 1985), EpisodeEra.Expand((1984, 1985), []));
     }
 
     [Fact]

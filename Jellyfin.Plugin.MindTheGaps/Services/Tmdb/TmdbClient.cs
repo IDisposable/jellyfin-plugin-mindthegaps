@@ -150,11 +150,11 @@ public sealed class TmdbClient : IDisposable
         if (results?.Results is null)
         {
             _logger?.LogWarning("TMDB: GetMovieSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
-            return (Array.Empty<SearchMovie>(), 0);
+            return ([], 0);
         }
 
         return results.Results.Count == 0
-            ? (Array.Empty<SearchMovie>(), 0)
+            ? ([], 0)
             : (results.Results, results.TotalPages);
     }
 
@@ -173,11 +173,11 @@ public sealed class TmdbClient : IDisposable
         if (results?.Results is null)
         {
             _logger?.LogWarning("TMDB: GetSeriesSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
-            return (Array.Empty<SearchTv>(), 0);
+            return ([], 0);
         }
 
         return results.Results.Count == 0
-            ? (Array.Empty<SearchTv>(), 0)
+            ? ([], 0)
             : (results.Results, results.TotalPages);
     }
 
@@ -202,11 +202,11 @@ public sealed class TmdbClient : IDisposable
         if (results?.Results is null)
         {
             _logger?.LogWarning("TMDB: DiscoverMoviesByCompany {CompanyId} page {Page} returned nothing", companyId, page);
-            return (Array.Empty<SearchMovie>(), 0);
+            return ([], 0);
         }
 
         return results.Results.Count == 0
-            ? (Array.Empty<SearchMovie>(), 0)
+            ? ([], 0)
             : (results.Results, results.TotalPages);
     }
 
@@ -231,11 +231,11 @@ public sealed class TmdbClient : IDisposable
         if (results?.Results is null)
         {
             _logger?.LogWarning("TMDB: DiscoverMoviesByKeyword {KeywordId} page {Page} returned nothing", keywordId, page);
-            return (Array.Empty<SearchMovie>(), 0);
+            return ([], 0);
         }
 
         return results.Results.Count == 0
-            ? (Array.Empty<SearchMovie>(), 0)
+            ? ([], 0)
             : (results.Results, results.TotalPages);
     }
 
@@ -259,7 +259,7 @@ public sealed class TmdbClient : IDisposable
 
         if (list?.Items is null || list.Items.Count == 0)
         {
-            return (list?.Name, Array.Empty<SearchMovie>());
+            return (list?.Name, []);
         }
 
         var movies = new List<SearchMovie>();
@@ -318,7 +318,7 @@ public sealed class TmdbClient : IDisposable
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Array.Empty<CuratedSetRef>();
+            return [];
         }
 
         var key = string.Create(CultureInfo.InvariantCulture, $"company-suggest-{query.ToUpperInvariant()}");
@@ -364,7 +364,7 @@ public sealed class TmdbClient : IDisposable
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Array.Empty<CuratedSetRef>();
+            return [];
         }
 
         var key = string.Create(CultureInfo.InvariantCulture, $"keyword-suggest-{query.ToUpperInvariant()}");

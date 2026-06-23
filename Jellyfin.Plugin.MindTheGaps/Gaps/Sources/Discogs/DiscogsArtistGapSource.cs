@@ -64,12 +64,12 @@ public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         // artists they cannot scan, so the two never report the same album twice.
         if (artist.TryGetProviderId(MetadataProvider.MusicBrainzArtist, out var mbid) && !string.IsNullOrEmpty(mbid))
         {
-            return (Array.Empty<GapItem>(), false);
+            return ([], false);
         }
 
         if (string.IsNullOrEmpty(artist.Name))
         {
-            return (Array.Empty<GapItem>(), false);
+            return ([], false);
         }
 
         // Prefer a Discogs id already on the item; otherwise resolve the artist by name (conservatively).
@@ -88,7 +88,7 @@ public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         // counts toward the cap whether or not the name resolved.
         if (artistId is null)
         {
-            return (Array.Empty<GapItem>(), true);
+            return ([], true);
         }
 
         IReadOnlyList<DiscogsRelease> releases;
@@ -99,7 +99,7 @@ public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Logger.LogWarning(ex, "Discogs artists: failed to fetch releases for {Name} (Discogs {ArtistId})", artist.Name, artistId.Value);
-            return (Array.Empty<GapItem>(), true);
+            return ([], true);
         }
 
         var pattern = OwnsAlbumByArtist(artist) ? GapPattern.SetCompletion : GapPattern.CreatorWorks;

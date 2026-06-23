@@ -24,7 +24,7 @@ public static class CreatorLinks
     {
         if (sourceProviderIds is null || sourceProviderIds.Count == 0)
         {
-            return Array.Empty<ExternalLink>();
+            return [];
         }
 
         var links = new List<ExternalLink>();

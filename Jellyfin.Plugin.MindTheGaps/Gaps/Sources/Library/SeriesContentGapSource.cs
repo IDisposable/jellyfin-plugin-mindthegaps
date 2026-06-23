@@ -41,7 +41,7 @@ public sealed class SeriesContentGapSource : IGapSource
 
     /// <inheritdoc />
     // Reads the library directly (missing episodes), so it needs nothing in the ownership index.
-    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = Array.Empty<BaseItemKind>();
+    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = [];
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanSeries;

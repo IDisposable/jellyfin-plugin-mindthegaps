@@ -164,7 +164,7 @@ public sealed class ExternalLinkEnricher
         var item = Synthesize(gap.TargetKind, gap.ProviderIds, _itemTypeLookup);
         if (item is null)
         {
-            return Array.Empty<ExternalLink>();
+            return [];
         }
 
         // For a missing season/episode, point the synthetic item at its owning series (an owned library

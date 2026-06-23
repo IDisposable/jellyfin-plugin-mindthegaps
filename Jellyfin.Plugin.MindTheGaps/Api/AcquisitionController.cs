@@ -130,7 +130,7 @@ public class AcquisitionController : ControllerBase
     // Run a send for each rehydrated gap, continuing past failures and aggregating the outcome.
     private async Task<AcquisitionSendResult> SendManyAsync(IReadOnlyList<string> ids, Func<GapItem, PluginConfiguration, CancellationToken, Task<AcquisitionResult>> send, CancellationToken cancellationToken)
     {
-        var wanted = new HashSet<string>(ids ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var wanted = new HashSet<string>(ids ?? [], StringComparer.Ordinal);
         var gaps = _store.LoadSnapshot().Items.Where(i => wanted.Contains(i.Id)).ToArray();
         if (gaps.Length == 0)
         {

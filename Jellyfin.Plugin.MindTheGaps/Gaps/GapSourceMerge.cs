@@ -83,7 +83,7 @@ public static class GapSourceMerge
             return;
         }
 
-        var current = existing.OtherSources ?? (IReadOnlyList<GapSourceRef>)Array.Empty<GapSourceRef>();
+        var current = existing.OtherSources ?? [];
         if (current.Count >= MaxSourcesPerGap)
         {
             return;

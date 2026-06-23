@@ -50,7 +50,7 @@ public class TodoEntry
     /// <summary>
     /// Gets or sets the gap's external links (TMDB, JustWatch, Trakt, ...).
     /// </summary>
-    public IReadOnlyList<ExternalLink> Links { get; set; } = Array.Empty<ExternalLink>();
+    public IReadOnlyList<ExternalLink> Links { get; set; } = [];
 
     /// <summary>
     /// Gets or sets a value indicating whether the entry is done (acquired, or marked done by the user).

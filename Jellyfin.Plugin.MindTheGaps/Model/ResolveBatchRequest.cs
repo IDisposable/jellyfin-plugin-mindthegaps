@@ -12,7 +12,7 @@ public class ResolveBatchRequest
     /// <summary>
     /// Gets or sets the gap ids to dismiss.
     /// </summary>
-    public IReadOnlyList<string> Ids { get; set; } = Array.Empty<string>();
+    public IReadOnlyList<string> Ids { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the note applied to each dismissal.

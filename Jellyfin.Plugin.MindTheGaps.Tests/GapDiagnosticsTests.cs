@@ -269,7 +269,7 @@ public class GapDiagnosticsTests
         // An IMDb person id (nm...) where a title id (tt...) belongs: the match never had a chance.
         var gap = Gap(BaseItemKind.Movie, "Whatever", 2000, ("Imdb", "nm0000123"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, Array.Empty<BaseItem>());
+        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.WrongIdClass, d.Reason);
@@ -305,7 +305,7 @@ public class GapDiagnosticsTests
     {
         var gap = Gap(BaseItemKind.Series, "The Wire", 2002, ("Tmdb", "1438"), ("Imdb", "tt0306414"), ("Tvdb", "79126"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, Array.Empty<BaseItem>());
+        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
 
         Assert.NotNull(d.Target);
         Assert.Equal("tt0306414", d.Target!.ProviderIds["Imdb"]);
@@ -322,7 +322,7 @@ public class GapDiagnosticsTests
         // Episodes are not a diagnosable kind (only movies, shows, albums, and books are).
         var gap = Gap(BaseItemKind.Episode, "Pilot", 2010, ("Tmdb", "5"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, Array.Empty<BaseItem>());
+        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
 
         Assert.Null(d.Target);
         Assert.Contains("album, and book", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -388,7 +388,7 @@ public class GapDiagnosticsTests
     [Fact]
     public void AuditAgainst_FindsDuplicateProviderIds()
     {
-        var report = new GapReport { Items = Array.Empty<GapItem>() };
+        var report = new GapReport { Items = [] };
         var owned = new BaseItem[]
         {
             OwnedMovie("Movie A", 2001, ("Tmdb", "500")),
@@ -415,7 +415,7 @@ public class GapDiagnosticsTests
             }
         };
 
-        var audit = GapDiagnostics.AuditAgainst(report, Array.Empty<BaseItem>());
+        var audit = GapDiagnostics.AuditAgainst(report, []);
 
         Assert.Equal(1, audit.GapsChecked); // the episode gap is skipped
         Assert.Empty(audit.Mismatches);
@@ -427,7 +427,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "Some Show S02E05", 2003);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, Array.Empty<int>());
+            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -441,7 +441,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "V S02E01", 2009);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, Array.Empty<int>());
+            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, []);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -485,7 +485,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "New Show S01E01", 2020);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", Array.Empty<int>(), Array.Empty<int>());
+            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
     }

@@ -32,7 +32,7 @@ public static class ConfigIds
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return Array.Empty<T>();
+            return [];
         }
 
         var result = new List<T>();

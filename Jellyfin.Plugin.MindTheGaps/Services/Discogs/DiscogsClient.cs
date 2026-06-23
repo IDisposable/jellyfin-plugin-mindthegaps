@@ -84,7 +84,7 @@ public sealed class DiscogsClient
     {
         if (string.IsNullOrWhiteSpace(query))
         {
-            return Array.Empty<CuratedSetRef>();
+            return [];
         }
 
         var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=label&q={Uri.EscapeDataString(query)}&per_page={MaxSuggestions}");

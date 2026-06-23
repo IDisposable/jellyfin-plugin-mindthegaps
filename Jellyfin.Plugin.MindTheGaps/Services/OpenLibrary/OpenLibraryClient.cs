@@ -93,7 +93,7 @@ public sealed class OpenLibraryClient
 
         if (response?.Docs is null)
         {
-            return Array.Empty<OpenLibraryWork>();
+            return [];
         }
 
         return response.Docs

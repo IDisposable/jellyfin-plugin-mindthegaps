@@ -52,14 +52,14 @@ public sealed class MdbListClient
         var sanitized = SanitizeQuery(query);
         if (sanitized.Length == 0 || string.IsNullOrWhiteSpace(key))
         {
-            return Array.Empty<CuratedSetRef>();
+            return [];
         }
 
         var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/search?query={Uri.EscapeDataString(sanitized)}&apikey={key}");
         var lists = await _api.GetJsonAsync<List<MdbListListDto>>(ServiceNames.MdbList, url, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken).ConfigureAwait(false);
         if (lists is null)
         {
-            return Array.Empty<CuratedSetRef>();
+            return [];
         }
 
         var refs = new List<CuratedSetRef>();
@@ -151,14 +151,14 @@ public sealed class MdbListClient
         var key = ApiKey;
         if (string.IsNullOrWhiteSpace(key))
         {
-            return Array.Empty<MdbListItem>();
+            return [];
         }
 
         var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/{listId}/items?apikey={key}");
         var response = await _api.GetJsonAsync<MdbListItemsResponse>(ServiceNames.MdbList, url, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken).ConfigureAwait(false);
         if (response is null)
         {
-            return Array.Empty<MdbListItem>();
+            return [];
         }
 
         var items = new List<MdbListItem>();

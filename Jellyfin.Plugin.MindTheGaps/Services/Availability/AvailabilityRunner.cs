@@ -381,7 +381,7 @@ public sealed class AvailabilityRunner
         var first = group.First();
         var target = WatchTarget(first)!.Value;
 
-        IReadOnlyList<AvailabilityOffer> offers = Array.Empty<AvailabilityOffer>();
+        IReadOnlyList<AvailabilityOffer> offers = [];
         var looked = false;
         try
         {

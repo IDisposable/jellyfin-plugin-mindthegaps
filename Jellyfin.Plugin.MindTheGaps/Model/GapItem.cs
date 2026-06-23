@@ -90,7 +90,7 @@ public class GapItem
     /// <summary>
     /// Gets or sets external links (TMDB, JustWatch, Trakt, ...).
     /// </summary>
-    public IReadOnlyList<ExternalLink> Links { get; set; } = Array.Empty<ExternalLink>();
+    public IReadOnlyList<ExternalLink> Links { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the id of the owned library item that surfaced this gap.
@@ -126,7 +126,7 @@ public class GapItem
     /// OpenLibrary page, an artist's Discogs/MusicBrainz page, a studio's or label's page), built from the
     /// source's provider ids. Empty when the source carries no linkable external id.
     /// </summary>
-    public IReadOnlyList<ExternalLink> SourceLinks { get; set; } = Array.Empty<ExternalLink>();
+    public IReadOnlyList<ExternalLink> SourceLinks { get; set; } = [];
 
     /// <summary>
     /// Gets or sets additional owned items that surfaced this same gap, beyond the primary one in
@@ -180,7 +180,7 @@ public class GapItem
     /// <summary>
     /// Gets or sets the streaming-availability offers.
     /// </summary>
-    public IReadOnlyList<AvailabilityOffer> Availability { get; set; } = Array.Empty<AvailabilityOffer>();
+    public IReadOnlyList<AvailabilityOffer> Availability { get; set; } = [];
 
     /// <summary>
     /// Gets or sets a value indicating whether "where to watch" has been looked up for this gap (so an

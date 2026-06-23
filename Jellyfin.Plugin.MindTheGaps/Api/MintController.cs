@@ -104,7 +104,7 @@ public class MintController : ControllerBase
     {
         // Rehydrate from the server's own report rather than trusting client-sent gap objects, so a stale
         // or tampered payload cannot drive a mint with arbitrary fields. Unknown ids are dropped.
-        var wanted = new HashSet<string>(ids ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var wanted = new HashSet<string>(ids ?? [], StringComparer.Ordinal);
         var gaps = _store.LoadSnapshot().Items.Where(i => wanted.Contains(i.Id)).ToArray();
         if (gaps.Length == 0)
         {

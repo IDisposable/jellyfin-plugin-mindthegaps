@@ -45,5 +45,5 @@ public sealed class DiagnosisItem
     /// Gets or sets the external provider links for this row's ids, built by <c>ProviderLinks</c> so the
     /// dashboard links each id out using the one canonical set of URLs (no hand-rolled links client-side).
     /// </summary>
-    public IReadOnlyList<ExternalLink> Links { get; set; } = Array.Empty<ExternalLink>();
+    public IReadOnlyList<ExternalLink> Links { get; set; } = [];
 }

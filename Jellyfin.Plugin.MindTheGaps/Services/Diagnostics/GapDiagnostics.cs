@@ -541,7 +541,7 @@ public sealed class GapDiagnostics
                 MissingEpisodeYears(seriesId));
         }
 
-        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, Array.Empty<int>(), Array.Empty<int>());
+        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], []);
     }
 
     // The air years of the episodes the library actually owns (on disk) for a series, for the era comparison.

@@ -159,7 +159,7 @@ public class ExternalLinkEnricherTests
 
     private sealed class FakeItemTypeLookup : IItemTypeLookup
     {
-        public IReadOnlyList<string> MusicGenreTypes { get; } = Array.Empty<string>();
+        public IReadOnlyList<string> MusicGenreTypes { get; } = [];
 
         public IReadOnlyDictionary<BaseItemKind, string> BaseItemKindNames { get; init; } = new Dictionary<BaseItemKind, string>();
     }

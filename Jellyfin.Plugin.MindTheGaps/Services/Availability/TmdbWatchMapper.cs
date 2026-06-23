@@ -19,7 +19,7 @@ public static class TmdbWatchMapper
     {
         if (response?.Results is null || !response.Results.TryGetValue(country, out var offers) || offers is null)
         {
-            return Array.Empty<AvailabilityOffer>();
+            return [];
         }
 
         var result = new List<AvailabilityOffer>();

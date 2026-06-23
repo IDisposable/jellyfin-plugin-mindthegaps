@@ -12,7 +12,7 @@ public sealed class TodoList
     /// <summary>
     /// Gets or sets the todo entries.
     /// </summary>
-    public IReadOnlyList<TodoEntry> Items { get; set; } = Array.Empty<TodoEntry>();
+    public IReadOnlyList<TodoEntry> Items { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the web-search URL template (with a {0} query placeholder) from the plugin config.

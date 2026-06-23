@@ -69,7 +69,7 @@ public sealed class TmdbAvailabilitySource : IAvailabilitySource
         if (!query.ProviderIds.TryGetValue("Tmdb", out var tmdbStr)
             || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
         {
-            return Array.Empty<AvailabilityOffer>();
+            return [];
         }
 
         var path = query.TargetKind == BaseItemKind.Series ? "tv" : "movie";
@@ -105,7 +105,7 @@ public sealed class TmdbAvailabilitySource : IAvailabilitySource
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "TMDB watch/providers for {Id} failed", tmdbId);
-            return Array.Empty<AvailabilityOffer>();
+            return [];
         }
 
         Store(cacheKey, response, ttl);

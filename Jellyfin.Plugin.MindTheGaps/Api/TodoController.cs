@@ -70,7 +70,7 @@ public class TodoController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<int> AddTodo([FromBody] IReadOnlyList<string> ids)
     {
-        var wanted = new HashSet<string>(ids ?? Array.Empty<string>(), StringComparer.Ordinal);
+        var wanted = new HashSet<string>(ids ?? [], StringComparer.Ordinal);
         var gaps = _store.LoadSnapshot().Items.Where(i => wanted.Contains(i.Id)).ToList();
         return _todo.Add(gaps);
     }

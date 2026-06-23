@@ -58,5 +58,5 @@ public sealed class GapDiagnosis
     /// <summary>
     /// Gets or sets the owned items that look like they should be the gap (the candidate "peers").
     /// </summary>
-    public IReadOnlyList<DiagnosisItem> Candidates { get; set; } = Array.Empty<DiagnosisItem>();
+    public IReadOnlyList<DiagnosisItem> Candidates { get; set; } = [];
 }

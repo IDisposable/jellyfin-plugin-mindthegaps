@@ -51,7 +51,7 @@ public abstract class SeriesContentGapSourceBase : IGapSource
 
     /// <inheritdoc />
     // Reads the library directly per series, so it needs nothing in the ownership index.
-    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = Array.Empty<BaseItemKind>();
+    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = [];
 
     /// <summary>
     /// Gets the maximum number of series to hit the external API for in a single run.
