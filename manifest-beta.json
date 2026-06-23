@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.3",
+                "changelog": "10.11.3.3 - Fixes the Markdown export filename, which saved as mind-the-gaps-parts.md instead of being named for the domain and tab in view. Under the hood the report rendering was rebuilt onto a small set of shared element builders with consistent HTML escaping, and repeated inline styles moved into CSS classes so a custom theme has cleaner hooks; the report itself looks and behaves the same.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.3/mind-the-gaps_10.11.3.3.zip",
+                "checksum": "6ea7107c19cb429d609ac32ca3361eb9",
+                "timestamp": "2026-06-23T06:23:58Z"
+            },
+            {
                 "version": "10.11.3.2",
                 "changelog": "10.11.3.2 - MDBList community lists and TMDB lists join as discovery sources, so you can complete or explore a curated list the way you complete a collection. The Discover tab now groups its results by source, collapsing each list or recommending title under its own name to match the Markdown export. Tab and group labels follow the media type in view (Series completion for shows, Discography and Artist works for music, Author works for books, and Discover for recommendations), and shareable view links now stay within URL length limits.\n",
                 "targetAbi": "10.11.0.0",
