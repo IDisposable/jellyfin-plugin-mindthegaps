@@ -108,4 +108,5 @@
             .cgDiagNote { opacity: .65; font-size: .85em; }
             .cgDiagDone { margin-top: .8em; opacity: .7; font-size: .85em; }
             .cgDiagDeepenWrap { margin-top: .8em; }
+            .cgDiagExport { margin-left: .5em; }
         

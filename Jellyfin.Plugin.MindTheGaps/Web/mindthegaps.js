@@ -481,6 +481,8 @@
                                 modal._name = res.Target.Name;
                                 document.getElementById('cgDiagTitle').textContent = 'Why is “' + res.Target.Name + '” missing?';
                             }
+                            // Keep the diagnosis so the Export for AI analysis button can serialize it.
+                            modal._res = res;
                             body.innerHTML = renderDiagnosis(res);
                         })
                         .catch(function () { body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not run the diagnosis. Check the server logs.').outerHTML; });
@@ -595,14 +597,134 @@
                         }).join('');
                         html += wrap('table', { 'class': 'cgDiagTable' }, head + wrap('tbody', null, bodyRows));
                     }
-                    // Offer the networked confirmation, or note it already ran.
-                    html += res.Deepened
-                        ? h('div', { 'class': 'cgDiagDone' }, 'Confirmed.').outerHTML
-                        : wrap('div', { 'class': 'cgDiagDeepenWrap' }, h('button', {
+                    // The footer offers the networked confirmation (until it has run) and always the AI-export
+                    // button, which downloads this diagnosis as a Markdown dossier plus a prompt.
+                    var footer = (res.Deepened
+                        ? h('span', { 'class': 'cgDiagDone' }, 'Confirmed. ').outerHTML
+                        : h('button', {
                             is: 'emby-button', type: 'button', 'class': 'raised cgDeepen',
                             title: 'Resolve ids against the source provider to confirm the verdict and catch matches your local metadata missed.'
-                        }, 'Deeper analysis').outerHTML);
+                        }, 'Deeper analysis').outerHTML)
+                        + h('button', {
+                            is: 'emby-button', type: 'button', 'class': 'raised cgDiagExport',
+                            title: 'Download this diagnosis as Markdown with an AI prompt, so any AI can analyse why the match failed.'
+                        }, 'Export for AI analysis').outerHTML;
+                    html += wrap('div', { 'class': 'cgDiagDeepenWrap' }, footer);
                     return html;
+                }
+
+                // The AI prompt the diagnosis export leads with: it frames the matching rules and asks the
+                // reader (any AI) to judge why the title was not matched. Kept as paragraphs so the Markdown
+                // stays readable; Marc feeds the answers back into the matching rules.
+                var DIAG_AI_PROMPT = [
+                    'You are a media metadata identification expert helping debug a Jellyfin library tool called Mind the Gaps. The tool compares a media library against external catalogues (TheMovieDb, TheTVDB, TVmaze, MusicBrainz, OpenLibrary) to list the titles a library is missing. It treats a catalogue title as already owned only when a library item carries a matching provider id. For movies and shows the primary key is the TheMovieDb id, with the IMDb and TheTVDB ids as corroborating secondary keys; for an episode or season it instead compares the air year against the run of episodes already owned. A normalized title-and-year comparison is used only inside this diagnosis, never by the live ownership check.',
+                    'The item described below was reported missing, meaning the ownership check found no library item with a matching id. Work out why, and whether that verdict is correct.',
+                    'Weigh these explanations and choose the most likely: (1) genuinely not owned; (2) owned under a different or absent TheMovieDb id, a metadata mismatch the id-keyed check cannot see; (3) a title localization or punctuation difference that hid a real match; (4) a same-title, different-year clash such as a remake or reboot that should not count as owned; (5) a limitation or bug in the matching rules above.',
+                    'Use the provider ids, the owned candidates, and the plugin verdict below. Then answer concisely: the most likely reason and your confidence (low, medium, or high); the single signal or rule that would have caught it correctly (for example, match on a shared IMDb id even when the TheMovieDb id differs, or treat a large air-year gap as a different series); any data the plugin did not collect but should have; and whether the plugin verdict is right, and if not, what it got wrong.'
+                ];
+
+                // A plain-language recap of the matching rules, included in the export so the reader judges the
+                // verdict against how ownership is actually decided.
+                var DIAG_MATCH_EXPLAINER = [
+                    'Ownership is an exact provider-id match. An owned movie or show is indexed by its TheMovieDb id (primary) and by its IMDb and TheTVDB ids (secondary). A gap is a catalogue title whose ids match no owned item.',
+                    'This diagnosis additionally compares normalized title and year to surface near-misses the live check ignores: an owned item with the same title but a different or missing id is the classic metadata mismatch, while a same title more than one year apart is treated as a different release.',
+                    'For an episode or season, ownership is not id-matched. The diagnosis compares the missing air year against the earliest and latest years of the episodes already owned for the series, so a late season reads as missing while a reboot decades apart reads as a different, same-named series the owning item is mis-tagged as.'
+                ];
+
+                // A library item's ids in a readable, provider-labelled list, for the export's plain text.
+                function describeProviderIds(ids) {
+                    ids = ids || {};
+                    var order = [['Tmdb', 'TheMovieDb'], ['Imdb', 'IMDb'], ['Tvdb', 'TheTVDB'], ['TVmaze', 'TVmaze'], ['MusicBrainzReleaseGroup', 'MusicBrainz'], ['OpenLibrary', 'OpenLibrary']];
+                    var parts = [];
+                    order.forEach(function (pair) { if (ids[pair[0]]) { parts.push(pair[1] + ' ' + ids[pair[0]]); } });
+                    Object.keys(ids).forEach(function (k) {
+                        var known = order.some(function (p) { return p[0] === k; });
+                        if (ids[k] && !known) { parts.push(k + ' ' + ids[k]); }
+                    });
+                    return parts.length ? parts.join(', ') : 'none';
+                }
+
+                // Make a value safe to drop into a Markdown table cell (escape the pipe, flatten newlines).
+                function mdCell(s) {
+                    return String(s == null ? '' : s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+                }
+
+                // A filesystem-safe download name for one diagnosis, by title. Built with concatenation, not a
+                // template literal, which the page server would mangle.
+                function diagFilename(res, fallbackName) {
+                    var name = (res && res.Target && res.Target.Name) || fallbackName || 'item';
+                    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+                    return 'mind-the-gaps-diagnosis-' + (slug || 'item') + '.md';
+                }
+
+                // Serialize one diagnosis as a Markdown dossier: an AI prompt, the missing item, how the matcher
+                // decides, the verdict, the owned candidates, and the raw data. Marc gives this to any AI to
+                // analyse why the match failed, then feeds the analysis back into the matching rules.
+                function buildDiagnosisMarkdown(res, fallbackName) {
+                    res = res || {};
+                    var target = res.Target || {};
+                    var title = target.Name || fallbackName || 'this title';
+                    var year = target.Year;
+                    var reason = DIAG_REASON[res.ReasonName];
+                    var verdictLabel = (reason && reason.label) || res.ReasonName || 'unknown';
+
+                    var L = [];
+                    L.push('# Why was "' + title + '"' + (year ? ' (' + year + ')' : '') + ' not matched?');
+                    L.push('');
+                    L.push('## Task for the AI');
+                    L.push('');
+                    DIAG_AI_PROMPT.forEach(function (p) { L.push(p); L.push(''); });
+
+                    L.push('## The item reported missing');
+                    L.push('');
+                    L.push('- Title: ' + title);
+                    L.push('- Year: ' + (year || 'unknown'));
+                    L.push('- Kind: ' + (res.TargetKindName || 'unknown'));
+                    L.push('- Provider ids: ' + describeProviderIds(target.ProviderIds));
+                    L.push('');
+
+                    L.push('## How Mind the Gaps decides ownership');
+                    L.push('');
+                    DIAG_MATCH_EXPLAINER.forEach(function (p) { L.push(p); L.push(''); });
+
+                    L.push('## The plugin verdict');
+                    L.push('');
+                    L.push('- Verdict: ' + verdictLabel);
+                    L.push('- Pass: ' + (res.Deepened ? 'deeper (ids resolved against the source provider over the network)' : 'library-only (no network lookup)'));
+                    L.push('- Summary: ' + (res.Summary || ''));
+                    L.push('');
+
+                    L.push('## What the library holds that resembles it');
+                    L.push('');
+                    if (!res.Candidates || !res.Candidates.length) {
+                        L.push('No owned item matched by title or id, so the plugin treated it as genuinely missing.');
+                        L.push('');
+                    } else {
+                        var rows = [res.Target];
+                        res.Candidates.forEach(function (c) { rows.push(c); });
+                        var cols = diagColumns(rows);
+                        var head = ['Relation', 'Title', 'Year'].concat(cols.map(function (t) { return DIAG_PROVIDER_LABEL[t] || t; })).concat(['In library', 'Plugin note']);
+                        L.push('| ' + head.join(' | ') + ' |');
+                        L.push('|' + head.map(function () { return ' --- '; }).join('|') + '|');
+                        rows.forEach(function (r) {
+                            if (!r) { return; }
+                            var cells = diagCells(r);
+                            var isTarget = r.Relation === 'target';
+                            var idCols = cols.map(function (t) { return diagCell(cells[t], true) || '-'; });
+                            var line = [isTarget ? 'missing (target)' : (r.Relation || 'owned'), mdCell(r.Name), (r.Year || '-')]
+                                .concat(idCols)
+                                .concat([isTarget ? 'missing' : 'owned', mdCell(r.Note)]);
+                            L.push('| ' + line.join(' | ') + ' |');
+                        });
+                        L.push('');
+                    }
+
+                    L.push('## Raw diagnosis data');
+                    L.push('');
+                    L.push('```json');
+                    L.push(JSON.stringify(res, null, 2));
+                    L.push('```');
+                    return L.join('\n');
                 }
 
                 // The Jellyfin collectionType to scope a search to, from a gap's media domain. Empty means an
@@ -2434,7 +2556,11 @@
                     document.getElementById('cgDiagClose').addEventListener('click', closeDiagnose);
                     document.getElementById('cgDiagModal').addEventListener('click', function (e) {
                         if (e.target === this) { closeDiagnose(); return; }
-                        if (e.target.closest('.cgDeepen')) { openDiagnose(this._gapId, this._name, true); }
+                        if (e.target.closest('.cgDeepen')) { openDiagnose(this._gapId, this._name, true); return; }
+                        if (e.target.closest('.cgDiagExport')) {
+                            var dx = this._res;
+                            if (dx) { downloadText(diagFilename(dx, this._name), buildDiagnosisMarkdown(dx, this._name)); }
+                        }
                     });
                     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); } });
                     function setAllSelected(checked) {
