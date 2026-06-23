@@ -94,7 +94,7 @@ public sealed class RecommendationsGapSource : IGapSource
 
         var seeds = pool
             .Where(x => !dismissed.Contains(x.Key))
-            .OrderBy(x => lastScanned.TryGetValue(x.Key, out var t) ? t : DateTime.MinValue)
+            .OrderByStalest(lastScanned, x => x.Key)
             .ThenBy(x => x.Item.Name, StringComparer.OrdinalIgnoreCase)
             .Take(GapScanLimits.MaxRecommendationSeeds)
             .ToList();

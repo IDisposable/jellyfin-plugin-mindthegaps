@@ -66,13 +66,13 @@ public sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanDiscogs
             && !string.IsNullOrEmpty(config.DiscogsToken)
-            && ParseLabelIds(config.DiscogsLabelIds).Count > 0;
+            && ConfigIds.ParseLongs(config.DiscogsLabelIds).Count > 0;
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
         CancellationToken cancellationToken)
-        => FindGapsForLabelsAsync(context, ParseLabelIds(context.Config.DiscogsLabelIds), cancellationToken);
+        => FindGapsForLabelsAsync(context, ConfigIds.ParseLongs(context.Config.DiscogsLabelIds), cancellationToken);
 
     /// <summary>
     /// Streams the gaps for an explicit set of Discogs label ids, diffed against the context's ownership
@@ -129,21 +129,5 @@ public sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
 
             context.ReportProgress((double)++done / total);
         }
-    }
-
-    // Parse a comma-separated list of Discogs label ids, ignoring blanks and non-numbers.
-    private static IReadOnlyList<long> ParseLabelIds(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return Array.Empty<long>();
-        }
-
-        return raw
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(part => long.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0L)
-            .Where(id => id > 0)
-            .Distinct()
-            .ToList();
     }
 }

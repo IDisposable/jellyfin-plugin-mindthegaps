@@ -103,7 +103,7 @@ public abstract class SeriesContentGapSourceBase : IGapSource
         var lastScanned = _cursors.GetLastScanned(Name);
 
         var ordered = candidates
-            .OrderBy(c => lastScanned.TryGetValue(c.Key, out var t) ? t : DateTime.MinValue)
+            .OrderByStalest(lastScanned, c => c.Key)
             .ThenBy(c => c.Series.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -207,6 +207,15 @@ public abstract class SeriesContentGapSourceBase : IGapSource
 
         return lowestSeasonYear is int first && Math.Abs(first - year) > RebootYearGap;
     }
+
+    /// <summary>
+    /// Reads one provider id off an item, or null when absent or blank. Shared by the cross-check leaves.
+    /// </summary>
+    /// <param name="item">The item to read the id from.</param>
+    /// <param name="provider">The provider name (for example TheTVDB).</param>
+    /// <returns>The id value, or null when absent or blank.</returns>
+    protected static string? Id(BaseItem item, string provider)
+        => item.TryGetProviderId(provider, out var value) && !string.IsNullOrEmpty(value) ? value : null;
 
     private static GapItem BuildGap(BaseItem series, CanonicalEpisode episode)
     {

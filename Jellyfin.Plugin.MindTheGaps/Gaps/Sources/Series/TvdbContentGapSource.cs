@@ -71,9 +71,6 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
         return episodes is null ? null : TvdbMapper.ToCanonical(episodes);
     }
 
-    private static string? Id(BaseItem item, string provider)
-        => item.TryGetProviderId(provider, out var value) && !string.IsNullOrEmpty(value) ? value : null;
-
     private async Task<long?> ResolveSeriesIdAsync(BaseItem series, string apiKey, CancellationToken cancellationToken)
     {
         if (Id(series, MetadataProvider.Tvdb.ToString()) is { } direct

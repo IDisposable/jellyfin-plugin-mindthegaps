@@ -94,7 +94,7 @@ public sealed class PeopleGapSource : IGapSource
 
         var ordered = tagged
             .Where(x => !dismissed.Contains(x.Key))
-            .OrderBy(x => lastScanned.TryGetValue(x.Key, out var t) ? t : DateTime.MinValue)
+            .OrderByStalest(lastScanned, x => x.Key)
             .ThenByDescending(x => appearances.TryGetValue(x.Person.Name, out var c) ? c : 0)
             .ThenBy(x => x.Person.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();

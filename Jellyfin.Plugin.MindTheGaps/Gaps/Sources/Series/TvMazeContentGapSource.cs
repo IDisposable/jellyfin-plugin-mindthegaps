@@ -71,9 +71,6 @@ public sealed class TvMazeContentGapSource : SeriesContentGapSourceBase
         return episodes is null ? null : TvMazeMapper.ToCanonical(episodes);
     }
 
-    private static string? Id(BaseItem item, string provider)
-        => item.TryGetProviderId(provider, out var value) && !string.IsNullOrEmpty(value) ? value : null;
-
     private async Task<int?> ResolveShowIdAsync(BaseItem series, CancellationToken cancellationToken)
     {
         if (Id(series, TvMazeProvider) is { } direct

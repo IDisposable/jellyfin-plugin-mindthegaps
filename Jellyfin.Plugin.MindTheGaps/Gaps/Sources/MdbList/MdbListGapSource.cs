@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,13 +65,13 @@ public sealed class MdbListGapSource : IGapSource, IExploreSource
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanMdbList
             && !string.IsNullOrWhiteSpace(config.MdbListApiKey)
-            && ParseIds(config.MdbListListIds).Count > 0;
+            && ConfigIds.ParseInts(config.MdbListListIds).Count > 0;
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
         CancellationToken cancellationToken)
-        => FindGapsForListsAsync(context, ParseIds(context.Config.MdbListListIds), cancellationToken);
+        => FindGapsForListsAsync(context, ConfigIds.ParseInts(context.Config.MdbListListIds), cancellationToken);
 
     /// <summary>
     /// Streams the gaps for an explicit set of list ids, diffed against the context's ownership index. The
@@ -126,20 +125,5 @@ public sealed class MdbListGapSource : IGapSource, IExploreSource
 
             context.ReportProgress((double)++done / total);
         }
-    }
-
-    private static IReadOnlyList<int> ParseIds(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return Array.Empty<int>();
-        }
-
-        return raw
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(part => int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0)
-            .Where(id => id > 0)
-            .Distinct()
-            .ToList();
     }
 }

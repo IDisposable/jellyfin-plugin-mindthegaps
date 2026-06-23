@@ -205,7 +205,7 @@ public class GapsController : ControllerBase
                 $"Unknown explore kind '{kind}'. Supported kinds: {string.Join(", ", _explore.KindTokens)}."));
         }
 
-        var picked = ParseIds(ids).Distinct().ToList();
+        var picked = ConfigIds.ParseInts(ids);
         if (picked.Count == 0)
         {
             return BadRequest("No valid ids to explore.");
@@ -517,29 +517,15 @@ public class GapsController : ControllerBase
     {
         var resolve = _explore.Find(kind)?.Resolve;
         var resolved = new List<CuratedSetRef>();
-        var seen = new HashSet<int>();
 
-        foreach (var id in ParseIds(ids))
+        foreach (var id in ConfigIds.ParseInts(ids))
         {
-            if (!seen.Add(id))
-            {
-                continue;
-            }
-
             var name = resolve is null ? null : await resolve(id, cancellationToken).ConfigureAwait(false);
             resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id.ToString(CultureInfo.InvariantCulture) : name });
         }
 
         return resolved;
     }
-
-    // Parse a comma-separated list of ids, ignoring blanks and non-numbers.
-    private static IEnumerable<int> ParseIds(string? raw)
-        => string.IsNullOrWhiteSpace(raw)
-            ? Array.Empty<int>()
-            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(part => int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0)
-                .Where(id => id > 0);
 
     // Look a gap up by its stable id in the current stored report. Returns null for a missing/unknown id.
     private GapItem? RehydrateGap(string? id)

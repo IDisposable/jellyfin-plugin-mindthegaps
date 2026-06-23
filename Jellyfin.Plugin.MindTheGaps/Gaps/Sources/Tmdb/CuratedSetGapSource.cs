@@ -91,10 +91,10 @@ public sealed class CuratedSetGapSource : IGapSource, IExploreSource
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => (config.ScanCuratedSets
-                && (ParseIds(config.CuratedCompanyIds).Count > 0
-                    || ParseIds(config.CuratedKeywordIds).Count > 0
+                && (ConfigIds.ParseInts(config.CuratedCompanyIds).Count > 0
+                    || ConfigIds.ParseInts(config.CuratedKeywordIds).Count > 0
                     || config.AutoSeedStudios))
-            || (config.ScanTmdbLists && ParseIds(config.CuratedTmdbListIds).Count > 0);
+            || (config.ScanTmdbLists && ConfigIds.ParseInts(config.CuratedTmdbListIds).Count > 0);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
@@ -108,8 +108,8 @@ public sealed class CuratedSetGapSource : IGapSource, IExploreSource
         var companySets = scanSets
             ? await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false)
             : new List<(int Id, string Label)>();
-        var keywordIds = ParseIds(scanSets ? context.Config.CuratedKeywordIds : string.Empty);
-        var listIds = ParseIds(scanLists ? context.Config.CuratedTmdbListIds : string.Empty);
+        var keywordIds = ConfigIds.ParseInts(scanSets ? context.Config.CuratedKeywordIds : string.Empty);
+        var listIds = ConfigIds.ParseInts(scanLists ? context.Config.CuratedTmdbListIds : string.Empty);
         var total = Math.Max(1, companySets.Count + keywordIds.Count + listIds.Count);
         var done = 0;
         _logger.LogInformation("Curated sets: scanning {Companies} studios, {Keywords} keywords, and {Lists} TMDB lists", companySets.Count, keywordIds.Count, listIds.Count);
@@ -320,7 +320,7 @@ public sealed class CuratedSetGapSource : IGapSource, IExploreSource
         var sets = new List<(int Id, string Label)>();
         var seen = new HashSet<int>();
 
-        foreach (var id in ParseIds(config.CuratedCompanyIds))
+        foreach (var id in ConfigIds.ParseInts(config.CuratedCompanyIds))
         {
             if (!seen.Add(id))
             {
@@ -416,22 +416,5 @@ public sealed class CuratedSetGapSource : IGapSource, IExploreSource
             _logger.LogWarning(ex, "Curated sets: failed to fetch keyword name for {Id}", keywordId);
             return null;
         }
-    }
-
-    // Parse a comma-separated list of TMDB ids, ignoring blanks and non-numbers.
-    private static IReadOnlyList<int> ParseIds(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return Array.Empty<int>();
-        }
-
-        return raw
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(part => int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : (int?)null)
-            .Where(id => id is > 0)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
     }
 }
