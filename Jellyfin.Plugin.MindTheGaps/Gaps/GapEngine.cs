@@ -137,6 +137,12 @@ public sealed class GapEngine
         // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
         ServiceCircuit.ResetAll();
 
+        // When a service's circuit trips mid-scan, flush the gaps found so far out of band rather than waiting
+        // on the throttle. The trip fires on whichever producer thread gave up, so it only flags the consumer
+        // (which owns the gap list); the consumer takes the actual checkpoint on its next turn.
+        var forceCheckpoint = 0;
+        ServiceCircuit.OnTrip = _ => Interlocked.Exchange(ref forceCheckpoint, 1);
+
         // Run the sources concurrently so a slow, rate-paced provider (MusicBrainz, Discogs at one request a
         // second) does not hold up the fast ones: the scan takes about as long as the slowest service rather
         // than the sum of them all. Each source produces its gaps into a channel as it resolves each item, and
@@ -228,7 +234,7 @@ public sealed class GapEngine
                     gaps.Add(gap);
                 }
 
-                Checkpoint(force: false);
+                Checkpoint(force: Interlocked.Exchange(ref forceCheckpoint, 0) == 1);
             }
 
             // Flush the complete scan results before the (in-memory) enrichment phase.
@@ -236,6 +242,9 @@ public sealed class GapEngine
         }
         finally
         {
+            // The producers are done, so no further trip can fire; stop forcing checkpoints for this run.
+            ServiceCircuit.OnTrip = null;
+
             // Observe producer completion: propagates cancellation; per-source failures were already logged.
             await draining.ConfigureAwait(false);
         }
@@ -268,6 +277,11 @@ public sealed class GapEngine
         {
             AccumulateSeriesContent(gaps, byId, priorReport.Items);
         }
+
+        // The collection and discography sources scan everything each run rather than rotating a slice, so
+        // they are carried forward only to survive a source that failed mid-scan (a TMDB or music-provider
+        // blip that would otherwise blank a collection or discography from the saved report).
+        AccumulateSetCompletion(gaps, byId, priorReport.Items, context.Ownership, config);
 
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
         // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
@@ -539,6 +553,70 @@ public sealed class GapEngine
         }
     }
 
+    // Carry forward prior set-completion gaps (collections, discographies) that this run did not re-emit and
+    // are still unowned, so a transient upstream failure mid-scan does not blank them from the saved report.
+    // These sources scan everything each run, so a clean run re-emits the live set (nothing extra is carried)
+    // and a later clean run drops anything truly resolved. Gated per domain on that domain's source still being
+    // enabled, so turning a source off lets its accumulation drain. Episode set-completion gaps are excluded:
+    // AccumulateSeriesContent carries those, checking the library on disk directly.
+    private void AccumulateSetCompletion(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership, PluginConfiguration config)
+    {
+        const int maxAccumulated = 50000;
+
+        var domains = new HashSet<MediaDomain>();
+        if (config.ScanCollections)
+        {
+            domains.Add(MediaDomain.Movies);
+        }
+
+        if (config.ScanMusic || config.ScanDiscogs)
+        {
+            domains.Add(MediaDomain.Music);
+        }
+
+        if (domains.Count == 0)
+        {
+            return;
+        }
+
+        var carried = 0;
+        foreach (var item in prior)
+        {
+            if (item.Pattern != GapPattern.SetCompletion
+                || item.TargetKind == BaseItemKind.Episode
+                || item.Adhoc
+                || byId.ContainsKey(item.Id)
+                || !domains.Contains(item.Domain))
+            {
+                continue;
+            }
+
+            // Mirror how the sources decide ownership: a provider-id match, or for an album the artist-and-title
+            // name key (a release the library holds under a different provider's id), so a now-owned item is not
+            // wrongly resurrected.
+            if (ownership.OwnsAny(item.TargetKind, item.ProviderIds)
+                || (item.TargetKind == BaseItemKind.MusicAlbum && ownership.OwnsByName(item.TargetKind, item.SourceItemName, item.Name)))
+            {
+                continue;
+            }
+
+            if (carried >= maxAccumulated)
+            {
+                _logger.LogInformation("Backfill: reached the {Max} accumulated cap for set completion; older gaps not carried", maxAccumulated);
+                break;
+            }
+
+            byId[item.Id] = item;
+            gaps.Add(item);
+            carried++;
+        }
+
+        if (carried > 0)
+        {
+            _logger.LogInformation("Backfill: carried {Carried} unowned set-completion gaps forward from the previous scan", carried);
+        }
+    }
+
     private HashSet<(int Season, int Number)> OwnedEpisodeNumbers(Guid seriesId)
     {
         var owned = new HashSet<(int Season, int Number)>();
@@ -554,7 +632,13 @@ public sealed class GapEngine
                 && episode.ParentIndexNumber is int s
                 && episode.IndexNumber is int n)
             {
-                owned.Add((s, n));
+                // One file can span several episodes (S01E01-E02), so own every number in the span; otherwise
+                // a carried cross-check gap for the later part never drains even though the file is on disk.
+                var last = episode.IndexNumberEnd is int end && end > n ? end : n;
+                for (var number = n; number <= last; number++)
+                {
+                    owned.Add((s, number));
+                }
             }
         }
 

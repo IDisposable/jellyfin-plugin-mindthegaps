@@ -249,7 +249,13 @@ public abstract class SeriesContentGapSourceBase : IGapSource
                 && episode.ParentIndexNumber is int season
                 && episode.IndexNumber is int number)
             {
-                owned.Add((season, number));
+                // One file can span several episodes (S01E01-E02), so own every number in the span; otherwise
+                // the canonical list's later parts read as missing even though the file is on disk.
+                var last = episode.IndexNumberEnd is int end && end > number ? end : number;
+                for (var n = number; n <= last; n++)
+                {
+                    owned.Add((season, n));
+                }
             }
         }
 
