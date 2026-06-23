@@ -8,8 +8,9 @@ using TmdbPerson = TMDbLib.Objects.People.Person;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 
 /// <summary>
-/// Turns a TMDB person's movie credits into gaps for the unowned titles (acting roles plus
-/// directing/writing crew).
+/// Turns a TMDB person's movie and TV credits into gaps for the unowned titles (acting roles plus
+/// directing/writing crew). Movie credits become Movies/Movie gaps and TV credits become Shows/Series
+/// gaps, both under the Creator works pattern.
 /// </summary>
 public static class FilmographyGapMapper
 {
@@ -29,9 +30,9 @@ public static class FilmographyGapMapper
     };
 
     /// <summary>
-    /// Builds filmography gaps for a person's unowned movie credits, capped per person.
+    /// Builds filmography gaps for a person's unowned movie and TV credits, capped per person.
     /// </summary>
-    /// <param name="person">The TMDB person (with movie credits populated).</param>
+    /// <param name="person">The TMDB person (with movie and TV credits populated).</param>
     /// <param name="sourceItemId">The owned library person's id.</param>
     /// <param name="sourceItemName">The owned library person's name.</param>
     /// <param name="ownership">The library ownership index.</param>
@@ -114,6 +115,68 @@ public static class FilmographyGapMapper
                 }
             }
         }
+
+        var tvCredits = person.TvCredits;
+
+        if (tvCredits?.Cast is not null)
+        {
+            foreach (var role in tvCredits.Cast)
+            {
+                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                {
+                    break;
+                }
+
+                // TV filmography roles carry no vote count or billing order, so the same relevance gates are
+                // applied with the zero those fields default to: a positive vote floor drops TV cast roles
+                // (vote count 0), matching how the same floor trims obscure movie cast roles, while the
+                // cast-billing limit never drops a TV role (billing order 0 is never deeper than any limit).
+                if (!MeetsVotes(0, minVotes))
+                {
+                    continue;
+                }
+
+                var gap = BuildSeriesGap(
+                    role.Id,
+                    role.Name,
+                    role.FirstAirDate,
+                    role.PosterPath,
+                    string.IsNullOrEmpty(role.Character) ? null : "as " + role.Character,
+                    sourceItemId,
+                    sourceItemName,
+                    person.Id,
+                    ownership,
+                    posterUrl);
+                if (gap is not null)
+                {
+                    emitted++;
+                    yield return gap;
+                }
+            }
+        }
+
+        if (tvCredits?.Crew is not null)
+        {
+            foreach (var job in tvCredits.Crew)
+            {
+                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                {
+                    break;
+                }
+
+                if (string.IsNullOrEmpty(job.Department) || !_crewDepartments.Contains(job.Department))
+                {
+                    continue;
+                }
+
+                var gap = BuildSeriesGap(job.Id, job.Name, job.FirstAirDate, job.PosterPath, job.Job, sourceItemId, sourceItemName, person.Id, ownership, posterUrl);
+                if (gap is not null)
+                {
+                    emitted++;
+                    yield return gap;
+                }
+            }
+        }
     }
 
     // A credit clears the relevance floor when the gate is off (min <= 0) or it has enough TMDB votes.
@@ -162,5 +225,50 @@ public static class FilmographyGapMapper
             imageUrl: posterUrl(posterPath),
             overview: role,
             sortScore: popularity);
+    }
+
+    private static GapItem? BuildSeriesGap(
+        int tmdbId,
+        string? title,
+        DateTime? firstAirDate,
+        string? posterPath,
+        string? role,
+        string sourceItemId,
+        string? sourceItemName,
+        int sourcePersonTmdbId,
+        OwnershipIndex ownership,
+        Func<string?, string?> posterUrl)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return null;
+        }
+
+        // The TV filmography response carries only the series' TMDB id; the owned-series index also holds
+        // each series' TheTVDB id, so ownership matches whichever id the library tagged the series with.
+        var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [GapScanContext.TmdbProvider] = tmdbId.ToString(CultureInfo.InvariantCulture)
+        };
+
+        if (ownership.OwnsAny(BaseItemKind.Series, providerIds))
+        {
+            return null;
+        }
+
+        return GapItemFactory.Create(
+            id: string.Create(CultureInfo.InvariantCulture, $"filmography:series:{tmdbId}"),
+            pattern: GapPattern.CreatorWorks,
+            domain: MediaDomain.Shows,
+            targetKind: BaseItemKind.Series,
+            name: title,
+            providerIds: providerIds,
+            sourceItemId: sourceItemId,
+            sourceItemName: sourceItemName,
+            sourceItemType: "Person",
+            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
+            releaseDate: firstAirDate,
+            imageUrl: posterUrl(posterPath),
+            overview: role);
     }
 }

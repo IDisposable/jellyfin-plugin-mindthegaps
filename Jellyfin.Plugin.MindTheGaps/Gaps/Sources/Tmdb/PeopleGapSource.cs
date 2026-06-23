@@ -17,7 +17,7 @@ using TmdbPerson = TMDbLib.Objects.People.Person;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 
 /// <summary>
-/// Finds movies from an owned person's filmography (TMDB person credits) that are missing
+/// Finds movies and series from an owned person's filmography (TMDB person credits) that are missing
 /// from the library. Covers acting roles and key crew jobs (director/writer).
 /// </summary>
 public sealed class PeopleGapSource : IGapSource
@@ -57,7 +57,7 @@ public sealed class PeopleGapSource : IGapSource
     public string Name => "Filmography";
 
     /// <inheritdoc />
-    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie };
+    public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanPeople;

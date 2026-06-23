@@ -92,7 +92,7 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets a person with movie credits by their TMDB id.
+    /// Gets a person with their movie and TV credits by their TMDB id.
     /// </summary>
     /// <param name="tmdbId">The TMDB person id.</param>
     /// <param name="language">The metadata language.</param>
@@ -110,7 +110,7 @@ public sealed class TmdbClient : IDisposable
         var person = await _client.GetPersonAsync(
             tmdbId,
             NormalizeLanguage(language, country),
-            PersonMethods.MovieCredits,
+            PersonMethods.MovieCredits | PersonMethods.TvCredits,
             cancellationToken).ConfigureAwait(false);
 
         if (person is not null)
