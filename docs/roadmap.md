@@ -11,10 +11,9 @@
 | `IGapSource` as a core SPI for third-party gap plugins | Deferred by design (ADR-0002); every source ships in this plugin. |
 | Fuzzy "treat an owned-but-mistagged item as owned" matching | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead (see backlog). |
 | Per-user display gate for minted virtual items | Not possible from a plugin; minted items show for everyone. Needs upstream B. |
-| Greyed "Missing" badge on minted movies | Needs upstream A merged. |
+| Greyed "Missing" badge on minted items | Needs upstream A merged. |
 | Symmetric **book series** as Set completion | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to diff. |
 | MusicVideos domain | Enum-only; no source. |
-| Minting non-movie kinds today | Deferred to post-1.0 on top of the bulk-mint container refactor, where the minter can be made kind-aware and validated against a running server rather than written speculatively (see backlog). |
 
 ## Upstream asks (A, B, C)
 
@@ -23,27 +22,28 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 - **A - relax the "Missing" indicator (jellyfin-web).** Let virtual items render the greyed "Missing"
   treatment beyond episodes. Filed as **[jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)**;
-  once merged, the collection movies already mintable get the native greyed badge.
+  once merged, the virtual placeholders the plugin mints get the native greyed badge.
 - **B - mint and reconcile virtual items for any type (server),** ideally behind a host
-  `IVirtualItemManager` with a `DisplayMissingMovies` gate. The substantive feature, and the home for a
-  per-user display gate. Not filed yet; proposal in
-  [docs/upstream/discussion-mint-virtual-items.md](upstream/discussion-mint-virtual-items.md).
+  `IVirtualItemManager` with a `DisplayMissingMovies` gate. The home for a per-user display gate. Not filed
+  yet; proposal in [docs/upstream/discussion-mint-virtual-items.md](upstream/discussion-mint-virtual-items.md).
 - **C - expose the shared TMDB client and key via the published NuGet (server),** so a plugin reuses the
   host's cache and key instead of carrying its own. Plumbing cleanup; not filed yet. Proposal in
   [docs/upstream/discussion-tmdb-nuget-surface.md](upstream/discussion-tmdb-nuget-surface.md).
 
 ## Priorities (suggested, not committed)
 
-- **Acquisition handoff (Radarr/Sonarr, Jellyseerr/Overseerr).** The report dead-ends at a link; the
-  highest-value next feature is a per-row "Send" that hands a gap to an arr or request stack. Two spike
-  branches already prototype it and need rebasing onto current main (see backlog).
-- **Enable the music and book sources by default.** They ship off by default until validated against real
-  data. Books is hardened and its OpenLibrary fixtures are captured; Discogs (labels and artist discography)
-  is new; both want real-world validation across a varied library before defaulting on.
 - **Upstream ask A** ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)): merged, it
-  gives mintable collection movies their native greyed "Missing" badge.
+  gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
+- **Deepen Diagnose, and extend the identification audit to Music and Books.** The per-gap Diagnose already
+  covers albums and books; the library-wide audit stays movies and shows (its duplicate-id section is
+  TheMovieDb-specific). Generalizing the duplicate detection per primary provider closes that gap.
+- **Widen the newest sources: Discogs discography completeness, and a curated-book gap source.** Merge the
+  Discogs and MusicBrainz release lists for an artist both cover, and add a curated-book source so Books gets
+  its own chip picker.
+- **Bulk and scheduled minting.** A one-click "mint a whole pattern or domain", and a scheduled task that
+  keeps a chosen set materialized on the scan cadence, both built on the per-kind container strategy the
+  minter already carries.
 - **Shareable-link size** is a latent bug (links can exceed URL limits); cheap to de-risk.
-- If in-place CreatorWorks rendering is wanted, prototype the person-page materialization below.
 
 ## Backlog
 
@@ -60,11 +60,6 @@ of them. Drafts in [docs/upstream/](upstream/).
   a mismatched) TMDB id is reported missing ("Jack Reacher: Never Go Back"). Not "fixed" by fuzzy
   title-and-year matching, which would mask the metadata that should be corrected; the resolution is to
   surface it via Diagnose so the user fixes the id and rescans.
-- **Library-source reboot guard.** The TVmaze/TheTVDB cross-checks skip a year-mismatched resolved show
-  (`SeriesContentGapSourceBase.LooksLikeDifferentSeries`), but the always-on library source surfaces
-  whatever core minted, so a same-named reboot mistag (V 1984 tagged as V 2009) can still appear. A guard
-  there comparing a missing episode's year to the owned episodes' year *range* (not the series start year,
-  to avoid hiding a legitimate late season) would catch it without the masking risk.
 
 ### Diagnose
 
@@ -86,63 +81,28 @@ of them. Drafts in [docs/upstream/](upstream/).
   consult Discogs and merge the two release lists (de-duplicated by normalized title) so an album one provider
   lists and the other misses still surfaces. Deferred because the cross-provider, name-keyed release de-dup is
   fuzzy and would change the MusicBrainz gap-id scheme (a persisted-id contract, ADR-0008).
-- **Default the Books source on.** The two OpenLibrary endpoints the hardening added (`/works/{key}.json` and
-  `/search.json?author_key=`) now have captured fixtures and deserialization tests. What remains before it is
-  on by default: real-world validation across a varied library, and optionally a config-time author-to-key
-  override for the cases the matcher still gets wrong.
-- **People drive Shows, not just movies.** The TMDB people source surfaces a person's missing *films* only:
-  `PeopleGapSource` fetches credits with `PersonMethods.MovieCredits`, `FilmographyGapMapper` hardcodes
-  `domain: Movies, targetKind: Movie`, and the source's `OwnedKinds` is `{ Movie }`. The input for Shows is
-  already there (people are harvested from owned series casts too, and owned movie-plus-series credits rank
-  which people to scan), so the gap is the *output*: add `PersonMethods.TvCredits` to the fetch and a
-  Shows/Series mapping path (CreatorWorks, `domain: Shows`, `targetKind: Series`) alongside the movie one,
-  widening `OwnedKinds` to include `Series`. Net-new Creator works coverage: an owned actor or director's
-  unowned series become gaps. Trakt's filmography cross-check could grow the same way.
-- **Easier list entry, and a searchable list source.** TMDB lists are the one curated source still entered
-  as raw comma-separated ids (`CuratedTmdbListIds`); TMDB has no list-search API (only `/list/{id}`), so a
-  name type-ahead is impossible. Near-term fix: accept a pasted `themoviedb.org/list/{id}` URL (or a bare id)
-  in a chip input and resolve it to a confirmed chip via the existing list fetch (name plus count), a
+- **Easier TMDB-list entry, and a searchable list source.** TMDB lists are the one curated source still
+  entered as raw comma-separated ids (`CuratedTmdbListIds`); TMDB has no list-search API (only `/list/{id}`),
+  so a name type-ahead is impossible. Near-term fix: accept a pasted `themoviedb.org/list/{id}` URL (or a bare
+  id) in a chip input and resolve it to a confirmed chip via the existing list fetch (name plus count), a
   `tmdblist` branch in `CuratedResolve`, turning id-hunting into a paste. For genuinely searchable discovery
   lists, MDBList already has the type-ahead; **Trakt lists** would be a natural searchable sibling (Trakt
   exposes `/lists/popular`, `/lists/trending`, and list search, and its lists carry TMDB and IMDb ids), a new
   source shaped like MdbList.
-- **Explore a source from the report, not just settings.** The ad-hoc "Run now" explore controls sit in the
-  settings panel beside each chip picker, so exploring a source means opening settings, picking a chip, and
-  running it. A modal on the report page (a kind picker plus a type-ahead reusing `CuratedSearch`, with Run
-  and a Keep that writes the pick to config) would let you explore a studio, keyword, label, or list without
-  leaving the report, where the gaps land.
 
 ### Acquisition handoff
 
-- **Send a gap to Jellyseerr/Overseerr.** The lighter first target: keyed purely on TMDB ids, which every
-  gap has. One client (`Services/Seerr/SeerrClient`), one endpoint (`POST /api/v1/request` with
-  `{mediaType, mediaId}`), one config pair (URL plus API key), covering movies and series with no
-  profile/root-folder plumbing.
-- **Send a gap to Radarr/Sonarr.** Radarr `POST /api/v3/movie` takes a tmdbId; Sonarr is keyed on the
-  series' tvdbId (which a missing-episode gap carries). Needs `Services/Arr/{RadarrClient,SonarrClient}`,
-  config for base URL, API key, default quality profile and root folder per service, and movie-vs-series
-  routing by `TargetKind`. Both handoffs are opt-in and config-gated (the button appears only when
-  configured). Two spike branches already prototype both (`Services/Acquisition|Arr|Seerr`, settings UI, Send
-  buttons) and need rebasing onto current main.
-- **A manual want list (the to-acquire list).** Today a gap's fates are: resolve it (hide as not really
-  missing), leave it (the backfill drops it once the file lands), or hand it to an arr/Seerr stack (above).
-  That leaves the manual acquirer, who hunts titles down by hand, with nowhere to record "yes, I want this,
-  it is on my list to get." Add a per-gap **Want** flag persisted by gap id the way resolutions are
-  (`want.json`, atomic write, survives rescans, ADR-0008), distinct from a resolution: a wanted gap is still
-  missing, just claimed. Surface it as a report view/filter ("Want list") and a grouped Markdown export (the
-  manual person's shopping list). It is the bridge from "what is missing" to a personal acquisition plan, and
-  it composes with the arr/Seerr handoff (flag a batch, then send the list at once). Mirrors `ResolutionStore`
-  and the dashboard's resolved-overlay, so most of the machinery already exists.
+- **Send a selection (or the whole todo list) to an arr/Seerr stack in one pass.** The per-row Send hands one
+  gap to Radarr, Sonarr, or Jellyseerr/Overseerr, and the todo list collects what you want; the open piece is
+  a batch path that sends a multi-select selection, or the whole todo list, at once, reporting per-item
+  success the way the multi-select mint does.
 
 ### Minting
 
-- **Bulk mint across all enabled patterns.** Minting is per-row and multi-select today. A one-click "mint
-  every gap of a pattern/domain" needs the per-cell container strategy promoted out of `MintGapAsync` into a
-  small "is this materializable yet, and what is its container" lookup (BoxSet for collections, native for
-  episodes, catch-all collection for CreatorWorks/Recommendation).
-- **Mint virtual placeholders for non-movie kinds.** Albums (a pathless virtual `MusicAlbum` tagged with the
-  `MintedMarker`, in its artist or a catch-all) and books (virtual `Book`), built on the bulk-mint container
-  refactor and validated against a running server. Tracks/songs are low value (the album is the unit).
+- **One-click bulk mint across a pattern or domain.** Minting is per-row and multi-select today, and the
+  per-kind container strategy (a BoxSet for collections, the owning artist for albums, the catch-all
+  collection otherwise) already lives in `MintGapAsync` / `ResolveContainerAsync`. A "mint every gap of a
+  pattern or domain" lifts that into a small one-shot pass over the report.
 - **Background scheduled minting.** A scheduled task that keeps a chosen set of patterns/domains
   materialized (mint new, reconcile owned) on the scan cadence, reusing `MintRunner` and the container
   strategy. Open: the selection UI and guardrails against flooding a library.
@@ -155,9 +115,9 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Native page integration
 
-- **CreatorWorks on the native person page.** A minted virtual `Movie` with the person attached already
-  appears on that person's page and survives scans with no server change (verified against 10.11). The
-  one-off filmography Mint button is the live probe. A distinct "Gaps" shelf would need jellyfin-web work; the
+- **CreatorWorks on the native person page.** A minted virtual item with the person attached already appears
+  on that person's page and survives scans with no server change (verified against 10.11). The one-off
+  filmography Mint button is the live probe. A distinct "Gaps" shelf would need jellyfin-web work; the
   plugin-only version leans on the existing person-items query. Dependencies: upstream A for the greyed badge,
   and there is still no per-user display gate.
 - **In-page polish via the frontend-customization ecosystem (optional, post-1.0).** The **File
