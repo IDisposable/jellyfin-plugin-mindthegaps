@@ -2339,6 +2339,7 @@
                     page.querySelector('#ScanPeople').checked = config.ScanPeople;
                     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
                     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
+                    page.querySelector('#ScanTmdbLists').checked = config.ScanTmdbLists;
                     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
                     page.querySelector('#CuratedTmdbListIds').value = config.CuratedTmdbListIds || '';
                     loadChips(page, config);
@@ -2414,6 +2415,7 @@
                         config.ScanPeople = form.querySelector('#ScanPeople').checked;
                         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
                         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
+                        config.ScanTmdbLists = form.querySelector('#ScanTmdbLists').checked;
                         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
                         config.CuratedTmdbListIds = form.querySelector('#CuratedTmdbListIds').value.trim();
                         // The chips hold the ids; nothing else to persist for curated sets.

@@ -17,6 +17,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanPeople = true;
         ScanRecommendations = false;
         ScanCuratedSets = false;
+        ScanTmdbLists = false;
         CuratedCompanyIds = string.Empty;
         CuratedKeywordIds = string.Empty;
         CuratedTmdbListIds = string.Empty;
@@ -91,6 +92,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// maintains this from its keyword chip picker; the ids are never shown directly.
     /// </summary>
     public string CuratedKeywordIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface discovery gaps from the TMDB lists in
+    /// <see cref="CuratedTmdbListIds"/>. Separate from <see cref="ScanCuratedSets"/> so a discovery list
+    /// can run without also running the studio and keyword set-completion sources.
+    /// </summary>
+    public bool ScanTmdbLists { get; set; }
 
     /// <summary>
     /// Gets or sets a comma-separated list of TMDB list ids to surface as discovery (Recommendation) gaps.

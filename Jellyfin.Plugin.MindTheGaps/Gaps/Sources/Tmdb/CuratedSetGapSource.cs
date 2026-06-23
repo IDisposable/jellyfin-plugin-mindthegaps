@@ -57,20 +57,26 @@ public sealed class CuratedSetGapSource : IGapSource
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
-        => config.ScanCuratedSets
-            && (ParseIds(config.CuratedCompanyIds).Count > 0
-                || ParseIds(config.CuratedKeywordIds).Count > 0
-                || ParseIds(config.CuratedTmdbListIds).Count > 0
-                || config.AutoSeedStudios);
+        => (config.ScanCuratedSets
+                && (ParseIds(config.CuratedCompanyIds).Count > 0
+                    || ParseIds(config.CuratedKeywordIds).Count > 0
+                    || config.AutoSeedStudios))
+            || (config.ScanTmdbLists && ParseIds(config.CuratedTmdbListIds).Count > 0);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var companySets = await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false);
-        var keywordIds = ParseIds(context.Config.CuratedKeywordIds);
-        var listIds = ParseIds(context.Config.CuratedTmdbListIds);
+        // Studio/keyword set-completion and TMDB-list discovery have separate toggles, so one can run
+        // without the other; an off portion contributes no ids and skips its lookups.
+        var scanSets = context.Config.ScanCuratedSets;
+        var scanLists = context.Config.ScanTmdbLists;
+        var companySets = scanSets
+            ? await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false)
+            : new List<(int Id, string Label)>();
+        var keywordIds = ParseIds(scanSets ? context.Config.CuratedKeywordIds : string.Empty);
+        var listIds = ParseIds(scanLists ? context.Config.CuratedTmdbListIds : string.Empty);
         var total = Math.Max(1, companySets.Count + keywordIds.Count + listIds.Count);
         var done = 0;
         _logger.LogInformation("Curated sets: scanning {Companies} studios, {Keywords} keywords, and {Lists} TMDB lists", companySets.Count, keywordIds.Count, listIds.Count);
