@@ -35,7 +35,7 @@ jobs:
           # - { abi: "12.x", framework: net10.0, dotnet: "10.0.x", jellyfin: "12.0.0", plugin-version: "", abi-base: "12.0", targetabi: "12.0.0.0" }
     name: build (${{ matrix.abi }})
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Catch the "tagged before bumping build.yaml" slip: on a release, the tag (minus the leading v)
       # must equal build.yaml's version (the single source). Fails fast, before any build work.
@@ -133,8 +133,8 @@ jobs:
     name: lint (dashboard js)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: lts/*
           cache: npm
@@ -147,7 +147,7 @@ jobs:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
 
