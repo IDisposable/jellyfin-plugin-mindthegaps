@@ -53,11 +53,28 @@ public sealed class MdbListGapSource : IGapSource
             && ParseIds(config.MdbListListIds).Count > 0;
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<GapItem> FindGapsAsync(
+    public IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
+        CancellationToken cancellationToken)
+        => FindGapsForListsAsync(context, ParseIds(context.Config.MdbListListIds), cancellationToken);
+
+    /// <summary>
+    /// Streams the gaps for an explicit set of list ids, diffed against the context's ownership index. The
+    /// scan path calls this with the configured ids; an ad-hoc "explore a source" run calls it with one id
+    /// the user picked, so a single list can be surfaced without a full rescan.
+    /// </summary>
+    /// <param name="context">The scan context.</param>
+    /// <param name="listIds">The MDBList list ids to fetch and diff.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An async stream of gaps.</returns>
+    public async IAsyncEnumerable<GapItem> FindGapsForListsAsync(
+        GapScanContext context,
+        IReadOnlyList<int> listIds,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var listIds = ParseIds(context.Config.MdbListListIds);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(listIds);
+
         var total = Math.Max(1, listIds.Count);
         var done = 0;
 

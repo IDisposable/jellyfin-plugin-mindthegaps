@@ -68,7 +68,6 @@ public sealed class CuratedSetGapSource : IGapSource
         GapScanContext context,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var language = context.Config.MetadataLanguage;
         var companySets = await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false);
         var keywordIds = ParseIds(context.Config.CuratedKeywordIds);
         var listIds = ParseIds(context.Config.CuratedTmdbListIds);
@@ -79,19 +78,7 @@ public sealed class CuratedSetGapSource : IGapSource
         foreach (var (companyId, label) in companySets)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var results = await CollectAsync(
-                (page, ct) => _tmdb.DiscoverMoviesByCompanyAsync(companyId, page, language, ct),
-                cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Curated sets: studio '{Label}' ({Id}) has {Count} movies on TMDB", label, companyId, results.Count);
-
-            foreach (var gap in CuratedSetGapMapper.BuildMovies(
-                results,
-                string.Create(CultureInfo.InvariantCulture, $"company:{companyId}"),
-                label,
-                "Studio",
-                context.Ownership,
-                _tmdb.GetPosterUrl,
-                MaxGapsPerSet))
+            await foreach (var gap in EmitCompanyAsync(context, companyId, label, cancellationToken).ConfigureAwait(false))
             {
                 yield return gap;
             }
@@ -102,21 +89,7 @@ public sealed class CuratedSetGapSource : IGapSource
         foreach (var keywordId in keywordIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var label = await SafeKeywordName(keywordId, cancellationToken).ConfigureAwait(false)
-                ?? string.Create(CultureInfo.InvariantCulture, $"Keyword {keywordId}");
-            var results = await CollectAsync(
-                (page, ct) => _tmdb.DiscoverMoviesByKeywordAsync(keywordId, page, language, ct),
-                cancellationToken).ConfigureAwait(false);
-            _logger.LogInformation("Curated sets: keyword '{Label}' ({Id}) has {Count} movies on TMDB", label, keywordId, results.Count);
-
-            foreach (var gap in CuratedSetGapMapper.BuildMovies(
-                results,
-                string.Create(CultureInfo.InvariantCulture, $"keyword:{keywordId}"),
-                label,
-                "Keyword",
-                context.Ownership,
-                _tmdb.GetPosterUrl,
-                MaxGapsPerSet))
+            await foreach (var gap in EmitKeywordAsync(context, keywordId, cancellationToken).ConfigureAwait(false))
             {
                 yield return gap;
             }
@@ -127,27 +100,152 @@ public sealed class CuratedSetGapSource : IGapSource
         foreach (var listId in listIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var list = await _tmdb.GetListMoviesAsync(listId, language, cancellationToken).ConfigureAwait(false);
-            var label = string.IsNullOrEmpty(list.Name)
-                ? string.Create(CultureInfo.InvariantCulture, $"List {listId}")
-                : list.Name;
-            _logger.LogInformation("Curated sets: TMDB list '{Label}' ({Id}) has {Count} movies", label, listId, list.Movies.Count);
-
-            foreach (var gap in CuratedSetGapMapper.BuildMovies(
-                list.Movies,
-                string.Create(CultureInfo.InvariantCulture, $"list:{listId}"),
-                label,
-                "List",
-                context.Ownership,
-                _tmdb.GetPosterUrl,
-                MaxGapsPerSet,
-                GapPattern.Recommendation,
-                string.Create(CultureInfo.InvariantCulture, $"tmdblist-{listId}")))
+            await foreach (var gap in EmitListAsync(context, listId, cancellationToken).ConfigureAwait(false))
             {
                 yield return gap;
             }
 
             context.ReportProgress((double)++done / total);
+        }
+    }
+
+    /// <summary>
+    /// Streams the gaps for an explicit set of ids of one curated kind ("studio", "keyword", or
+    /// "tmdblist"), diffed against the context's ownership index. The scan path runs the configured ids of
+    /// every kind; an ad-hoc "explore a source" run calls this with one kind and the ids the user picked,
+    /// so a single studio, keyword, or TMDB list can be surfaced without a full rescan. Auto-seeded studios
+    /// are a scan-only concern and are not consulted here.
+    /// </summary>
+    /// <param name="context">The scan context.</param>
+    /// <param name="kind">The curated kind: "studio", "keyword", or "tmdblist".</param>
+    /// <param name="ids">The TMDB ids to fetch and diff for that kind.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>An async stream of gaps.</returns>
+    public async IAsyncEnumerable<GapItem> FindGapsForSetsAsync(
+        GapScanContext context,
+        string kind,
+        IReadOnlyList<int> ids,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var total = Math.Max(1, ids.Count);
+        var done = 0;
+
+        foreach (var id in ids)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            IAsyncEnumerable<GapItem> stream;
+            if (string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase))
+            {
+                var label = await SafeKeywordName(id, ct).ConfigureAwait(false)
+                    ?? string.Create(CultureInfo.InvariantCulture, $"Keyword {id}");
+                stream = EmitKeywordAsync(context, id, label, ct);
+            }
+            else if (string.Equals(kind, "tmdblist", StringComparison.OrdinalIgnoreCase))
+            {
+                stream = EmitListAsync(context, id, ct);
+            }
+            else
+            {
+                var label = await SafeCompanyName(id, ct).ConfigureAwait(false)
+                    ?? string.Create(CultureInfo.InvariantCulture, $"Studio {id}");
+                stream = EmitCompanyAsync(context, id, label, ct);
+            }
+
+            await foreach (var gap in stream.ConfigureAwait(false))
+            {
+                yield return gap;
+            }
+
+            context.ReportProgress((double)++done / total);
+        }
+    }
+
+    private async IAsyncEnumerable<GapItem> EmitCompanyAsync(
+        GapScanContext context,
+        int companyId,
+        string label,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var language = context.Config.MetadataLanguage;
+        var results = await CollectAsync(
+            (page, ct) => _tmdb.DiscoverMoviesByCompanyAsync(companyId, page, language, ct),
+            cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Curated sets: studio '{Label}' ({Id}) has {Count} movies on TMDB", label, companyId, results.Count);
+
+        foreach (var gap in CuratedSetGapMapper.BuildMovies(
+            results,
+            string.Create(CultureInfo.InvariantCulture, $"company:{companyId}"),
+            label,
+            "Studio",
+            context.Ownership,
+            _tmdb.GetPosterUrl,
+            MaxGapsPerSet))
+        {
+            yield return gap;
+        }
+    }
+
+    private IAsyncEnumerable<GapItem> EmitKeywordAsync(
+        GapScanContext context,
+        int keywordId,
+        CancellationToken cancellationToken)
+        => EmitKeywordAsync(context, keywordId, label: null, cancellationToken);
+
+    private async IAsyncEnumerable<GapItem> EmitKeywordAsync(
+        GapScanContext context,
+        int keywordId,
+        string? label,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var language = context.Config.MetadataLanguage;
+        label ??= await SafeKeywordName(keywordId, cancellationToken).ConfigureAwait(false)
+            ?? string.Create(CultureInfo.InvariantCulture, $"Keyword {keywordId}");
+        var results = await CollectAsync(
+            (page, ct) => _tmdb.DiscoverMoviesByKeywordAsync(keywordId, page, language, ct),
+            cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Curated sets: keyword '{Label}' ({Id}) has {Count} movies on TMDB", label, keywordId, results.Count);
+
+        foreach (var gap in CuratedSetGapMapper.BuildMovies(
+            results,
+            string.Create(CultureInfo.InvariantCulture, $"keyword:{keywordId}"),
+            label,
+            "Keyword",
+            context.Ownership,
+            _tmdb.GetPosterUrl,
+            MaxGapsPerSet))
+        {
+            yield return gap;
+        }
+    }
+
+    private async IAsyncEnumerable<GapItem> EmitListAsync(
+        GapScanContext context,
+        int listId,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var language = context.Config.MetadataLanguage;
+        var list = await _tmdb.GetListMoviesAsync(listId, language, cancellationToken).ConfigureAwait(false);
+        var label = string.IsNullOrEmpty(list.Name)
+            ? string.Create(CultureInfo.InvariantCulture, $"List {listId}")
+            : list.Name;
+        _logger.LogInformation("Curated sets: TMDB list '{Label}' ({Id}) has {Count} movies", label, listId, list.Movies.Count);
+
+        foreach (var gap in CuratedSetGapMapper.BuildMovies(
+            list.Movies,
+            string.Create(CultureInfo.InvariantCulture, $"list:{listId}"),
+            label,
+            "List",
+            context.Ownership,
+            _tmdb.GetPosterUrl,
+            MaxGapsPerSet,
+            GapPattern.Recommendation,
+            string.Create(CultureInfo.InvariantCulture, $"tmdblist-{listId}")))
+        {
+            yield return gap;
         }
     }
 

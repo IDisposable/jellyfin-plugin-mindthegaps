@@ -106,6 +106,11 @@ of them. Drafts in [docs/upstream/](upstream/).
   lists, MDBList already has the type-ahead; **Trakt lists** would be a natural searchable sibling (Trakt
   exposes `/lists/popular`, `/lists/trending`, and list search, and its lists carry TMDB and IMDb ids), a new
   source shaped like MdbList.
+- **Explore a source from the report, not just settings.** The ad-hoc "Run now" explore controls sit in the
+  settings panel beside each chip picker, so exploring a source means opening settings, picking a chip, and
+  running it. A modal on the report page (a kind picker plus a type-ahead reusing `CuratedSearch`, with Run
+  and a Keep that writes the pick to config) would let you explore a studio, keyword, label, or list without
+  leaving the report, where the gaps land.
 
 ### Acquisition handoff
 

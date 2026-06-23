@@ -113,6 +113,15 @@ public class GapItem
     public int? SourceItemYear { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether this gap came from an ad-hoc "explore a source" run rather
+    /// than a configured, scanned source. Ad-hoc gaps are a scratch pad: they can be cleared on demand (all
+    /// at once or per source) without a rescan, and the next full scan drops any that remain, since the scan
+    /// carries forward only non-ad-hoc gaps. Keeping a source in config is the way to make an exploration
+    /// stick: a later scan re-produces its gaps freshly with this cleared, graduating them to permanent.
+    /// </summary>
+    public bool Adhoc { get; set; }
+
+    /// <summary>
     /// Gets or sets external links to the source/creator's own page (an actor's TMDB page, an author's
     /// OpenLibrary page, an artist's Discogs/MusicBrainz page, a studio's or label's page), built from the
     /// source's provider ids. Empty when the source carries no linkable external id.

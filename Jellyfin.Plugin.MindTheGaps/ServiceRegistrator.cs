@@ -41,6 +41,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
+        serviceCollection.AddSingleton<ExploreRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<WebhookNotifier>();
         serviceCollection.AddSingleton<CachedApiClient>();
@@ -75,5 +76,11 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
+
+        // The by-id, chip-pickable sources (CuratedSetGapSource for studios/keywords/TMDB lists,
+        // DiscogsLabelGapSource, MdbListGapSource) are also driven ad-hoc by ExploreRunner, which routes a
+        // picked (kind, ids) through GapEngine. The engine finds each concrete source by type in the
+        // registered IGapSource set, so the scan and the explore share one instance (and its cache); no
+        // separate concrete registration is needed.
     }
 }

@@ -31,6 +31,7 @@ public class GapsController : ControllerBase
 {
     private readonly GapStore _store;
     private readonly GapScanRunner _scanRunner;
+    private readonly ExploreRunner _exploreRunner;
     private readonly AvailabilityService _availabilityService;
     private readonly AvailabilityRunner _availabilityRunner;
     private readonly VirtualMovieMinter _minter;
@@ -47,6 +48,7 @@ public class GapsController : ControllerBase
     /// </summary>
     /// <param name="store">The gap store.</param>
     /// <param name="scanRunner">The background scan runner.</param>
+    /// <param name="exploreRunner">The background ad-hoc explore runner.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="availabilityRunner">The background availability enrichment runner.</param>
     /// <param name="minter">The virtual-movie minter.</param>
@@ -57,10 +59,11 @@ public class GapsController : ControllerBase
     /// <param name="tmdb">The TheMovieDb client, for the curated-set type-ahead and id resolution.</param>
     /// <param name="discogs">The Discogs client, for the curated-label type-ahead and id resolution.</param>
     /// <param name="mdblist">The MDBList client, for the MDBList list type-ahead and id resolution.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist)
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, AvailabilityService availabilityService, AvailabilityRunner availabilityRunner, VirtualMovieMinter minter, MintRunner mintRunner, ResolutionStore resolutions, ScanCursorStore cursors, GapDiagnostics diagnostics, TmdbClient tmdb, DiscogsClient discogs, MdbListClient mdblist)
     {
         _store = store;
         _scanRunner = scanRunner;
+        _exploreRunner = exploreRunner;
         _availabilityService = availabilityService;
         _availabilityRunner = availabilityRunner;
         _minter = minter;
@@ -175,6 +178,60 @@ public class GapsController : ControllerBase
         _cursors.Reset();
         return NoContent();
     }
+
+    /// <summary>
+    /// Explores a by-id source ad-hoc against current library ownership, marks the produced gaps ad-hoc, and
+    /// merges them additively into the report without a full rescan. The kind picks the source ("studio",
+    /// "keyword", and "tmdblist" run TheMovieDb curated sets; "label" runs a Discogs label; "mdblist" runs
+    /// an MDBList list), and ids is the picked ids for that kind. Runs in the background so a slow provider
+    /// cannot time out the request; poll <see cref="GetExploreStatus"/> for completion, then reload the
+    /// report.
+    /// </summary>
+    /// <param name="kind">The source kind: "studio", "keyword", "tmdblist", "label", or "mdblist".</param>
+    /// <param name="ids">A comma-separated list (or single value) of ids to explore for that kind.</param>
+    /// <returns>The explore status, with Started indicating whether this call kicked off a new explore.</returns>
+    [HttpPost("Explore")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<ScanStatus> Explore([FromQuery] string? kind, [FromQuery] string? ids)
+    {
+        if (!GapEngine.IsExploreKind(kind))
+        {
+            return BadRequest(string.Create(
+                CultureInfo.InvariantCulture,
+                $"Unknown explore kind '{kind}'. Supported kinds: {string.Join(", ", GapEngine.ExploreKinds)}."));
+        }
+
+        var picked = ParseIds(ids).Distinct().ToList();
+        if (picked.Count == 0)
+        {
+            return BadRequest("No valid ids to explore.");
+        }
+
+        var started = _exploreRunner.TryStartExplore(kind!, picked);
+        return new ScanStatus { Running = true, Started = started, Progress = _exploreRunner.Progress };
+    }
+
+    /// <summary>
+    /// Gets whether a background ad-hoc explore is currently running, and its progress.
+    /// </summary>
+    /// <returns>The explore status.</returns>
+    [HttpGet("Explore/Status")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<ScanStatus> GetExploreStatus()
+        => new ScanStatus { Running = _exploreRunner.IsExploring, Progress = _exploreRunner.Progress };
+
+    /// <summary>
+    /// Clears the ad-hoc "explore a source" gaps from the report. With a source given, only that owning
+    /// item's ad-hoc gaps are cleared; otherwise every ad-hoc gap is cleared. Permanent (scanned) gaps are
+    /// left untouched.
+    /// </summary>
+    /// <param name="source">The owning item id to scope the clear to, or omitted to clear all ad-hoc gaps.</param>
+    /// <returns>The number of ad-hoc gaps removed.</returns>
+    [HttpPost("Explore/Clear")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<int> ClearExplore([FromQuery] string? source)
+        => _store.RemoveAdhocGaps(source);
 
     /// <summary>
     /// Starts a background removal of every virtual movie this plugin has minted. Poll <see cref="GetMintStatus"/>.

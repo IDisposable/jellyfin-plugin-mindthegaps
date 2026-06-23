@@ -52,11 +52,28 @@ public sealed class DiscogsLabelGapSource : IGapSource
             && ParseLabelIds(config.DiscogsLabelIds).Count > 0;
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<GapItem> FindGapsAsync(
+    public IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
+        CancellationToken cancellationToken)
+        => FindGapsForLabelsAsync(context, ParseLabelIds(context.Config.DiscogsLabelIds), cancellationToken);
+
+    /// <summary>
+    /// Streams the gaps for an explicit set of Discogs label ids, diffed against the context's ownership
+    /// index. The scan path calls this with the configured ids; an ad-hoc "explore a source" run calls it
+    /// with the label ids the user picked, so a single label can be surfaced without a full rescan.
+    /// </summary>
+    /// <param name="context">The scan context.</param>
+    /// <param name="labelIds">The Discogs label ids to fetch and diff.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An async stream of gaps.</returns>
+    public async IAsyncEnumerable<GapItem> FindGapsForLabelsAsync(
+        GapScanContext context,
+        IReadOnlyList<long> labelIds,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var labelIds = ParseLabelIds(context.Config.DiscogsLabelIds);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(labelIds);
+
         var total = Math.Max(1, labelIds.Count);
         var done = 0;
 

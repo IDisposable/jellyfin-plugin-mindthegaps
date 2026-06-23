@@ -61,6 +61,21 @@ public sealed class GapEngine
     }
 
     /// <summary>
+    /// Gets the explore kinds this engine can run ad-hoc by id, each mapping to the source and seam that
+    /// surface its picked ids. These are the by-id, chip-pickable curated and discovery sources; owned-derived
+    /// sources (collections, people/Trakt filmographies, series content) are not added by id and are absent.
+    /// </summary>
+    public static IReadOnlyCollection<string> ExploreKinds { get; } = new[] { "studio", "keyword", "tmdblist", "label", "mdblist" };
+
+    /// <summary>
+    /// Whether the given kind is a supported ad-hoc explore kind.
+    /// </summary>
+    /// <param name="kind">The kind string (case-insensitive), for example "studio" or "mdblist".</param>
+    /// <returns><see langword="true"/> if the kind can be explored ad-hoc.</returns>
+    public static bool IsExploreKind(string? kind)
+        => kind is not null && ExploreKinds.Any(k => string.Equals(k, kind, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// Runs all enabled sources and saves the resulting report.
     /// </summary>
     /// <param name="progress">Optional progress reporter (0-100).</param>
@@ -289,6 +304,117 @@ public sealed class GapEngine
         return report;
     }
 
+    /// <summary>
+    /// Runs the source behind an explore kind ad-hoc against current ownership for an explicit set of ids,
+    /// marks every gap it produces <see cref="GapItem.Adhoc"/>, and returns the report. This is the "explore
+    /// a source" path: it does not accumulate un-scanned prior gaps, reconcile minted placeholders, or save
+    /// (the caller merges the result additively), so it only ever surfaces this source's gaps for these ids.
+    /// The ownership index is scoped to just that source's <see cref="IGapSource.OwnedKinds"/>. Supported
+    /// kinds are <see cref="ExploreKinds"/>.
+    /// </summary>
+    /// <param name="kind">The explore kind: "studio", "keyword", "tmdblist", "label", or "mdblist".</param>
+    /// <param name="ids">The explicit descriptor ids to run the source for (for example MDBList list ids).</param>
+    /// <param name="progress">Optional progress reporter (0-100).</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>A report of the ad-hoc gaps found.</returns>
+    /// <exception cref="ArgumentException">The kind is not a supported explore kind.</exception>
+    public async Task<GapReport> RunExploreAsync(string kind, IReadOnlyList<int> ids, IProgress<double>? progress, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var (source, makeStream) = ResolveExplore(kind, ids);
+
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var ownership = BuildOwnershipIndex(source.OwnedKinds.Distinct().ToArray());
+        var context = new GapScanContext(config, ownership);
+        context.SetProgressSink(f => progress?.Report(Math.Clamp(f, 0.0, 1.0) * 100.0));
+
+        _logger.LogInformation("Ad-hoc explore: running {Kind} source {Source} for {Count} id(s)", kind, source.Name, ids.Count);
+
+        // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
+        ServiceCircuit.ResetAll();
+
+        var gaps = new List<GapItem>();
+        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+
+        await foreach (var gap in makeStream(context, ct).ConfigureAwait(false))
+        {
+            gap.Adhoc = true;
+            if (byId.TryGetValue(gap.Id, out var existing))
+            {
+                MergeDuplicateSource(existing, gap);
+            }
+            else
+            {
+                byId[gap.Id] = gap;
+                gaps.Add(gap);
+            }
+        }
+
+        // Re-adopt any external ids and "where to watch" the background pass resolved for these gaps before,
+        // and rebuild the links those ids imply, so an explore run does not throw away that enrichment.
+        CarryForward(gaps);
+
+        // Let the host's external-url providers contribute links, as a full scan does.
+        _externalLinks.Enrich(gaps);
+
+        _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", source.Name, gaps.Count);
+
+        return new GapReport
+        {
+            GeneratedUtc = DateTime.UtcNow,
+            GeneratedVersion = Plugin.Instance?.Version?.ToString() ?? string.Empty,
+            TotalGaps = gaps.Count,
+            Items = gaps
+        };
+    }
+
+    // Route an explore kind to its source and the seam that streams the picked ids through it. The TMDB
+    // curated sets (studio/keyword/tmdblist) share one source and one seam, differing only by the kind it is
+    // handed; the Discogs labels and MDBList lists each have their own. The picked ids arrive as ints (the
+    // chip picker's vocabulary); Discogs label ids widen to long for that source's seam.
+    private (IGapSource Source, Func<GapScanContext, CancellationToken, IAsyncEnumerable<GapItem>> MakeStream) ResolveExplore(string kind, IReadOnlyList<int> ids)
+    {
+        if (string.Equals(kind, "studio", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "keyword", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kind, "tmdblist", StringComparison.OrdinalIgnoreCase))
+        {
+            var curated = RequireSource<Sources.Tmdb.CuratedSetGapSource>(kind);
+            return (curated, (context, ct) => curated.FindGapsForSetsAsync(context, kind, ids, ct));
+        }
+
+        if (string.Equals(kind, "label", StringComparison.OrdinalIgnoreCase))
+        {
+            var discogs = RequireSource<Sources.Discogs.DiscogsLabelGapSource>(kind);
+            var labelIds = ids.Select(id => (long)id).ToList();
+            return (discogs, (context, ct) => discogs.FindGapsForLabelsAsync(context, labelIds, ct));
+        }
+
+        if (string.Equals(kind, "mdblist", StringComparison.OrdinalIgnoreCase))
+        {
+            var mdblist = RequireSource<Sources.MdbList.MdbListGapSource>(kind);
+            return (mdblist, (context, ct) => mdblist.FindGapsForListsAsync(context, ids, ct));
+        }
+
+        throw new ArgumentException(
+            string.Create(CultureInfo.InvariantCulture, $"'{kind}' is not a supported explore kind."),
+            nameof(kind));
+    }
+
+    private TSource RequireSource<TSource>(string kind)
+        where TSource : class, IGapSource
+    {
+        var source = _sources.OfType<TSource>().FirstOrDefault();
+        if (source is null)
+        {
+            throw new InvalidOperationException(
+                string.Create(CultureInfo.InvariantCulture, $"The source for explore kind '{kind}' is not registered."));
+        }
+
+        return source;
+    }
+
     // Carry prior gaps of one capped pattern forward across scans so its coverage accumulates: a gap that
     // was found before, is still not owned, and was not re-found this run (its seed was not in this run's
     // batch) is kept rather than dropped. Gaps whose source the user dismissed wholesale (creator or
@@ -311,7 +437,9 @@ public sealed class GapEngine
         var carried = 0;
         foreach (var item in prior)
         {
-            if (item.Pattern != pattern || byId.ContainsKey(item.Id))
+            // Ad-hoc "explore" gaps are deliberately not carried forward: a scheduled scan clears any
+            // exploration the user did not keep in config (a kept source re-produces them as permanent).
+            if (item.Pattern != pattern || byId.ContainsKey(item.Id) || item.Adhoc)
             {
                 continue;
             }
@@ -542,6 +670,11 @@ public sealed class GapEngine
     {
         // The kinds to index are declared by the sources themselves; the engine just unions them.
         var kinds = enabledSources.SelectMany(s => s.OwnedKinds).Distinct().ToArray();
+        return new GapScanContext(config, BuildOwnershipIndex(kinds));
+    }
+
+    private OwnershipIndex BuildOwnershipIndex(BaseItemKind[] kinds)
+    {
         var byKey = new Dictionary<string, BaseItem>();
         var itemCount = 0;
 
@@ -580,6 +713,6 @@ public sealed class GapEngine
             ownership.Count,
             string.Join(", ", kinds));
 
-        return new GapScanContext(config, ownership);
+        return ownership;
     }
 }

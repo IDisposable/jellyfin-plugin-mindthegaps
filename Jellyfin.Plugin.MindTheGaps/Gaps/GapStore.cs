@@ -119,6 +119,121 @@ public sealed class GapStore
         }
     }
 
+    /// <summary>
+    /// Additively merges an ad-hoc run's gaps into the current report by id and flushes. A gap not already
+    /// present is appended; a gap that re-appears keeps the prior row's "where to watch" enrichment; and
+    /// every gap from other sources is left untouched. Unlike a full scan this never drops gaps it did not
+    /// find, so a one-off "explore a source" run only ever adds to the report.
+    /// </summary>
+    /// <param name="toAdd">The ad-hoc run's report whose gaps are merged in.</param>
+    /// <returns>The number of gaps that were newly added (not already in the report).</returns>
+    public int MergeAdditiveGaps(GapReport toAdd)
+    {
+        ArgumentNullException.ThrowIfNull(toAdd);
+
+        lock (_lock)
+        {
+            var current = Load();
+            var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+            var order = new List<string>(current.Items.Count + toAdd.Items.Count);
+            foreach (var item in current.Items)
+            {
+                if (byId.TryAdd(item.Id, item))
+                {
+                    order.Add(item.Id);
+                }
+            }
+
+            var added = 0;
+            foreach (var add in toAdd.Items)
+            {
+                if (byId.TryGetValue(add.Id, out var prior))
+                {
+                    CarryEnrichment(prior, add);
+                }
+                else
+                {
+                    order.Add(add.Id);
+                    added++;
+                }
+
+                byId[add.Id] = add;
+            }
+
+            var items = order.ConvertAll(id => byId[id]);
+            var report = new GapReport
+            {
+                GeneratedUtc = current.GeneratedUtc,
+                GeneratedVersion = current.GeneratedVersion,
+                TotalGaps = items.Count,
+                Items = items
+            };
+            _cached = report;
+            Flush(report);
+            return added;
+        }
+    }
+
+    /// <summary>
+    /// Removes the ad-hoc "explore a source" gaps from the current report and flushes. When
+    /// <paramref name="sourceItemId"/> is given, only ad-hoc gaps surfaced by that owning item are removed;
+    /// otherwise every ad-hoc gap is removed. Permanent (scanned) gaps are left untouched.
+    /// </summary>
+    /// <param name="sourceItemId">The owning item id to scope the clear to, or null to clear all ad-hoc gaps.</param>
+    /// <returns>The number of gaps removed.</returns>
+    public int RemoveAdhocGaps(string? sourceItemId)
+    {
+        lock (_lock)
+        {
+            var current = Load();
+            var kept = new List<GapItem>(current.Items.Count);
+            var removed = 0;
+            foreach (var item in current.Items)
+            {
+                if (item.Adhoc
+                    && (sourceItemId is null || string.Equals(item.SourceItemId, sourceItemId, StringComparison.Ordinal)))
+                {
+                    removed++;
+                    continue;
+                }
+
+                kept.Add(item);
+            }
+
+            if (removed == 0)
+            {
+                return 0;
+            }
+
+            var report = new GapReport
+            {
+                GeneratedUtc = current.GeneratedUtc,
+                GeneratedVersion = current.GeneratedVersion,
+                TotalGaps = kept.Count,
+                Items = kept
+            };
+            _cached = report;
+            Flush(report);
+            return removed;
+        }
+    }
+
+    // Keep an ad-hoc re-run of the same source from discarding a "where to watch" result the background
+    // pass already found for a gap (the lookup is the costly part); the rest comes fresh from the source.
+    private static void CarryEnrichment(GapItem prior, GapItem fresh)
+    {
+        if (!prior.AvailabilityChecked)
+        {
+            return;
+        }
+
+        fresh.AvailabilityChecked = true;
+        if (fresh.Availability.Count == 0 && prior.Availability.Count > 0)
+        {
+            fresh.Availability = prior.Availability;
+        }
+    }
+
     // Copy the fields the availability pass produces from one report's items onto a (newer) report's
     // items, matched by id. Items the newer report does not have (resolved or acquired since) are skipped;
     // items it has that the pass did not touch keep their values.
