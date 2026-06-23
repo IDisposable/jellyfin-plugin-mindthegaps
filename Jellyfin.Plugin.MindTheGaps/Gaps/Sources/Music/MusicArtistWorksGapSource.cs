@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// release-group. The audio analogue of an actor's filmography: a featured or guest artist's wider body of
 /// work. Album artists you collect are left to <see cref="MusicDiscographyGapSource"/>.
 /// </summary>
-public sealed class MusicArtistWorksGapSource : MusicArtistGapSourceBase
+public sealed class MusicArtistWorksGapSource : MusicBrainzArtistGapSourceBase
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MusicArtistWorksGapSource"/> class.

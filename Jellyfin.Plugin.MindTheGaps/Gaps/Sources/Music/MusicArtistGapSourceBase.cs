@@ -1,51 +1,40 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
-using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 
 /// <summary>
-/// Shared logic for the two music sources, which both walk owned <see cref="BaseItemKind.MusicArtist"/>
-/// items and diff each artist's MusicBrainz studio-album discography against the library. They differ only
-/// in which artists they handle and which pattern they emit: an album artist you collect is a
-/// <see cref="GapPattern.SetCompletion"/> discography, an artist you only own tracks by is a
-/// <see cref="GapPattern.CreatorWorks"/> body of work to discover. Splitting on that keeps "complete a set
-/// I'm collecting" distinct from "discover more by an artist I have a song from".
+/// The scan loop shared by the music artist sources (MusicBrainz and Discogs). It walks owned
+/// <see cref="BaseItemKind.MusicArtist"/> items, paces and caps the per-run work the way the people source
+/// does (stopping once the provider's circuit opens or the artist cap is reached), and asks the subclass to
+/// resolve, fetch, and map each artist's discography. The provider-specific parts (which service, and how to
+/// process one artist) are abstract, so the providers share this loop rather than each re-implementing it.
 /// </summary>
 public abstract class MusicArtistGapSourceBase : IGapSource
 {
-    // MusicBrainz asks for one request per second; each artist is at least one browse call, so cap the
-    // artists scanned per run the way PeopleGapSource caps people.
+    // Each artist costs at least one paced request, so cap the artists scanned per run the way the people
+    // source caps people. The cap counts artists for which an API call is spent, not artists skipped early.
     private const int MaxArtists = 200;
-
-    private readonly MusicBrainzClient _musicBrainz;
-    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MusicArtistGapSourceBase"/> class.
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
-    /// <param name="musicBrainz">The MusicBrainz client.</param>
     /// <param name="logger">The logger.</param>
-    protected MusicArtistGapSourceBase(
-        ILibraryManager libraryManager,
-        MusicBrainzClient musicBrainz,
-        ILogger logger)
+    protected MusicArtistGapSourceBase(ILibraryManager libraryManager, ILogger logger)
     {
         LibraryManager = libraryManager;
-        _musicBrainz = musicBrainz;
-        _logger = logger;
+        Logger = logger;
     }
 
     /// <inheritdoc />
@@ -60,25 +49,18 @@ public abstract class MusicArtistGapSourceBase : IGapSource
     protected ILibraryManager LibraryManager { get; }
 
     /// <summary>
-    /// Gets the pattern this source tags its gaps with.
+    /// Gets the logger, for a subclass to report a provider failure for one artist.
     /// </summary>
-    protected abstract GapPattern Pattern { get; }
+    protected ILogger Logger { get; }
 
     /// <summary>
-    /// Gets the stable-id prefix that distinguishes this source's gaps from the other music source's.
+    /// Gets the HTTP service this source calls, so the loop can stop once that service's circuit opens (it
+    /// has been given up on for the run).
     /// </summary>
-    protected abstract string IdPrefix { get; }
+    protected abstract string ServiceName { get; }
 
     /// <inheritdoc />
     public abstract bool IsEnabled(PluginConfiguration config);
-
-    /// <summary>
-    /// Decides whether this source handles the given owned artist (an album artist for the discography
-    /// source, a track-only artist for the works source).
-    /// </summary>
-    /// <param name="artist">The owned library artist.</param>
-    /// <returns><see langword="true"/> if this source should scan the artist.</returns>
-    protected abstract bool Handles(BaseItem artist);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
@@ -98,58 +80,27 @@ public abstract class MusicArtistGapSourceBase : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, artists.Count));
 
-            // MusicBrainz has been given up on for this run (its circuit is open); each remaining artist would
+            // The service has been given up on for this run (its circuit is open); each remaining artist would
             // only fast-fail, so stop here rather than churn through them. Next run starts fresh.
-            if (ServiceCircuit.IsOpen(ServiceNames.MusicBrainz))
+            if (ServiceCircuit.IsOpen(ServiceName))
             {
-                _logger.LogInformation("{Source}: MusicBrainz is unavailable this run; skipping the remaining artists", Name);
+                Logger.LogInformation("{Source}: {Service} is unavailable this run; skipping the remaining artists", Name, ServiceName);
                 break;
             }
 
             if (processed >= MaxArtists)
             {
-                _logger.LogInformation(
-                    "{Source}: reached artist cap ({Cap}); {Remaining} artists not scanned this run",
-                    Name,
-                    MaxArtists,
-                    artists.Count - processed);
+                Logger.LogInformation("{Source}: reached artist cap ({Cap}); some artists not scanned this run", Name, MaxArtists);
                 break;
             }
 
-            if (!artist.TryGetProviderId(MetadataProvider.MusicBrainzArtist, out var artistMbid)
-                || string.IsNullOrEmpty(artistMbid))
-            {
-                continue;
-            }
+            var (gaps, callSpent) = await ProcessArtistAsync(artist, context, cancellationToken).ConfigureAwait(false);
 
-            // Classify against the library (a cheap indexed lookup) before spending a MusicBrainz call.
-            if (!Handles(artist))
+            // The cap bounds API calls, not artists examined, so only an artist a call was spent on counts.
+            if (callSpent)
             {
-                continue;
-            }
-
-            IReadOnlyList<MusicBrainzReleaseGroup> albums;
-            try
-            {
-                albums = await _musicBrainz.GetArtistAlbumsAsync(artistMbid, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "{Source}: failed to fetch MusicBrainz albums for {Name} ({Mbid})", Name, artist.Name, artistMbid);
                 processed++;
-                continue;
             }
-
-            processed++;
-
-            var gaps = MusicBrainzMapper.Build(
-                artistMbid,
-                albums,
-                artist.Id.ToString("N", CultureInfo.InvariantCulture),
-                artist.Name,
-                context.Ownership,
-                Pattern,
-                IdPrefix);
 
             foreach (var gap in gaps)
             {
@@ -157,6 +108,21 @@ public abstract class MusicArtistGapSourceBase : IGapSource
             }
         }
     }
+
+    /// <summary>
+    /// Processes one owned artist: resolve it against the provider, fetch its discography, and map the
+    /// unowned releases to gaps. Returns the gaps and whether an API call was spent (so the per-run cap
+    /// bounds calls, not artists skipped before any call). An artist this source does not handle, or that
+    /// has no usable id, returns no gaps and <see langword="false"/>.
+    /// </summary>
+    /// <param name="artist">The owned library artist.</param>
+    /// <param name="context">The scan context.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The gaps for this artist, and whether an API call was spent.</returns>
+    protected abstract Task<(IReadOnlyList<GapItem> Gaps, bool CallSpent)> ProcessArtistAsync(
+        BaseItem artist,
+        GapScanContext context,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Reports whether the library owns at least one album whose album artist is the given artist, which
