@@ -38,6 +38,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<PluginLifetime>();
         serviceCollection.AddSingleton<GapStore>();
         serviceCollection.AddSingleton<ResolutionStore>();
+        serviceCollection.AddSingleton<TodoStore>();
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<GapEngine>();

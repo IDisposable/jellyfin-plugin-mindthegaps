@@ -75,6 +75,24 @@
             </div>
         </div>
 
+        <div id="cgTodoModal" role="dialog" aria-modal="true" aria-labelledby="cgTodoTitle"
+            style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+            <div style="background:#101418;color:#eee;max-width:840px;width:94%;max-height:86vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                    <span class="material-icons" aria-hidden="true">playlist_add_check</span>
+                    <h2 id="cgTodoTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">My TODO list</h2>
+                    <button is="paper-icon-button-light" type="button" id="cgTodoClose" title="Close" aria-label="Close">
+                        <span class="material-icons" aria-hidden="true">close</span>
+                    </button>
+                </div>
+                <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for it, and Delete removes it. The list survives rescans.</p>
+                <div id="cgTodoBody"></div>
+                <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.9em;">
+                    <button is="emby-button" type="button" id="cgTodoExport" class="raised"><span>Export Markdown</span></button>
+                </div>
+            </div>
+        </div>
+
         <script type="text/javascript">@@MTG_JS@@</script>
     </div>
 </body>

@@ -388,6 +388,8 @@
                     // same-named reboot for an episode). Every gap kind today is diagnosable; an unsupported
                     // kind still gets a graceful "not available for this kind" verdict, so always offer it.
                     actions.push(actionBtn('cgDiagnose', { 'data-gapid': item.Id, 'data-name': item.Name, title: 'Why is this listed as missing?' }, icon('troubleshoot', 'cgIconLead') + 'Diagnose'));
+                    // Add this gap to the personal TODO list (a saved "go find this" note that survives rescans).
+                    actions.push(actionBtn('cgTodoAdd', { 'data-gapid': item.Id, title: 'Add to my TODO list' }, icon('playlist_add_check', 'cgIconLead') + 'TODO'));
                     // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
                     if (res) {
                         actions.push(actionBtn('cgClearResolve', { 'data-gapid': item.Id, title: 'Clear the dismissal (show as missing again)' }, 'Clear'));
@@ -1614,6 +1616,8 @@
                     var n = page.querySelectorAll('#cgList .cgSel:checked').length;
                     page.querySelector('#cgSelCount').textContent = n;
                     page.querySelector('#cgMintSelected').disabled = n === 0;
+                    page.querySelector('#cgTodoSelCount').textContent = n;
+                    page.querySelector('#cgTodoSelected').disabled = n === 0;
                 }
 
                 // Show the multi-select bar once any selectable row exists. Deferred creator-works bodies have
@@ -2347,6 +2351,209 @@
                     }
                 }
 
+                // ---- My TODO list ----
+                // A personal "go find this" list, separate from the report's dismissals. Add a gap with the
+                // per-row TODO button or the multi-select bar; the modal lists the saved entries, grouped by
+                // domain, with a done toggle, search and provider links, Verify (checks the library now), and
+                // Delete. The server holds the entries (Todo endpoints); the report's gap snapshot is not needed.
+
+                // Domain ordering for the TODO sections, mirroring the report's Movies/Shows/Music/Books order,
+                // then anything else after.
+                var TODO_DOMAIN_ORDER = ['Movies', 'Shows', 'Music', 'Books'];
+                function todoDomainRank(name) {
+                    var i = TODO_DOMAIN_ORDER.indexOf(name);
+                    return i < 0 ? TODO_DOMAIN_ORDER.length : i;
+                }
+
+                // "name year" for an Amazon / web search, trimmed so a missing year leaves no trailing space.
+                function todoSearchTerm(entry) {
+                    return ((entry.Name || '') + ' ' + (entry.Year || '')).trim();
+                }
+
+                // The web-search URL: the configured template with {0} replaced by the encoded
+                // "name year creator". Empty when no template is set, so the link is dropped.
+                function todoWebSearchUrl(template, entry) {
+                    if (!template) { return ''; }
+                    var term = ((entry.Name || '') + ' ' + (entry.Year || '') + ' ' + (entry.Creator || '')).trim();
+                    return template.replace('{0}', encodeURIComponent(term));
+                }
+
+                function todoAmazonUrl(entry) {
+                    return 'https://www.amazon.com/s?k=' + encodeURIComponent(todoSearchTerm(entry));
+                }
+
+                // POST helper for the single-id Todo endpoints (Remove / SetDone / Verify), all query-string args.
+                function todoPost(path, args) {
+                    return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/' + path, args), dataType: 'json' });
+                }
+
+                // Add ids to the TODO list, then confirm. ids is an array of gap ids.
+                function todoAdd(ids, btn) {
+                    if (!ids || !ids.length) { return; }
+                    var html = btn ? btn.innerHTML : '';
+                    if (btn) { btn.disabled = true; }
+                    ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('MindTheGaps/Todo/Add'),
+                        contentType: 'application/json',
+                        data: JSON.stringify(ids),
+                        dataType: 'json'
+                    }).then(function (count) {
+                        if (btn) { btn.innerHTML = html; btn.disabled = false; }
+                        Dashboard.alert('Added ' + (count == null ? ids.length : count) + ' to your TODO list.');
+                    }).catch(function () {
+                        if (btn) { btn.innerHTML = html; btn.disabled = false; }
+                        Dashboard.alert('Could not add to the TODO list. Check the server logs.');
+                    });
+                }
+
+                // One TODO row: the done checkbox, the title and year, the creator, the links cell, and the
+                // Verify/Delete actions. Built with the same h/wrap/newTab/providerLink helpers as the report.
+                function todoRowHtml(entry, template) {
+                    var done = !!entry.Done;
+                    var check = h('input', {
+                        type: 'checkbox', 'class': 'cgTodoDoneBox', 'data-id': entry.Id,
+                        title: 'Mark done', 'aria-label': 'Mark done'
+                    });
+                    if (done) { check.setAttribute('checked', 'checked'); }
+                    var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '');
+                    var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
+                    var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, esc(entry.Creator || ''));
+
+                    var links = [];
+                    links.push(newTab(true, { 'class': 'cgLink', href: todoAmazonUrl(entry), title: 'Search Amazon' }, 'Amazon'));
+                    var webUrl = todoWebSearchUrl(template, entry);
+                    if (webUrl) {
+                        links.push(newTab(true, { 'class': 'cgLink', href: webUrl, title: 'Web search' }, 'Web search'));
+                    }
+                    (entry.Links || []).forEach(function (l) { if (l && l.Url) { links.push(providerLink(l)); } });
+                    var note = entry.Done && entry.DoneUtc
+                        ? wrap('div', { 'class': 'cgTodoNote' }, 'Done')
+                        : '';
+                    var linksCell = wrap('td', null, wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + note);
+
+                    var actions = actionBtn('cgTodoVerify', { 'data-id': entry.Id, title: 'Check your library for this title now' }, 'Verify')
+                        + actionBtn('cgTodoDelete', { 'data-id': entry.Id, title: 'Remove from the TODO list' }, 'Delete');
+                    var actionsCell = wrap('td', { 'class': 'cgTodoActions' }, actions);
+
+                    return wrap('tr', { 'class': 'cgTodoRow' + (done ? ' cgTodoDone' : ''), 'data-id': entry.Id },
+                        wrap('td', { 'class': 'cgTodoCheck' }, check.outerHTML) + titleCell + creatorCell + linksCell + actionsCell);
+                }
+
+                // Render the loaded TODO list into the modal body, grouped into per-domain sections.
+                function renderTodo(modal) {
+                    var body = document.getElementById('cgTodoBody');
+                    var data = modal._data || { Items: [] };
+                    var items = data.Items || [];
+                    if (!items.length) {
+                        body.innerHTML = h('div', { 'class': 'cgTodoEmpty' }, 'Your TODO list is empty. Add gaps with the TODO button on a row or the multi-select bar.').outerHTML;
+                        return;
+                    }
+                    var template = modal._template || '';
+                    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
+                    byDomain.order.sort(function (a, b) {
+                        var ra = todoDomainRank(a), rb = todoDomainRank(b);
+                        return ra !== rb ? ra - rb : ci(a, b);
+                    });
+                    var html = '';
+                    byDomain.order.forEach(function (domain) {
+                        html += h('div', { 'class': 'cgTodoSection' }, domain).outerHTML;
+                        var rows = byDomain.map[domain].map(function (e) { return todoRowHtml(e, template); }).join('');
+                        html += wrap('table', { 'class': 'cgTodoTable' }, wrap('tbody', null, rows));
+                    });
+                    body.innerHTML = html;
+                }
+
+                function openTodo() {
+                    var modal = document.getElementById('cgTodoModal');
+                    var body = document.getElementById('cgTodoBody');
+                    body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Loading your TODO list...').outerHTML;
+                    modal.style.display = 'flex';
+                    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Todo'), dataType: 'json' })
+                        .then(function (data) {
+                            modal._data = data || { Items: [] };
+                            modal._template = (data && data.SearchUrlTemplate) || '';
+                            renderTodo(modal);
+                        })
+                        .catch(function () {
+                            body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not load the TODO list. Check the server logs.').outerHTML;
+                        });
+                }
+
+                function closeTodo() {
+                    var modal = document.getElementById('cgTodoModal');
+                    if (modal && modal.style.display !== 'none') {
+                        modal.style.display = 'none';
+                        document.getElementById('cgTodoBody').innerHTML = '';
+                    }
+                }
+
+                // Find a stored TODO entry by id (the in-modal data the render used), so a row update keeps the
+                // section ordering and the export in step without a reload.
+                function todoEntryById(modal, id) {
+                    var items = (modal._data && modal._data.Items) || [];
+                    for (var i = 0; i < items.length; i++) { if (items[i].Id === id) { return items[i]; } }
+                    return null;
+                }
+
+                // Apply a Done state to a row's markup and its stored entry (no full re-render, so the row stays
+                // put). note is an optional line under the links (the Verify result).
+                function todoApplyDone(modal, id, done, note) {
+                    var entry = todoEntryById(modal, id);
+                    if (entry) { entry.Done = done; }
+                    var row = document.querySelector('#cgTodoBody .cgTodoRow[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+                    if (!row) { return; }
+                    if (done) { row.classList.add('cgTodoDone'); } else { row.classList.remove('cgTodoDone'); }
+                    var box = row.querySelector('.cgTodoDoneBox');
+                    if (box) { box.checked = done; }
+                    var noteEl = row.querySelector('.cgTodoNote');
+                    if (note) {
+                        if (!noteEl) {
+                            noteEl = document.createElement('div');
+                            noteEl.className = 'cgTodoNote';
+                            var linkCell = row.querySelector('.cgTodoLinks');
+                            if (linkCell && linkCell.parentNode) { linkCell.parentNode.appendChild(noteEl); }
+                        }
+                        noteEl.textContent = note;
+                    } else if (noteEl && !done) {
+                        noteEl.parentNode.removeChild(noteEl);
+                    }
+                }
+
+                // Build the TODO export: one H2 per domain (in the report's domain order), then a table per
+                // domain with a checkbox cell, the title and year, the creator, and the links as Markdown links.
+                function buildTodoMarkdown(modal) {
+                    var data = modal._data || { Items: [] };
+                    var items = data.Items || [];
+                    var template = modal._template || '';
+                    var out = ['# Mind the Gaps: My TODO list', ''];
+                    out.push('_' + items.length + ' items, exported ' + new Date().toLocaleString() + '_', '');
+                    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
+                    byDomain.order.sort(function (a, b) {
+                        var ra = todoDomainRank(a), rb = todoDomainRank(b);
+                        return ra !== rb ? ra - rb : ci(a, b);
+                    });
+                    byDomain.order.forEach(function (domain) {
+                        out.push('## ' + mdHeading(domain), '');
+                        out.push('| Done | Title | Creator | Links |');
+                        out.push('| --- | --- | --- | --- |');
+                        byDomain.map[domain].forEach(function (entry) {
+                            var box = entry.Done ? '[x]' : '[ ]';
+                            var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '');
+                            var links = [];
+                            links.push('[Amazon](' + safeUrl(todoAmazonUrl(entry)) + ')');
+                            var webUrl = todoWebSearchUrl(template, entry);
+                            if (webUrl) { links.push('[Web search](' + safeUrl(webUrl) + ')'); }
+                            (entry.Links || []).forEach(function (l) {
+                                if (l && l.Url) { links.push('[' + mdEsc(l.Name || 'Link') + '](' + safeUrl(l.Url) + ')'); }
+                            });
+                            out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(entry.Creator || '') + ' | ' + links.join(' ') + ' |');
+                        });
+                        out.push('');
+                    });
+                    return out.join('\n');
+                }
+
                 // ---- Settings panel (accordion) ----
                 // The gear toggles between the report and an inline settings form, so the plugin keeps a
                 // single sidebar entry. The form mirrors the standalone config page and saves through the
@@ -2385,6 +2592,7 @@
                     page.querySelector('#TvMazeEnabled').checked = config.TvMazeEnabled;
                     page.querySelector('#TvdbEnabled').checked = config.TvdbEnabled;
                     page.querySelector('#TvdbApiKey').value = config.TvdbApiKey || '';
+                    page.querySelector('#SearchUrlTemplate').value = config.SearchUrlTemplate || 'https://www.google.com/search?q={0}';
                     page.querySelector('#MetadataCountryCode').value = config.MetadataCountryCode || '';
                     page.querySelector('#MetadataLanguage').value = config.MetadataLanguage || '';
                     page.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
@@ -2477,6 +2685,7 @@
                         config.TvMazeEnabled = form.querySelector('#TvMazeEnabled').checked;
                         config.TvdbEnabled = form.querySelector('#TvdbEnabled').checked;
                         config.TvdbApiKey = form.querySelector('#TvdbApiKey').value;
+                        config.SearchUrlTemplate = form.querySelector('#SearchUrlTemplate').value.trim();
                         config.MetadataCountryCode = form.querySelector('#MetadataCountryCode').value;
                         config.MetadataLanguage = form.querySelector('#MetadataLanguage').value;
                         config.TmdbApiKey = form.querySelector('#TmdbApiKey').value;
@@ -2759,10 +2968,69 @@
                             if (dx) { downloadText(diagFilename(dx, this._name), buildDiagnosisMarkdown(dx, this._name)); }
                         }
                     });
-                    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); } });
+                    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); closeTodo(); } });
                     // Explore a source popup: the modal handles its own close button, backdrop click, kind
                     // selector, source picker, Run, and Clear. The toolbar button opens it.
                     setupExploreModal(page);
+                    // My TODO list popup: close via the button, a backdrop click, or Escape (above). The body's
+                    // done toggle, Verify, and Delete are handled by delegation; the footer exports Markdown.
+                    document.getElementById('cgTodoClose').addEventListener('click', closeTodo);
+                    document.getElementById('cgTodoModal').addEventListener('click', function (e) {
+                        if (e.target === this) { closeTodo(); }
+                    });
+                    document.getElementById('cgTodoExport').addEventListener('click', function () {
+                        downloadText('mind-the-gaps-todo.md', buildTodoMarkdown(document.getElementById('cgTodoModal')));
+                    });
+                    document.getElementById('cgTodoBody').addEventListener('change', function (e) {
+                        var box = e.target.closest ? e.target.closest('.cgTodoDoneBox') : null;
+                        if (!box) { return; }
+                        var modal = document.getElementById('cgTodoModal');
+                        var id = box.getAttribute('data-id');
+                        var done = box.checked;
+                        box.disabled = true;
+                        todoPost('Todo/SetDone', { id: id, done: done })
+                            .then(function () { box.disabled = false; todoApplyDone(modal, id, done, null); })
+                            .catch(function () { box.disabled = false; box.checked = !done; Dashboard.alert('Could not update that item. Check the server logs.'); });
+                    });
+                    document.getElementById('cgTodoBody').addEventListener('click', function (e) {
+                        if (!e.target.closest) { return; }
+                        if (e.target.closest('a[href]')) { return; }
+                        var modal = document.getElementById('cgTodoModal');
+                        var verifyBtn = e.target.closest('.cgTodoVerify');
+                        if (verifyBtn) {
+                            var vid = verifyBtn.getAttribute('data-id');
+                            var vHtml = verifyBtn.innerHTML;
+                            verifyBtn.textContent = 'Checking...';
+                            verifyBtn.disabled = true;
+                            todoPost('Todo/Verify', { id: vid }).then(function (res) {
+                                verifyBtn.innerHTML = vHtml;
+                                verifyBtn.disabled = false;
+                                if (res && res.Owned) {
+                                    todoApplyDone(modal, vid, true, 'In your library now.');
+                                } else {
+                                    todoApplyDone(modal, vid, false, 'Not in your library yet.');
+                                }
+                            }).catch(function () {
+                                verifyBtn.innerHTML = vHtml;
+                                verifyBtn.disabled = false;
+                                Dashboard.alert('Could not verify that item. Check the server logs.');
+                            });
+                            return;
+                        }
+                        var delBtn = e.target.closest('.cgTodoDelete');
+                        if (delBtn) {
+                            var did = delBtn.getAttribute('data-id');
+                            delBtn.disabled = true;
+                            todoPost('Todo/Remove', { id: did }).then(function () {
+                                var items = (modal._data && modal._data.Items) || [];
+                                modal._data.Items = items.filter(function (it) { return it.Id !== did; });
+                                renderTodo(modal);
+                            }).catch(function () {
+                                delBtn.disabled = false;
+                                Dashboard.alert('Could not remove that item. Check the server logs.');
+                            });
+                        }
+                    });
                     function setAllSelected(checked) {
                         // "Select all" should reach every row, including those in still-deferred creator-works
                         // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups).
@@ -2822,6 +3090,9 @@
                           .catch(function () {
                             done('Bulk mint failed. Check the server logs.');
                         });
+                    });
+                    page.querySelector('#cgTodoSelected').addEventListener('click', function () {
+                        todoAdd(selectedGapIds(page), this);
                     });
                     page.querySelector('#cgRescan').addEventListener('click', function () {
                         startScan(page, this);
@@ -2915,6 +3186,9 @@
                     });
                     page.querySelector('#cgExploreBtn').addEventListener('click', function () {
                         openExplore(page);
+                    });
+                    page.querySelector('#cgTodoBtn').addEventListener('click', function () {
+                        openTodo();
                     });
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
@@ -3157,6 +3431,13 @@
                         var diagBtn = e.target.closest('.cgDiagnose');
                         if (diagBtn) {
                             openDiagnose(diagBtn.getAttribute('data-gapid'), diagBtn.getAttribute('data-name') || 'this title');
+                            return;
+                        }
+
+                        var todoAddBtn = e.target.closest('.cgTodoAdd');
+                        if (todoAddBtn) {
+                            var tgid = todoAddBtn.getAttribute('data-gapid');
+                            if (tgid) { todoAdd([tgid], todoAddBtn); }
                             return;
                         }
 

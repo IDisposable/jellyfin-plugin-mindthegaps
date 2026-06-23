@@ -58,6 +58,7 @@ public class PluginConfiguration : BasePluginConfiguration
         SonarrQualityProfileId = 0;
         SonarrRootFolderPath = string.Empty;
         SonarrMonitor = "all";
+        SearchUrlTemplate = "https://www.google.com/search?q={0}";
     }
 
     /// <summary>
@@ -323,4 +324,11 @@ public class PluginConfiguration : BasePluginConfiguration
     /// firstSeason, latestSeason, pilot, none). Defaults to all.
     /// </summary>
     public string SonarrMonitor { get; set; }
+
+    /// <summary>
+    /// Gets or sets the web-search URL template the dashboard builds each todo row's search link from, so
+    /// the user can point it at their preferred search engine. The {0} placeholder is replaced with the
+    /// URL-encoded query (the title and year).
+    /// </summary>
+    public string SearchUrlTemplate { get; set; }
 }

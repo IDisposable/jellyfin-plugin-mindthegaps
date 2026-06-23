@@ -109,4 +109,20 @@
             .cgDiagDone { margin-top: .8em; opacity: .7; font-size: .85em; }
             .cgDiagDeepenWrap { margin-top: .8em; }
             .cgDiagExport { margin-left: .5em; }
+            /* The TODO modal: a per-domain subheading, then a table of flagged gaps with a done checkbox,
+               the title and year, the creator, a links cell, and the Verify/Delete actions. A done row is
+               struck through and greyed. */
+            .cgTodoSection { font-size: 1em; font-weight: 600; opacity: .85; margin: .9em 0 .2em 0; padding-bottom: .15em; border-bottom: 1px solid #333; }
+            .cgTodoSection:first-child { margin-top: .2em; }
+            .cgTodoTable { width: 100%; border-collapse: collapse; font-size: .92em; }
+            .cgTodoTable td { padding: .35em .45em; vertical-align: top; }
+            .cgTodoTable tbody tr { border-bottom: 1px solid #2a2a2a; }
+            .cgTodoTable td.cgTodoCheck { width: 1.4em; }
+            .cgTodoTable td.cgTodoActions { white-space: nowrap; text-align: right; }
+            .cgTodoTitle { font-weight: 500; }
+            .cgTodoCreator { opacity: .8; }
+            .cgTodoLinks { display: flex; flex-wrap: wrap; gap: .25em; align-items: center; }
+            .cgTodoRow.cgTodoDone .cgTodoTitle, .cgTodoRow.cgTodoDone .cgTodoCreator { text-decoration: line-through; opacity: .55; }
+            .cgTodoNote { opacity: .65; font-size: .85em; margin-top: .15em; }
+            .cgTodoEmpty { opacity: .65; padding: .5em 0; }
         
