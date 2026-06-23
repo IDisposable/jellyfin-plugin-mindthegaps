@@ -427,7 +427,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "Some Show S02E05", 2003);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 });
+            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, Array.Empty<int>());
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -436,16 +436,47 @@ public class GapDiagnosticsTests
     [Fact]
     public void DiagnoseSeriesContent_EpisodeFarOutsideRun_LooksLikeRebootAndSurfacesTheId()
     {
-        // Owned "V" is 1984-85; this episode aired 2009 (the reboot). Flagged, and the series' TheMovieDb id
-        // is surfaced as a disambiguation to check, without the verdict depending on it.
+        // Owned "V" is 1984-85; this episode aired 2009 (the reboot) with nothing bridging to it. Flagged, and
+        // the series' TheMovieDb id is surfaced as a disambiguation to check, without the verdict depending on it.
         var gap = Gap(BaseItemKind.Episode, "V S02E01", 2009);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 });
+            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, Array.Empty<int>());
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TheMovieDb 40063", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_OldEpisodeBridgedByMissingYears_IsGenuineGap()
+    {
+        // Own 2008-2026 of a long run that began in 1974, with the 1974-2007 seasons surfaced as missing
+        // episodes contiguous with the owned run. An aired-1974 episode now bridges into the era, so it reads
+        // as a genuine missing episode, not a reboot (the scan's reboot heuristic and the popup agree).
+        var gap = Gap(BaseItemKind.Episode, "Long Show S01E01", 1974);
+        var missing = Enumerable.Range(1974, 34).ToArray(); // 1974..2007
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Long Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "222" }, "series-guid", new[] { 2008, 2026 }, missing);
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1974 to 2026", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_RebootWithFarMissingCluster_StaysReboot()
+    {
+        // Own 2008-2026; the missing years are a far cluster (1974-1980) that does not bridge to the owned run.
+        // An aired-1974 episode is outside the era, so it still reads as a same-named reboot.
+        var gap = Gap(BaseItemKind.Episode, "Reboot Show S01E01", 1974);
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Reboot Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "333" }, "series-guid", new[] { 2008, 2026 }, new[] { 1974, 1975, 1980 });
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -454,7 +485,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "New Show S01E01", 2020);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", Array.Empty<int>());
+            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", Array.Empty<int>(), Array.Empty<int>());
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
     }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
@@ -23,13 +24,6 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 /// </summary>
 public sealed class GapDiagnostics
 {
-    // How far an episode's air year can fall outside the run you own before it looks like a different,
-    // same-named series rather than a missing piece of the one you have.
-    private const int EpisodeEraBufferYears = 3;
-
-    // Beyond this gap from your owned run, an episode is almost certainly a reboot, not a late season.
-    private const int RebootEraGapYears = 8;
-
     // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
     private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
 
@@ -221,17 +215,21 @@ public sealed class GapDiagnostics
         };
     }
 
-    // Diagnose an episode or season gap against the owning series and the years of the episodes you own for
-    // it: the testable seam, no library load. The years tell a genuine missing piece (within the run you own)
-    // from content of a different same-named series (a reboot) the owning item is mis-tagged as. The series'
-    // ids ride along as an extra disambiguation the reader can check; the verdict does not depend on them.
+    // Diagnose an episode or season gap against the owning series and the years of the episodes you own (and
+    // are missing) for it: the testable seam, no library load. The owned run, expanded through the missing
+    // years into the series' episode era, tells a genuine missing piece (within that era) from content of a
+    // different same-named series (a reboot) the owning item is mis-tagged as. This is the same era the
+    // library scan uses to decide which missing episodes to surface, so the popup and the report agree. The
+    // series' ids ride along as an extra disambiguation the reader can check; the verdict does not depend on
+    // them.
     internal static GapDiagnosis DiagnoseSeriesContentAgainst(
         GapItem gap,
         string? seriesName,
         int? seriesYear,
         IReadOnlyDictionary<string, string> seriesProviderIds,
         string? seriesJellyfinId,
-        IReadOnlyList<int> ownedEpisodeYears)
+        IReadOnlyList<int> ownedEpisodeYears,
+        IReadOnlyList<int> missingEpisodeYears)
     {
         var name = string.IsNullOrEmpty(seriesName) ? "this series" : seriesName!;
         var noun = gap.TargetKind == BaseItemKind.Season ? "season" : "episode";
@@ -276,24 +274,22 @@ public sealed class GapDiagnostics
             return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"There is not enough dated content to compare, so this {noun} looks like a genuine gap in '{name}'."));
         }
 
-        var min = ownedEpisodeYears.Min();
-        var max = ownedEpisodeYears.Max();
-        if (airedYear >= min - EpisodeEraBufferYears && airedYear <= max + EpisodeEraBufferYears)
+        // Expand the owned run through the series' missing-episode years into its real episode era, the same
+        // way the library scan does, so an earlier or later season that bridges in episode by episode reads as
+        // genuine and only a far-separated same-named reboot is flagged.
+        var era = EpisodeEra.Expand((ownedEpisodeYears.Min(), ownedEpisodeYears.Max()), missingEpisodeYears);
+        if (!EpisodeEra.IsOutside(airedYear, era))
         {
-            return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, within the run of '{name}' you own ({min} to {max}), so it looks like a genuine missing {noun}."));
+            return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, within the run of '{name}' ({era.Min} to {era.Max}), so it looks like a genuine missing {noun}."));
         }
 
-        var gapYears = airedYear > max ? airedYear - max : min - airedYear;
-        var verdict = gapYears > RebootEraGapYears
-            ? "almost certainly a different, same-named series (a reboot) that the owning item is mis-tagged as"
-            : "either a later season you do not have yet, or a different same-named series the owning item may be mis-tagged as";
         var idHint = seriesProviderIds.Count > 0
-            ? string.Create(CultureInfo.InvariantCulture, $" The series carries {DescribeIds(seriesProviderIds)}; confirm it points to the {min}-{max} series, not a {airedYear} one.")
+            ? string.Create(CultureInfo.InvariantCulture, $" The series carries {DescribeIds(seriesProviderIds)}; confirm it points to the {era.Min}-{era.Max} series, not a {airedYear} one.")
             : " The series carries no external id to confirm against.";
 
         return Result(
             DiagnosisReason.OwnedUnderWrongId,
-            string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, but the {noun}s you own for '{name}' run {min} to {max}, so it is {verdict}.{idHint}"));
+            string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, but the run of '{name}' spans {era.Min} to {era.Max} with nothing bridging to {airedYear}, so it is almost certainly a different, same-named series (a reboot).{idHint}"));
     }
 
     // The owning series' external ids in a readable form, for the episode/season verdict's id hint.
@@ -541,10 +537,11 @@ public sealed class GapDiagnostics
                 series.ProductionYear,
                 ProviderIdsOf(series),
                 series.Id.ToString("N", CultureInfo.InvariantCulture),
-                OwnedEpisodeYears(seriesId));
+                OwnedEpisodeYears(seriesId),
+                MissingEpisodeYears(seriesId));
         }
 
-        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, Array.Empty<int>());
+        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, Array.Empty<int>(), Array.Empty<int>());
     }
 
     // The air years of the episodes the library actually owns (on disk) for a series, for the era comparison.
@@ -556,6 +553,29 @@ public sealed class GapDiagnostics
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            if (item is Episode episode && episode.PremiereDate is { } aired)
+            {
+                years.Add(aired.Year);
+            }
+        }
+
+        return years;
+    }
+
+    // The air years of the series' missing episodes, used to expand the owned run into its full episode era.
+    // The library scan surfaces an earlier or later season that bridges in through these years, so the
+    // diagnosis reads it the same way instead of judging a now-surfaced episode against the owned run alone.
+    private IReadOnlyList<int> MissingEpisodeYears(Guid seriesId)
+    {
+        var years = new List<int>();
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Episode },
+            AncestorIds = new[] { seriesId },
+            IsMissing = true,
             Recursive = true
         }))
         {

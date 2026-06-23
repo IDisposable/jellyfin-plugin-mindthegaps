@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -21,11 +22,6 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Library;
 /// </summary>
 public sealed class SeriesContentGapSource : IGapSource
 {
-    // Beyond this many years outside the run you own, a missing episode is almost certainly a same-named
-    // reboot the series is mis-tagged as, not a real gap. Conservative on purpose (it hides rows): matches
-    // the diagnosis threshold so a legitimate late season after a shorter hiatus is still listed.
-    private const int RebootEraGapYears = 8;
-
     private readonly ILibraryManager _libraryManager;
     private readonly ILogger<SeriesContentGapSource> _logger;
 
@@ -68,8 +64,8 @@ public sealed class SeriesContentGapSource : IGapSource
         });
 
         // Owned episode counts and the owned air-year range per series, from the real (non-virtual)
-        // episodes. The range anchors the reboot guard below: a missing episode airing far outside the run
-        // you actually own is almost certainly a same-named reboot the series is mis-tagged as.
+        // episodes. The range seeds the episode era below, which expands it through the contiguous missing
+        // episodes so an earlier or later season of a long run you only partly own stays listed.
         var ownedPerSeries = new Dictionary<Guid, int>();
         var ownedYearRange = new Dictionary<Guid, (int Min, int Max)>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
@@ -96,13 +92,40 @@ public sealed class SeriesContentGapSource : IGapSource
             }
         }
 
+        // Expand each owned run through the series' missing-episode years into its real episode era. A long
+        // running show you only partly own (you have 2008 to 2026 of a run that began in 1974) has its earlier
+        // seasons as missing episodes contiguous with the owned run, so they are real gaps, not a reboot. Only
+        // a missing cluster separated from the era by a reboot-sized gap (the "V 1984 tagged as V 2009" case)
+        // is left outside and treated as a same-named reboot.
+        var missingYearsPerSeries = new Dictionary<Guid, List<int>>();
+        foreach (var item in missing)
+        {
+            if (item is Episode ep && YearOf(ep) is { } y)
+            {
+                if (!missingYearsPerSeries.TryGetValue(ep.SeriesId, out var years))
+                {
+                    years = new List<int>();
+                    missingYearsPerSeries[ep.SeriesId] = years;
+                }
+
+                years.Add(y);
+            }
+        }
+
+        var seriesEra = new Dictionary<Guid, (int Min, int Max)>();
+        foreach (var (seriesId, owned) in ownedYearRange)
+        {
+            missingYearsPerSeries.TryGetValue(seriesId, out var missingYears);
+            seriesEra[seriesId] = EpisodeEra.Expand(owned, missingYears);
+        }
+
         // Per-series missing counts for the coverage badge ("59 of 62 owned"), excluding reboot episodes
         // (counting them would inflate the total against a run you do not actually have a gap in). The
         // per-show display cap below only truncates the listed rows, not this true total.
         var missingPerSeries = new Dictionary<Guid, int>();
         foreach (var item in missing)
         {
-            if (item is Episode ep && !IsLikelyReboot(ep, ownedYearRange))
+            if (item is Episode ep && !IsLikelyReboot(ep, seriesEra))
             {
                 missingPerSeries.TryGetValue(ep.SeriesId, out var c);
                 missingPerSeries[ep.SeriesId] = c + 1;
@@ -135,16 +158,16 @@ public sealed class SeriesContentGapSource : IGapSource
             // Skip missing episodes that fall outside the owned run by a reboot-sized gap: a same-named
             // reboot the owning series is mis-tagged as, not a real gap in the run you have (the "V 1984
             // tagged as V 2009" case). Logged once per series so the omission is visible.
-            if (IsLikelyReboot(episode, ownedYearRange))
+            if (IsLikelyReboot(episode, seriesEra))
             {
                 if (rebootSeries.Add(seriesId))
                 {
-                    var range = ownedYearRange[seriesId];
+                    var era = seriesEra[seriesId];
                     _logger.LogInformation(
-                        "Series content: {Series} has missing episodes airing outside its owned run ({Min}-{Max}); skipping them as a likely same-named reboot mis-tagged onto this series",
+                        "Series content: {Series} has missing episodes airing outside its episode era ({Min}-{Max}); skipping them as a likely same-named reboot mis-tagged onto this series",
                         episode.SeriesName,
-                        range.Min,
-                        range.Max);
+                        era.Min,
+                        era.Max);
                 }
 
                 continue;
@@ -239,20 +262,14 @@ public sealed class SeriesContentGapSource : IGapSource
         return gap;
     }
 
-    // True when a missing episode airs more than a reboot-sized gap outside the owned run for its series,
-    // so it reads as a same-named reboot rather than a real gap. False when the series has no dated owned
-    // episodes to anchor against, or the episode itself is undated (cannot tell).
-    private static bool IsLikelyReboot(Episode episode, IReadOnlyDictionary<Guid, (int Min, int Max)> ownedYearRange)
+    // True when a missing episode airs outside its series' episode era, so it reads as a same-named reboot
+    // rather than a real gap. False when the series has no dated owned episodes to anchor against, or the
+    // episode itself is undated (cannot tell).
+    private static bool IsLikelyReboot(Episode episode, IReadOnlyDictionary<Guid, (int Min, int Max)> seriesEra)
     {
-        (int Min, int Max)? range = ownedYearRange.TryGetValue(episode.SeriesId, out var r) ? r : null;
-        return IsOutsideOwnedEra(YearOf(episode), range);
+        (int Min, int Max)? era = seriesEra.TryGetValue(episode.SeriesId, out var e) ? e : null;
+        return EpisodeEra.IsOutside(YearOf(episode), era);
     }
-
-    // The pure era test (the testable seam): true when a dated episode airs more than a reboot-sized gap
-    // outside the owned run on either side. A legitimate late season after a shorter hiatus stays inside.
-    internal static bool IsOutsideOwnedEra(int? episodeYear, (int Min, int Max)? ownedRange)
-        => ownedRange is { } range && episodeYear is { } year
-            && (year > range.Max + RebootEraGapYears || year < range.Min - RebootEraGapYears);
 
     // The episode's air year: the premiere (air) date when set, else the production year. A missing
     // episode core synthesizes can carry one but not the other, and the unset-date sentinel some items
