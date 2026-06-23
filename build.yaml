@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.3.5"
+version: "10.11.3.6"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -12,7 +12,7 @@ description: >
   using TMDB, Trakt, TheTVDB, and TVmaze, with music and book sources (MusicBrainz, OpenLibrary,
   Discogs). Presents an easy todo list for filling out your collection, diagnoses why a
   title is reported missing, surfaces where to watch each item, and can optionally mint native virtual
-  placeholders for missing collection movies.
+  placeholders for missing items.
 category: "General"
 owner: "idisposable"
 artifacts:
@@ -20,11 +20,10 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.3.5 - Creator works now surfaces an owned actor or director's missing series, not just their films,
-  and the music and book sources are on by default. Settings are regrouped into Complete what you own and
-  Discover new titles, and TMDB lists gain their own Scan TMDB lists toggle. Explore a source moved out of
-  settings onto a button on the report, so trying a source no longer touches the settings form. The Diagnose
-  popup gains Export for AI analysis, a Markdown dossier you can hand to any AI to work out why a title was
-  not matched. A title that is on a curated TMDB or MDBList list and is also recommended now groups under the
-  list in Discover. You can send a missing movie or series to Radarr, Sonarr, or Jellyseerr from the report.
-  The MDBList search no longer fails on a stray character.
+  10.11.3.6 - A personal todo list: an Add to my TODO action on any gap, a My TODO list modal that groups what
+  you saved by domain and verifies each item against your library, and a Markdown checklist export. Minting
+  now covers any domain, not just movies: a missing series, album, or book becomes a tagged, reversible
+  virtual placeholder attached to its set, artist, or author. A long-running show you only partly own keeps
+  its earlier and later missing seasons listed instead of hiding them as a same-named reboot. A new Detailed
+  API logging toggle logs every external API request and response to the server log, for debugging a source
+  or acquisition target that is not behaving.
