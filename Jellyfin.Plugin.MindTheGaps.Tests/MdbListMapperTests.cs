@@ -81,4 +81,17 @@ public class MdbListMapperTests
         Assert.Contains(gaps, g => g.Name == "Another Film");
         Assert.Contains(gaps, g => g.Name == "Breaking Bad");
     }
+
+    [Theory]
+    [InlineData("top sci fi", "top sci fi")]      // A clean query passes through unchanged.
+    [InlineData("topl;i", "topli")]               // The semicolon is dropped; no space is inserted in its place.
+    [InlineData("  Top   Movies  ", "Top Movies")] // Leading, trailing, and runs of whitespace collapse to one space.
+    [InlineData("year 2024", "year 2024")]        // Digits are kept.
+    [InlineData(";,.!?", "")]                      // An all-punctuation query becomes empty.
+    [InlineData("", "")]                           // An empty query stays empty.
+    [InlineData(null, "")]                         // A null query is treated as empty.
+    public void SanitizeQuery_KeepsLettersDigitsSpaces_DropsPunctuation(string? input, string expected)
+    {
+        Assert.Equal(expected, MdbListClient.SanitizeQuery(input));
+    }
 }

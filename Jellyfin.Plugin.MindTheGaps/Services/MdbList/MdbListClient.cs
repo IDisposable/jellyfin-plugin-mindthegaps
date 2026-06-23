@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,12 +49,13 @@ public sealed class MdbListClient
     public async Task<IReadOnlyList<CuratedSetRef>> SearchListsAsync(string query, CancellationToken cancellationToken)
     {
         var key = ApiKey;
-        if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(key))
+        var sanitized = SanitizeQuery(query);
+        if (sanitized.Length == 0 || string.IsNullOrWhiteSpace(key))
         {
             return Array.Empty<CuratedSetRef>();
         }
 
-        var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/search?query={Uri.EscapeDataString(query)}&apikey={key}");
+        var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/search?query={Uri.EscapeDataString(sanitized)}&apikey={key}");
         var lists = await _api.GetJsonAsync<List<MdbListListDto>>(ServiceNames.MdbList, url, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken).ConfigureAwait(false);
         if (lists is null)
         {
@@ -75,6 +77,47 @@ public sealed class MdbListClient
         }
 
         return refs;
+    }
+
+    /// <summary>
+    /// Sanitizes a search-as-you-type query for MDBList's list search, which rejects certain punctuation
+    /// (a stray semicolon, for instance, makes the whole request a BadRequest). Keeps letters, digits, and
+    /// spaces and drops everything else (semicolons, control characters, other punctuation), then trims and
+    /// collapses runs of whitespace to a single space. An all-punctuation query sanitizes to an empty string,
+    /// which the caller treats as no query.
+    /// </summary>
+    /// <param name="query">The raw query typed.</param>
+    /// <returns>The sanitized query, or an empty string when nothing usable remains.</returns>
+    public static string SanitizeQuery(string? query)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(query.Length);
+        var pendingSpace = false;
+        foreach (var ch in query)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (pendingSpace && builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                pendingSpace = false;
+                builder.Append(ch);
+            }
+            else if (char.IsWhiteSpace(ch))
+            {
+                pendingSpace = true;
+            }
+
+            // Everything else (semicolons, control characters, other punctuation) is dropped.
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
