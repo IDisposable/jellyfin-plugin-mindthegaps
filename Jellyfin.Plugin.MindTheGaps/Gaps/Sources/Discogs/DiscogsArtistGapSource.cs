@@ -73,16 +73,7 @@ public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         }
 
         // Prefer a Discogs id already on the item; otherwise resolve the artist by name (conservatively).
-        // DiscogsProvider is the provider-id key an item carries (distinct from the HTTP service name).
-        long? artistId = null;
-        if (artist.TryGetProviderId(DiscogsLabelMapper.DiscogsProvider, out var tagged)
-            && long.TryParse(tagged, NumberStyles.Integer, CultureInfo.InvariantCulture, out var taggedId)
-            && taggedId > 0)
-        {
-            artistId = taggedId;
-        }
-
-        artistId ??= await _discogs.SearchArtistAsync(artist.Name, cancellationToken).ConfigureAwait(false);
+        var artistId = await DiscogsArtistDiscography.ResolveIdAsync(artist, _discogs, cancellationToken).ConfigureAwait(false);
 
         // A Discogs call was spent resolving the artist (and another is about to be spent fetching), so this
         // counts toward the cap whether or not the name resolved.

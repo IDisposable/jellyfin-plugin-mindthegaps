@@ -1,5 +1,6 @@
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -20,12 +21,14 @@ public sealed class MusicArtistWorksGapSource : MusicBrainzArtistGapSourceBase
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="musicBrainz">The MusicBrainz client.</param>
+    /// <param name="discogs">The Discogs client, for the cross-provider completeness pass.</param>
     /// <param name="logger">The logger.</param>
     public MusicArtistWorksGapSource(
         ILibraryManager libraryManager,
         MusicBrainzClient musicBrainz,
+        DiscogsClient discogs,
         ILogger<MusicArtistWorksGapSource> logger)
-        : base(libraryManager, musicBrainz, logger)
+        : base(libraryManager, musicBrainz, discogs, logger)
     {
     }
 
