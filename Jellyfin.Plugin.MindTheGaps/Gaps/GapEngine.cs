@@ -561,51 +561,12 @@ public sealed class GapEngine
         return owned;
     }
 
-    // A recommendation target can be surfaced by several owned titles, but they collapse to one gap (the
-    // id is keyed on the target). Instead of dropping the duplicates, accumulate their owning items onto
-    // the surviving gap so the report can list every recommending source. Capped and de-duped.
+    // Several sources can surface the same missing title, but they collapse to one gap (the id is keyed on
+    // the target). Instead of dropping the duplicates, fold their sources onto the surviving gap so the report
+    // can list every source; a curated list outranks a per-title recommendation for the primary, grouping
+    // source. See GapSourceMerge.
     private static void MergeDuplicateSource(GapItem existing, GapItem duplicate)
-    {
-        const int maxSourcesPerGap = 12;
-
-        if (existing.Pattern != GapPattern.Recommendation || string.IsNullOrEmpty(duplicate.SourceItemName))
-        {
-            return;
-        }
-
-        if (string.Equals(duplicate.SourceItemName, existing.SourceItemName, StringComparison.Ordinal)
-            && string.Equals(duplicate.SourceItemId, existing.SourceItemId, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        var current = existing.OtherSources ?? (IReadOnlyList<GapSourceRef>)Array.Empty<GapSourceRef>();
-        if (current.Count >= maxSourcesPerGap)
-        {
-            return;
-        }
-
-        var key = duplicate.SourceItemId ?? duplicate.SourceItemName;
-        foreach (var existingSource in current)
-        {
-            if (string.Equals(existingSource.Id ?? existingSource.Name, key, StringComparison.Ordinal))
-            {
-                return;
-            }
-        }
-
-        var sources = new List<GapSourceRef>(current)
-        {
-            new GapSourceRef
-            {
-                Id = duplicate.SourceItemId,
-                Name = duplicate.SourceItemName,
-                Type = duplicate.SourceItemType,
-                Year = duplicate.SourceItemYear
-            }
-        };
-        existing.OtherSources = sources;
-    }
+        => GapSourceMerge.Merge(existing, duplicate);
 
     private void CarryForward(IReadOnlyList<GapItem> gaps)
     {

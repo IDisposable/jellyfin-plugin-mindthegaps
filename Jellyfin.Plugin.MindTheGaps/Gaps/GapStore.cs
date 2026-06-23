@@ -149,7 +149,13 @@ public sealed class GapStore
             {
                 if (byId.TryGetValue(add.Id, out var prior))
                 {
+                    // Already in the report. Carry the prior gap's enrichment forward, fold its source onto the
+                    // freshly explored gap (so a curated list claims a title its recommendation already
+                    // surfaced, rather than the run looking like it did nothing), and keep the gap real if the
+                    // prior one was, so clearing the ad-hoc run does not drop a genuine scan gap.
                     CarryEnrichment(prior, add);
+                    GapSourceMerge.Merge(add, prior);
+                    add.Adhoc = add.Adhoc && prior.Adhoc;
                 }
                 else
                 {
