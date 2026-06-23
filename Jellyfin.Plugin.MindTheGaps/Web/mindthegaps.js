@@ -1957,6 +1957,79 @@
                         .catch(function () { finish('Could not start the scan. Check the server logs.'); });
                 }
 
+                // Explore one source ad-hoc: find the unowned items from a curated kind (studio, keyword,
+                // tmdblist, label, mdblist) for the picked ids and merge them into the report as "explored"
+                // gaps, without saving the ids to config or running a full scan. Mirrors startScan: POST to
+                // start, poll Explore/Status until it stops, then reload the report. The button shows progress
+                // and is disabled for the run. Started=false (a scan or another explore is already running) is
+                // surfaced as a graceful message rather than a stuck spinner.
+                function startExplore(page, kind, ids, btn) {
+                    if (!kind || !ids) { return; }
+                    var span = btn ? btn.querySelector('span') : null;
+                    var orig = span ? span.textContent : null;
+                    if (btn) { btn.disabled = true; }
+                    if (span) { span.textContent = 'Exploring…'; }
+
+                    function finish(msg) {
+                        if (btn) { btn.disabled = false; }
+                        if (span && orig != null) { span.textContent = orig; }
+                        if (msg) { Dashboard.alert(msg); }
+                    }
+
+                    function poll() {
+                        if (!pageActive(page)) { return; }
+                        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Explore/Status'), dataType: 'json' })
+                            .then(function (s) {
+                                if (s && s.Running) {
+                                    if (span) { span.textContent = 'Exploring… ' + Math.round(s.Progress || 0) + '%'; }
+                                    setTimeout(poll, 2000);
+                                } else {
+                                    finish();
+                                    reloadReport(page);
+                                    Dashboard.alert('Exploration finished. New gaps were merged into the report.');
+                                }
+                            })
+                            .catch(function () { finish('Lost contact while exploring. Refresh to see results.'); });
+                    }
+
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Explore', { kind: kind, ids: ids }), dataType: 'json' })
+                        .then(function (s) {
+                            // The backend declines (Started=false) when a scan or another explore is already
+                            // running. Do not poll in that case; tell the user to wait for the running one.
+                            if (s && s.Started === false) {
+                                finish('A scan or another exploration is already running. Wait for it to finish, then try again.');
+                                return;
+                            }
+                            setTimeout(poll, 1000);
+                        })
+                        .catch(function () { finish('Could not start the exploration. Check the server logs.'); });
+                }
+
+                // Clear ad-hoc explorations from the report (all of them, no source filter), then reload and
+                // report how many gaps were removed.
+                function clearExplorations(page, btn) {
+                    var span = btn ? btn.querySelector('span') : null;
+                    var orig = span ? span.textContent : null;
+                    if (btn) { btn.disabled = true; }
+                    if (span) { span.textContent = 'Clearing…'; }
+
+                    function finish(msg) {
+                        if (btn) { btn.disabled = false; }
+                        if (span && orig != null) { span.textContent = orig; }
+                        if (msg) { Dashboard.alert(msg); }
+                    }
+
+                    ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Explore/Clear'), dataType: 'json' })
+                        .then(function (removed) {
+                            var n = parseInt(removed, 10);
+                            if (isNaN(n)) { n = 0; }
+                            finish();
+                            reloadReport(page);
+                            Dashboard.alert(n === 1 ? '1 explored gap removed.' : n + ' explored gaps removed.');
+                        })
+                        .catch(function () { finish('Could not clear the explorations. Check the server logs.'); });
+                }
+
                 // ---- Settings panel (accordion) ----
                 // The gear toggles between the report and an inline settings form, so the plugin keeps a
                 // single sidebar entry. The form mirrors the standalone config page and saves through the
@@ -2257,6 +2330,30 @@
                             if (span) { span.textContent = shown ? 'Hide' : 'Show'; }
                         });
                     }
+                    // "Run now" next to each curated picker explores that source ad-hoc, with whatever ids are
+                    // currently picked, independent of Save. A chip kind reads its ids from the chip state; the
+                    // tmdblist button reads the comma-separated input it names in data-cginput.
+                    var exploreBtns = page.querySelectorAll('.cgExplore');
+                    for (var eb = 0; eb < exploreBtns.length; eb++) {
+                        exploreBtns[eb].addEventListener('click', function () {
+                            var btn = this;
+                            var kind = btn.getAttribute('data-cgkind');
+                            var inputId = btn.getAttribute('data-cginput');
+                            var ids = '';
+                            if (inputId) {
+                                var input = page.querySelector('#' + inputId);
+                                ids = input ? (input.value || '').trim() : '';
+                            } else {
+                                var st = page._chipState && page._chipState[kind];
+                                ids = st ? st.ids() : '';
+                            }
+                            if (!ids) {
+                                Dashboard.alert('Pick at least one before running.');
+                                return;
+                            }
+                            startExplore(page, kind, ids, btn);
+                        });
+                    }
                     page.querySelector('#RemovePreview').addEventListener('click', function () { runRemoval('RemoveMintedMovies?dryRun=true', null); });
                     page.querySelector('#RemoveMinted').addEventListener('click', function () { runRemoval('RemoveMintedMovies', null); });
                     page.querySelector('#cgAuditBtn').addEventListener('click', function () {
@@ -2490,6 +2587,10 @@
                         var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
                         downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
                     });
+                    page.querySelector('#cgClearExplore').addEventListener('click', function () {
+                        if (!window.confirm('Remove every ad-hoc exploration from the report?')) { return; }
+                        clearExplorations(page, this);
+                    });
                     page.querySelector('#cgJump').addEventListener('click', function (e) {
                         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
                         if (!a) { return; }
@@ -2548,9 +2649,10 @@
                     page.querySelector('#cgList').addEventListener('click', function (e) {
                         if (!e.target.closest) { return; }
 
-                        // The "open in Jellyfin" and search icons are real links; let them open the new tab
-                        // and do not treat the click as a header toggle or row action.
-                        if (e.target.closest('.cgOpen') || e.target.closest('.cgSearch')) { return; }
+                        // Real navigation links (open in Jellyfin, search, provider and source links, JustWatch)
+                        // open their new tab; do not treat the click as a header toggle or row action. Action
+                        // controls (Diagnose, dismiss, batch) carry no href, so they fall through to handling.
+                        if (e.target.closest('a[href]')) { return; }
 
                         // The "Hide items with no sources" nudge: look the data up in the background.
                         var enableAvail = e.target.closest('#cgEnableAvail');
