@@ -48,7 +48,6 @@
                                     <div class="cgSuggest" id="cgStudioSuggest" role="listbox" aria-label="Studio matches"></div>
                                 </div>
                                 <div class="fieldDescription">Search TheMovieDb for a studio and pick it; the movies it made that you do not own become gaps. For example A24 or Studio Ghibli.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="studio" style="margin:.25em 0;" title="Find the unowned movies from the picked studios right now and add them to the report."><span>Run now</span></button>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="cgKeywordInput">Keywords</label>
@@ -60,7 +59,6 @@
                                     <div class="cgSuggest" id="cgKeywordSuggest" role="listbox" aria-label="Keyword matches"></div>
                                 </div>
                                 <div class="fieldDescription">Search TheMovieDb for a keyword (a theme or motif) and pick it; movies tagged with it that you do not own become gaps.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="keyword" style="margin:.25em 0;" title="Find the unowned movies tagged with the picked keywords right now and add them to the report."><span>Run now</span></button>
                                 <div id="cgChipLive" class="cgSrOnly" role="status" aria-live="polite"></div>
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
@@ -85,7 +83,6 @@
                                     <div class="cgSuggest" id="cgLabelSuggest" role="listbox" aria-label="Label matches"></div>
                                 </div>
                                 <div class="fieldDescription">Search Discogs for a record label and pick it; the releases on it that you do not own become gaps. Needs the Discogs token, set under Data sources.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="label" style="margin:.25em 0;" title="Find the unowned releases on the picked record labels right now and add them to the report."><span>Run now</span></button>
                             </div>
                         </div>
 
@@ -102,7 +99,6 @@
                                 <label class="inputLabel inputLabelUnfocused" for="CuratedTmdbListIds">TMDB list ids</label>
                                 <input id="CuratedTmdbListIds" name="CuratedTmdbListIds" type="text" is="emby-input" placeholder="e.g. 8267559, 10" />
                                 <div class="fieldDescription">Comma-separated TMDB list ids; the movies on each that you do not own become gaps. A list id is the number in its themoviedb.org/list/&lt;id&gt; URL. TMDB has no list search, so paste the id.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="tmdblist" data-cginput="CuratedTmdbListIds" style="margin:.25em 0;" title="Find the unowned movies on the TMDB lists typed above right now and add them to the report."><span>Run now</span></button>
                             </div>
                             <div class="checkboxContainer checkboxContainer-withDescription">
                                 <label class="emby-checkbox-label">
@@ -120,7 +116,6 @@
                                     <div class="cgSuggest" id="cgMdbListSuggest" role="listbox" aria-label="MDBList list matches"></div>
                                 </div>
                                 <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps. Needs the MDBList API key, set under Data sources.</div>
-                                <button is="emby-button" type="button" class="raised cgExplore" data-cgkind="mdblist" style="margin:.25em 0;" title="Find the unowned titles on the picked MDBList lists right now and add them to the report."><span>Run now</span></button>
                             </div>
                         </div>
 
