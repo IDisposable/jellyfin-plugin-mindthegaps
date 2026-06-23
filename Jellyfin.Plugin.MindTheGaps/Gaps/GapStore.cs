@@ -339,4 +339,23 @@ public sealed class GapStore
             };
         }
     }
+
+    /// <summary>
+    /// Finds a gap by its stable id in the current report, or null when the id is blank or absent. The API
+    /// uses this to rehydrate a gap server-side rather than trusting a client-posted gap body.
+    /// </summary>
+    /// <param name="id">The gap id, or null.</param>
+    /// <returns>The gap, or null.</returns>
+    public GapItem? FindById(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        lock (_lock)
+        {
+            return Load().Items.FirstOrDefault(i => string.Equals(i.Id, id, StringComparison.Ordinal));
+        }
+    }
 }
