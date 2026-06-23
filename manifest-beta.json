@@ -2,12 +2,20 @@
     {
         "guid": "8c2a93cc-6cc5-493a-880a-2e67ae50e454",
         "name": "Mind the Gaps",
-        "description": "Scans your library for gaps (missing movies in partially-owned collections and franchises, missing series content, unowned titles from actor and director filmographies, and related recommendations) using TMDB, Trakt, TheTVDB, and TVmaze, with music and book sources (MusicBrainz, OpenLibrary, Discogs). Presents an easy todo list for filling out your collection, diagnoses why a title is reported missing, surfaces where to watch each item, and can optionally mint native virtual placeholders for missing collection movies.\n",
+        "description": "Scans your library for gaps (missing movies in partially-owned collections and franchises, missing series content, unowned titles from actor and director filmographies, and related recommendations) using TMDB, Trakt, TheTVDB, and TVmaze, with music and book sources (MusicBrainz, OpenLibrary, Discogs). Presents an easy todo list for filling out your collection, diagnoses why a title is reported missing, surfaces where to watch each item, and can optionally mint native virtual placeholders for missing items.\n",
         "overview": "Find what's missing and related in your library and build a todo list to complete it.",
         "owner": "idisposable",
         "category": "General",
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
+            {
+                "version": "10.11.3.6",
+                "changelog": "10.11.3.6 - A personal todo list: an Add to my TODO action on any gap, a My TODO list modal that groups what you saved by domain and verifies each item against your library, and a Markdown checklist export. Minting now covers any domain, not just movies: a missing series, album, or book becomes a tagged, reversible virtual placeholder attached to its set, artist, or author. A long-running show you only partly own keeps its earlier and later missing seasons listed instead of hiding them as a same-named reboot. A new Detailed API logging toggle logs every external API request and response to the server log, for debugging a source or acquisition target that is not behaving.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.6/mind-the-gaps_10.11.3.6.zip",
+                "checksum": "0ca8fe850d78743a57a836f59781bc00",
+                "timestamp": "2026-06-23T20:08:39Z"
+            },
             {
                 "version": "10.11.3.5",
                 "changelog": "10.11.3.5 - Creator works now surfaces an owned actor or director's missing series, not just their films, and the music and book sources are on by default. Settings are regrouped into Complete what you own and Discover new titles, and TMDB lists gain their own Scan TMDB lists toggle. Explore a source moved out of settings onto a button on the report, so trying a source no longer touches the settings form. The Diagnose popup gains Export for AI analysis, a Markdown dossier you can hand to any AI to work out why a title was not matched. A title that is on a curated TMDB or MDBList list and is also recommended now groups under the list in Discover. You can send a missing movie or series to Radarr, Sonarr, or Jellyseerr from the report. The MDBList search no longer fails on a stray character.\n",
