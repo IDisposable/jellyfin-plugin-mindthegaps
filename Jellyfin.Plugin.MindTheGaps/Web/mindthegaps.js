@@ -1963,14 +1963,14 @@
                             if (!page._pattern || !counts[page._pattern]) {
                                 page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
                             }
-                            fetchResolved().then(function () {
+                            return fetchResolved().then(function () {
                                 // A shared link (cgview in the URL) overrides the default tab and the
                                 // per-browser filters, once: it is stripped from the address bar on read.
                                 var shared = consumeUrlView();
                                 var render = shared
                                     ? applyView(page, shared)
                                     : ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
-                                render.then(function () {
+                                return render.then(function () {
                                     checkStale(page, summary);
                                     Dashboard.hideLoadingMsg();
                                     // A deep-link (cgdiag in the URL, e.g. from an exported audit) opens that
@@ -1979,6 +1979,14 @@
                                     if (diag) { openDiagnose(diag.id, '', diag.deep); }
                                 });
                             });
+                        })
+                        .catch(function () {
+                            // The report is the first thing every admin hits; if it cannot load (the summary,
+                            // the resolutions, or the first tab's slice), surface it rather than spin forever
+                            // behind the loading overlay.
+                            Dashboard.hideLoadingMsg();
+                            page.querySelector('#cgSummary').textContent =
+                                'Could not load the report. Check the server logs, then reload.';
                         });
                 }
 
