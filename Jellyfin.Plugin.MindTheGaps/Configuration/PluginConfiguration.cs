@@ -21,8 +21,8 @@ public class PluginConfiguration : BasePluginConfiguration
         CuratedKeywordIds = string.Empty;
         CuratedTmdbListIds = string.Empty;
         AutoSeedStudios = false;
-        ScanMusic = false;
-        ScanBooks = false;
+        ScanMusic = true;
+        ScanBooks = true;
         ScanDiscogs = false;
         DiscogsToken = string.Empty;
         DiscogsLabelIds = string.Empty;
@@ -100,13 +100,13 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets a value indicating whether to scan owned music artists for missing studio-album
-    /// release-groups (MusicBrainz discography). Off by default.
+    /// release-groups (MusicBrainz discography). On by default.
     /// </summary>
     public bool ScanMusic { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to scan owned books for other entries in the author's
-    /// bibliography or the book's series (OpenLibrary). Off by default.
+    /// bibliography or the book's series (OpenLibrary). On by default.
     /// </summary>
     public bool ScanBooks { get; set; }
 
