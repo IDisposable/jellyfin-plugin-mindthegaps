@@ -139,7 +139,7 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API key (optional)</label>
-                                <input id="TmdbApiKey" name="TmdbApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <input id="TmdbApiKey" name="TmdbApiKey" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                                 <button id="RevealTmdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TmdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request budget.</div>
                             </div>
@@ -151,7 +151,7 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="TraktClientId">Trakt client id</label>
-                                <input id="TraktClientId" name="TraktClientId" type="password" autocomplete="off" is="emby-input" />
+                                <input id="TraktClientId" name="TraktClientId" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                                 <button id="RevealTraktClientId" is="emby-button" type="button" class="raised cgReveal" data-target="TraktClientId" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's terms).</div>
                             </div>
@@ -170,7 +170,7 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
-                                <input id="TvdbApiKey" name="TvdbApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <input id="TvdbApiKey" name="TvdbApiKey" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                                 <button id="RevealTvdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. Required for the TheTVDB cross-check.</div>
                             </div>
@@ -182,13 +182,13 @@
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="DiscogsToken">Discogs token</label>
-                                <input id="DiscogsToken" name="DiscogsToken" type="password" autocomplete="off" is="emby-input" />
+                                <input id="DiscogsToken" name="DiscogsToken" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                                 <button id="RevealDiscogsToken" is="emby-button" type="button" class="raised cgReveal" data-target="DiscogsToken" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">A Discogs personal access token (Discogs requires authentication to browse the catalogue). Create one on discogs.com under Settings, Developers. Pick which labels to complete under "What to scan".</div>
                             </div>
                             <div class="inputContainer">
                                 <label class="inputLabel inputLabelUnfocused" for="MdbListApiKey">MDBList API key</label>
-                                <input id="MdbListApiKey" name="MdbListApiKey" type="password" autocomplete="off" is="emby-input" />
+                                <input id="MdbListApiKey" name="MdbListApiKey" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                                 <button id="RevealMdbListApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="MdbListApiKey" style="margin:.25em 0;"><span>Show</span></button>
                                 <div class="fieldDescription">A free MDBList API key (mdblist.com, under Preferences). Needed to search and read MDBList lists. Pick which lists to surface under "What to scan".</div>
                             </div>

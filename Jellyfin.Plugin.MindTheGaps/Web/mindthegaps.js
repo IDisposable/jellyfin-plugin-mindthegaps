@@ -2244,16 +2244,17 @@
                     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
                     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
                     setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest');
-                    // Reveal/hide a secret field; inputs default to type=password so a key is not shoulder-read.
+                    // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
+                    // type=password, so the browser never treats the settings form as a login and never offers to
+                    // save the keys. Reveal toggles the mask rather than the input type.
                     var revealBtns = page.querySelectorAll('.cgReveal');
                     for (var rb = 0; rb < revealBtns.length; rb++) {
                         revealBtns[rb].addEventListener('click', function () {
                             var input = page.querySelector('#' + this.getAttribute('data-target'));
                             if (!input) { return; }
-                            var sh = input.type === 'password';
-                            input.type = sh ? 'text' : 'password';
+                            var shown = input.classList.toggle('cgSecretShown');
                             var span = this.querySelector('span');
-                            if (span) { span.textContent = sh ? 'Hide' : 'Show'; }
+                            if (span) { span.textContent = shown ? 'Hide' : 'Show'; }
                         });
                     }
                     page.querySelector('#RemovePreview').addEventListener('click', function () { runRemoval('RemoveMintedMovies?dryRun=true', null); });

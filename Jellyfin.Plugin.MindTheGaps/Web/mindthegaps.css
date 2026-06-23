@@ -83,6 +83,10 @@
             /* Visually hidden but available to screen readers (the chip add/remove live region). */
             .cgSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
             .cgChipInput { flex: 1 1 8em; min-width: 8em; background: transparent; border: 0; outline: none; color: inherit; font-size: 1em; padding: .2em; }
+            /* Secret fields (API keys, tokens) are masked as type=text, not type=password, so the browser does
+               not treat the settings form as a login. The Show button toggles cgSecretShown. */
+            .cgSecret { -webkit-text-security: disc; }
+            .cgSecret.cgSecretShown { -webkit-text-security: none; }
             .cgSuggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: .15em; max-height: 16em; overflow-y: auto; background: #1c1c1c; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none; }
             .cgSuggest.cgShown { display: block; }
             .cgSuggestItem { padding: .4em .6em; cursor: pointer; font-size: .92em; }
