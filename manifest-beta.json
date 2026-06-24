@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.7",
+                "changelog": "10.11.3.7 - A transient provider failure mid-scan (a TMDB or music-source hiccup) no longer blanks a collection's or a discography's gaps from the report. A multi-episode file (S01E01-E02) is counted across its whole span, so its later parts no longer read as missing. A failed report load now shows an error instead of spinning forever, and no API key reaches the server log. Discogs fills the gaps in a MusicBrainz-covered artist's discography, surfacing the albums one provider lists and the other misses. The Diagnose popup verifies an episode by its number, and when the number is absent but you own the same title at another number (a two-part or off-by-one numbering mismatch) it points you to renumber the file rather than calling the episode missing.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.7/mind-the-gaps_10.11.3.7.zip",
+                "checksum": "cce7a749451a7c0f3d8357af9414563a",
+                "timestamp": "2026-06-24T00:39:36Z"
+            },
+            {
                 "version": "10.11.3.6",
                 "changelog": "10.11.3.6 - A personal todo list: an Add to my TODO action on any gap, a My TODO list modal that groups what you saved by domain and verifies each item against your library, and a Markdown checklist export. Minting now covers any domain, not just movies: a missing series, album, or book becomes a tagged, reversible virtual placeholder attached to its set, artist, or author. A long-running show you only partly own keeps its earlier and later missing seasons listed instead of hiding them as a same-named reboot. A new Detailed API logging toggle logs every external API request and response to the server log, for debugging a source or acquisition target that is not behaving.\n",
                 "targetAbi": "10.11.0.0",
