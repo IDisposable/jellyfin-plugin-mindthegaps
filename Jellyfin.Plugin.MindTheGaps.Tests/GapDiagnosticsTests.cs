@@ -499,7 +499,7 @@ public class GapDiagnosticsTests
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
-            new[] { 1993, 1999 }, [], new[] { (1, 19), (1, 20), (1, 21) });
+            new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 19, "A", 1), (1, 20, "In the Hands of the Prophets", 1), (1, 21, "B", 1) });
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Contains("not actually missing", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -515,10 +515,26 @@ public class GapDiagnosticsTests
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
-            new[] { 1993, 1999 }, [], new[] { (1, 1), (1, 2) });
+            new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 1, "X", 1), (1, 2, "Y", 1) });
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("S01E20", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_SameTitleOwnedAtAnotherNumber_IsOwnedUnderWrongNumber()
+    {
+        // The catalogue numbers "In the Hands of the Prophets" S01E20, but the library has it as S01E19, Part 1
+        // (two media versions), so the missing number's title matches an owned episode: a false gap, not missing.
+        var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Star Trek S01E20 - In the Hands of the Prophets", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Star Trek", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
+            new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 18, "Duet", 1), (1, 19, "In the Hands of the Prophets, Part 1", 2) });
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Contains("S01E19", d.Summary, StringComparison.Ordinal);
+        Assert.Contains("2 versions", d.Summary, StringComparison.Ordinal);
     }
 }

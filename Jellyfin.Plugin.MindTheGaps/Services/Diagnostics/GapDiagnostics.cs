@@ -28,6 +28,9 @@ public sealed class GapDiagnostics
     // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
     private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
 
+    // Word and roman forms of a small part number, for the diagnosis-only part-marker strip.
+    private static readonly string[] PartNumberWords = { "one", "two", "three", "four", "i", "ii", "iii", "iv", "v" };
+
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
 
@@ -232,7 +235,7 @@ public sealed class GapDiagnostics
         string? seriesJellyfinId,
         IReadOnlyList<int> ownedEpisodeYears,
         IReadOnlyList<int> missingEpisodeYears,
-        IReadOnlyCollection<(int Season, int Number)> ownedEpisodes)
+        IReadOnlyList<(int Season, int Number, string? Title, int Versions)> ownedEpisodes)
     {
         var name = string.IsNullOrEmpty(seriesName) ? "this series" : seriesName!;
         var noun = gap.TargetKind == BaseItemKind.Season ? "season" : "episode";
@@ -280,11 +283,36 @@ public sealed class GapDiagnostics
         if (gap.TargetKind == BaseItemKind.Episode && SeriesGapKey.TryParseEpisode(gap.Id, out var season, out var number))
         {
             episodeCode = string.Create(CultureInfo.InvariantCulture, $"S{season:D2}E{number:D2}");
-            if (ownedEpisodes.Contains((season, number)))
+
+            // The exact number is owned, so it is not missing (a stale gap, or a numbering the cross-check
+            // disagrees on).
+            if (ownedEpisodes.Any(e => e.Season == season && e.Number == number))
             {
                 return Result(
                     DiagnosisReason.OwnedUnderWrongId,
                     string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is among the episodes you own for '{name}', so it is not actually missing. The gap is most likely stale (rescan to clear it), or the cross-check source numbers this episode differently than your library."));
+            }
+
+            // The number is absent, but an episode with the same title (ignoring a part marker like "(2)" or
+            // "Part 2") is owned at another number in the season: the content is present and the library numbers
+            // it differently than the catalogue (a two-part episode, or the pilot counted as one episode here and
+            // two there), so this is a false gap rather than a missing one.
+            var titleKey = TitleKey(EpisodeTitleOf(gap.Name));
+            if (titleKey.Length > 0)
+            {
+                foreach (var owned in ownedEpisodes)
+                {
+                    if (owned.Season == season && owned.Number != number && TitleKey(owned.Title) == titleKey)
+                    {
+                        var ownedCode = string.Create(CultureInfo.InvariantCulture, $"S{owned.Season:D2}E{owned.Number:D2}");
+                        var versions = owned.Versions > 1
+                            ? string.Create(CultureInfo.InvariantCulture, $" (with {owned.Versions} versions)")
+                            : string.Empty;
+                        return Result(
+                            DiagnosisReason.OwnedUnderWrongId,
+                            string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not in your library by number, but you own an episode with the same title at {ownedCode}{versions}. Your library most likely numbers this episode differently than the catalogue (a two-part episode, or the pilot counted as one episode here and two there); renumber {ownedCode} to match, or this stays a permanent false gap."));
+                    }
+                }
             }
         }
 
@@ -327,6 +355,79 @@ public sealed class GapDiagnostics
         }
 
         return parts.Count > 0 ? string.Join(", ", parts) : "no external ids";
+    }
+
+    // The bare episode title out of a series-content gap name, which the gap builds as "{series} {code} - {title}".
+    private static string EpisodeTitleOf(string gapName)
+    {
+        var dash = gapName.IndexOf(" - ", StringComparison.Ordinal);
+        return dash >= 0 ? gapName[(dash + 3)..] : gapName;
+    }
+
+    // A title folded for the diagnosis title compare: a trailing part marker stripped, then the shared
+    // normalizer. Diagnosis-only on purpose; see StripPartMarker.
+    private static string TitleKey(string? title) => TextKey.Normalize(StripPartMarker(title));
+
+    // Strips a trailing part marker (" (2)", ", Part 2", " Part Two", " Pt. 2", " Part II") so the two parts of
+    // a two-part episode fold to one title for the diagnosis title compare. Diagnosis-only: the live ownership
+    // name-key match must keep these distinct (two volumes are not one owned item), so this never enters
+    // TextKey.Normalize.
+    private static string StripPartMarker(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return string.Empty;
+        }
+
+        var s = title.TrimEnd();
+
+        // "... (2)": a short parenthesized number, not a four-digit year.
+        if (s[^1] == ')')
+        {
+            var open = s.LastIndexOf('(');
+            if (open > 0)
+            {
+                var inner = s[(open + 1)..^1].Trim();
+                if (inner.Length is > 0 and <= 2 && inner.All(char.IsDigit))
+                {
+                    return TrimMarkerTail(s[..open]);
+                }
+            }
+        }
+
+        // "... Part 2" / "... , Part 2" / "... Pt. Two" / "... Part II".
+        var words = s.Split(' ');
+        if (words.Length >= 2 && IsPartWord(words[^2]) && IsPartNumber(words[^1]))
+        {
+            return TrimMarkerTail(string.Join(' ', words[..^2]));
+        }
+
+        return s;
+    }
+
+    private static string TrimMarkerTail(string s) => s.TrimEnd().TrimEnd(',', ':', '-').TrimEnd();
+
+    private static bool IsPartWord(string word)
+        => word.Equals("part", StringComparison.OrdinalIgnoreCase)
+        || word.Equals("pt", StringComparison.OrdinalIgnoreCase)
+        || word.Equals("pt.", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPartNumber(string word)
+    {
+        if (word.Length is > 0 and <= 2 && word.All(char.IsDigit))
+        {
+            return true;
+        }
+
+        foreach (var token in PartNumberWords)
+        {
+            if (word.Equals(token, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)
@@ -561,7 +662,7 @@ public sealed class GapDiagnostics
                 series.Id.ToString("N", CultureInfo.InvariantCulture),
                 OwnedEpisodeYears(seriesId),
                 MissingEpisodeYears(seriesId),
-                OwnedEpisodeNumbers(seriesId));
+                OwnedEpisodes(seriesId));
         }
 
         return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], [], []);
@@ -611,12 +712,13 @@ public sealed class GapDiagnostics
         return years;
     }
 
-    // The (season, episode) numbers the library owns on disk for a series, so the diagnosis can tell a
-    // genuinely missing episode from one already present (a stale gap). A multi-episode file counts for every
-    // number in its span, matching how the scan reads ownership.
-    private IReadOnlyCollection<(int Season, int Number)> OwnedEpisodeNumbers(Guid seriesId)
+    // The episodes the library owns on disk for a series (their season/number, title, and how many media
+    // versions the item carries), so the diagnosis can tell a genuinely missing episode from one already present
+    // under the same number, or the same title at another number (a two-part or off-by-one numbering mismatch).
+    // A multi-episode file counts for every number in its span, matching how the scan reads ownership.
+    private IReadOnlyList<(int Season, int Number, string? Title, int Versions)> OwnedEpisodes(Guid seriesId)
     {
-        var owned = new HashSet<(int Season, int Number)>();
+        var owned = new List<(int Season, int Number, string? Title, int Versions)>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = new[] { BaseItemKind.Episode },
@@ -627,10 +729,11 @@ public sealed class GapDiagnostics
         {
             if (item is Episode episode && episode.ParentIndexNumber is int s && episode.IndexNumber is int n)
             {
+                var versions = 1 + (episode.LocalAlternateVersions?.Length ?? 0);
                 var last = episode.IndexNumberEnd is int end && end > n ? end : n;
                 for (var num = n; num <= last; num++)
                 {
-                    owned.Add((s, num));
+                    owned.Add((s, num, episode.Name, versions));
                 }
             }
         }
