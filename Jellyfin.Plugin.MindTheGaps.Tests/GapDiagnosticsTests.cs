@@ -427,7 +427,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "Some Show S02E05", 2003);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, []);
+            gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -441,7 +441,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "V S02E01", 2009);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, []);
+            gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, [], []);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -458,7 +458,7 @@ public class GapDiagnosticsTests
         var missing = Enumerable.Range(1974, 34).ToArray(); // 1974..2007
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "Long Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "222" }, "series-guid", new[] { 2008, 2026 }, missing);
+            gap, "Long Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "222" }, "series-guid", new[] { 2008, 2026 }, missing, []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -473,7 +473,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "Reboot Show S01E01", 1974);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "Reboot Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "333" }, "series-guid", new[] { 2008, 2026 }, new[] { 1974, 1975, 1980 });
+            gap, "Reboot Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "333" }, "series-guid", new[] { 2008, 2026 }, new[] { 1974, 1975, 1980 }, []);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Contains("reboot", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -485,8 +485,40 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "New Show S01E01", 2020);
 
         var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
-            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", [], []);
+            gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", [], [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_EpisodeNumberIsOwned_IsNotActuallyMissing()
+    {
+        // The cross-check reported S01E20 missing, but the library owns that episode number, so it is not a gap
+        // at all (stale, or the cross-check numbers it differently). The air-year heuristic alone cannot see this.
+        var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Some Show S01E20", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
+            new[] { 1993, 1999 }, [], new[] { (1, 19), (1, 20), (1, 21) });
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Contains("not actually missing", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("S01E20", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_EpisodeNumberNotOwnedWithinRun_IsGenuineAndCitesTheNumber()
+    {
+        // S01E20 is genuinely absent from the owned numbers and aired within the run, so it is a real gap, and
+        // the verdict now names the episode rather than leaning on the air year alone.
+        var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Some Show S01E20", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
+            new[] { 1993, 1999 }, [], new[] { (1, 1), (1, 2) });
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Contains("genuine", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("S01E20", d.Summary, StringComparison.Ordinal);
     }
 }

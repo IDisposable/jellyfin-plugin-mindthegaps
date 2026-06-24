@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
@@ -215,13 +216,14 @@ public sealed class GapDiagnostics
         };
     }
 
-    // Diagnose an episode or season gap against the owning series and the years of the episodes you own (and
-    // are missing) for it: the testable seam, no library load. The owned run, expanded through the missing
-    // years into the series' episode era, tells a genuine missing piece (within that era) from content of a
-    // different same-named series (a reboot) the owning item is mis-tagged as. This is the same era the
-    // library scan uses to decide which missing episodes to surface, so the popup and the report agree. The
-    // series' ids ride along as an extra disambiguation the reader can check; the verdict does not depend on
-    // them.
+    // Diagnose an episode or season gap against the owning series, the episode numbers you own for it, and the
+    // years of the episodes you own (and are missing): the testable seam, no library load. An episode whose own
+    // number is among the owned set is not missing at all (a stale gap, or a numbering the cross-check disagrees
+    // on); the year heuristic cannot see that, so the owned numbers are checked first. For the rest, the owned
+    // run expanded through the missing years into the series' episode era tells a genuine missing piece (within
+    // that era) from content of a different same-named series (a reboot) the owning item is mis-tagged as. This
+    // is the same era the library scan uses, so the popup and the report agree. The series' ids ride along as an
+    // extra disambiguation the reader can check; the verdict does not depend on them.
     internal static GapDiagnosis DiagnoseSeriesContentAgainst(
         GapItem gap,
         string? seriesName,
@@ -229,7 +231,8 @@ public sealed class GapDiagnostics
         IReadOnlyDictionary<string, string> seriesProviderIds,
         string? seriesJellyfinId,
         IReadOnlyList<int> ownedEpisodeYears,
-        IReadOnlyList<int> missingEpisodeYears)
+        IReadOnlyList<int> missingEpisodeYears,
+        IReadOnlyCollection<(int Season, int Number)> ownedEpisodes)
     {
         var name = string.IsNullOrEmpty(seriesName) ? "this series" : seriesName!;
         var noun = gap.TargetKind == BaseItemKind.Season ? "season" : "episode";
@@ -269,6 +272,22 @@ public sealed class GapDiagnostics
             Candidates = candidates
         };
 
+        // Identity check first: an episode whose own number is among the ones the library owns for this series
+        // is not missing at all. The year comparison below cannot tell that apart from a genuine gap, so probe
+        // the owned numbers directly. Only an episode gap carries a parseable season/number; a season gap falls
+        // through to the year logic.
+        string? episodeCode = null;
+        if (gap.TargetKind == BaseItemKind.Episode && SeriesGapKey.TryParseEpisode(gap.Id, out var season, out var number))
+        {
+            episodeCode = string.Create(CultureInfo.InvariantCulture, $"S{season:D2}E{number:D2}");
+            if (ownedEpisodes.Contains((season, number)))
+            {
+                return Result(
+                    DiagnosisReason.OwnedUnderWrongId,
+                    string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is among the episodes you own for '{name}', so it is not actually missing. The gap is most likely stale (rescan to clear it), or the cross-check source numbers this episode differently than your library."));
+            }
+        }
+
         if (gap.Year is not int airedYear || ownedEpisodeYears.Count == 0)
         {
             return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"There is not enough dated content to compare, so this {noun} looks like a genuine gap in '{name}'."));
@@ -280,7 +299,10 @@ public sealed class GapDiagnostics
         var era = EpisodeEra.Expand((ownedEpisodeYears.Min(), ownedEpisodeYears.Max()), missingEpisodeYears);
         if (!EpisodeEra.IsOutside(airedYear, era))
         {
-            return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, within the run of '{name}' ({era.Min} to {era.Max}), so it looks like a genuine missing {noun}."));
+            var summary = episodeCode is null
+                ? string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, within the run of '{name}' ({era.Min} to {era.Max}), so it looks like a genuine missing {noun}.")
+                : string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not among the episodes you own for '{name}', and it aired {airedYear}, within the run ({era.Min} to {era.Max}), so it is a genuine missing {noun}.");
+            return Result(DiagnosisReason.NotOwned, summary);
         }
 
         var idHint = seriesProviderIds.Count > 0
@@ -538,10 +560,11 @@ public sealed class GapDiagnostics
                 ProviderIdsOf(series),
                 series.Id.ToString("N", CultureInfo.InvariantCulture),
                 OwnedEpisodeYears(seriesId),
-                MissingEpisodeYears(seriesId));
+                MissingEpisodeYears(seriesId),
+                OwnedEpisodeNumbers(seriesId));
         }
 
-        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], []);
+        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], [], []);
     }
 
     // The air years of the episodes the library actually owns (on disk) for a series, for the era comparison.
@@ -586,6 +609,33 @@ public sealed class GapDiagnostics
         }
 
         return years;
+    }
+
+    // The (season, episode) numbers the library owns on disk for a series, so the diagnosis can tell a
+    // genuinely missing episode from one already present (a stale gap). A multi-episode file counts for every
+    // number in its span, matching how the scan reads ownership.
+    private IReadOnlyCollection<(int Season, int Number)> OwnedEpisodeNumbers(Guid seriesId)
+    {
+        var owned = new HashSet<(int Season, int Number)>();
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = new[] { BaseItemKind.Episode },
+            AncestorIds = new[] { seriesId },
+            IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            if (item is Episode episode && episode.ParentIndexNumber is int s && episode.IndexNumber is int n)
+            {
+                var last = episode.IndexNumberEnd is int end && end > n ? end : n;
+                for (var num = n; num <= last; num++)
+                {
+                    owned.Add((s, num));
+                }
+            }
+        }
+
+        return owned;
     }
 
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
