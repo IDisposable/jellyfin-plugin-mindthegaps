@@ -29,7 +29,10 @@ public sealed class GapDiagnostics
     private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
 
     // Word and roman forms of a small part number, for the diagnosis-only part-marker strip.
-    private static readonly string[] PartNumberWords = { "one", "two", "three", "four", "i", "ii", "iii", "iv", "v" };
+    private static readonly string[] PartNumberWords = [
+            "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+            "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"
+        ];
 
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
