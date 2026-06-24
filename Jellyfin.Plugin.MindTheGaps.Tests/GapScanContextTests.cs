@@ -33,10 +33,4 @@ public class GapScanContextTests
         var candidate = new Dictionary<string, string> { ["Tmdb"] = "603" };
         Assert.False(context.IsOwned(BaseItemKind.Movie, candidate));
     }
-
-    [Fact]
-    public void TmdbProvider_ConstantIsTmdb()
-    {
-        Assert.Equal("Tmdb", GapScanContext.TmdbProvider);
-    }
 }

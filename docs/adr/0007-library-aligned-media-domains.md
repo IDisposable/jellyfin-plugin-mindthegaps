@@ -6,7 +6,7 @@ Status: Accepted.
 
 A coarse `Video`/`Music`/`Book` domain split lumps movies and shows into one `Video` bucket, so the
 dashboard cannot separate "missing movies" from "missing episodes", and it does not line up with how
-people organise Jellyfin libraries.
+people organize Jellyfin libraries.
 
 ## Decision
 

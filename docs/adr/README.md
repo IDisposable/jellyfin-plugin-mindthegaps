@@ -17,3 +17,6 @@ context, the decision, and what it costs, so the reasoning survives the code.
 | [0010](0010-self-describing-explore-kinds.md) | Explore kinds self-describe via IExploreSource |
 | [0011](0011-series-content-eras-and-episode-identity.md) | Series-content gaps respect eras and verify episode identity |
 | [0012](0012-additive-completeness-passes.md) | Completeness passes are additive and freeze the contracted ids |
+| [0013](0013-recheck-one-series.md) | Re-check one series in place, without a full rescan |
+| [0014](0014-tmdb-episode-source-and-provider-priority.md) | A TheMovieDb episode source, and honor the library's provider priority |
+| [0015](0015-merge-episodes-per-season-library-driven.md) | Merge every provider's episodes per season; the library drives which run |

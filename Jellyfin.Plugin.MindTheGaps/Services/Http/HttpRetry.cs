@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// <summary>
 /// Sends an HTTP request with the small retry/backoff policy shared by the plugin's hand-rolled service
 /// clients (Trakt, TVmaze, TheTVDB, MusicBrainz, OpenLibrary, and the TMDB availability fetch). It retries
-/// the "slow down / try again" statuses (429, 502, 503, 504) and transient connection failures, honouring
+/// the "slow down / try again" statuses (429, 502, 503, 504) and transient connection failures, honoring
 /// a <c>Retry-After</c> header when the server sends one and otherwise backing off exponentially. The wait
 /// is capped so a background scan never stalls for long: if a call still fails, the last response is
 /// returned (so the caller's existing non-success handling runs) or, for a transient exception, a plain

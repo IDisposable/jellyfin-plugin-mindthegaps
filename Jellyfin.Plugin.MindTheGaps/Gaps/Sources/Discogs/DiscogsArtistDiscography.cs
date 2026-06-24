@@ -29,8 +29,8 @@ internal static class DiscogsArtistDiscography
     /// <returns>The Discogs artist id, or null.</returns>
     public static async Task<long?> ResolveIdAsync(BaseItem artist, DiscogsClient discogs, CancellationToken cancellationToken)
     {
-        // DiscogsProvider is the provider-id key an item carries (distinct from the HTTP service name).
-        if (artist.TryGetProviderId(DiscogsLabelMapper.DiscogsProvider, out var tagged)
+        // ProviderIds.Discogs is the provider-id key an item carries (distinct from the HTTP service name).
+        if (artist.TryGetProviderId(ProviderIds.Discogs, out var tagged)
             && long.TryParse(tagged, NumberStyles.Integer, CultureInfo.InvariantCulture, out var taggedId)
             && taggedId > 0)
         {

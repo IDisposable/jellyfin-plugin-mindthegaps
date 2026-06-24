@@ -32,7 +32,7 @@ reconciliation, and a small web tweak.
 The MindTheGaps plugin already detects these gaps end-to-end (diffing a partially-owned TMDB
 collection against the library) and surfaces them in a dashboard "todo list". The detection is
 proven from a plugin. What a plugin can't do cleanly is the native rendering and reconciliation,
-which is the small, well-isolated set of server/web changes catalogued below.
+which is the small, well-isolated set of server/web changes cataloged below.
 
 ---
 

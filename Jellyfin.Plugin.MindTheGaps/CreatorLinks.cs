@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
 namespace Jellyfin.Plugin.MindTheGaps;
 
@@ -10,7 +12,8 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// to their TMDB/IMDb page, an author to their OpenLibrary page, a music artist to MusicBrainz or Discogs, a
 /// studio, keyword, label, or collection to its provider page. The source's <c>SourceItemType</c>
 /// disambiguates the ids whose page depends on it: a TMDB id is a person, company, keyword, collection, or
-/// title page, and a Discogs id is an artist or a label.
+/// title page, and a Discogs id is an artist or a label. A link is labeled with the service's canonical name
+/// (<see cref="ServiceNames"/>) where it is a service the plugin knows.
 /// </summary>
 public static class CreatorLinks
 {
@@ -39,10 +42,10 @@ public static class CreatorLinks
             switch (providerId.Key.ToLowerInvariant())
             {
                 case "tmdb":
-                    var tmdbUrl = TmdbUrl(sourceItemType, id);
+                    var tmdbUrl = TmdbLinks.SourceUrl(sourceItemType, id);
                     if (tmdbUrl is not null)
                     {
-                        links.Add(new ExternalLink("TMDB", tmdbUrl));
+                        links.Add(new ExternalLink(ServiceNames.Tmdb, tmdbUrl));
                     }
 
                     break;
@@ -55,36 +58,22 @@ public static class CreatorLinks
 
                     break;
                 case "trakt":
-                    links.Add(new ExternalLink("Trakt", string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/people/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.Trakt, string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/people/{id}")));
                     break;
                 case "musicbrainzartist":
-                    links.Add(new ExternalLink("MusicBrainz", string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/artist/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.MusicBrainz, string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/artist/{id}")));
                     break;
                 case "openlibrary":
                     // The source's OpenLibrary id is an author key (for example "OL79034A").
-                    links.Add(new ExternalLink("OpenLibrary", string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/authors/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/authors/{id}")));
                     break;
                 case "discogs":
                     var discogsPath = string.Equals(sourceItemType, "MusicLabel", StringComparison.Ordinal) ? "label" : "artist";
-                    links.Add(new ExternalLink("Discogs", string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/{discogsPath}/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.Discogs, string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/{discogsPath}/{id}")));
                     break;
             }
         }
 
         return links;
     }
-
-    // A TMDB id's page is keyed by the source kind: a person, a collection, a company (studio), a keyword,
-    // or a title (the owned movie/series that recommended something).
-    private static string? TmdbUrl(string? sourceItemType, string id) => sourceItemType switch
-    {
-        "Person" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/person/{id}"),
-        "BoxSet" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/collection/{id}"),
-        "Studio" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/company/{id}"),
-        "Keyword" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/keyword/{id}"),
-        "List" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/list/{id}"),
-        "Movie" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/movie/{id}"),
-        "Series" => string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/tv/{id}"),
-        _ => null
-    };
 }

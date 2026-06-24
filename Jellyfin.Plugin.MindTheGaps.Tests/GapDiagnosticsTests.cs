@@ -109,7 +109,7 @@ public class GapDiagnosticsTests
     [Fact]
     public void DiagnoseAgainst_SameTitleYearJitter_StillFlagsMismatch()
     {
-        // A one-year gap between the catalogue's year and the library's production year is release-date
+        // A one-year gap between the catalog's year and the library's production year is release-date
         // jitter, not a remake, so the mismatch is still caught.
         var gap = Gap(BaseItemKind.Movie, "Coco", 2017, ("Tmdb", "354912"));
         var owned = new BaseItem[] { OwnedMovie("Coco", 2018, ("Tmdb", "999999")) };
@@ -404,21 +404,72 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
-    public void AuditAgainst_SkipsNonMovieOrSeriesGaps()
+    public void AuditAgainst_SkipsNonDiagnosableGaps()
     {
         var report = new GapReport
         {
             Items = new[]
             {
-                Gap(BaseItemKind.Episode, "Pilot", 2010, ("Tmdb", "5")),
-                Gap(BaseItemKind.Movie, "Heat", 1995, ("Tmdb", "949"))
+                Gap(BaseItemKind.Episode, "Pilot", 2010, ("Tmdb", "5")),                          // not diagnosable
+                Gap(BaseItemKind.MusicAlbum, "Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-1")), // diagnosable
+                Gap(BaseItemKind.Movie, "Heat", 1995, ("Tmdb", "949"))                            // diagnosable
             }
         };
 
         var audit = GapDiagnostics.AuditAgainst(report, []);
 
-        Assert.Equal(1, audit.GapsChecked); // the episode gap is skipped
+        Assert.Equal(2, audit.GapsChecked); // the album and movie are checked; the episode is skipped
         Assert.Empty(audit.Mismatches);
+    }
+
+    [Fact]
+    public void AuditAgainst_FindsAlbumMisidentificationAndCountsOwnedAlbums()
+    {
+        // The gap album is owned under a different MusicBrainz id, so the ownership diff cannot see it.
+        var report = new GapReport
+        {
+            Items = new[] { Gap(BaseItemKind.MusicAlbum, "Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-1")) }
+        };
+        var owned = new BaseItem[] { OwnedAlbum("Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-999")) };
+
+        var audit = GapDiagnostics.AuditAgainst(report, owned);
+
+        Assert.Equal(1, audit.OwnedAlbums);
+        var m = Assert.Single(audit.Mismatches);
+        Assert.Equal("Kid A", m.Target!.Name);
+    }
+
+    [Fact]
+    public void AuditAgainst_DuplicateAlbumIds_UseTheMusicBrainzProvider()
+    {
+        var report = new GapReport { Items = [] };
+        var owned = new BaseItem[]
+        {
+            OwnedAlbum("Album A", 2001, ("MusicBrainzReleaseGroup", "rg-5")),
+            OwnedAlbum("Album B", 2002, ("MusicBrainzReleaseGroup", "rg-5")) // shares the id -> duplicate
+        };
+
+        var audit = GapDiagnostics.AuditAgainst(report, owned);
+
+        var dup = Assert.Single(audit.Duplicates);
+        Assert.Equal(ProviderIds.MusicBrainzReleaseGroup, dup.Provider);
+        Assert.Equal("rg-5", dup.Id);
+    }
+
+    [Fact]
+    public void AuditAgainst_ScopesToTheRequestedDomain()
+    {
+        var movie = Gap(BaseItemKind.Movie, "The Thing", 1982, ("Tmdb", "1091"));
+        movie.Domain = MediaDomain.Movies;
+        var series = Gap(BaseItemKind.Series, "Some Show", 2000, ("Tmdb", "111"));
+        series.Domain = MediaDomain.Shows;
+        var report = new GapReport { Items = new[] { movie, series } };
+        var owned = new BaseItem[] { OwnedSeries("Some Show", 2000, ("Tmdb", "222")) };
+
+        var audit = GapDiagnostics.AuditAgainst(report, owned, MediaDomain.Shows);
+
+        Assert.Equal(1, audit.GapsChecked); // the Movies gap is out of scope
+        Assert.Equal("Shows", audit.DomainName);
     }
 
     [Fact]
@@ -525,7 +576,7 @@ public class GapDiagnosticsTests
     [Fact]
     public void DiagnoseSeriesContent_SameTitleOwnedAtAnotherNumber_IsOwnedUnderWrongNumber()
     {
-        // The catalogue numbers "In the Hands of the Prophets" S01E20, but the library has it as S01E19, Part 1
+        // The catalog numbers "In the Hands of the Prophets" S01E20, but the library has it as S01E19, Part 1
         // (two media versions), so the missing number's title matches an owned episode: a false gap, not missing.
         var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Star Trek S01E20 - In the Hands of the Prophets", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 

@@ -96,7 +96,7 @@ Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures
 
 A gap is **one of three patterns across N media domains**: `SetCompletion`, `CreatorWorks`, or
 `Recommendation` (the dashboard's three tabs), tagged with a domain (Movies, Shows, Music, Books). Each
-gap source implements `IGapSource` and diffs an external catalogue against an `OwnershipIndex` built from
+gap source implements `IGapSource` and diffs an external catalog against an `OwnershipIndex` built from
 your library; `GapEngine` runs the enabled sources, de-duplicates by a stable gap id, carries enrichment
 forward across scans, and persists a versioned report. The TMDB, Trakt, TVmaze, TheTVDB, MusicBrainz, and
 OpenLibrary clients are self-contained (no dependency on `MediaBrowser.Providers`), and all the hand-rolled
@@ -106,7 +106,7 @@ behind these choices lives in the [ADRs](docs/adr/); the current status and back
 
 ## Conventions
 
-- **Tests for new behaviour.** Parsers and mappers are pure and tested against **real captured API
+- **Tests for new behavior.** Parsers and mappers are pure and tested against **real captured API
   responses** under `Jellyfin.Plugin.MindTheGaps.Tests/TestData/` (see
   [ADR-0006](docs/adr/0006-captured-data-testing.md)). The live HTTP clients and the library-mutating minter
   are not unit-tested; everything they delegate to is.

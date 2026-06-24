@@ -12,9 +12,21 @@ public sealed class IdentificationAudit
 {
     /// <summary>
     /// Gets or sets the scan time the audit is based on (the report's <c>GeneratedUtc</c>). The audit does
-    /// no fresh discovery, so it is dated by the scan whose gaps it analyses, not by when it was run.
+    /// no fresh discovery, so it is dated by the scan whose gaps it analyzes, not by when it was run.
     /// </summary>
     public DateTime GeneratedUtc { get; set; }
+
+    /// <summary>
+    /// Gets or sets the domain the audit was scoped to (for example "Shows"), or null when it covers every
+    /// auditable domain. Shown in the export header.
+    /// </summary>
+    public string? DomainName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the gap pattern the audit was scoped to (for example "SetCompletion"), or null when it is
+    /// not pattern-scoped. Shown in the export header.
+    /// </summary>
+    public string? PatternName { get; set; }
 
     /// <summary>
     /// Gets or sets how many owned movies were scanned.
@@ -25,6 +37,16 @@ public sealed class IdentificationAudit
     /// Gets or sets how many owned shows were scanned.
     /// </summary>
     public int OwnedShows { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many owned albums were scanned.
+    /// </summary>
+    public int OwnedAlbums { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many owned books were scanned.
+    /// </summary>
+    public int OwnedBooks { get; set; }
 
     /// <summary>
     /// Gets or sets how many gaps were checked.

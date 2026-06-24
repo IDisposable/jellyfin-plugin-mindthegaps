@@ -21,6 +21,8 @@ public class GapStoreTests
 
     private static GapItem Gap(string id) => new() { Id = id, Name = id };
 
+    private static GapItem SeriesGap(string id, string seriesKey) => new() { Id = id, Name = id, SourceItemId = seriesKey };
+
     [Fact]
     public void SaveAvailabilityMerge_WhenReportIsCurrent_PersistsIt()
     {
@@ -163,6 +165,44 @@ public class GapStoreTests
             var loaded = store.Load();
             Assert.Single(loaded.Items);
             Assert.Equal("kept", loaded.Items[0].Id);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ReplaceSeriesGaps_SwapsOnlyThatSeriesContentGapsAndKeepsTheRest()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var seriesId = Guid.NewGuid();
+            var key = seriesId.ToString("N");
+            var otherKey = Guid.NewGuid().ToString("N");
+
+            store.Save(new GapReport
+            {
+                Items = new[]
+                {
+                    SeriesGap("seriescontent:" + key + ":s01e01", key),
+                    SeriesGap("seriescontent:" + key + ":s01e02", key),       // a fix will resolve this one
+                    SeriesGap("seriescontent:" + otherKey + ":s01e01", otherKey), // another series, untouched
+                    Gap("movie:1")                                            // unrelated, untouched
+                }
+            });
+
+            // The re-check now finds only E01 for this series (E02 was fixed).
+            var fresh = new GapReport { Items = new[] { SeriesGap("seriescontent:" + key + ":s01e01", key) } };
+            var updated = store.ReplaceSeriesGaps(seriesId, fresh);
+
+            Assert.Contains(updated.Items, i => i.Id == "seriescontent:" + key + ":s01e01");
+            Assert.DoesNotContain(updated.Items, i => i.Id == "seriescontent:" + key + ":s01e02");
+            Assert.Contains(updated.Items, i => i.Id == "seriescontent:" + otherKey + ":s01e01");
+            Assert.Contains(updated.Items, i => i.Id == "movie:1");
+            Assert.Equal(3, updated.TotalGaps);
         }
         finally
         {

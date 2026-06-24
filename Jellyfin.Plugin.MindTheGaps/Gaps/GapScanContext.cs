@@ -10,11 +10,6 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// </summary>
 public sealed class GapScanContext
 {
-    /// <summary>
-    /// The provider name Jellyfin uses for TMDB ids.
-    /// </summary>
-    public const string TmdbProvider = "Tmdb";
-
     private Action<double>? _progressSink;
 
     /// <summary>

@@ -1,64 +1,58 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
-using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 
 /// <summary>
-/// Cross-checks owned series against TheTVDB's canonical episode list. Opt-in; requires the user's
-/// own TheTVDB v4 API key.
+/// Supplies TheTVDB's canonical episode list for a series, for the series-content merge. Opt-in; requires
+/// the user's own TheTVDB v4 API key.
 /// </summary>
-public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
+public sealed class TvdbEpisodeProvider : ISeriesEpisodeProvider
 {
     private readonly TvdbClient _client;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="TvdbContentGapSource"/> class.
+    /// Initializes a new instance of the <see cref="TvdbEpisodeProvider"/> class.
     /// </summary>
-    /// <param name="libraryManager">The library manager.</param>
     /// <param name="client">The TheTVDB client.</param>
-    /// <param name="cursors">The scan-rotation cursor store.</param>
-    /// <param name="logger">The logger.</param>
-    public TvdbContentGapSource(ILibraryManager libraryManager, TvdbClient client, ScanCursorStore cursors, ILogger<TvdbContentGapSource> logger)
-        : base(libraryManager, cursors, logger)
+    public TvdbEpisodeProvider(TvdbClient client)
     {
         _client = client;
     }
 
     /// <inheritdoc />
-    public override string Name => "Series content (TheTVDB)";
+    public KnownProvider? Provider => KnownProviders.Tvdb;
 
     /// <inheritdoc />
-    protected override int MaxSeries => 300;
+    public string ServiceName => ServiceNames.Tvdb;
 
     /// <inheritdoc />
-    protected override string ServiceName => ServiceNames.Tvdb;
+    public bool CanResolve(BaseItem series, PluginConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(series);
+        ArgumentNullException.ThrowIfNull(config);
+        return config.ScanSeries
+            && !string.IsNullOrWhiteSpace(config.TvdbApiKey)
+            && (series.ProviderIdOrNull(ProviderIds.Tvdb) is not null || series.ProviderIdOrNull(ProviderIds.Imdb) is not null || series.ProviderIdOrNull(ProviderIds.Tmdb) is not null);
+    }
 
     /// <inheritdoc />
-    public override bool IsEnabled(PluginConfiguration config)
-        => config.ScanSeries && config.TvdbEnabled && !string.IsNullOrWhiteSpace(config.TvdbApiKey);
-
-    /// <inheritdoc />
-    protected override bool HasLookupId(BaseItem series)
-        => Id(series, MetadataProvider.Tvdb.ToString()) is not null
-            || Id(series, MetadataProvider.Imdb.ToString()) is not null
-            || Id(series, MetadataProvider.Tmdb.ToString()) is not null;
-
-    /// <inheritdoc />
-    protected override async Task<IReadOnlyList<CanonicalEpisode>?> GetCanonicalEpisodesAsync(
+    public async Task<IReadOnlyList<CanonicalEpisode>?> GetCanonicalEpisodesAsync(
         BaseItem series,
         GapScanContext context,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(series);
+        ArgumentNullException.ThrowIfNull(context);
+
         var apiKey = context.Config.TvdbApiKey;
 
         var seriesId = await ResolveSeriesIdAsync(series, apiKey, cancellationToken).ConfigureAwait(false);
@@ -73,13 +67,13 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
 
     private async Task<long?> ResolveSeriesIdAsync(BaseItem series, string apiKey, CancellationToken cancellationToken)
     {
-        if (Id(series, MetadataProvider.Tvdb.ToString()) is { } direct
+        if (series.ProviderIdOrNull(ProviderIds.Tvdb) is { } direct
             && long.TryParse(direct, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tvdbId))
         {
             return tvdbId;
         }
 
-        if (Id(series, MetadataProvider.Imdb.ToString()) is { } imdb)
+        if (series.ProviderIdOrNull(ProviderIds.Imdb) is { } imdb)
         {
             var resolved = await _client.ResolveSeriesIdAsync(apiKey, imdb, cancellationToken).ConfigureAwait(false);
             if (resolved is not null)
@@ -88,7 +82,7 @@ public sealed class TvdbContentGapSource : SeriesContentGapSourceBase
             }
         }
 
-        if (Id(series, MetadataProvider.Tmdb.ToString()) is { } tmdb)
+        if (series.ProviderIdOrNull(ProviderIds.Tmdb) is { } tmdb)
         {
             return await _client.ResolveSeriesIdAsync(apiKey, tmdb, cancellationToken).ConfigureAwait(false);
         }

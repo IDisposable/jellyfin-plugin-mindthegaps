@@ -30,6 +30,7 @@ public class GapsController : ControllerBase
     private readonly ExploreRunner _exploreRunner;
     private readonly ScanCursorStore _cursors;
     private readonly ExploreRegistry _explore;
+    private readonly GapEngine _engine;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -39,13 +40,15 @@ public class GapsController : ControllerBase
     /// <param name="exploreRunner">The background ad-hoc explore runner.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="explore">The explore-kind registry, backing the curated type-ahead, id resolution, and kinds list.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore)
+    /// <param name="engine">The gap engine, for a targeted single-series re-check.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, GapEngine engine)
     {
         _store = store;
         _scanRunner = scanRunner;
         _exploreRunner = exploreRunner;
         _cursors = cursors;
         _explore = explore;
+        _engine = engine;
     }
 
     /// <summary>
@@ -101,7 +104,7 @@ public class GapsController : ControllerBase
             }
         }
 
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
         return new GapSummary
         {
             GeneratedUtc = report.GeneratedUtc,
@@ -126,6 +129,29 @@ public class GapsController : ControllerBase
     {
         var started = _scanRunner.TryStart();
         return new ScanStatus { Running = true, Started = started, Progress = _scanRunner.Progress };
+    }
+
+    /// <summary>
+    /// Re-checks one owned series for missing episodes and replaces just that series' gaps in the report, so
+    /// a metadata fix can be verified without a full rescan. Runs the series-content sources for the one
+    /// series (the library reader plus the enabled cross-checks), then returns the gap count now standing.
+    /// </summary>
+    /// <param name="seriesId">The owned series' id (its Jellyfin GUID).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of missing-episode gaps the series now has.</returns>
+    [HttpPost("RecheckSeries")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<int>> RecheckSeries([FromQuery] string? seriesId, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(seriesId, out var id))
+        {
+            return BadRequest("A seriesId is required.");
+        }
+
+        var recheck = await _engine.RecheckSeriesAsync(id, cancellationToken).ConfigureAwait(false);
+        _store.ReplaceSeriesGaps(id, recheck);
+        return recheck.Items.Count;
     }
 
     /// <summary>

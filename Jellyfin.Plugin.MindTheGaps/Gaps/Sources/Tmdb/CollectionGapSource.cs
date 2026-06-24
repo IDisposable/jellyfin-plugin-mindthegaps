@@ -77,7 +77,7 @@ public sealed class CollectionGapSource : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, boxSets.Count));
 
-            if (!boxSet.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
+            if (!boxSet.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))
             {
                 continue;

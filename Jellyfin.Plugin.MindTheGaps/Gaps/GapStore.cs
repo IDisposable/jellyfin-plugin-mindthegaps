@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -221,6 +222,52 @@ public sealed class GapStore
             _cached = report;
             Flush(report);
             return removed;
+        }
+    }
+
+    /// <summary>
+    /// Replaces a single series' content gaps with a fresh re-check and saves, leaving every other gap
+    /// untouched. Used by the per-series re-check so a metadata fix can be verified without a full rescan;
+    /// unlike an additive merge, this also drops gaps the fix resolved. The report's scan time and version
+    /// are preserved (a re-check is a partial update, not a new scan).
+    /// </summary>
+    /// <param name="seriesId">The owned series whose episode gaps are being replaced.</param>
+    /// <param name="recheck">The freshly computed gaps for that series.</param>
+    /// <returns>The updated report.</returns>
+    public GapReport ReplaceSeriesGaps(Guid seriesId, GapReport recheck)
+    {
+        ArgumentNullException.ThrowIfNull(recheck);
+
+        var seriesKey = seriesId.ToString("N", CultureInfo.InvariantCulture);
+
+        lock (_lock)
+        {
+            var current = Load();
+            var kept = new List<GapItem>(current.Items.Count + recheck.Items.Count);
+            foreach (var item in current.Items)
+            {
+                // A series' content gaps all carry the series as their source and a "seriescontent:" id; drop
+                // exactly those (the prefix avoids touching a recommendation the series happens to seed).
+                var isSeriesContent = string.Equals(item.SourceItemId, seriesKey, StringComparison.Ordinal)
+                    && item.Id.StartsWith("seriescontent:", StringComparison.Ordinal);
+                if (!isSeriesContent)
+                {
+                    kept.Add(item);
+                }
+            }
+
+            kept.AddRange(recheck.Items);
+
+            var report = new GapReport
+            {
+                GeneratedUtc = current.GeneratedUtc,
+                GeneratedVersion = current.GeneratedVersion,
+                TotalGaps = kept.Count,
+                Items = kept
+            };
+            _cached = report;
+            Flush(report);
+            return report;
         }
     }
 

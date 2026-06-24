@@ -24,7 +24,7 @@ public sealed class CachedApiClient
 {
     /// <summary>
     /// The default time a fetched result is cached: long enough to cover a scan and any quick re-scan, short
-    /// enough that the next day's scan re-reads catalogue data that may have changed.
+    /// enough that the next day's scan re-reads catalog data that may have changed.
     /// </summary>
     public static readonly TimeSpan DefaultCacheDuration = TimeSpan.FromHours(12);
 

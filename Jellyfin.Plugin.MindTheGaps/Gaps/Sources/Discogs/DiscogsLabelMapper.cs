@@ -11,16 +11,11 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// Turns a Discogs label's releases into <see cref="GapPattern.SetCompletion"/> gaps for the releases the
 /// library does not own. Ownership is checked by Discogs release id first, then by a conservative artist-and-
 /// title name match (<see cref="OwnershipIndex.OwnsByName"/>), so a release the library holds under a
-/// MusicBrainz id rather than a Discogs one is still recognised as owned. Pure and host-free so the
+/// MusicBrainz id rather than a Discogs one is still recognized as owned. Pure and host-free so the
 /// captured-fixture tests can exercise it directly.
 /// </summary>
 public static class DiscogsLabelMapper
 {
-    /// <summary>
-    /// The provider name an owned album would carry its Discogs release id under, for the ownership diff.
-    /// </summary>
-    public const string DiscogsProvider = "Discogs";
-
     /// <summary>
     /// Builds gaps for a label's unowned releases, de-duplicated by Discogs id and capped so one prolific
     /// label does not flood the list.
@@ -54,7 +49,7 @@ public static class DiscogsLabelMapper
 
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [DiscogsProvider] = release.Id.ToString(CultureInfo.InvariantCulture)
+                [ProviderIds.Discogs] = release.Id.ToString(CultureInfo.InvariantCulture)
             };
 
             if (ownership.OwnsAny(BaseItemKind.MusicAlbum, providerIds)
@@ -74,7 +69,7 @@ public static class DiscogsLabelMapper
                 sourceItemId: string.Create(CultureInfo.InvariantCulture, $"discogs-label-{labelId}"),
                 sourceItemName: labelName,
                 sourceItemType: "MusicLabel",
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [DiscogsProvider] = labelId.ToString(CultureInfo.InvariantCulture) },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Discogs] = labelId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: release.Year > 0 ? new DateTime(release.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) : null);
         }
     }

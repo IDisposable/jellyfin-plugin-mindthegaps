@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// artist's own master releases (one entry per album, not every pressing, and not guest appearances), so it
 /// complements the MusicBrainz sources rather than flooding the list. Ownership is checked by Discogs id
 /// first, then the conservative artist-and-title name match, so an album held under a MusicBrainz id is still
-/// recognised. Pure and host-free so a fixture exercises it directly.
+/// recognized. Pure and host-free so a fixture exercises it directly.
 /// </summary>
 public static class DiscogsArtistMapper
 {
@@ -64,7 +64,7 @@ public static class DiscogsArtistMapper
             var discogsId = release.MainRelease is > 0 ? release.MainRelease.Value : release.Id;
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [DiscogsLabelMapper.DiscogsProvider] = discogsId.ToString(CultureInfo.InvariantCulture)
+                [ProviderIds.Discogs] = discogsId.ToString(CultureInfo.InvariantCulture)
             };
 
             // Match against the owned artist's name (the library's canonical spelling), not the Discogs
@@ -86,7 +86,7 @@ public static class DiscogsArtistMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: artistName,
                 sourceItemType: "MusicArtist",
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [DiscogsLabelMapper.DiscogsProvider] = artistId.ToString(CultureInfo.InvariantCulture) },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Discogs] = artistId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: release.Year > 0 ? new DateTime(release.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) : null);
         }
     }

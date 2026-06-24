@@ -110,7 +110,7 @@ public sealed class PeopleGapSource : IGapSource
             var person = batch[index].Person;
             scannedKeys.Add(batch[index].Key);
 
-            if (!person.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
+            if (!person.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var personTmdbId))
             {
                 continue;
@@ -167,7 +167,7 @@ public sealed class PeopleGapSource : IGapSource
     }
 
     // Count how many owned movies/series credit each person by name. Used as the relevance tiebreak when
-    // ordering people, so the per-run cap favours the creators the library has the most work from.
+    // ordering people, so the per-run cap favors the creators the library has the most work from.
     private Dictionary<string, int> CountOwnedAppearances(CancellationToken cancellationToken)
     {
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

@@ -75,9 +75,9 @@ The A-Z bar across the top selects one initial at a time, so even a very large f
 
 ![The A-Z letter selector](screenshots/report-alphabet-bar.png)
 
-With the **music** source on, a track-only artist's wider catalogue ("artist works") appears here too.
+With the **music** source on, a track-only artist's wider catalog ("artist works") appears here too.
 
-![A music artist's wider catalogue](screenshots/report-music-creator-works.png)
+![A music artist's wider catalog](screenshots/report-music-creator-works.png)
 
 ### Recommendations
 
@@ -151,6 +151,9 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
 - **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group
   header carries **Resolve all** / **Not interested in all**, which dismiss every listed episode under that
   group in one step (after a confirm). They act on the episodes currently shown, so any filter applies.
+- **Re-check a series or season**: the same headers carry a **refresh** icon that re-checks just that one
+  series on the spot (the library reader plus the enabled TVmaze/TheTVDB cross-checks), replacing its gaps
+  in place, so you can confirm a metadata fix without a full rescan.
 
 Resolving a gap can carry an optional note (for example why it is not really missing):
 
@@ -172,9 +175,9 @@ An **Export for AI analysis** button downloads the diagnosis as a Markdown dossi
 matching rules, the plugin's verdict, the owned candidates it weighed, and an analysis prompt. Hand the
 file to any AI to work out why the title was not matched.
 
-The report also runs a library-wide **identification audit**: the same check across your whole library,
-downloaded as Markdown grouped by reason, with a link on each finding back into Jellyfin so you can fix the
-metadata and rescan.
+The report also runs an **identification audit**: the same check across the domain and pattern you are
+viewing (so an audit from Shows lists shows, not movies), downloaded as Markdown grouped by reason, with a
+link on each finding back into Jellyfin so you can fix the metadata and rescan.
 
 ## Explore a source on demand
 

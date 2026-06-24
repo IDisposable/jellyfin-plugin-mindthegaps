@@ -12,21 +12,20 @@ using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 
 /// <summary>
-/// Explains why a movie or show gap is reported missing, and audits the library for the same kind of
-/// identification problem in bulk. The common cause is a metadata mismatch: the library already holds the
-/// title under a different (or absent) TheMovieDb id, so the ownership diff, which matches on provider id,
-/// cannot see it. Library-only and synchronous: it builds a one-time index of owned movies and shows and
-/// reads from that, so a per-gap diagnosis is one library load and a whole-library audit is still one.
+/// Explains why a movie, show, album, or book gap is reported missing, and audits the library for the same
+/// kind of identification problem in bulk. The common cause is a metadata mismatch: the library already holds
+/// the title under a different (or absent) primary id, so the ownership diff, which matches on provider id,
+/// cannot see it. Library-only and synchronous: it builds a one-time index of the owned items in the audited
+/// domain and reads from that, so a per-gap diagnosis is one library load and a whole-library audit is one.
 /// </summary>
 public sealed class GapDiagnostics
 {
     // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
-    private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
+    private static readonly string[] SecondaryIdProviders = { ProviderIds.Imdb, ProviderIds.Tvdb };
 
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
@@ -126,9 +125,9 @@ public sealed class GapDiagnostics
         // A movie only ever resolves an IMDb id from TheMovieDb (no TheTVDB), so it is complete with IMDb
         // alone; a series needs both. Skipping when nothing more can be added avoids a wasted lookup (and the
         // cache miss it would cost) for the common movie-with-IMDb case.
-        var haveAll = ids.ContainsKey("Imdb") && (!isSeries || ids.ContainsKey("Tvdb"));
+        var haveAll = ids.ContainsKey(ProviderIds.Imdb) && (!isSeries || ids.ContainsKey(ProviderIds.Tvdb));
         if (haveAll
-            || !ids.TryGetValue("Tmdb", out var tmdb)
+            || !ids.TryGetValue(ProviderIds.Tmdb, out var tmdb)
             || !int.TryParse(tmdb, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
         {
             return false;
@@ -136,15 +135,15 @@ public sealed class GapDiagnostics
 
         var (imdb, tvdb) = await _tmdb.GetExternalIdsAsync(tmdbId, isSeries, cancellationToken).ConfigureAwait(false);
         var added = false;
-        if (!string.IsNullOrEmpty(imdb) && !ids.ContainsKey("Imdb"))
+        if (!string.IsNullOrEmpty(imdb) && !ids.ContainsKey(ProviderIds.Imdb))
         {
-            ids["Imdb"] = imdb;
+            ids[ProviderIds.Imdb] = imdb;
             added = true;
         }
 
-        if (!string.IsNullOrEmpty(tvdb) && !ids.ContainsKey("Tvdb"))
+        if (!string.IsNullOrEmpty(tvdb) && !ids.ContainsKey(ProviderIds.Tvdb))
         {
-            ids["Tvdb"] = tvdb;
+            ids[ProviderIds.Tvdb] = tvdb;
             added = true;
         }
 
@@ -154,14 +153,47 @@ public sealed class GapDiagnostics
     /// <summary>
     /// Audits the library for identification problems: gaps that look like a metadata mismatch (you own
     /// them under a different id), and owned items that share a provider id (so one is misidentified).
+    /// Scoped to the requested domain and pattern, so an export from the Shows view is not full of movies.
     /// </summary>
     /// <param name="report">The current gap report (its gaps are checked; its scan time stamps the audit).</param>
+    /// <param name="domain">The domain to scope to (for example "Shows"), or null for every auditable domain.</param>
+    /// <param name="pattern">The gap pattern to scope to (for example "SetCompletion"), or null for all patterns.</param>
     /// <returns>The audit.</returns>
-    public IdentificationAudit BuildAudit(GapReport report)
-        => AuditAgainst(report, LoadOwned(BaseItemKind.Movie, BaseItemKind.Series));
+    public IdentificationAudit BuildAudit(GapReport report, string? domain = null, string? pattern = null)
+    {
+        var scopeDomain = Enum.TryParse<MediaDomain>(domain, out var d) ? (MediaDomain?)d : null;
+        var scopePattern = Enum.TryParse<GapPattern>(pattern, out var p) ? (GapPattern?)p : null;
+
+        // The owned set (and so the duplicate-id section) follows the scoped domain to the kinds the diagnosis
+        // can identify: Movies to Movie, Shows to Series, Music to MusicAlbum, Books to Book, no scope to all
+        // four. A domain the diagnosis cannot identify yet (MusicVideos) audits nothing.
+        BaseItemKind[] kinds = scopeDomain switch
+        {
+            MediaDomain.Movies => [BaseItemKind.Movie],
+            MediaDomain.Shows => [BaseItemKind.Series],
+            MediaDomain.Music => [BaseItemKind.MusicAlbum],
+            MediaDomain.Books => [BaseItemKind.Book],
+            null => [BaseItemKind.Movie, BaseItemKind.Series, BaseItemKind.MusicAlbum, BaseItemKind.Book],
+            _ => []
+        };
+
+        // A domain the diagnosis cannot identify yet has no owned set and no findings; report the scope and an
+        // empty result rather than loading the whole library.
+        if (kinds.Length == 0)
+        {
+            return new IdentificationAudit
+            {
+                GeneratedUtc = report.GeneratedUtc,
+                DomainName = scopeDomain?.ToString(),
+                PatternName = scopePattern?.ToString()
+            };
+        }
+
+        return AuditAgainst(report, LoadOwned(kinds), scopeDomain, scopePattern);
+    }
 
     // Audit a report against an explicit set of owned items: the testable seam, no library load.
-    internal static IdentificationAudit AuditAgainst(GapReport report, IReadOnlyList<BaseItem> owned)
+    internal static IdentificationAudit AuditAgainst(GapReport report, IReadOnlyList<BaseItem> owned, MediaDomain? domain = null, GapPattern? pattern = null)
     {
         var index = BuildIndex(owned);
 
@@ -169,7 +201,18 @@ public sealed class GapDiagnostics
         var checkedCount = 0;
         foreach (var gap in report.Items)
         {
-            if (gap.TargetKind is not (BaseItemKind.Movie or BaseItemKind.Series))
+            if (!IsDiagnosable(gap.TargetKind))
+            {
+                continue;
+            }
+
+            // Scope to the dashboard's current view, so an export from Shows is not full of movie findings.
+            if (domain is { } scopeDomain && gap.Domain != scopeDomain)
+            {
+                continue;
+            }
+
+            if (pattern is { } scopePattern && gap.Pattern != scopePattern)
             {
                 continue;
             }
@@ -185,8 +228,8 @@ public sealed class GapDiagnostics
             }
         }
 
-        // The audit's owned set is movies and shows only (the guard above), so every primary id here is a
-        // TheMovieDb id; the duplicate section stays TheMovieDb-specific.
+        // Each owned item is indexed by its kind's primary id (TheMovieDb for movies/shows, MusicBrainz for
+        // albums, OpenLibrary for books), so a duplicate group's provider is the one for its kind.
         var duplicates = new List<DuplicateIdGroup>();
         foreach (var pair in index.ByPrimaryId)
         {
@@ -197,7 +240,7 @@ public sealed class GapDiagnostics
 
             duplicates.Add(new DuplicateIdGroup
             {
-                Provider = "Tmdb",
+                Provider = PrimaryProvider(pair.Key.Kind),
                 Id = pair.Key.Id,
                 TargetKind = pair.Key.Kind,
                 Items = pair.Value.Select(o => ToItem(o, "owned", null)).ToList()
@@ -206,10 +249,14 @@ public sealed class GapDiagnostics
 
         return new IdentificationAudit
         {
-            // The audit does no fresh discovery; it analyses the report, so it carries the report's scan time.
+            // The audit does no fresh discovery; it analyzes the report, so it carries the report's scan time.
             GeneratedUtc = report.GeneratedUtc,
+            DomainName = domain?.ToString(),
+            PatternName = pattern?.ToString(),
             OwnedMovies = index.All.Count(o => o.Kind == BaseItemKind.Movie),
             OwnedShows = index.All.Count(o => o.Kind == BaseItemKind.Series),
+            OwnedAlbums = index.All.Count(o => o.Kind == BaseItemKind.MusicAlbum),
+            OwnedBooks = index.All.Count(o => o.Kind == BaseItemKind.Book),
             GapsChecked = checkedCount,
             Mismatches = mismatches,
             Duplicates = duplicates
@@ -292,7 +339,7 @@ public sealed class GapDiagnostics
 
             // The number is absent, but an episode with the same title (ignoring a part marker like "(2)" or
             // "Part 2") is owned at another number in the season: the content is present and the library numbers
-            // it differently than the catalogue (a two-part episode, or the pilot counted as one episode here and
+            // it differently than the catalog (a two-part episode, or the pilot counted as one episode here and
             // two there), so this is a false gap rather than a missing one.
             var titleKey = EpisodeTitleKey.Of(EpisodeTitleOf(gap.Name));
             if (titleKey.Length > 0)
@@ -307,7 +354,7 @@ public sealed class GapDiagnostics
                             : string.Empty;
                         return Result(
                             DiagnosisReason.OwnedUnderWrongId,
-                            string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not in your library by number, but you own an episode with the same title at {ownedCode}{versions}. Your library most likely numbers this episode differently than the catalogue (a two-part episode, or the pilot counted as one episode here and two there); renumber {ownedCode} to match, or this stays a permanent false gap."));
+                            string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not in your library by number, but you own an episode with the same title at {ownedCode}{versions}. Your library most likely numbers this episode differently than the catalog (a two-part episode, or the pilot counted as one episode here and two there); renumber {ownedCode} to match, or this stays a permanent false gap."));
                     }
                 }
             }
@@ -343,7 +390,7 @@ public sealed class GapDiagnostics
     private static string DescribeIds(IReadOnlyDictionary<string, string> ids)
     {
         var parts = new List<string>();
-        foreach (var (provider, label) in new[] { ("Tmdb", "TheMovieDb"), ("Tvdb", "TheTVDB"), ("Imdb", "IMDb"), ("TVmaze", "TVmaze") })
+        foreach (var (provider, label) in new[] { (ProviderIds.Tmdb, "TheMovieDb"), (ProviderIds.Tvdb, "TheTVDB"), (ProviderIds.Imdb, "IMDb"), (ProviderIds.TVmaze, "TVmaze") })
         {
             if (ids.TryGetValue(provider, out var value) && !string.IsNullOrEmpty(value))
             {
@@ -366,8 +413,8 @@ public sealed class GapDiagnostics
         var kind = gap.TargetKind;
         var primaryLabel = PrimaryProviderLabel(kind);
         gap.ProviderIds.TryGetValue(PrimaryProvider(kind), out var gapPrimary);
-        gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
-        gap.ProviderIds.TryGetValue("Tvdb", out var gapTvdb);
+        gap.ProviderIds.TryGetValue(ProviderIds.Imdb, out var gapImdb);
+        gap.ProviderIds.TryGetValue(ProviderIds.Tvdb, out var gapTvdb);
         var wantName = TextKey.Normalize(gap.Name);
 
         var target = new DiagnosisItem
@@ -454,7 +501,7 @@ public sealed class GapDiagnostics
         // B: corroborate by a secondary id. An owned item that shares the gap's IMDb or TheTVDB id but not
         // its TheMovieDb id is owned under the wrong TheMovieDb id, even when its title was localized and so
         // did not match above.
-        foreach (var (provider, label, gapId) in new[] { ("Imdb", "IMDb", gapImdb), ("Tvdb", "TheTVDB", gapTvdb) })
+        foreach (var (provider, label, gapId) in new[] { (ProviderIds.Imdb, "IMDb", gapImdb), (ProviderIds.Tvdb, "TheTVDB", gapTvdb) })
         {
             if (string.IsNullOrEmpty(gapId) || !index.BySecondaryId.TryGetValue((kind, provider, gapId), out var idMatches))
             {
@@ -523,8 +570,8 @@ public sealed class GapDiagnostics
     // id to compare, so it is safe to call whenever the deeper pass ran.
     internal static void ApplyCrossProviderDisagreement(GapItem gap, GapDiagnosis diagnosis)
     {
-        gap.ProviderIds.TryGetValue("Imdb", out var gapImdb);
-        gap.ProviderIds.TryGetValue("Tmdb", out var gapTmdb);
+        gap.ProviderIds.TryGetValue(ProviderIds.Imdb, out var gapImdb);
+        gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var gapTmdb);
         if (string.IsNullOrEmpty(gapImdb))
         {
             return;
@@ -543,8 +590,8 @@ public sealed class GapDiagnostics
         var allDifferentFilm = true;
         foreach (var candidate in titleMatches)
         {
-            candidate.ProviderIds.TryGetValue("Imdb", out var candidateImdb);
-            candidate.ProviderIds.TryGetValue("Tmdb", out var candidateTmdb);
+            candidate.ProviderIds.TryGetValue(ProviderIds.Imdb, out var candidateImdb);
+            candidate.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var candidateTmdb);
 
             if (string.IsNullOrEmpty(candidateImdb) || string.Equals(candidateTmdb, gapTmdb, StringComparison.Ordinal))
             {
@@ -674,7 +721,7 @@ public sealed class GapDiagnostics
 
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
     {
-        // Skip the load entirely for any kind the diagnosis cannot analyse.
+        // Skip the load entirely for any kind the diagnosis cannot analyze.
         if (kinds.Any(k => !IsDiagnosable(k)))
         {
             return [];
@@ -751,7 +798,7 @@ public sealed class GapDiagnostics
         return map;
     }
 
-    // The kinds the diagnosis can analyse: movies and shows (TheMovieDb-keyed), albums (MusicBrainz
+    // The kinds the diagnosis can analyze: movies and shows (TheMovieDb-keyed), albums (MusicBrainz
     // release-group), and books (OpenLibrary work).
     private static bool IsDiagnosable(BaseItemKind kind)
         => kind is BaseItemKind.Movie or BaseItemKind.Series or BaseItemKind.MusicAlbum or BaseItemKind.Book;
@@ -759,16 +806,16 @@ public sealed class GapDiagnostics
     // The provider an item of this kind is keyed on for the id match and the ownership diff.
     private static string PrimaryProvider(BaseItemKind kind) => kind switch
     {
-        BaseItemKind.MusicAlbum => "MusicBrainzReleaseGroup",
-        BaseItemKind.Book => "OpenLibrary",
-        _ => "Tmdb"
+        BaseItemKind.MusicAlbum => ProviderIds.MusicBrainzReleaseGroup,
+        BaseItemKind.Book => ProviderIds.OpenLibrary,
+        _ => ProviderIds.Tmdb
     };
 
     // The display name of the primary provider, for the diagnosis messages.
     private static string PrimaryProviderLabel(BaseItemKind kind) => kind switch
     {
         BaseItemKind.MusicAlbum => "MusicBrainz",
-        BaseItemKind.Book => "OpenLibrary",
+        BaseItemKind.Book => ProviderIds.OpenLibrary,
         _ => "TheMovieDb"
     };
 
@@ -778,7 +825,8 @@ public sealed class GapDiagnostics
         BaseItemKind.Series => "show",
         BaseItemKind.MusicAlbum => "album",
         BaseItemKind.Book => "book",
-        _ => "movie"
+        BaseItemKind.Movie => "movie",
+        _ => "item"
     };
 
     // The primary id the matching indexes on (TheMovieDb for movies/shows, MusicBrainz release-group for
@@ -792,7 +840,7 @@ public sealed class GapDiagnostics
     // author, "...W" work) join this once the Books diagnosis lands.
     private static string? WrongClassId(IReadOnlyDictionary<string, string> ids)
     {
-        if (ids.TryGetValue("Imdb", out var imdb) && imdb.StartsWith("nm", StringComparison.OrdinalIgnoreCase))
+        if (ids.TryGetValue(ProviderIds.Imdb, out var imdb) && imdb.StartsWith("nm", StringComparison.OrdinalIgnoreCase))
         {
             return "its IMDb id is a person id (nm...), not a title id (tt...)";
         }
@@ -802,7 +850,7 @@ public sealed class GapDiagnostics
 
     // Two known years more than a year apart mean a different release sharing the title (a remake), not the
     // same work under the wrong id. A year missing on either side cannot rule it out. The one-year slack
-    // absorbs the usual release-date jitter between a catalogue's year and the library's production year.
+    // absorbs the usual release-date jitter between a catalog's year and the library's production year.
     private static bool YearConflicts(int? a, int? b)
         => a.HasValue && b.HasValue && Math.Abs(a.Value - b.Value) > 1;
 

@@ -55,17 +55,17 @@ public class AvailabilityController : ControllerBase
         [FromQuery] string? country,
         CancellationToken cancellationToken)
     {
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
 
         var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (tmdbId.HasValue)
         {
-            providerIds["Tmdb"] = tmdbId.Value.ToString(CultureInfo.InvariantCulture);
+            providerIds[ProviderIds.Tmdb] = tmdbId.Value.ToString(CultureInfo.InvariantCulture);
         }
 
         if (!string.IsNullOrEmpty(imdbId))
         {
-            providerIds["Imdb"] = imdbId;
+            providerIds[ProviderIds.Imdb] = imdbId;
         }
 
         var query = new AvailabilityQuery

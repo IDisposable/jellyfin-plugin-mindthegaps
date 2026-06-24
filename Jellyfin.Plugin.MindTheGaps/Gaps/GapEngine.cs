@@ -73,7 +73,7 @@ public sealed class GapEngine
     public async Task<GapReport> RunAsync(IProgress<double>? progress, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
         var enabled = _sources.Where(s => s.IsEnabled(config)).ToList();
         _logger.LogInformation(
             "Gap scan starting: {Count} of {Total} sources enabled [{Sources}]",
@@ -257,12 +257,11 @@ public sealed class GapEngine
             AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, GapResolution.RecSourcePrefix);
         }
 
-        // The TVmaze/TheTVDB cross-checks scan only a slice of resolvable series each run, so an episode
-        // one of them found (that the library reader does not also mint as a virtual episode) would vanish
-        // on a run that did not re-check its series. Carry those forward, draining a carried gap once its
-        // series leaves the library or the episode lands on disk. Gated on a cross-check being enabled so
-        // turning them off lets the accumulation drain.
-        if (config.ScanSeries && (config.TvMazeEnabled || config.TvdbEnabled))
+        // The provider cross-checks scan only a slice of provider-resolvable series each run, so an episode
+        // one of them found (that the library does not also track as a virtual episode) would vanish on a run
+        // that did not re-check its series. Carry those forward, draining a carried gap once its series leaves
+        // the library or the episode lands on disk.
+        if (config.ScanSeries)
         {
             AccumulateSeriesContent(gaps, byId, priorReport.Items);
         }
@@ -331,7 +330,7 @@ public sealed class GapEngine
                 string.Create(CultureInfo.InvariantCulture, $"'{kind}' is not a supported explore kind."),
                 nameof(kind));
 
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
         var ownership = BuildOwnershipIndex(descriptor.Source.OwnedKinds.Distinct().ToArray());
         var context = new GapScanContext(config, ownership);
         context.SetProgressSink(f => progress?.Report(Math.Clamp(f, 0.0, 1.0) * 100.0));
@@ -366,6 +365,77 @@ public sealed class GapEngine
         _externalLinks.Enrich(gaps);
 
         _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", descriptor.Source.Name, gaps.Count);
+
+        return new GapReport
+        {
+            GeneratedUtc = DateTime.UtcNow,
+            GeneratedVersion = Plugin.Instance?.Version?.ToString() ?? string.Empty,
+            TotalGaps = gaps.Count,
+            Items = gaps
+        };
+    }
+
+    /// <summary>
+    /// Re-checks one owned series for missing episodes by running the enabled series-content sources for
+    /// just that series, so the dashboard can verify a fix without a full rescan. The result is meant to
+    /// replace that series' gaps in the report (see <see cref="GapStore.ReplaceSeriesGaps"/>).
+    /// </summary>
+    /// <param name="seriesId">The owned series to re-check.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A report holding just that series' current missing-episode gaps.</returns>
+    public async Task<GapReport> RecheckSeriesAsync(Guid seriesId, CancellationToken cancellationToken)
+    {
+        var config = Plugin.RequireConfiguration();
+        var gaps = new List<GapItem>();
+        var series = _libraryManager.GetItemById(seriesId);
+        if (series is not null)
+        {
+            // The series-content sources read the library directly, so an empty ownership index is enough.
+            var context = new GapScanContext(config, BuildOwnershipIndex([]));
+            var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+
+            foreach (var source in _sources.OfType<ISeriesContentSource>())
+            {
+                if (!((IGapSource)source).IsEnabled(config))
+                {
+                    continue;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                IReadOnlyList<GapItem> found;
+                try
+                {
+                    found = await source.CheckSeriesAsync(series, context, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // One cross-check being unreachable must not abort the re-check; the others still count.
+                    _logger.LogWarning(ex, "Re-check: {Source} failed for {Series}", ((IGapSource)source).Name, series.Name);
+                    continue;
+                }
+
+                foreach (var gap in found)
+                {
+                    if (byId.TryGetValue(gap.Id, out var existing))
+                    {
+                        MergeDuplicateSource(existing, gap);
+                    }
+                    else
+                    {
+                        byId[gap.Id] = gap;
+                        gaps.Add(gap);
+                    }
+                }
+            }
+
+            // Re-adopt the external ids and "where to watch" a prior pass resolved for these gaps, and let the
+            // host's external-url providers contribute links, exactly as a full scan and an explore do.
+            CarryForward(gaps);
+            _externalLinks.Enrich(gaps);
+
+            _logger.LogInformation("Re-check: {Series} has {Count} missing-episode gap(s)", series.Name, gaps.Count);
+        }
 
         return new GapReport
         {

@@ -48,7 +48,7 @@ public class AcquisitionController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<AcquisitionConfigStatus> GetAcquisitionConfig()
     {
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
         return new AcquisitionConfigStatus
         {
             RadarrConfigured = AcquisitionService.RadarrConfigured(config),

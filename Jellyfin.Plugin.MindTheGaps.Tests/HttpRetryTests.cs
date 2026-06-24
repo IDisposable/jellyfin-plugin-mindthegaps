@@ -11,7 +11,7 @@ using Xunit;
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
 // Exercises the shared retry/backoff helper with an in-memory handler (no network), so the retry, the
-// give-up, and the cancellation behaviour are pinned down. Backoff is real but short (sub-second), so a
+// give-up, and the cancellation behavior are pinned down. Backoff is real but short (sub-second), so a
 // retrying case adds only a moment to the run. Shares the non-parallel collection with ServiceCircuitTests
 // because HttpRetry feeds the process-wide circuit; resetting it per test keeps the cases independent.
 [Collection("ServiceCircuit")]
@@ -66,7 +66,7 @@ public class HttpRetryTests
     }
 
     [Fact]
-    public async Task HonoursRetryAfterLongerThanTheCapByGivingUpWithoutWaiting()
+    public async Task HonorsRetryAfterLongerThanTheCapByGivingUpWithoutWaiting()
     {
         // A 999s Retry-After exceeds the 30s cap, so the helper returns the failure immediately rather than
         // blocking a scan; one call, no second attempt.

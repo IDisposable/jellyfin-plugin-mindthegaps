@@ -108,7 +108,7 @@ public sealed class RecommendationsGapSource : IGapSource
             var (item, isMovie, key) = seeds[index];
             scannedKeys.Add(key);
 
-            if (!item.TryGetProviderId(MetadataProvider.Tmdb, out var idStr)
+            if (!item.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
                 || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
             {
                 continue;

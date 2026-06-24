@@ -143,7 +143,7 @@ public sealed class BooksBibliographyGapSource : IGapSource
     // The owned book's OpenLibrary work id, if its metadata carries one (the OpenLibrary metadata plugin
     // stores the work key under this provider id). Lets the author be resolved from the work directly.
     private static string? OwnedWorkId(BaseItem book)
-        => book.ProviderIds.TryGetValue(OpenLibraryMapper.OpenLibraryProvider, out var id) && !string.IsNullOrEmpty(id)
+        => book.ProviderIds.TryGetValue(ProviderIds.OpenLibrary, out var id) && !string.IsNullOrEmpty(id)
             ? id
             : null;
 

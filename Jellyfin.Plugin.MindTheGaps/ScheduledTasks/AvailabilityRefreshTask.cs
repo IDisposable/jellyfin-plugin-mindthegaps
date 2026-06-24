@@ -46,7 +46,7 @@ public sealed class AvailabilityRefreshTask : IScheduledTask
     /// <inheritdoc />
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
-        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var config = Plugin.RequireConfiguration();
         if (!config.IncludeAvailability)
         {
             _logger.LogInformation("Availability refresh skipped: 'where to watch' is turned off");

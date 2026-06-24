@@ -71,7 +71,7 @@ public static class CuratedSetGapMapper
                 sourceItemId: sourceItemId ?? string.Empty,
                 sourceItemName: setLabel,
                 sourceItemType: setType,
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = setKey.Split(':')[^1] },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = setKey.Split(':')[^1] },
                 releaseDate: movie.ReleaseDate,
                 imageUrl: posterUrl(movie.PosterPath),
                 overview: movie.Overview,
@@ -83,6 +83,6 @@ public static class CuratedSetGapMapper
     private static Dictionary<string, string> TmdbId(int id)
         => new(StringComparer.OrdinalIgnoreCase)
         {
-            [GapScanContext.TmdbProvider] = id.ToString(CultureInfo.InvariantCulture)
+            [ProviderIds.Tmdb] = id.ToString(CultureInfo.InvariantCulture)
         };
 }

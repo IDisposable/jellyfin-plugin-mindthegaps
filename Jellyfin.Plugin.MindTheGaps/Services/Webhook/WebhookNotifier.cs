@@ -49,7 +49,7 @@ public sealed class WebhookNotifier
     /// <returns>A task that completes when the post finishes (or is skipped).</returns>
     public async Task NotifyAsync(string eventName, string content, IReadOnlyDictionary<string, object?> fields, CancellationToken cancellationToken)
     {
-        var url = (Plugin.Instance?.Configuration ?? new PluginConfiguration()).WebhookUrl;
+        var url = Plugin.RequireConfiguration().WebhookUrl;
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             return;

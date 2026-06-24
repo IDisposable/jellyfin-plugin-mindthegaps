@@ -176,7 +176,7 @@ public sealed class AvailabilityRunner
     private static (string TmdbId, BaseItemKind Kind)? WatchTarget(GapItem gap)
     {
         if (gap.TargetKind is BaseItemKind.Movie or BaseItemKind.Series
-            && gap.ProviderIds.TryGetValue(GapScanContext.TmdbProvider, out var id)
+            && gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var id)
             && !string.IsNullOrEmpty(id))
         {
             return (id, gap.TargetKind);
@@ -227,7 +227,7 @@ public sealed class AvailabilityRunner
                 _progress = 0;
             }
 
-            var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var config = Plugin.RequireConfiguration();
             var report = _store.Load();
             var groups = report.Items.Where(NeedsLookup).GroupBy(WatchKey).ToList();
 
@@ -277,7 +277,7 @@ public sealed class AvailabilityRunner
         var ct = _lifetime.Stopping;
         try
         {
-            var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var config = Plugin.RequireConfiguration();
             var report = _store.Load();
             var pending = report.Items.Where(NeedsLookup).ToList();
 
@@ -389,7 +389,7 @@ public sealed class AvailabilityRunner
                 new AvailabilityQuery
                 {
                     TargetKind = target.Kind,
-                    ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = target.TmdbId },
+                    ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = target.TmdbId },
                     Title = first.Name,
                     Year = first.Year,
                     Country = config.MetadataCountryCode
@@ -442,7 +442,7 @@ public sealed class AvailabilityRunner
             return;
         }
 
-        if (!gap.ProviderIds.TryGetValue(GapScanContext.TmdbProvider, out var tmdbStr)
+        if (!gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var tmdbStr)
             || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
         {
             return;
@@ -461,15 +461,15 @@ public sealed class AvailabilityRunner
 
         var merged = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase);
         var added = false;
-        if (!string.IsNullOrEmpty(ids.Imdb) && !merged.ContainsKey("Imdb"))
+        if (!string.IsNullOrEmpty(ids.Imdb) && !merged.ContainsKey(ProviderIds.Imdb))
         {
-            merged["Imdb"] = ids.Imdb;
+            merged[ProviderIds.Imdb] = ids.Imdb;
             added = true;
         }
 
-        if (!string.IsNullOrEmpty(ids.Tvdb) && !merged.ContainsKey("Tvdb"))
+        if (!string.IsNullOrEmpty(ids.Tvdb) && !merged.ContainsKey(ProviderIds.Tvdb))
         {
-            merged["Tvdb"] = ids.Tvdb;
+            merged[ProviderIds.Tvdb] = ids.Tvdb;
             added = true;
         }
 

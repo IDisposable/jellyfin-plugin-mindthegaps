@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// <see cref="ServiceCircuit"/> state. The gap sources reference the same constants when they skip a service
 /// that has been given up on, so a name is never spelled as a bare literal in two places. These are HTTP
 /// service names, distinct from the provider-id keys an owned item carries (for example
-/// <c>DiscogsLabelMapper.DiscogsProvider</c>), even where the text happens to match.
+/// <c>ProviderIds.Discogs</c>), even where the text happens to match.
 /// </summary>
 public static class ServiceNames
 {

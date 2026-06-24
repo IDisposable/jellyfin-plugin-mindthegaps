@@ -42,8 +42,6 @@ public class PluginConfiguration : BasePluginConfiguration
         MetadataLanguage = "en";
         TraktEnabled = false;
         TraktClientId = string.Empty;
-        TvMazeEnabled = false;
-        TvdbEnabled = false;
         TvdbApiKey = string.Empty;
         TmdbApiKey = string.Empty;
         WebhookUrl = string.Empty;
@@ -139,7 +137,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets the Discogs personal access token used to authenticate Discogs API calls. Without it
-    /// the Discogs source stays off (Discogs requires authentication for catalogue browsing).
+    /// the Discogs source stays off (Discogs requires authentication for catalog browsing).
     /// </summary>
     public string DiscogsToken { get; set; }
 
@@ -240,17 +238,8 @@ public class PluginConfiguration : BasePluginConfiguration
     public string TraktClientId { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the TVmaze series-completeness cross-check is enabled.
-    /// </summary>
-    public bool TvMazeEnabled { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the TheTVDB series-completeness cross-check is enabled.
-    /// </summary>
-    public bool TvdbEnabled { get; set; }
-
-    /// <summary>
-    /// Gets or sets the user-supplied TheTVDB v4 API key (required for the TheTVDB cross-check).
+    /// Gets or sets the user-supplied TheTVDB v4 API key (the credential for the TheTVDB cross-check; it runs
+    /// only when the Shows library lists TheTVDB as a metadata fetcher and this key is set).
     /// </summary>
     public string TvdbApiKey { get; set; }
 

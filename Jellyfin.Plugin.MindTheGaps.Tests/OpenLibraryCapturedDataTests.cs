@@ -146,7 +146,7 @@ public class OpenLibraryCapturedDataTests
     public void Build_SkipsOwnedWorksAndHonorsCap()
     {
         var works = LoadWorks();
-        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.Book, OpenLibraryMapper.OpenLibraryProvider, "OL45588324W"));
+        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.Book, ProviderIds.OpenLibrary, "OL45588324W"));
 
         var gaps = OpenLibraryMapper.Build(AuthorKey, "Frank Herbert", works, "owner-guid", owned, 2).ToList();
 

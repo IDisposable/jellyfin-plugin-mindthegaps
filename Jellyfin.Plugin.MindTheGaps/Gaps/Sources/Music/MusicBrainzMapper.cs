@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 
@@ -13,17 +12,6 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// </summary>
 public static class MusicBrainzMapper
 {
-    /// <summary>
-    /// The provider name Jellyfin uses for a release-group's MusicBrainz id; an owned album carries the
-    /// release-group MBID under this key, which is what a release-group browse returns.
-    /// </summary>
-    public static readonly string ReleaseGroupProvider = MetadataProvider.MusicBrainzReleaseGroup.ToString();
-
-    /// <summary>
-    /// The provider name for the artist's MusicBrainz id, used to link the source to its MusicBrainz page.
-    /// </summary>
-    public static readonly string ArtistProvider = MetadataProvider.MusicBrainzArtist.ToString();
-
     /// <summary>
     /// Builds gaps for an artist's unowned studio-album release-groups. The pattern and id prefix tell
     /// the two music sources apart: an album artist you collect yields a <see cref="GapPattern.SetCompletion"/>
@@ -61,7 +49,7 @@ public static class MusicBrainzMapper
 
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [ReleaseGroupProvider] = group.Id
+                [ProviderIds.MusicBrainzReleaseGroup] = group.Id
             };
 
             if (ownership.OwnsAny(BaseItemKind.MusicAlbum, providerIds))
@@ -79,7 +67,7 @@ public static class MusicBrainzMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: sourceItemName,
                 sourceItemType: "MusicArtist",
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ArtistProvider] = artistMbid },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.MusicBrainzArtist] = artistMbid },
                 releaseDate: ParseDate(group.FirstReleaseDate));
         }
     }

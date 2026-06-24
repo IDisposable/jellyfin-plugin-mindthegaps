@@ -55,6 +55,10 @@
 .cgMint:hover { background: rgba(61,220,151,.16); }
 .cgLink .material-icons { font-size: 1.05em; vertical-align: middle; }
 .cgLink .material-icons.cgIconLead { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
+/* The per-series re-check control spins its icon while the re-check runs (cleared on re-render). */
+.cgRecheck.cgBusy { pointer-events: none; opacity: .7; }
+.cgRecheck.cgBusy .material-icons { animation: cgSpin 1s linear infinite; }
+@keyframes cgSpin { to { transform: rotate(360deg); } }
 /* Keep each provider's checkbox and name together, and never break a multi-word name. */
 .cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
 .cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }

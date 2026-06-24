@@ -79,7 +79,7 @@ public abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBase
         GapScanContext context,
         CancellationToken cancellationToken)
     {
-        if (!artist.TryGetProviderId(MetadataProvider.MusicBrainzArtist, out var artistMbid)
+        if (!artist.TryGetProviderId(ProviderIds.MusicBrainzArtist, out var artistMbid)
             || string.IsNullOrEmpty(artistMbid))
         {
             return ([], false);

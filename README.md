@@ -34,7 +34,7 @@ Every gap is one of three kinds, surfaced as the report's three tabs:
 | Tab | What it finds | Examples |
 |---|---|---|
 | **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
-| **Creator works** | other work by a person or artist you own | a film or series an owned actor or director made; a music artist's wider catalogue; an author's other books |
+| **Creator works** | other work by a person or artist you own | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books |
 | **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB or MDBList list, each list shown as its own group |
 
 Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
@@ -80,14 +80,20 @@ flowchart LR
   and bit-part credits so the list stays useful on a large library.
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
-  cross-checks each owned series against **TVmaze** and **TheTVDB** to catch episodes the series'
-  configured metadata provider doesn't list. TVmaze is keyless; TheTVDB needs your own v4 API key.
+  cross-checks each owned series against **TheMovieDb**, **TVmaze**, and **TheTVDB** to catch episodes the
+  series' configured metadata provider doesn't list. TheMovieDb and TVmaze are keyless; TheTVDB needs your
+  own v4 API key. The cross-check reconciles by air date and title, not just episode number, so a season a
+  provider numbers differently from your library (a renumber, a reorder, or a two-part episode you keep as
+  one file) is recognized as owned instead of read as missing. When you enable more than one source they
+  honor your library's provider priority, so your top provider (TheMovieDb for most) owns each series'
+  episode list rather than one that numbers it differently. A refresh icon on each series and season
+  re-checks just that show on the spot, so you can confirm a metadata fix without a full rescan.
 - **Curated sets (studio / keyword / label)**: complete the movies of a studio ("every A24 film", "every
   Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, plus a record label's releases
   via Discogs. Opt-in: pick studios, keywords, and labels with a type-ahead chip picker
   (search, pick a match, it becomes a removable chip), no id-hunting required.
 - **Music and books (on by default)**: complete an album artist's discography and discover a
-  track-only artist's wider catalogue (MusicBrainz, with the opt-in Discogs source covering artists
+  track-only artist's wider catalog (MusicBrainz, with the opt-in Discogs source covering artists
   MusicBrainz cannot resolve), and surface other books in an owned author's bibliography (OpenLibrary).
   Discogs needs a personal access token.
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
@@ -116,8 +122,8 @@ flowchart LR
   reboot like V 1984 versus V 2009, or genuinely missing). A "Deeper analysis" confirms against the source
   provider, an "Export for AI analysis" button downloads the diagnosis as a Markdown dossier (the missing
   item, the matching rules, the plugin verdict, the owned candidates, and an analysis prompt) to hand to any
-  AI, and a library-wide identification audit runs the same check across everything and downloads as
-  Markdown.
+  AI, and an identification audit runs the same check across the domain and pattern you are viewing and
+  downloads as Markdown.
 - **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
   season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
 - **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a

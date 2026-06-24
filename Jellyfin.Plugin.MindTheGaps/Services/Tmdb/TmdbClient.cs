@@ -182,6 +182,51 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets every regular (numbered) episode of a series across its seasons, for the series-content
+    /// cross-check. Specials (season 0) are skipped. Cached, since the same series is re-read across scans
+    /// and re-checks.
+    /// </summary>
+    /// <param name="tmdbId">The series' TMDB id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The season episodes, or an empty list when the series could not be fetched.</returns>
+    public async Task<IReadOnlyList<TvSeasonEpisode>> GetSeriesEpisodesAsync(int tmdbId, string? language, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"tvepisodes-{tmdbId}-{language}");
+        if (_cache.TryGetValue(key, out IReadOnlyList<TvSeasonEpisode>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: GetSeriesEpisodes {TmdbId} lang {Language}", tmdbId, language);
+        var show = await _client.GetTvShowAsync(tmdbId, language: language, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var episodes = new List<TvSeasonEpisode>();
+        if (show?.Seasons is null || show.Seasons.Count == 0)
+        {
+            _logger?.LogWarning("TMDB: GetSeriesEpisodes {TmdbId} returned no seasons", tmdbId);
+            return episodes;
+        }
+
+        foreach (var season in show.Seasons)
+        {
+            if (season.SeasonNumber < 1)
+            {
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var full = await _client.GetTvSeasonAsync(tmdbId, season.SeasonNumber, language: language, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (full?.Episodes is { Count: > 0 })
+            {
+                episodes.AddRange(full.Episodes);
+            }
+        }
+
+        _cache.Set(key, (IReadOnlyList<TvSeasonEpisode>)episodes, TimeSpan.FromHours(CacheDurationHours));
+        return episodes;
+    }
+
+    /// <summary>
     /// Gets a single page of a company's (studio's) movies via discover.
     /// </summary>
     /// <param name="companyId">The TMDB company id.</param>
@@ -399,7 +444,7 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets a company's (studio's) display name by its TMDB id, for labelling a curated set.
+    /// Gets a company's (studio's) display name by its TMDB id, for labeling a curated set.
     /// </summary>
     /// <param name="companyId">The TMDB company id.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
@@ -431,7 +476,7 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets a keyword's display name by its TMDB id, for labelling a curated set with its name rather than
+    /// Gets a keyword's display name by its TMDB id, for labeling a curated set with its name rather than
     /// its raw id.
     /// </summary>
     /// <param name="keywordId">The TMDB keyword id.</param>

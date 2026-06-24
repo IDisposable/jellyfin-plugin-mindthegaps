@@ -70,7 +70,7 @@ public class DiscogsArtistTests
     [Fact]
     public void Build_SkipsAlbumOwnedByDiscogsId()
     {
-        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.MusicAlbum, DiscogsLabelMapper.DiscogsProvider, "104"));
+        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.MusicAlbum, ProviderIds.Discogs, "104"));
 
         var gaps = Build(owned);
 
@@ -82,7 +82,7 @@ public class DiscogsArtistTests
     public void Build_SkipsAlbumOwnedByName_AgainstTheOwnedArtistSpelling()
     {
         // The library holds "Second Album" under a MusicBrainz id (no Discogs id); the artist-and-title name
-        // match still recognises it as owned.
+        // match still recognizes it as owned.
         var owned = IndexWith(OwnershipIndex.MakeKey(
             BaseItemKind.MusicAlbum,
             OwnershipIndex.NameKeyProvider,

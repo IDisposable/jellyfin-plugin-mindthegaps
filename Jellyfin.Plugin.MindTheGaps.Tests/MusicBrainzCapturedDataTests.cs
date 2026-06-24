@@ -102,7 +102,7 @@ public class MusicBrainzCapturedDataTests
         var groups = Load();
         var owned = IndexWith(OwnershipIndex.MakeKey(
             BaseItemKind.MusicAlbum,
-            MusicBrainzMapper.ReleaseGroupProvider,
+            ProviderIds.MusicBrainzReleaseGroup,
             AbbeyRoadMbid));
 
         var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", owned, GapPattern.SetCompletion, "discography").ToList();

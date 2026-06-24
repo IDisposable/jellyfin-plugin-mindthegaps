@@ -115,7 +115,7 @@ public sealed class TraktFilmographyGapSource : IGapSource
 
     private async Task<string?> ResolveTraktIdAsync(string clientId, BaseItem person, CancellationToken cancellationToken)
     {
-        if (person.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb) && !string.IsNullOrEmpty(tmdb))
+        if (person.TryGetProviderId(ProviderIds.Tmdb, out var tmdb) && !string.IsNullOrEmpty(tmdb))
         {
             var id = await _traktClient.FindPersonTraktIdAsync(clientId, "tmdb", tmdb, cancellationToken).ConfigureAwait(false);
             if (id is not null)
@@ -124,7 +124,7 @@ public sealed class TraktFilmographyGapSource : IGapSource
             }
         }
 
-        if (person.TryGetProviderId(MetadataProvider.Imdb, out var imdb) && !string.IsNullOrEmpty(imdb))
+        if (person.TryGetProviderId(ProviderIds.Imdb, out var imdb) && !string.IsNullOrEmpty(imdb))
         {
             return await _traktClient.FindPersonTraktIdAsync(clientId, "imdb", imdb, cancellationToken).ConfigureAwait(false);
         }

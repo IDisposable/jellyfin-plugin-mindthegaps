@@ -402,10 +402,10 @@ public sealed class VirtualItemMinter : IDisposable
     // OpenLibrary (a plugin-provided key, not a core MetadataProvider enum member).
     private static string? PrimaryProvider(BaseItemKind kind) => kind switch
     {
-        BaseItemKind.Movie => MetadataProvider.Tmdb.ToString(),
-        BaseItemKind.Series => MetadataProvider.Tmdb.ToString(),
-        BaseItemKind.MusicAlbum => MetadataProvider.MusicBrainzReleaseGroup.ToString(),
-        BaseItemKind.Book => "OpenLibrary",
+        BaseItemKind.Movie => ProviderIds.Tmdb,
+        BaseItemKind.Series => ProviderIds.Tmdb,
+        BaseItemKind.MusicAlbum => ProviderIds.MusicBrainzReleaseGroup,
+        BaseItemKind.Book => ProviderIds.OpenLibrary,
         _ => null
     };
 

@@ -12,7 +12,7 @@ public sealed class DuplicateIdGroup
     /// <summary>
     /// Gets or sets the provider whose id is shared (for example "Tmdb").
     /// </summary>
-    public string Provider { get; set; } = "Tmdb";
+    public string Provider { get; set; } = ProviderIds.Tmdb;
 
     /// <summary>
     /// Gets or sets the shared id value.

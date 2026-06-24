@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 
 /// <summary>
 /// A minimal client for the Discogs HTTP API. Discogs requires authentication (a personal access token)
-/// to browse the catalogue and a descriptive User-Agent (which HttpRetry adds). The token comes from the
+/// to browse the catalog and a descriptive User-Agent (which HttpRetry adds). The token comes from the
 /// plugin configuration. See https://www.discogs.com/developers.
 /// </summary>
 public sealed class DiscogsClient
@@ -40,37 +40,6 @@ public sealed class DiscogsClient
     public DiscogsClient(CachedApiClient api)
     {
         _api = api;
-    }
-
-    /// <summary>
-    /// Resolves a label name to its Discogs id (the first label result), or null when nothing matches.
-    /// </summary>
-    /// <param name="name">The label name to search for.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The label id, or null.</returns>
-    public async Task<long?> SearchLabelAsync(string name, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return null;
-        }
-
-        var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=label&q={Uri.EscapeDataString(name)}&per_page=5");
-        var response = await GetAsync<DiscogsSearchResponse>(path, CachedApiClient.DefaultCacheDuration, cancellationToken).ConfigureAwait(false);
-        if (response?.Results is null)
-        {
-            return null;
-        }
-
-        foreach (var result in response.Results)
-        {
-            if (result.Id > 0)
-            {
-                return result.Id;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>

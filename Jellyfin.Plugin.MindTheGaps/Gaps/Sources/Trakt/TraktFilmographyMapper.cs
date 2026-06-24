@@ -85,12 +85,12 @@ public static class TraktFilmographyMapper
         var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (tmdbId.HasValue)
         {
-            providerIds[GapScanContext.TmdbProvider] = tmdbId.Value.ToString(CultureInfo.InvariantCulture);
+            providerIds[ProviderIds.Tmdb] = tmdbId.Value.ToString(CultureInfo.InvariantCulture);
         }
 
         if (!string.IsNullOrEmpty(imdbId))
         {
-            providerIds["Imdb"] = imdbId;
+            providerIds[ProviderIds.Imdb] = imdbId;
         }
 
         if (providerIds.Count == 0)

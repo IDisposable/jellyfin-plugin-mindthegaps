@@ -62,7 +62,7 @@ public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
     {
         // The MusicBrainz sources already cover artists with a MusicBrainz id; Discogs widens coverage to the
         // artists they cannot scan, so the two never report the same album twice.
-        if (artist.TryGetProviderId(MetadataProvider.MusicBrainzArtist, out var mbid) && !string.IsNullOrEmpty(mbid))
+        if (artist.TryGetProviderId(ProviderIds.MusicBrainzArtist, out var mbid) && !string.IsNullOrEmpty(mbid))
         {
             return ([], false);
         }

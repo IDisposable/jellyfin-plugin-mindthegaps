@@ -52,22 +52,22 @@ public static class MdbListMapper
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (item.TmdbId is > 0)
             {
-                providerIds["Tmdb"] = item.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
+                providerIds[ProviderIds.Tmdb] = item.TmdbId.Value.ToString(CultureInfo.InvariantCulture);
             }
 
             if (!string.IsNullOrEmpty(item.ImdbId))
             {
-                providerIds["Imdb"] = item.ImdbId;
+                providerIds[ProviderIds.Imdb] = item.ImdbId;
             }
 
             if (isShow && item.TvdbId is > 0)
             {
-                providerIds["Tvdb"] = item.TvdbId.Value.ToString(CultureInfo.InvariantCulture);
+                providerIds[ProviderIds.Tvdb] = item.TvdbId.Value.ToString(CultureInfo.InvariantCulture);
             }
 
             // Nothing to diff against or key on without at least one external id.
-            var idKey = providerIds.TryGetValue("Tmdb", out var tmdb) ? tmdb
-                : providerIds.TryGetValue("Imdb", out var imdb) ? imdb
+            var idKey = providerIds.TryGetValue(ProviderIds.Tmdb, out var tmdb) ? tmdb
+                : providerIds.TryGetValue(ProviderIds.Imdb, out var imdb) ? imdb
                 : null;
             if (idKey is null)
             {

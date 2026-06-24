@@ -17,7 +17,7 @@ A gap source that is explorable declares it. `IExploreSource` exposes one or mor
 each carrying its `Kind`, `Label`, an optional `Search` delegate (its absence means a raw-id kind like a
 TMDB list), and a `Run` delegate. `ExploreRegistry` collects the descriptors from every registered source
 and is the single lookup; `ExploreRunner` runs one on demand; the dashboard builds its kind dropdown and
-its search-versus-raw-id behaviour from the `Explore/Kinds` endpoint. Adding an explorable kind is now one
+its search-versus-raw-id behavior from the `Explore/Kinds` endpoint. Adding an explorable kind is now one
 descriptor on the source, with nothing to change in the engine, controller, or UI.
 
 ## Consequences

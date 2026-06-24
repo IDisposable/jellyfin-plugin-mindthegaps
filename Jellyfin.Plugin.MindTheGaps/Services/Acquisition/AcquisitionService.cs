@@ -190,7 +190,7 @@ public sealed class AcquisitionService
     // The movie/series TMDB id: a movie gap carries it in ProviderIds; an episode/series gap carries the
     // owning series' id in WatchTmdbId (the same id the availability lookup uses).
     private static int? ResolveTmdbId(GapItem gap)
-        => ParseId(GetProviderId(gap, "Tmdb")) ?? ParseId(gap.WatchTmdbId);
+        => ParseId(GetProviderId(gap, ProviderIds.Tmdb)) ?? ParseId(gap.WatchTmdbId);
 
     private static int? ParseId(string? raw)
         => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
@@ -272,13 +272,13 @@ public sealed class AcquisitionService
         {
             var series = _libraryManager.GetItemById(seriesId);
             if (series is not null
-                && series.TryGetProviderId(MetadataProvider.Tvdb, out var tvdb)
+                && series.TryGetProviderId(ProviderIds.Tvdb, out var tvdb)
                 && ParseId(tvdb) is int fromLibrary)
             {
                 return fromLibrary;
             }
         }
 
-        return ParseId(GetProviderId(gap, "Tvdb"));
+        return ParseId(GetProviderId(gap, ProviderIds.Tvdb));
     }
 }

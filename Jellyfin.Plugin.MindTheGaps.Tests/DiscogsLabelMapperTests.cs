@@ -73,7 +73,7 @@ public class DiscogsLabelMapperTests
     [Fact]
     public void Build_SkipsReleasesOwnedByDiscogsId()
     {
-        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.MusicAlbum, DiscogsLabelMapper.DiscogsProvider, "100"));
+        var owned = IndexWith(OwnershipIndex.MakeKey(BaseItemKind.MusicAlbum, ProviderIds.Discogs, "100"));
 
         var gaps = DiscogsLabelMapper.Build(LabelId, "Warp Records", LoadReleases(), owned, 100).ToList();
 
@@ -85,7 +85,7 @@ public class DiscogsLabelMapperTests
     public void Build_SkipsReleasesOwnedByName_WhenNoSharedDiscogsId()
     {
         // The library holds release 100 under a MusicBrainz id (no Discogs id); the artist and title match,
-        // so the conservative name fallback still recognises it as owned.
+        // so the conservative name fallback still recognizes it as owned.
         var owned = IndexWith(OwnershipIndex.MakeKey(
             BaseItemKind.MusicAlbum,
             OwnershipIndex.NameKeyProvider,

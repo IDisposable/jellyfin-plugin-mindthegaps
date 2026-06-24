@@ -16,12 +16,6 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 public static class OpenLibraryMapper
 {
     /// <summary>
-    /// The provider name used to match an owned book against an OpenLibrary work key. The OpenLibrary
-    /// metadata plugin stores the work key (for example "OL45804W") under this provider id.
-    /// </summary>
-    public const string OpenLibraryProvider = "OpenLibrary";
-
-    /// <summary>
     /// Builds bibliography gaps for an author's unowned works, capped to keep one prolific author from
     /// flooding the list.
     /// </summary>
@@ -77,14 +71,14 @@ public static class OpenLibraryMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: authorName,
                 sourceItemType: "Book",
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [OpenLibraryProvider] = authorKey },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.OpenLibrary] = authorKey },
                 releaseDate: ParseDate(work.FirstPublishDate));
         }
     }
 
     // An owned-lookup provider map for a work (its OpenLibrary work id under the OpenLibrary provider).
     private static Dictionary<string, string> ProviderIdsFor(OpenLibraryWork work)
-        => new(StringComparer.OrdinalIgnoreCase) { [OpenLibraryProvider] = NormalizeWorkKey(work.Key)! };
+        => new(StringComparer.OrdinalIgnoreCase) { [ProviderIds.OpenLibrary] = NormalizeWorkKey(work.Key)! };
 
     // The work's first publish year, when its date parses to one.
     private static int? YearOf(OpenLibraryWork work) => ParseDate(work.FirstPublishDate)?.Year;

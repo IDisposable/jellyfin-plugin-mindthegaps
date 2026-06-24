@@ -55,14 +55,17 @@ public class DiagnoseController : ControllerBase
     }
 
     /// <summary>
-    /// Audits the whole library for identification problems (gaps you likely own under a different id, and
-    /// owned items sharing a provider id), for the report's downloadable Markdown audit. Library-only.
+    /// Audits the library for identification problems (gaps you likely own under a different id, and owned
+    /// items sharing a provider id) within the requested domain and pattern, for the report's downloadable
+    /// Markdown audit. Library-only.
     /// </summary>
+    /// <param name="domain">The domain to scope to (for example "Shows"), or null for every auditable domain.</param>
+    /// <param name="pattern">The gap pattern to scope to (for example "SetCompletion"), or null for all patterns.</param>
     /// <returns>The audit.</returns>
     [HttpGet("DiagnoseAudit")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IdentificationAudit> DiagnoseAudit()
+    public ActionResult<IdentificationAudit> DiagnoseAudit([FromQuery] string? domain, [FromQuery] string? pattern)
     {
-        return _diagnostics.BuildAudit(_store.LoadSnapshot());
+        return _diagnostics.BuildAudit(_store.LoadSnapshot(), domain, pattern);
     }
 }

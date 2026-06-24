@@ -1,7 +1,6 @@
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
-using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Library;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
@@ -68,8 +67,6 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         // Gap sources. Add new IGapSource implementations here.
         serviceCollection.AddSingleton<IGapSource, CollectionGapSource>();
         serviceCollection.AddSingleton<IGapSource, SeriesContentGapSource>();
-        serviceCollection.AddSingleton<IGapSource, TvMazeContentGapSource>();
-        serviceCollection.AddSingleton<IGapSource, TvdbContentGapSource>();
         serviceCollection.AddSingleton<IGapSource, PeopleGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktFilmographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, RecommendationsGapSource>();
@@ -80,6 +77,11 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
+
+        // The episode providers the series-content source merges per series (not gap sources themselves).
+        serviceCollection.AddSingleton<ISeriesEpisodeProvider, TmdbEpisodeProvider>();
+        serviceCollection.AddSingleton<ISeriesEpisodeProvider, TvMazeEpisodeProvider>();
+        serviceCollection.AddSingleton<ISeriesEpisodeProvider, TvdbEpisodeProvider>();
 
         // The chip-pickable sources (CuratedSetGapSource for studios/keywords/TMDB lists, DiscogsLabelGapSource,
         // MdbListGapSource) also implement IExploreSource, declaring their explore kinds. ExploreRegistry

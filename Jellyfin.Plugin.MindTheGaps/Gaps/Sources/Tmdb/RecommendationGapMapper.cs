@@ -135,6 +135,6 @@ public static class RecommendationGapMapper
     private static Dictionary<string, string> TmdbId(int id)
         => new(StringComparer.OrdinalIgnoreCase)
         {
-            [GapScanContext.TmdbProvider] = id.ToString(CultureInfo.InvariantCulture)
+            [ProviderIds.Tmdb] = id.ToString(CultureInfo.InvariantCulture)
         };
 }

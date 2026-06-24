@@ -202,7 +202,7 @@ public static class FilmographyGapMapper
 
         var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [GapScanContext.TmdbProvider] = tmdbId.ToString(CultureInfo.InvariantCulture)
+            [ProviderIds.Tmdb] = tmdbId.ToString(CultureInfo.InvariantCulture)
         };
 
         if (ownership.OwnsAny(BaseItemKind.Movie, providerIds))
@@ -220,7 +220,7 @@ public static class FilmographyGapMapper
             sourceItemId: sourceItemId,
             sourceItemName: sourceItemName,
             sourceItemType: "Person",
-            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
+            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
             releaseDate: releaseDate,
             imageUrl: posterUrl(posterPath),
             overview: role,
@@ -248,7 +248,7 @@ public static class FilmographyGapMapper
         // each series' TheTVDB id, so ownership matches whichever id the library tagged the series with.
         var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            [GapScanContext.TmdbProvider] = tmdbId.ToString(CultureInfo.InvariantCulture)
+            [ProviderIds.Tmdb] = tmdbId.ToString(CultureInfo.InvariantCulture)
         };
 
         if (ownership.OwnsAny(BaseItemKind.Series, providerIds))
@@ -266,7 +266,7 @@ public static class FilmographyGapMapper
             sourceItemId: sourceItemId,
             sourceItemName: sourceItemName,
             sourceItemType: "Person",
-            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
+            sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = sourcePersonTmdbId.ToString(CultureInfo.InvariantCulture) },
             releaseDate: firstAirDate,
             imageUrl: posterUrl(posterPath),
             overview: role);

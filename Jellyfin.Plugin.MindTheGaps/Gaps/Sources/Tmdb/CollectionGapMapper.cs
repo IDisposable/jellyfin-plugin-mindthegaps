@@ -39,7 +39,7 @@ public static class CollectionGapMapper
         {
             var providerIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                [GapScanContext.TmdbProvider] = part.Id.ToString(CultureInfo.InvariantCulture)
+                [ProviderIds.Tmdb] = part.Id.ToString(CultureInfo.InvariantCulture)
             };
 
             if (ownership.OwnsAny(BaseItemKind.Movie, providerIds))
@@ -63,7 +63,7 @@ public static class CollectionGapMapper
                 sourceItemId: boxSetId,
                 sourceItemName: boxSetName,
                 sourceItemType: "BoxSet",
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [GapScanContext.TmdbProvider] = collectionId.ToString(CultureInfo.InvariantCulture) },
+                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = collectionId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: part.ReleaseDate,
                 imageUrl: posterUrl(part.PosterPath),
                 overview: part.Overview,
