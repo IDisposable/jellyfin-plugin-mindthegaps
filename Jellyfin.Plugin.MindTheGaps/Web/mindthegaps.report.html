@@ -1,101 +1,95 @@
 <div id="cgReportPanel">
-                <div class="verticalSection verticalSection-extrabottompadding">
-                    <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.3em;">
-                        <p class="fieldDescription" id="cgSummary" style="margin:0;">Loading&hellip;</p>
-                        <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)" aria-label="Reload the last saved results (no rescan)">
-                            <span class="material-icons" aria-hidden="true">refresh</span>
-                        </button>
-                    </div>
-                    <div id="cgStale" style="display:none;align-items:center;gap:.6em;margin-bottom:.5em;padding:.5em .7em;border-radius:4px;background:rgba(240,173,78,.15);border:1px solid #f0ad4e;">
-                        <span class="material-icons" aria-hidden="true" style="color:#f0ad4e;">update</span>
-                        <span id="cgStaleMsg" style="flex:1;"></span>
-                        <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
-                    </div>
-                    <div id="cgRescanBar" style="margin-bottom:.5em;">
-                        <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
-                            <span>Rescan now</span>
-                        </button>
-                    </div>
-                    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:.5em;">
-                        <label id="cgTypeFilterWrap" style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
-                            <span>Type:</span>
-                            <select is="emby-select" id="cgTypeFilter" class="emby-select" style="width:auto;"></select>
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
-                            <span>Sort:</span>
-                            <select is="emby-select" id="cgSort" class="emby-select" style="width:auto;">
-                                <option value="title">Title</option>
-                                <option value="popularity">Popularity</option>
-                            </select>
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
-                            <input type="checkbox" id="cgHideSpecials" /> Hide specials
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps whose release date is in the future.">
-                            <input type="checkbox" id="cgHideUpcoming" /> Hide upcoming
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have dismissed (resolved, not interested, or snoozed). Each appears greyed with its status and a Clear button.">
-                            <input type="checkbox" id="cgShowResolved" /> Show dismissed
-                        </label>
-                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
-                            <input type="checkbox" id="cgStreamable" /> Hide items with no sources
-                        </label>
-                        <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
-                            <span>Look up where to watch</span>
-                        </button>
-                        <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
-                            <span>Export Markdown</span>
-                        </button>
-                        <button is="emby-button" type="button" id="cgAuditBtn" class="raised" style="margin:0;" title="Audit the whole library for identification problems (false 'missing' and duplicate TheMovieDb ids) and download the result as Markdown. Read-only; nothing is changed.">
-                            <span>Identification audit</span>
-                        </button>
-                        <button is="emby-button" type="button" id="cgExploreBtn" class="raised" style="margin:0;" title="Explore one source ad-hoc (a studio, keyword, label, or list) and merge its unowned titles into the report, without changing your saved settings.">
-                            <span>Explore a source</span>
-                        </button>
-                        <button is="emby-button" type="button" id="cgTodoBtn" class="raised" style="margin:0;" title="Open your personal TODO list of gaps to go find. Add items with the per-row TODO button or the multi-select bar.">
-                            <span>My TODO list</span>
-                        </button>
-                        <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
-                    </div>
-                    <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
-                        <div style="font-weight:600;">Where to watch</div>
-                        <div id="cgMonFilter" style="margin-top:.15em;">
-                            <span style="opacity:.7;">Types:</span>
-                            <label style="margin-left:.5em;"><input type="checkbox" class="cgMon" data-mon="flatrate" checked /> Subscription</label>
-                            <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="free" checked /> Free</label>
-                            <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="ads" checked /> With ads</label>
-                            <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="rent" checked /> Rent</label>
-                            <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="buy" checked /> Buy</label>
-                        </div>
-                        <div id="cgProviderFilter" style="margin-top:.15em;"></div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.3em 0;font-size:.9em;">
-                        <span style="opacity:.7;">Saved views:</span>
-                        <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;"><option value="">(choose a saved view)</option></select>
-                        <button is="emby-button" type="button" id="cgSaveView" class="raised" style="margin:0;" title="Save the current filters as a named view"><span>Save current</span></button>
-                        <button is="emby-button" type="button" id="cgDeleteView" class="raised" style="margin:0;" title="Delete the selected saved view"><span>Delete</span></button>
-                        <button is="emby-button" type="button" id="cgShareLink" class="raised" style="margin:0;" title="Copy a link that opens this exact view (tab and filters) in another browser or for someone else"><span>Copy link</span></button>
-                        <span id="cgHiddenCreators" style="display:none;"></span>
-                    </div>
-                    <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.5em 0 .2em 0;"></div>
-                </div>
-
-                <div id="cgSelectBar" style="display:none;align-items:center;gap:.5em;margin:.3em 0;flex-wrap:wrap;">
-                    <button is="emby-button" type="button" id="cgSelectAll" class="raised"><span>Select all</span></button>
-                    <button is="emby-button" type="button" id="cgSelectNone" class="raised"><span>Clear</span></button>
-                    <button is="emby-button" type="button" id="cgMintSelected" class="raised button-submit" disabled>
-                        <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">eco</span>
-                        <span>Mint selected (<span id="cgSelCount">0</span>)</span>
-                    </button>
-                    <button is="emby-button" type="button" id="cgTodoSelected" class="raised" disabled>
-                        <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">playlist_add_check</span>
-                        <span>Add to TODO (<span id="cgTodoSelCount">0</span>)</span>
-                    </button>
-                </div>
-
-                <div id="cgJump" style="display:none;"></div>
-                <div id="cgRollup" style="display:none;"></div>
-                <div id="cgList" class="itemsContainer vertical-list"></div>
-                </div>
-
-                
+    <div class="verticalSection verticalSection-extrabottompadding">
+        <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.3em;">
+            <p class="fieldDescription" id="cgSummary" style="margin:0;">Loading&hellip;</p>
+            <button is="paper-icon-button-light" type="button" id="cgRefresh" title="Reload the last saved results (no rescan)" aria-label="Reload the last saved results (no rescan)">
+                <span class="material-icons" aria-hidden="true">refresh</span>
+            </button>
+        </div>
+        <div id="cgStale" style="display:none;align-items:center;gap:.6em;margin-bottom:.5em;padding:.5em .7em;border-radius:4px;background:rgba(240,173,78,.15);border:1px solid #f0ad4e;">
+            <span class="material-icons" aria-hidden="true" style="color:#f0ad4e;">update</span>
+            <span id="cgStaleMsg" style="flex:1;"></span>
+            <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
+        </div>
+        <div id="cgRescanBar" style="margin-bottom:.5em;">
+            <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
+                <span>Rescan now</span>
+            </button>
+        </div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:.5em;">
+            <label id="cgTypeFilterWrap" style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
+                <span>Type:</span>
+                <select is="emby-select" id="cgTypeFilter" class="emby-select" style="width:auto;"></select>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
+                <span>Sort:</span>
+                <select is="emby-select" id="cgSort" class="emby-select" style="width:auto;">
+                    <option value="title">Title</option>
+                    <option value="popularity">Popularity</option>
+                </select>
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
+                <input type="checkbox" id="cgHideSpecials" /> Hide specials </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps whose release date is in the future.">
+                <input type="checkbox" id="cgHideUpcoming" /> Hide upcoming </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have dismissed (resolved, not interested, or snoozed). Each appears greyed with its status and a Clear button.">
+                <input type="checkbox" id="cgShowResolved" /> Show dismissed </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
+                <input type="checkbox" id="cgStreamable" /> Hide items with no sources </label>
+            <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
+                <span>Look up where to watch</span>
+            </button>
+            <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
+                <span>Export Markdown</span>
+            </button>
+            <button is="emby-button" type="button" id="cgAuditBtn" class="raised" style="margin:0;" title="Audit the whole library for identification problems (false 'missing' and duplicate TheMovieDb ids) and download the result as Markdown. Read-only; nothing is changed.">
+                <span>Identification audit</span>
+            </button>
+            <button is="emby-button" type="button" id="cgExploreBtn" class="raised" style="margin:0;" title="Explore one source ad-hoc (a studio, keyword, label, or list) and merge its unowned titles into the report, without changing your saved settings.">
+                <span>Explore a source</span>
+            </button>
+            <button is="emby-button" type="button" id="cgTodoBtn" class="raised" style="margin:0;" title="Open your personal TODO list of gaps to go find. Add items with the per-row TODO button or the multi-select bar.">
+                <span>My TODO list</span>
+            </button>
+            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
+        </div>
+        <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
+            <div style="font-weight:600;">Where to watch</div>
+            <div id="cgMonFilter" style="margin-top:.15em;">
+                <span style="opacity:.7;">Types:</span>
+                <label style="margin-left:.5em;"><input type="checkbox" class="cgMon" data-mon="flatrate" checked /> Subscription</label>
+                <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="free" checked /> Free</label>
+                <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="ads" checked /> With ads</label>
+                <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="rent" checked /> Rent</label>
+                <label style="margin-left:.6em;"><input type="checkbox" class="cgMon" data-mon="buy" checked /> Buy</label>
+            </div>
+            <div id="cgProviderFilter" style="margin-top:.15em;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.3em 0;font-size:.9em;">
+            <span style="opacity:.7;">Saved views:</span>
+            <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;">
+                <option value="">(choose a saved view)</option>
+            </select>
+            <button is="emby-button" type="button" id="cgSaveView" class="raised" style="margin:0;" title="Save the current filters as a named view"><span>Save current</span></button>
+            <button is="emby-button" type="button" id="cgDeleteView" class="raised" style="margin:0;" title="Delete the selected saved view"><span>Delete</span></button>
+            <button is="emby-button" type="button" id="cgShareLink" class="raised" style="margin:0;" title="Copy a link that opens this exact view (tab and filters) in another browser or for someone else"><span>Copy link</span></button>
+            <span id="cgHiddenCreators" style="display:none;"></span>
+        </div>
+        <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.5em 0 .2em 0;"></div>
+    </div>
+    <div id="cgSelectBar" style="display:none;align-items:center;gap:.5em;margin:.3em 0;flex-wrap:wrap;">
+        <button is="emby-button" type="button" id="cgSelectAll" class="raised"><span>Select all</span></button>
+        <button is="emby-button" type="button" id="cgSelectNone" class="raised"><span>Clear</span></button>
+        <button is="emby-button" type="button" id="cgMintSelected" class="raised button-submit" disabled>
+            <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">eco</span>
+            <span>Mint selected (<span id="cgSelCount">0</span>)</span>
+        </button>
+        <button is="emby-button" type="button" id="cgTodoSelected" class="raised" disabled>
+            <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">playlist_add_check</span>
+            <span>Add to TODO (<span id="cgTodoSelCount">0</span>)</span>
+        </button>
+    </div>
+    <div id="cgJump" style="display:none;"></div>
+    <div id="cgRollup" style="display:none;"></div>
+    <div id="cgList" class="itemsContainer vertical-list"></div>
+</div>

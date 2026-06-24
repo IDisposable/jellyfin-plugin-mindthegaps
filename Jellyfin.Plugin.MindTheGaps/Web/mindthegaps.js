@@ -461,7 +461,7 @@
                         ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint', style: 'margin-right:.5em;flex:none;' }).outerHTML
                         : h('span', { style: 'display:inline-block;width:1.4em;flex:none;' }).outerHTML;
 
-                    var titleLine = wrap('div', { 'class': 'listItemBodyText' },
+                    var titleLine = wrap('div', { 'class': 'listItemBodyText cgRowTitle' },
                         esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId));
                     var secondaryLine = wrap('div', { 'class': 'listItemBodyText secondary' }, meta.join(' &middot; '));
                     var body = wrap('div', { style: 'flex:1;min-width:0;' },
@@ -1081,8 +1081,15 @@
                         var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
                         bySrc.order.sort(ci);
                         var srcHtml = bySrc.order.map(function (src) { return setSourceCell(src, bySrc.map[src]); }).join('');
-                        var heading = multiKind ? h('h3', { 'class': 'cgSetKind' }, kind).outerHTML : '';
-                        return heading + wrap('div', { 'class': 'cgGridWrap' }, srcHtml);
+                        var grid = wrap('div', { 'class': 'cgGridWrap' }, srcHtml);
+                        // A single kind needs no header; with several kinds in one domain (Movies has
+                        // collections, studios, and keywords) each kind gets a collapsible header, reusing the
+                        // group machinery so its caret, keyboard toggle, and persisted state all come for free.
+                        if (!multiKind) { return grid; }
+                        var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
+                            h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML);
+                        return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
+                            hdr + wrap('div', { 'class': 'cgBody' }, grid));
                     }).join('');
                 }
 

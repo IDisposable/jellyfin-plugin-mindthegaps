@@ -1,99 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <title>Mind the Gaps</title>
 </head>
+
 <body>
     <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-checkbox,emby-linkbutton,paper-icon-button-light">
-        <style>@@MTG_CSS@@</style>
+        <style>
+            @@MTG_CSS@@
+        </style>
         <div data-role="content">
             <div class="content-primary">
                 <div class="sectionTitleContainer flex align-items-center">
-                    <h2 class="sectionTitle" id="cgPageTitle">Mind the Gaps ToDo List</h2>
+                    <h2 class="sectionTitle" id="cgPageTitle">Mind the Gaps</h2>
                     <span id="cgVersion" class="fieldDescription" style="margin-left:auto;margin-right:.4em;opacity:.6;" title="Installed plugin version"></span>
                     <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" aria-label="Plugin settings" aria-expanded="false">
                         <span class="material-icons" aria-hidden="true">settings</span>
                     </button>
                 </div>
-                @@MTG_REPORT@@@@MTG_CONFIG@@<div id="cgDiagModal" role="dialog" aria-modal="true" aria-labelledby="cgDiagTitle"
-            style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-            <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
-                <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
-                    <span class="material-icons" aria-hidden="true">troubleshoot</span>
-                    <h2 id="cgDiagTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Diagnose</h2>
-                    <button is="paper-icon-button-light" type="button" id="cgDiagClose" title="Close" aria-label="Close">
-                        <span class="material-icons" aria-hidden="true">close</span>
-                    </button>
-                </div>
-                <div id="cgDiagBody"></div>
-            </div>
-        </div>
-
-        <div id="cgExploreModal" role="dialog" aria-modal="true" aria-labelledby="cgExploreTitle"
-            style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-            <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
-                <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
-                    <span class="material-icons" aria-hidden="true">travel_explore</span>
-                    <h2 id="cgExploreTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Explore a source</h2>
-                    <button is="paper-icon-button-light" type="button" id="cgExploreClose" title="Close" aria-label="Close">
-                        <span class="material-icons" aria-hidden="true">close</span>
-                    </button>
-                </div>
-                <p class="fieldDescription" style="margin:0 0 .8em 0;">Find the unowned titles from one source right now and merge them into the report, without changing your saved settings. Pick a kind, choose the source, then Run.</p>
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="cgExploreKind">Kind</label>
-                    <select is="emby-select" id="cgExploreKind" class="emby-select">
-                        <option value="studio">Studio</option>
-                        <option value="keyword">Keyword</option>
-                        <option value="label">Discogs label</option>
-                        <option value="tmdblist">TMDB list</option>
-                        <option value="mdblist">MDBList list</option>
-                    </select>
-                </div>
-                <div class="inputContainer" id="cgExploreSearchWrap">
-                    <label class="inputLabel inputLabelUnfocused" for="cgExploreSearch">Source</label>
-                    <div class="cgChipField" id="cgExploreField">
-                        <div class="cgChipBox" id="cgExploreBox">
-                            <span class="cgChipList" id="cgExploreChips" role="list" aria-label="Picked sources"></span>
-                            <input id="cgExploreSearch" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search by name..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgExploreSuggest" />
+                @@MTG_REPORT@@
+                @@MTG_CONFIG@@
+                <div id="cgDiagModal" role="dialog" aria-modal="true" aria-labelledby="cgDiagTitle"
+                     style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+                    <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                        <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                            <span class="material-icons" aria-hidden="true">troubleshoot</span>
+                            <h2 id="cgDiagTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Diagnose</h2>
+                            <button is="paper-icon-button-light" type="button" id="cgDiagClose" title="Close" aria-label="Close">
+                                <span class="material-icons" aria-hidden="true">close</span>
+                            </button>
                         </div>
-                        <div class="cgSuggest" id="cgExploreSuggest" role="listbox" aria-label="Source matches"></div>
+                        <div id="cgDiagBody"></div>
                     </div>
-                    <div class="fieldDescription" id="cgExploreSearchHint">Type a name and pick one or more matches.</div>
                 </div>
-                <div class="inputContainer" id="cgExploreRawWrap" style="display:none;">
-                    <label class="inputLabel inputLabelUnfocused" for="cgExploreRaw">TMDB list ids</label>
-                    <input id="cgExploreRaw" type="text" is="emby-input" autocomplete="off" placeholder="e.g. 8267559, 10" />
-                    <div class="fieldDescription">Comma-separated TMDB list ids. A list id is the number in its themoviedb.org/list/&lt;id&gt; URL. TMDB has no list search, so paste the id.</div>
+                <div id="cgExploreModal" role="dialog" aria-modal="true" aria-labelledby="cgExploreTitle"
+                     style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+                    <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                        <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                            <span class="material-icons" aria-hidden="true">travel_explore</span>
+                            <h2 id="cgExploreTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Explore a source</h2>
+                            <button is="paper-icon-button-light" type="button" id="cgExploreClose" title="Close" aria-label="Close">
+                                <span class="material-icons" aria-hidden="true">close</span>
+                            </button>
+                        </div>
+                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Find the unowned titles from one source right now and merge them into the report, without changing your saved settings. Pick a kind, choose the source, then Run.</p>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="cgExploreKind">Kind</label>
+                            <select is="emby-select" id="cgExploreKind" class="emby-select">
+                                <option value="studio">Studio</option>
+                                <option value="keyword">Keyword</option>
+                                <option value="label">Discogs label</option>
+                                <option value="tmdblist">TMDB list</option>
+                                <option value="mdblist">MDBList list</option>
+                            </select>
+                        </div>
+                        <div class="inputContainer" id="cgExploreSearchWrap">
+                            <label class="inputLabel inputLabelUnfocused" for="cgExploreSearch">Source</label>
+                            <div class="cgChipField" id="cgExploreField">
+                                <div class="cgChipBox" id="cgExploreBox">
+                                    <span class="cgChipList" id="cgExploreChips" role="list" aria-label="Picked sources"></span>
+                                    <input id="cgExploreSearch" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search by name..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgExploreSuggest" />
+                                </div>
+                                <div class="cgSuggest" id="cgExploreSuggest" role="listbox" aria-label="Source matches"></div>
+                            </div>
+                            <div class="fieldDescription" id="cgExploreSearchHint">Type a name and pick one or more matches.</div>
+                        </div>
+                        <div class="inputContainer" id="cgExploreRawWrap" style="display:none;">
+                            <label class="inputLabel inputLabelUnfocused" for="cgExploreRaw">TMDB list ids</label>
+                            <input id="cgExploreRaw" type="text" is="emby-input" autocomplete="off" placeholder="e.g. 8267559, 10" />
+                            <div class="fieldDescription">Comma-separated TMDB list ids. A list id is the number in its themoviedb.org/list/&lt;id&gt; URL. TMDB has no list search, so paste the id.</div>
+                        </div>
+                        <div id="cgExploreLive" class="cgSrOnly" role="status" aria-live="polite"></div>
+                        <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.8em;">
+                            <button is="emby-button" type="button" id="cgExploreRun" class="raised button-submit"><span>Run</span></button>
+                            <button is="emby-button" type="button" id="cgExploreClear" class="raised" title="Remove every ad-hoc exploration from the report. A full rescan also drops explorations that are not saved in settings."><span>Clear explorations</span></button>
+                        </div>
+                    </div>
                 </div>
-                <div id="cgExploreLive" class="cgSrOnly" role="status" aria-live="polite"></div>
-                <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.8em;">
-                    <button is="emby-button" type="button" id="cgExploreRun" class="raised button-submit"><span>Run</span></button>
-                    <button is="emby-button" type="button" id="cgExploreClear" class="raised" title="Remove every ad-hoc exploration from the report. A full rescan also drops explorations that are not saved in settings."><span>Clear explorations</span></button>
+                <div id="cgTodoModal" role="dialog" aria-modal="true" aria-labelledby="cgTodoTitle"
+                     style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+                    <div style="background:#101418;color:#eee;max-width:840px;width:94%;max-height:86vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                        <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                            <span class="material-icons" aria-hidden="true">playlist_add_check</span>
+                            <h2 id="cgTodoTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">My TODO list</h2>
+                            <button is="paper-icon-button-light" type="button" id="cgTodoClose" title="Close" aria-label="Close">
+                                <span class="material-icons" aria-hidden="true">close</span>
+                            </button>
+                        </div>
+                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for it, and Delete removes it. The list survives rescans.</p>
+                        <div id="cgTodoBody"></div>
+                        <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.9em;">
+                            <button is="emby-button" type="button" id="cgTodoExport" class="raised"><span>Export Markdown</span></button>
+                        </div>
+                    </div>
                 </div>
+                <script type="text/javascript">
+                    @@MTG_JS@@
+                </script>
             </div>
         </div>
-
-        <div id="cgTodoModal" role="dialog" aria-modal="true" aria-labelledby="cgTodoTitle"
-            style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-            <div style="background:#101418;color:#eee;max-width:840px;width:94%;max-height:86vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
-                <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
-                    <span class="material-icons" aria-hidden="true">playlist_add_check</span>
-                    <h2 id="cgTodoTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">My TODO list</h2>
-                    <button is="paper-icon-button-light" type="button" id="cgTodoClose" title="Close" aria-label="Close">
-                        <span class="material-icons" aria-hidden="true">close</span>
-                    </button>
-                </div>
-                <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for it, and Delete removes it. The list survives rescans.</p>
-                <div id="cgTodoBody"></div>
-                <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.9em;">
-                    <button is="emby-button" type="button" id="cgTodoExport" class="raised"><span>Export Markdown</span></button>
-                </div>
-            </div>
-        </div>
-
-        <script type="text/javascript">@@MTG_JS@@</script>
     </div>
 </body>
+
 </html>

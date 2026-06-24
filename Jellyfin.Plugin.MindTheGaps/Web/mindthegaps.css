@@ -1,128 +1,127 @@
-
-            .cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
-            .cgHdr1 { font-size: 1.1em; border-bottom: 1px solid #444; margin-top: .6em; }
-            .cgHdr2 { font-size: 1em; padding-left: 1.3em; font-weight: 500; }
-            .cgHdr3 { font-size: .92em; padding-left: 2.6em; font-weight: 400; opacity: .8; }
-            .cgGroup.cgCollapsed > .cgBody { display: none; }
-            .cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
-            .cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
-            /* A small dot on a (usually collapsed) group whose items include a streamable title. */
-            .cgStreamDot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: #3ddc97; opacity: .8; margin-left: .35em; vertical-align: middle; }
-            #cgRollup { font-size: 1.05em; opacity: .9; margin: .2em 0 .4em 0; padding: .45em .6em; background: rgba(255,255,255,.04); border-radius: 4px; }
-            #cgRollup .cgRollupCov { color: #3ddc97; }
-            .cgCaret {
-                display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
-                border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
-                transition: transform .12s;
-            }
-            .cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
-            /* Set completion lays its collapsed series/collection groups out in responsive columns, so a
-               large library is not one very tall column. An expanded group spans every column to show its
-               seasons and episodes full width. */
-            .cgSetKind { font-size: 1em; font-weight: 600; opacity: .85; margin: .9em 0 .25em 0; padding-bottom: .15em; border-bottom: 1px solid #333; }
-            .cgSetKind:first-child { margin-top: .2em; }
-            .cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .1em 1.4em; align-items: start; }
-            .cgGridWrap > .cgGroup { min-width: 0; }
-            .cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
-            /* Keep a collapsed cell to one line: the name ellipsizes; the count, the short coverage %, and
-               the trailing icons (search, open, resolve, not-interested) stay put. The icons are compact, so
-               they fit even when collapsed. */
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr { display: flex; align-items: center; gap: .3em; }
-            .cgGridWrap > .cgGroup.cgCollapsed > .cgHdr > .cgLabel { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            /* Coverage shows the full "N of M owned, P%" normally, but just "P%" (hover for the full text) in a
-               collapsed grid cell, where space is tight. */
-            .cgCovPct { display: none; }
-            .cgGridWrap > .cgGroup.cgCollapsed .cgCovFull { display: none; }
-            .cgGridWrap > .cgGroup.cgCollapsed .cgCovPct { display: inline; }
-            .cgL2 .listItem { padding-left: 2.6em; }
-            .cgL3 .listItem { padding-left: 3.9em; }
-            .cgRow { cursor: pointer; }
-            .cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; white-space: pre-line; }
-            .cgTab { margin-right: .4em; }
-            .cgTab.cgActive { background: #00a4dc; color: #fff; }
-            /* A note line under a row (where to watch, no sources, dismissal). The base sits a hair below the
-               line above; the muted and resolved variants tint it. */
-            .cgRowNote { margin-top: .2em; }
-            .cgRowNoteMuted { opacity: .6; }
-            .cgRowNoteResolved { color: #3ddc97; }
-            .cgLink {
-                display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
-                font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
-                cursor: pointer; white-space: nowrap;
-            }
-            .cgLink:hover { background: rgba(255,255,255,.14); }
-            .cgMint { border-color: #3ddc97; color: #3ddc97; }
-            .cgMint:hover { background: rgba(61,220,151,.16); }
-            .cgLink .material-icons { font-size: 1.05em; vertical-align: middle; }
-            .cgLink .material-icons.cgIconLead { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
-            /* Keep each provider's checkbox and name together, and never break a multi-word name. */
-            .cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
-            .cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }
-            .cgProvToggle .cgCaret { border-left-color: currentColor; }
-            /* A caret rotated open, shared by the provider toggle (the group caret rotates via its own rule). */
-            .cgCaretOpen { transform: rotate(90deg); }
-            /* The collapsible streaming-provider checkbox list: hidden until its toggle is open. */
-            .cgProvList { display: none; flex-wrap: wrap; margin-top: .25em; }
-            .cgProvList.cgProvListOpen { display: flex; }
-            /* A-Z jump bar for the letter-grouped tabs (Creator works, Recommendations). */
-            #cgJump { position: sticky; top: 0; z-index: 5; background: rgba(16,16,16,.95); flex-wrap: wrap; gap: .1em; padding: .25em 0; margin-bottom: .2em; }
-            #cgJump.cgJumpShown { display: flex; }
-            .cgJumpL { cursor: pointer; padding: .05em .4em; border-radius: 3px; font-size: .85em; opacity: .85; }
-            .cgJumpL:hover { background: rgba(255,255,255,.14); opacity: 1; }
-            .cgJumpL.cgJumpSel { background: #00a4dc; color: #fff; opacity: 1; }
-            .cgJumpAll { font-weight: 700; }
-            /* Curated-set chip input: type a name, pick a match, it becomes a removable chip. The numeric
-               provider id never shows; it is held on the chip and saved behind the scenes. */
-            .cgChipField { position: relative; }
-            .cgChipBox { display: flex; flex-wrap: wrap; align-items: center; gap: .35em; padding: .35em .45em; border: 1px solid #2c2c2c; border-radius: 4px; background: #292929; min-height: 2.2em; cursor: text; }
-            .cgChipBox:focus-within { border-color: #00a4dc; }
-            .cgChip { display: inline-flex; align-items: center; gap: .2em; padding: .1em .2em .1em .55em; border-radius: 12px; background: rgba(0,164,220,.18); color: #e0f4fb; font-size: .9em; }
-            .cgChipX { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; width: 1.3em; height: 1.3em; line-height: 1.3em; text-align: center; border-radius: 50%; opacity: .7; }
-            .cgChipX:hover { background: rgba(255,255,255,.18); opacity: 1; }
-            .cgChipX:focus-visible { outline: 2px solid #00a4dc; outline-offset: 1px; opacity: 1; }
-            /* Visually hidden but available to screen readers (the chip add/remove live region). */
-            .cgSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-            .cgChipInput { flex: 1 1 8em; min-width: 8em; background: transparent; border: 0; outline: none; color: inherit; font-size: 1em; padding: .2em; }
-            /* Secret fields (API keys, tokens) are masked as type=text, not type=password, so the browser does
-               not treat the settings form as a login. The Show button toggles cgSecretShown. */
-            .cgSecret { -webkit-text-security: disc; }
-            .cgSecret.cgSecretShown { -webkit-text-security: none; }
-            .cgSuggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: .15em; max-height: 16em; overflow-y: auto; background: #1c1c1c; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none; }
-            .cgSuggest.cgShown { display: block; }
-            .cgSuggestItem { padding: .4em .6em; cursor: pointer; font-size: .92em; }
-            .cgSuggestItem:hover, .cgSuggestItem.cgSuggestSel { background: #00a4dc; color: #fff; }
-            .cgSuggestEmpty { padding: .4em .6em; opacity: .6; font-size: .9em; }
-            /* The Diagnose popup: the verdict badge, the summary line, the comparison table, and the
-               deeper-analysis footer. The badge keeps its colour inline (one value per reason). */
-            .cgDiagVerdict { margin: 0 0 .5em 0; }
-            .cgDiagBadge { display: inline-block; padding: .15em .6em; border-radius: .8em; color: #111; font-weight: 600; font-size: .85em; }
-            .cgDiagSummary { margin: .2em 0 .8em 0; }
-            .cgDiagTable { width: 100%; border-collapse: collapse; font-size: .92em; }
-            .cgDiagTable thead tr { text-align: left; border-bottom: 1px solid #444; }
-            .cgDiagTable th { padding: .3em .45em; font-weight: 600; }
-            .cgDiagTable td { padding: .3em .45em; vertical-align: top; }
-            .cgDiagTable tbody tr { border-bottom: 1px solid #2a2a2a; }
-            .cgDiagTable tr.cgDiagTarget { background: rgba(74,163,223,.1); }
-            .cgDiagMissing { opacity: .4; }
-            .cgDiagMissingLabel { opacity: .7; }
-            .cgDiagNote { opacity: .65; font-size: .85em; }
-            .cgDiagDone { margin-top: .8em; opacity: .7; font-size: .85em; }
-            .cgDiagDeepenWrap { margin-top: .8em; }
-            .cgDiagExport { margin-left: .5em; }
-            /* The TODO modal: a per-domain subheading, then a table of flagged gaps with a done checkbox,
-               the title and year, the creator, a links cell, and the Verify/Delete actions. A done row is
-               struck through and greyed. */
-            .cgTodoSection { font-size: 1em; font-weight: 600; opacity: .85; margin: .9em 0 .2em 0; padding-bottom: .15em; border-bottom: 1px solid #333; }
-            .cgTodoSection:first-child { margin-top: .2em; }
-            .cgTodoTable { width: 100%; border-collapse: collapse; font-size: .92em; }
-            .cgTodoTable td { padding: .35em .45em; vertical-align: top; }
-            .cgTodoTable tbody tr { border-bottom: 1px solid #2a2a2a; }
-            .cgTodoTable td.cgTodoCheck { width: 1.4em; }
-            .cgTodoTable td.cgTodoActions { white-space: nowrap; text-align: right; }
-            .cgTodoTitle { font-weight: 500; }
-            .cgTodoCreator { opacity: .8; }
-            .cgTodoLinks { display: flex; flex-wrap: wrap; gap: .25em; align-items: center; }
-            .cgTodoRow.cgTodoDone .cgTodoTitle, .cgTodoRow.cgTodoDone .cgTodoCreator { text-decoration: line-through; opacity: .55; }
-            .cgTodoNote { opacity: .65; font-size: .85em; margin-top: .15em; }
-            .cgTodoEmpty { opacity: .65; padding: .5em 0; }
-        
+.cgHdr { cursor: pointer; user-select: none; padding: .35em .25em; font-weight: 600; }
+.cgHdr1 { font-size: 1.1em; border-bottom: 1px solid #444; margin-top: .6em; }
+.cgHdr2 { font-size: 1em; padding-left: 1.3em; font-weight: 500; }
+.cgHdr3 { font-size: .92em; padding-left: 2.6em; font-weight: 400; opacity: .8; }
+.cgGroup.cgCollapsed > .cgBody { display: none; }
+.cgCount { opacity: .55; font-weight: 400; font-size: .85em; }
+.cgCoverage { font-weight: 400; font-size: .8em; opacity: .7; color: #3ddc97; margin-left: .3em; }
+/* A small dot on a (usually collapsed) group whose items include a streamable title. */
+.cgStreamDot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: #3ddc97; opacity: .8; margin-left: .35em; vertical-align: middle; }
+#cgRollup { font-size: 1.05em; opacity: .9; margin: .2em 0 .4em 0; padding: .45em .6em; background: rgba(255,255,255,.04); border-radius: 4px; }
+#cgRollup .cgRollupCov { color: #3ddc97; }
+.cgCaret {
+    display: inline-block; width: 0; height: 0; margin-right: .5em; vertical-align: middle;
+    border-left: 6px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    transition: transform .12s;
+}
+.cgGroup:not(.cgCollapsed) > .cgHdr > .cgCaret { transform: rotate(90deg); }
+/* Set completion lays its collapsed series/collection groups out in responsive columns, so a
+    large library is not one very tall column. An expanded group spans every column to show its
+    seasons and episodes full width. */
+.cgKindHdr { font-size: 1em; opacity: .85; margin: .9em 0 .1em 0; border-bottom: 1px solid #333; }
+.cgKindGroup:first-child > .cgKindHdr { margin-top: .2em; }
+.cgRowTitle { font-size: 1.15em; }
+.cgGridWrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(30em, 1fr)); gap: .1em 1.4em; align-items: start; }
+.cgGridWrap > .cgGroup { min-width: 0; }
+.cgGridWrap > .cgGroup:not(.cgCollapsed) { grid-column: 1 / -1; }
+/* Keep a collapsed cell to one line: the name ellipsizes; the count, the short coverage %, and
+    the trailing icons (search, open, resolve, not-interested) stay put. The icons are compact, so
+    they fit even when collapsed. */
+.cgGridWrap > .cgGroup.cgCollapsed > .cgHdr { display: flex; align-items: center; gap: .3em; }
+.cgGridWrap > .cgGroup.cgCollapsed > .cgHdr > .cgLabel { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Coverage shows the full "N of M owned, P%" normally, but just "P%" (hover for the full text) in a
+    collapsed grid cell, where space is tight. */
+.cgCovPct { display: none; }
+.cgGridWrap > .cgGroup.cgCollapsed .cgCovFull { display: none; }
+.cgGridWrap > .cgGroup.cgCollapsed .cgCovPct { display: inline; }
+.cgL2 .listItem { padding-left: 2.6em; }
+.cgL3 .listItem { padding-left: 3.9em; }
+.cgRow { cursor: pointer; }
+.cgDetails { margin: .25em 0 .4em 0; opacity: .8; font-size: .9em; max-width: 70%; white-space: pre-line; }
+.cgTab { margin-right: .4em; }
+.cgTab.cgActive { background: #00a4dc; color: #fff; }
+/* A note line under a row (where to watch, no sources, dismissal). The base sits a hair below the
+    line above; the muted and resolved variants tint it. */
+.cgRowNote { margin-top: .2em; }
+.cgRowNoteMuted { opacity: .6; }
+.cgRowNoteResolved { color: #3ddc97; }
+.cgLink {
+    display: inline-block; padding: .18em .55em; margin: .1em; border: 1px solid #5a5a5a; border-radius: 4px;
+    font-size: .82em; text-decoration: none; color: inherit; background: rgba(255,255,255,.05);
+    cursor: pointer; white-space: nowrap;
+}
+.cgLink:hover { background: rgba(255,255,255,.14); }
+.cgMint { border-color: #3ddc97; color: #3ddc97; }
+.cgMint:hover { background: rgba(61,220,151,.16); }
+.cgLink .material-icons { font-size: 1.05em; vertical-align: middle; }
+.cgLink .material-icons.cgIconLead { font-size: 1em; vertical-align: text-bottom; margin-right: .15em; }
+/* Keep each provider's checkbox and name together, and never break a multi-word name. */
+.cgProvLabel { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; margin: .12em .55em .12em 0; }
+.cgProvToggle { cursor: pointer; user-select: none; opacity: .85; }
+.cgProvToggle .cgCaret { border-left-color: currentColor; }
+/* A caret rotated open, shared by the provider toggle (the group caret rotates via its own rule). */
+.cgCaretOpen { transform: rotate(90deg); }
+/* The collapsible streaming-provider checkbox list: hidden until its toggle is open. */
+.cgProvList { display: none; flex-wrap: wrap; margin-top: .25em; }
+.cgProvList.cgProvListOpen { display: flex; }
+/* A-Z jump bar for the letter-grouped tabs (Creator works, Recommendations). */
+#cgJump { position: sticky; top: 0; z-index: 5; background: rgba(16,16,16,.95); flex-wrap: wrap; gap: .1em; padding: .25em 0; margin-bottom: .2em; }
+#cgJump.cgJumpShown { display: flex; }
+.cgJumpL { cursor: pointer; padding: .05em .4em; border-radius: 3px; font-size: .85em; opacity: .85; }
+.cgJumpL:hover { background: rgba(255,255,255,.14); opacity: 1; }
+.cgJumpL.cgJumpSel { background: #00a4dc; color: #fff; opacity: 1; }
+.cgJumpAll { font-weight: 700; }
+/* Curated-set chip input: type a name, pick a match, it becomes a removable chip. The numeric
+    provider id never shows; it is held on the chip and saved behind the scenes. */
+.cgChipField { position: relative; }
+.cgChipBox { display: flex; flex-wrap: wrap; align-items: center; gap: .35em; padding: .35em .45em; border: 1px solid #2c2c2c; border-radius: 4px; background: #292929; min-height: 2.2em; cursor: text; }
+.cgChipBox:focus-within { border-color: #00a4dc; }
+.cgChip { display: inline-flex; align-items: center; gap: .2em; padding: .1em .2em .1em .55em; border-radius: 12px; background: rgba(0,164,220,.18); color: #e0f4fb; font-size: .9em; }
+.cgChipX { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; width: 1.3em; height: 1.3em; line-height: 1.3em; text-align: center; border-radius: 50%; opacity: .7; }
+.cgChipX:hover { background: rgba(255,255,255,.18); opacity: 1; }
+.cgChipX:focus-visible { outline: 2px solid #00a4dc; outline-offset: 1px; opacity: 1; }
+/* Visually hidden but available to screen readers (the chip add/remove live region). */
+.cgSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.cgChipInput { flex: 1 1 8em; min-width: 8em; background: transparent; border: 0; outline: none; color: inherit; font-size: 1em; padding: .2em; }
+/* Secret fields (API keys, tokens) are masked as type=text, not type=password, so the browser does
+    not treat the settings form as a login. The Show button toggles cgSecretShown. */
+.cgSecret { -webkit-text-security: disc; }
+.cgSecret.cgSecretShown { -webkit-text-security: none; }
+.cgSuggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: .15em; max-height: 16em; overflow-y: auto; background: #1c1c1c; border: 1px solid #383838; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.5); display: none; }
+.cgSuggest.cgShown { display: block; }
+.cgSuggestItem { padding: .4em .6em; cursor: pointer; font-size: .92em; }
+.cgSuggestItem:hover, .cgSuggestItem.cgSuggestSel { background: #00a4dc; color: #fff; }
+.cgSuggestEmpty { padding: .4em .6em; opacity: .6; font-size: .9em; }
+/* The Diagnose popup: the verdict badge, the summary line, the comparison table, and the
+    deeper-analysis footer. The badge keeps its colour inline (one value per reason). */
+.cgDiagVerdict { margin: 0 0 .5em 0; }
+.cgDiagBadge { display: inline-block; padding: .15em .6em; border-radius: .8em; color: #111; font-weight: 600; font-size: .85em; }
+.cgDiagSummary { margin: .2em 0 .8em 0; }
+.cgDiagTable { width: 100%; border-collapse: collapse; font-size: .92em; }
+.cgDiagTable thead tr { text-align: left; border-bottom: 1px solid #444; }
+.cgDiagTable th { padding: .3em .45em; font-weight: 600; }
+.cgDiagTable td { padding: .3em .45em; vertical-align: top; }
+.cgDiagTable tbody tr { border-bottom: 1px solid #2a2a2a; }
+.cgDiagTable tr.cgDiagTarget { background: rgba(74,163,223,.1); }
+.cgDiagMissing { opacity: .4; }
+.cgDiagMissingLabel { opacity: .7; }
+.cgDiagNote { opacity: .65; font-size: .85em; }
+.cgDiagDone { margin-top: .8em; opacity: .7; font-size: .85em; }
+.cgDiagDeepenWrap { margin-top: .8em; }
+.cgDiagExport { margin-left: .5em; }
+/* The TODO modal: a per-domain subheading, then a table of flagged gaps with a done checkbox,
+    the title and year, the creator, a links cell, and the Verify/Delete actions. A done row is
+    struck through and greyed. */
+.cgTodoSection { font-size: 1em; font-weight: 600; opacity: .85; margin: .9em 0 .2em 0; padding-bottom: .15em; border-bottom: 1px solid #333; }
+.cgTodoSection:first-child { margin-top: .2em; }
+.cgTodoTable { width: 100%; border-collapse: collapse; font-size: .92em; }
+.cgTodoTable td { padding: .35em .45em; vertical-align: top; }
+.cgTodoTable tbody tr { border-bottom: 1px solid #2a2a2a; }
+.cgTodoTable td.cgTodoCheck { width: 1.4em; }
+.cgTodoTable td.cgTodoActions { white-space: nowrap; text-align: right; }
+.cgTodoTitle { font-weight: 500; }
+.cgTodoCreator { opacity: .8; }
+.cgTodoLinks { display: flex; flex-wrap: wrap; gap: .25em; align-items: center; }
+.cgTodoRow.cgTodoDone .cgTodoTitle, .cgTodoRow.cgTodoDone .cgTodoCreator { text-decoration: line-through; opacity: .55; }
+.cgTodoNote { opacity: .65; font-size: .85em; margin-top: .15em; }
+.cgTodoEmpty { opacity: .65; padding: .5em 0; }
