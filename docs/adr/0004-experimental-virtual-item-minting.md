@@ -12,13 +12,15 @@ proposal.
 
 ## Decision
 
-Ship a minter that creates tagged, pathless virtual `Movie` items via the public library APIs, fully
-reversible. It is driven from the report one movie gap at a time (a per-row Mint button and a
-multi-select "Mint selected"), never automatically: a collection gap mints into its BoxSet, anything
-else into a catch-all collection, and a filmography gap also attaches the owned person. The plugin runs
-its own reconciliation at the end of every scan (drop a minted movie once the real file is owned). Only
-movies are minted; missing episodes are left to the server, which already synthesizes them. The code and
-UI state plainly that this belongs in core.
+Ship a minter that creates tagged, pathless virtual items via the public library APIs, fully reversible.
+It is driven from the report one gap at a time (a per-row Mint button and a multi-select "Mint
+selected"), never automatically. It mints any kind the report surfaces as something you could acquire: a
+`Movie`, a `Series` shell, a `MusicAlbum`, or a `Book`. Each lands where it belongs: a collection gap
+into its BoxSet, a music album under its resolved artist, a book under its author, anything else into a
+catch-all collection; a filmography gap also attaches the owned person. The plugin runs its own
+reconciliation at the end of every scan (drop a minted item once the real file is owned). Missing
+episodes are still left to the server, which already synthesizes them inside a series, so minting a
+`Series` mints only the shell, not its episodes. The code and UI state plainly that this belongs in core.
 
 ## Consequences
 

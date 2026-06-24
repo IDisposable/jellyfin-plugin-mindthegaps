@@ -13,3 +13,7 @@ context, the decision, and what it costs, so the reasoning survives the code.
 | [0006](0006-captured-data-testing.md) | Test parsers against real captured API responses |
 | [0007](0007-library-aligned-media-domains.md) | Library-aligned media domains (and why not CollectionType) |
 | [0008](0008-stable-gap-ids.md) | Gap ids are stable, derived from durable keys, and a persistence contract |
+| [0009](0009-hand-gaps-to-an-acquisition-stack.md) | Hand a gap off to an external acquisition stack (Radarr/Sonarr/Seerr) |
+| [0010](0010-self-describing-explore-kinds.md) | Explore kinds self-describe via IExploreSource |
+| [0011](0011-series-content-eras-and-episode-identity.md) | Series-content gaps respect eras and verify episode identity |
+| [0012](0012-additive-completeness-passes.md) | Completeness passes are additive and freeze the contracted ids |
