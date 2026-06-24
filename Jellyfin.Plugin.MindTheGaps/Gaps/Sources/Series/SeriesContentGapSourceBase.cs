@@ -149,7 +149,7 @@ public abstract class SeriesContentGapSourceBase : IGapSource
                 continue;
             }
 
-            var owned = GetOwnedEpisodeNumbers(series.Id);
+            var owned = GetOwnedEpisodes(series.Id);
             foreach (var episode in SeriesContentDiff.Missing(canonical, owned, episodeCap))
             {
                 yield return BuildGap(series, episode);
@@ -243,9 +243,9 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             sourceItemYear: series.ProductionYear);
     }
 
-    private HashSet<(int Season, int Number)> GetOwnedEpisodeNumbers(Guid seriesId)
+    private OwnedEpisodes GetOwnedEpisodes(Guid seriesId)
     {
-        var owned = new HashSet<(int Season, int Number)>();
+        var owned = new OwnedEpisodes();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = new[] { BaseItemKind.Episode },
@@ -254,18 +254,30 @@ public abstract class SeriesContentGapSourceBase : IGapSource
             Recursive = true
         }))
         {
-            if (item is Episode episode
-                && episode.ParentIndexNumber is int season
-                && episode.IndexNumber is int number)
+            if (item is not Episode episode || episode.ParentIndexNumber is not int season)
+            {
+                continue;
+            }
+
+            if (episode.IndexNumber is int number)
             {
                 // One file can span several episodes (S01E01-E02), so own every number in the span; otherwise
                 // the canonical list's later parts read as missing even though the file is on disk.
                 var last = episode.IndexNumberEnd is int end && end > number ? end : number;
                 for (var n = number; n <= last; n++)
                 {
-                    owned.Add((season, n));
+                    owned.AddNumber(season, n);
                 }
             }
+
+            // The air date and title also pin the episode, so the diff can recognize it even when this
+            // source numbers it differently from the library's authoritative provider.
+            if (episode.PremiereDate is { } aired)
+            {
+                owned.AddAirDate(aired);
+            }
+
+            owned.AddTitle(season, episode.Name);
         }
 
         return owned;

@@ -39,7 +39,7 @@ public class TvdbCapturedDataTests
         // The mapper keeps season-0 specials; the diff is what drops them.
         Assert.Contains(canonical, e => e.Season == 0);
 
-        var missing = SeriesContentDiff.Missing(canonical, new System.Collections.Generic.HashSet<(int Season, int Number)>(), 1000);
+        var missing = SeriesContentDiff.Missing(canonical, new OwnedEpisodes(), 1000);
         Assert.Equal(52, missing.Count);
         Assert.All(missing, e => Assert.True(e.Season >= 1));
 

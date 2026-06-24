@@ -28,12 +28,6 @@ public sealed class GapDiagnostics
     // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
     private static readonly string[] SecondaryIdProviders = { "Imdb", "Tvdb" };
 
-    // Word and roman forms of a small part number, for the diagnosis-only part-marker strip.
-    private static readonly string[] PartNumberWords = [
-            "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-            "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"
-        ];
-
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
 
@@ -300,12 +294,12 @@ public sealed class GapDiagnostics
             // "Part 2") is owned at another number in the season: the content is present and the library numbers
             // it differently than the catalogue (a two-part episode, or the pilot counted as one episode here and
             // two there), so this is a false gap rather than a missing one.
-            var titleKey = TitleKey(EpisodeTitleOf(gap.Name));
+            var titleKey = EpisodeTitleKey.Of(EpisodeTitleOf(gap.Name));
             if (titleKey.Length > 0)
             {
                 foreach (var owned in ownedEpisodes)
                 {
-                    if (owned.Season == season && owned.Number != number && TitleKey(owned.Title) == titleKey)
+                    if (owned.Season == season && owned.Number != number && EpisodeTitleKey.Of(owned.Title) == titleKey)
                     {
                         var ownedCode = string.Create(CultureInfo.InvariantCulture, $"S{owned.Season:D2}E{owned.Number:D2}");
                         var versions = owned.Versions > 1
@@ -365,72 +359,6 @@ public sealed class GapDiagnostics
     {
         var dash = gapName.IndexOf(" - ", StringComparison.Ordinal);
         return dash >= 0 ? gapName[(dash + 3)..] : gapName;
-    }
-
-    // A title folded for the diagnosis title compare: a trailing part marker stripped, then the shared
-    // normalizer. Diagnosis-only on purpose; see StripPartMarker.
-    private static string TitleKey(string? title) => TextKey.Normalize(StripPartMarker(title));
-
-    // Strips a trailing part marker (" (2)", ", Part 2", " Part Two", " Pt. 2", " Part II") so the two parts of
-    // a two-part episode fold to one title for the diagnosis title compare. Diagnosis-only: the live ownership
-    // name-key match must keep these distinct (two volumes are not one owned item), so this never enters
-    // TextKey.Normalize.
-    private static string StripPartMarker(string? title)
-    {
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            return string.Empty;
-        }
-
-        var s = title.TrimEnd();
-
-        // "... (2)": a short parenthesized number, not a four-digit year.
-        if (s[^1] == ')')
-        {
-            var open = s.LastIndexOf('(');
-            if (open > 0)
-            {
-                var inner = s[(open + 1)..^1].Trim();
-                if (inner.Length is > 0 and <= 2 && inner.All(char.IsDigit))
-                {
-                    return TrimMarkerTail(s[..open]);
-                }
-            }
-        }
-
-        // "... Part 2" / "... , Part 2" / "... Pt. Two" / "... Part II".
-        var words = s.Split(' ');
-        if (words.Length >= 2 && IsPartWord(words[^2]) && IsPartNumber(words[^1]))
-        {
-            return TrimMarkerTail(string.Join(' ', words[..^2]));
-        }
-
-        return s;
-    }
-
-    private static string TrimMarkerTail(string s) => s.TrimEnd().TrimEnd(',', ':', '-').TrimEnd();
-
-    private static bool IsPartWord(string word)
-        => word.Equals("part", StringComparison.OrdinalIgnoreCase)
-        || word.Equals("pt", StringComparison.OrdinalIgnoreCase)
-        || word.Equals("pt.", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsPartNumber(string word)
-    {
-        if (word.Length is > 0 and <= 2 && word.All(char.IsDigit))
-        {
-            return true;
-        }
-
-        foreach (var token in PartNumberWords)
-        {
-            if (word.Equals(token, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)

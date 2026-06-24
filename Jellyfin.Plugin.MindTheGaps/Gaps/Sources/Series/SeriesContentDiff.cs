@@ -9,15 +9,17 @@ public static class SeriesContentDiff
 {
     /// <summary>
     /// Returns the canonical episodes that are not owned, skipping specials/unnumbered entries and
-    /// de-duplicating by season/episode number, capped to <paramref name="cap"/>.
+    /// de-duplicating by season/episode number, capped to <paramref name="cap"/>. An episode the library
+    /// owns under a different number (the source renumbers, reorders, or splits a two-part episode the
+    /// library merged) is reconciled as owned via <see cref="OwnedEpisodes.Owns"/>, not reported missing.
     /// </summary>
     /// <param name="canonical">The external source's episode list.</param>
-    /// <param name="owned">The (season, number) pairs the library already has on disk.</param>
+    /// <param name="owned">The episodes the library already has on disk.</param>
     /// <param name="cap">The maximum number of missing episodes to return.</param>
     /// <returns>The missing episodes, in source order.</returns>
     public static IReadOnlyList<CanonicalEpisode> Missing(
         IEnumerable<CanonicalEpisode> canonical,
-        ISet<(int Season, int Number)> owned,
+        OwnedEpisodes owned,
         int cap)
     {
         var missing = new List<CanonicalEpisode>();
@@ -31,7 +33,7 @@ public static class SeriesContentDiff
             }
 
             var key = (episode.Season, episode.Number);
-            if (owned.Contains(key) || !seen.Add(key))
+            if (owned.Owns(episode) || !seen.Add(key))
             {
                 continue;
             }

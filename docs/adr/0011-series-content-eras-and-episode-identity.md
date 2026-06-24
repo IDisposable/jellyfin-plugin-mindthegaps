@@ -16,28 +16,34 @@ Two failure modes showed up against real libraries:
 
 ## Decision
 
-Two checks, at two layers:
+Episode identity is checked at two layers, against the library's numbering as the authority:
 
-- At scan time, `EpisodeEra` scopes an owned series to its era. `Expand` grows the owned year range
-  through the contiguous missing episodes around it, and `IsOutside` filters any candidate episode that
-  falls outside that era, so a partly-owned continuous run stays one era while a detached reboot does not
-  pull its episodes in.
+- At scan time, two things. `EpisodeEra` scopes an owned series to its era: `Expand` grows the owned year
+  range through the contiguous missing episodes around it and `IsOutside` drops a candidate that falls
+  outside it, so a partly-owned continuous run stays one era while a detached reboot does not pull its
+  episodes in. And the cross-check diff (`OwnedEpisodes`) reconciles a candidate against the owned
+  episodes by air date and folded title, not just by number, before calling it missing, so a provider
+  that renumbers, reorders, or splits a two-part episode the library merged is recognized as already
+  owned rather than reported as a wall of false gaps.
 - In the diagnosis (explaining one gap, not scanning), the episode check goes past the air window to
   identity: it confirms whether you own the gap's season and number, and, failing that, whether you own
-  an episode with the same title at a different number (stripping a trailing part marker like "(1)" or
-  "Part 1" for the comparison only). That reports "you already own this, renumbered" instead of a bare
-  "missing."
+  an episode with the same title at a different number. That reports "you already own this, renumbered"
+  instead of a bare "missing."
 
-The part-marker stripping and the title comparison live only in the diagnosis. They never feed
-`SeriesGapKey` or the scan's identity, because a gap id is a persistence contract (ADR-0008) and a fuzzy
-title match is not stable enough to key on.
+The reconciliation and the diagnosis fold a title the same way (`EpisodeTitleKey`: a trailing part marker
+like "(1)" or "Part 1" stripped, then normalized) and treat an air date as the cross-numbering invariant.
+None of it feeds `SeriesGapKey`: a gap id stays derived from the season and number alone, because the id
+is a persistence contract (ADR-0008) and a fuzzy date or title match is not stable enough to key on. The
+fuzzy signals decide whether an episode is already owned, never what a genuinely missing one is called.
 
 ## Consequences
 
-- The common partly-owned long-running show lists only the episodes you truly lack, not its entire back
-  catalogue, and a reboot stays a separate concern.
-- The diagnosis can say "owned under a different number" for the renumbering cases, which a year-range
-  check alone misses.
-- The era boundary and the title match are heuristics; an unusual numbering can still mislead them.
-  Keeping the fuzzy parts out of the gap id means a wrong guess in the diagnosis never corrupts the
-  persisted ids or the resolutions keyed on them.
+- The partly-owned long-running show lists only the episodes you truly lack, a reboot stays a separate
+  concern, and a season a cross-check provider numbers differently from your library (a renumber, a
+  reorder, or a merged two-parter) no longer reads as entirely missing.
+- The diagnosis can still say "owned under a different number" for a single gap, which a year-range check
+  alone misses.
+- Air date and the folded title are heuristics; an unusual numbering, or an episode genuinely missing
+  that happens to share an air date with an owned one, can still mislead them. Keeping all of it out of
+  the gap id means a wrong guess only ever suppresses or explains a row, never corrupts the persisted ids
+  or the resolutions keyed on them.

@@ -43,7 +43,10 @@ public class TvMazeCapturedDataTests
         var episodes = JsonSerializer.Deserialize<List<TvMazeEpisode>>(TestData.Read("tvmaze_episodes.json"), Options)!;
         var canonical = TvMazeMapper.ToCanonical(episodes);
 
-        var owned = new HashSet<(int Season, int Number)> { (1, 1), (1, 2), (1, 3) };
+        var owned = new OwnedEpisodes();
+        owned.AddNumber(1, 1);
+        owned.AddNumber(1, 2);
+        owned.AddNumber(1, 3);
         var missing = SeriesContentDiff.Missing(canonical, owned, 1000);
 
         Assert.Equal(canonical.Count - 3, missing.Count);
