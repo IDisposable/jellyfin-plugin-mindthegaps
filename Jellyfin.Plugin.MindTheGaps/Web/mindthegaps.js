@@ -1041,7 +1041,10 @@
             + (isEpisodic ? recheckBtn(srcItems[0].SourceItemId) : '')
             + (isEpisodic ? batchDismissBtns(src) : '')
             + sourceLinks(srcItems[0]);
-        return groupHtml(2, src, srcItems.length, true, sourceBody(srcItems), '', extra);
+        // For a series, put the show's year in the header so same-named reboots are distinguishable
+        // ("Quantum Leap (1989)" vs "Quantum Leap (2022)"); the plain name still drives search and dismiss.
+        var title = (isEpisodic && srcItems[0].SourceItemYear) ? src + ' (' + srcItems[0].SourceItemYear + ')' : src;
+        return groupHtml(2, title, srcItems.length, true, sourceBody(srcItems), '', extra);
     }
 
     // Render the current pattern's entities for the items passed (already scoped to one domain and,
@@ -1347,7 +1350,11 @@
                     bySource.order.sort(ci);
                     bySource.order.forEach(function (src) {
                         var rows = bySource.map[src].slice().sort(byTitle);
-                        openDetails(esc(src) + ' (' + rows.length + ')');
+                        // For a series, include the show's year so same-named reboots read apart in the
+                        // export the way they do in the report header.
+                        var episodic = rows.some(function (it) { return it.Season != null; });
+                        var name = (episodic && rows[0].SourceItemYear) ? src + ' (' + rows[0].SourceItemYear + ')' : src;
+                        openDetails(esc(name) + ' (' + rows.length + ')');
                         rows.forEach(emitGap);
                         closeDetails();
                     });
