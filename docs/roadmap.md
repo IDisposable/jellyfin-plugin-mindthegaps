@@ -34,24 +34,18 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 - **Upstream ask A** ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
-- **A curated-book gap source, then Books chips.** Add a curated-book source (an OpenLibrary subject or
-  author set) so Books gets its own chip picker; the chip plumbing already covers studios, keywords, and
-  Discogs labels.
-- **Bulk and scheduled minting.** A one-click "mint a whole pattern or domain", and a scheduled task that
-  keeps a chosen set materialized on the scan cadence, both built on the per-kind container strategy the
-  minter already carries.
-- **Shareable-link size** is a latent bug (links can exceed URL limits); cheap to de-risk.
+- **Config UI for the new Books and Trakt-list sources.** The curated-book (`BooksSubjectGapSource`) and
+  Trakt-list (`TraktListGapSource`) sources exist but have no settings UI, so nothing reaches them yet; add the
+  config inputs (a raw field each, like the TMDB-list one), then their chip pickers.
+- **Batch send to an arr/Seerr stack.** A multi-select selection (or the whole todo list) handed to
+  Radarr/Sonarr/Jellyseerr in one pass. Preferred over bulk minting in the near term: minting is held as long
+  as possible in the hope upstream B makes it native, so acquisition handoff is the better place to spend
+  effort now.
 
 ## Backlog
 
 ### Correctness and known limitations
 
-- **Shareable links can exceed URL limits.** `shareUrl` (Copy-link and the Markdown export's summary link)
-  encodes the whole `captureView` as URI-encoded JSON in a `cgview` hash param. The bulk is
-  `disabledProviders` (100+ names), so a link can run to thousands of characters. Options: store *enabled*
-  providers as a short diff (or omit provider state, server-specific anyway), drop default-valued fields,
-  compress (deflate plus URL-safe base64), or persist the view server-side under a short token. Likely
-  combine the first two, then compress if still large.
 - **Collection completion flags owned-but-mistagged movies as missing (deliberately a real gap).**
   `CollectionGapSource` is keyed by provider id, so a movie in the owned BoxSet whose library item has no (or
   a mismatched) TMDB id is reported missing ("Jack Reacher: Never Go Back"). Not "fixed" by fuzzy
@@ -65,18 +59,18 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **Curated-book gap source, then Books chips.** The chip picker is kind-agnostic and covers studios,
-  keywords, and Discogs labels; Books needs a curated-book **gap source** first (none today, only the author
-  bibliography from owned books), for example an OpenLibrary subject or author set. Once that source and a
-  config field exist, the chip kind is a `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance.
-- **Easier TMDB-list entry, and a searchable list source.** TMDB lists are the one curated source still
-  entered as raw comma-separated ids (`CuratedTmdbListIds`); TMDB has no list-search API (only `/list/{id}`),
-  so a name type-ahead is impossible. Near-term fix: accept a pasted `themoviedb.org/list/{id}` URL (or a bare
-  id) in a chip input and resolve it to a confirmed chip via the existing list fetch (name plus count), a
-  `tmdblist` branch in `CuratedResolve`, turning id-hunting into a paste. For genuinely searchable discovery
-  lists, MDBList already has the type-ahead; **Trakt lists** would be a natural searchable sibling (Trakt
-  exposes `/lists/popular`, `/lists/trending`, and list search, and its lists carry TMDB and IMDb ids), a new
-  source shaped like MdbList.
+- **TMDB-list and Trakt-list polish.** The `CuratedTmdbListIds` field now accepts a pasted
+  `themoviedb.org/list/{id}` URL as well as a bare id (`TmdbListInput`); the open polish is a chip input over
+  the existing `tmdblist` `CuratedResolve` branch (TMDB has no list-search API, so its chip can only ever
+  paste-and-confirm). The **Trakt-list** discovery source now exists too (`TraktListGapSource`, the MDBList
+  sibling, with the `ScanTraktLists` toggle and `CuratedTraktListIds` field), but like the curated-book source
+  it has no settings UI yet; once a list-ids input exists, a `SearchListsAsync` over Trakt's list search
+  (`/lists/popular`, `/lists/trending`, list search) would make its chip a live type-ahead.
+- **Config UI and chips for the curated-book source.** The curated-book gap source now exists
+  (`BooksSubjectGapSource` completes an OpenLibrary subject, with the `ScanCuratedBooks` toggle and the
+  `CuratedOpenLibrarySubjects` field), but it has no settings UI yet, so nothing reaches it: add a subjects
+  input to the config page (a raw field like the TMDB-list one) to make it usable, then a type-ahead chip (a
+  `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance).
 
 ### Acquisition handoff
 
@@ -87,10 +81,13 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Minting
 
-- **One-click bulk mint across a pattern or domain.** Minting is per-row and multi-select today, and the
-  per-kind container strategy (a BoxSet for collections, the owning artist for albums, the catch-all
-  collection otherwise) already lives in `MintGapAsync` / `ResolveContainerAsync`. A "mint every gap of a
-  pattern or domain" lifts that into a small one-shot pass over the report.
+- **One-click bulk mint across a pattern or domain.** Held as long as possible: minting is experimental and
+  upstream B may make it native, so this waits on that. When it is built, the config must let the user choose
+  which kinds to bulk-mint (Movies, Seasons and Episodes, Albums, Books) rather than minting a whole domain
+  blindly. Minting is per-row and multi-select today, and the per-kind container strategy (a BoxSet for
+  collections, the owning artist for albums, the catch-all collection otherwise) already lives in
+  `MintGapAsync` / `ResolveContainerAsync`. A "mint every gap of a pattern or domain" lifts that into a small
+  one-shot pass over the report.
 - **Background scheduled minting.** A scheduled task that keeps a chosen set of patterns/domains
   materialized (mint new, reconcile owned) on the scan cadence, reusing `MintRunner` and the container
   strategy. Open: the selection UI and guardrails against flooding a library.
@@ -134,6 +131,3 @@ of them. Drafts in [docs/upstream/](upstream/).
   build time. Optionally split `mindthegaps.js` into concern-grouped sections (filters/state, tree render,
   row actions, availability, views/export) and concatenate them too; the shared IIFE scope makes that a
   careful, browser-tested change, and the build pipeline already absorbs extra inputs.
-- **Coverage badges on cross-check-only series.** Coverage shows on BoxSet/collection and library-known
-  series groups; cross-check-only series (not in core's missing list) carry none. Counting their owned
-  episodes the way the library source does would give them a badge.

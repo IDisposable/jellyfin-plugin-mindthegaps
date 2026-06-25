@@ -110,17 +110,18 @@ flowchart TD
   series' configured metadata provider doesn't list. TheMovieDb and TVmaze are keyless; TheTVDB needs your
   own v4 API key. The cross-check reconciles by air date and title, not just episode number, so a season a
   provider numbers differently from your library (a renumber, a reorder, or a two-part episode you keep as
-  one file) is recognized as owned instead of read as missing. When you enable more than one source they
-  honor your library's provider priority, so your top provider (TheMovieDb for most) owns each series'
-  episode list rather than one that numbers it differently. A refresh icon on each series and season
+  one file) is recognized as owned instead of read as missing. Each provider runs when your library lists it
+  as a Shows fetcher and the series carries its id, and when more than one applies they merge in your
+  library's provider order, so your top provider (TheMovieDb for most) owns each series' episode list rather
+  than one that numbers it differently. A refresh icon on each series and season
   re-checks just that show on the spot, so you can confirm a metadata fix without a full rescan.
 - **Curated sets (studio / keyword / label)**: complete the movies of a studio ("every A24 film", "every
   Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, plus a record label's releases
   via Discogs. Opt-in: pick studios, keywords, and labels with a type-ahead chip picker
   (search, pick a match, it becomes a removable chip), no id-hunting required.
 - **Music and books (on by default)**: complete an album artist's discography and discover a
-  track-only artist's wider catalog (MusicBrainz, with the opt-in Discogs source covering artists
-  MusicBrainz cannot resolve), and surface other books in an owned author's bibliography (OpenLibrary).
+  track-only artist's wider catalog (MusicBrainz, with the opt-in Discogs source covering an owned artist
+  that carries a Discogs id), and surface other books in an owned author's bibliography (OpenLibrary).
   Discogs needs a personal access token.
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
   that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab

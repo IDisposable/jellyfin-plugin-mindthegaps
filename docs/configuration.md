@@ -66,17 +66,19 @@ with the recommendation kept as a secondary source, so each list reads as its ow
 ![Data sources settings](screenshots/config-data-sources.png)
 
 TMDB is always on (it powers collections, people, recommendations, and availability). The rest are
-opt-in cross-checks that need your own credentials.
+opt-in cross-checks that need your own credentials. The series-content cross-checks (TheMovieDb, TVmaze,
+TheTVDB) are library-driven rather than toggled per provider: each runs when your Shows library lists it as
+a metadata fetcher and the series carries its id, and when more than one applies they merge season by season
+in your library's provider order. Only TheTVDB needs a credential (its key below); TheMovieDb and TVmaze are
+keyless.
 
 | Setting | Default | When set | When cleared |
 |---|---|---|---|
 | **TMDB API key** (`TmdbApiKey`) | Empty (built-in key) | Uses your own TMDB v3 key, so lookups draw on your request budget instead of the shared default. Get one at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api). | Falls back to the built-in public key. |
 | **Webhook URL** (`WebhookUrl`) | Empty | Posts a summary (Discord-compatible `content` payload) when a scan or the availability pass finishes. | No webhook is sent. |
 | **Trakt cross-check** (`TraktEnabled` + `TraktClientId`) | Off | Adds a Trakt filmography cross-check alongside TMDB, catching credits TMDB misses. Requires a free Trakt app **Client ID** from [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications); opt-in per Trakt's terms. | No Trakt cross-check. |
-| **TheMovieDb cross-check** (`TmdbSeriesEnabled`) | Off | Keyless. Diffs each series against TheMovieDb's own season and episode list, so a library that follows TheMovieDb is checked against its own numbering. Shares episode ids with the other series sources, so duplicates are de-duped, and when more than one cross-check is on they honor your library's provider priority (a lower-ranked source defers a series to your top provider). Rotated stalest-first over runs. | No TheMovieDb cross-check. |
-| **TVmaze cross-check** (`TvMazeEnabled`) | Off | Keyless. Catches episodes a series' configured metadata provider does not list. Shares episode ids with the library and TheTVDB sources, so duplicates are de-duped. Series are cross-checked stalest-first in capped batches (rate-limited API), so coverage accumulates over runs. | No TVmaze cross-check. |
-| **TheTVDB cross-check** (`TvdbEnabled` + `TvdbApiKey`) | Off | Adds a TheTVDB series-content cross-check. Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). Also rotated stalest-first over runs. | No TheTVDB cross-check. |
-| **Discogs source** (`ScanDiscogs` + `DiscogsToken`) | Off | Enables the Discogs label and artist source (the **Discogs labels** picker under Complete what you own, plus Discogs cover for artists MusicBrainz cannot resolve). Needs a Discogs personal access token (Discogs requires authentication to browse the catalog); create one on discogs.com under Settings, Developers. | No Discogs gaps. |
+| **TheTVDB API key** (`TvdbApiKey`) | Empty | Lets the series-content cross-check also consult TheTVDB (for a series your library fetches from TheTVDB). Requires your own v4 key from [thetvdb.com](https://thetvdb.com/dashboard/account/apikey). TheMovieDb and TVmaze are keyless and need nothing here. The cross-checks share episode ids so duplicates are de-duped, and run stalest-first over runs. | No TheTVDB cross-check (TheMovieDb and TVmaze still run for libraries that use them). |
+| **Discogs source** (`ScanDiscogs` + `DiscogsToken`) | Off | Enables the Discogs label and artist source (the **Discogs labels** picker under Complete what you own, plus a discography pass for an owned artist that carries a Discogs id, covering artists MusicBrainz cannot resolve). Needs a Discogs personal access token (Discogs requires authentication to browse the catalog); create one on discogs.com under Settings, Developers. | No Discogs gaps. |
 | **MDBList API key** (`MdbListApiKey`) | Empty | A free key from [mdblist.com](https://mdblist.com) (under Preferences); enables searching and reading MDBList community lists (the discovery source above). | The MDBList list search and source stay off. |
 
 > Note: API keys are sensitive. The key fields are masked (password inputs) with a **Show** toggle to
