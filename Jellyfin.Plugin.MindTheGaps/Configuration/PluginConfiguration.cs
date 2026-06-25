@@ -112,8 +112,9 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanTmdbLists { get; set; }
 
     /// <summary>
-    /// Gets or sets a comma-separated list of TMDB list ids to surface as discovery (Recommendation) gaps.
-    /// A list is fetched by id (TMDB has no list search), so the settings page takes the ids directly.
+    /// Gets or sets a comma-separated list of TMDB lists to surface as discovery (Recommendation) gaps. Each
+    /// entry is a list id or a pasted themoviedb.org/list/{id} URL (TMDB has no list search), parsed by
+    /// <see cref="Gaps.Sources.Tmdb.TmdbListInput"/>.
     /// </summary>
     public string CuratedTmdbListIds { get; set; }
 

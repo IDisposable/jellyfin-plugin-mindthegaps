@@ -94,7 +94,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
                 && (ConfigIds.ParseInts(config.CuratedCompanyIds).Count > 0
                     || ConfigIds.ParseInts(config.CuratedKeywordIds).Count > 0
                     || config.AutoSeedStudios))
-            || (config.ScanTmdbLists && ConfigIds.ParseInts(config.CuratedTmdbListIds).Count > 0);
+            || (config.ScanTmdbLists && TmdbListInput.ParseIds(config.CuratedTmdbListIds).Count > 0);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
@@ -109,7 +109,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             ? await BuildCompanySetsAsync(context.Config, cancellationToken).ConfigureAwait(false)
             : new List<(int Id, string Label)>();
         var keywordIds = ConfigIds.ParseInts(scanSets ? context.Config.CuratedKeywordIds : string.Empty);
-        var listIds = ConfigIds.ParseInts(scanLists ? context.Config.CuratedTmdbListIds : string.Empty);
+        var listIds = TmdbListInput.ParseIds(scanLists ? context.Config.CuratedTmdbListIds : string.Empty);
         var total = Math.Max(1, companySets.Count + keywordIds.Count + listIds.Count);
         var done = 0;
         _logger.LogInformation("Curated sets: scanning {Companies} studios, {Keywords} keywords, and {Lists} TMDB lists", companySets.Count, keywordIds.Count, listIds.Count);
