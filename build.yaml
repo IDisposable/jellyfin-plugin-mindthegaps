@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.3.7"
+version: "10.11.3.8"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,11 +20,13 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.3.7 - A transient provider failure mid-scan (a TMDB or music-source hiccup) no longer blanks a
-  collection's or a discography's gaps from the report. A multi-episode file (S01E01-E02) is counted across
-  its whole span, so its later parts no longer read as missing. A failed report load now shows an error
-  instead of spinning forever, and no API key reaches the server log. Discogs fills the gaps in a
-  MusicBrainz-covered artist's discography, surfacing the albums one provider lists and the other misses.
-  The Diagnose popup verifies an episode by its number, and when the number is absent but you own the same
-  title at another number (a two-part or off-by-one numbering mismatch) it points you to renumber the file
-  rather than calling the episode missing.
+  10.11.3.8 - Series completeness is more accurate and now follows your library's own providers. Each series
+  is checked against every metadata provider your Shows library uses (TheMovieDb, TheTVDB, TVmaze), merged
+  season by season in your configured order so your preferred provider is the authority, a lower-ranked one
+  can only add a season none above it lists, and your own missing-episode list is the last-chance fallback;
+  a stale or wrong season no longer reports every episode as missing. Episodes are reconciled by air date and
+  folded title, not just number, so a provider that renumbers, reorders, or merges a two-part episode no
+  longer flags your owned episodes as missing. The separate per-provider cross-check checkboxes are gone
+  (TheTVDB still needs its API key). You can re-check a single series for missing episodes without a full
+  rescan. The identification audit and the Diagnose popup now cover music albums and books, not just movies
+  and shows. Row titles are larger and each source's section can be collapsed.
