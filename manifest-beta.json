@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.10",
+                "changelog": "10.11.3.10 - Two new opt-in sources, each with its own settings. Complete a Books subject from OpenLibrary (for example every book tagged science fiction or fantasy) under Complete what you own, and discover the unowned movies and shows on a Trakt list under Discover new titles. The TMDB-list setting now accepts a pasted themoviedb.org/list URL, not just a bare id. In the Shows set-completion view each series shows its year in the header, so a reboot is told apart from the original (Quantum Leap 1989 versus 2022).\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.10/mind-the-gaps_10.11.3.10.zip",
+                "checksum": "bcae5e1a60bffe5ec39346b55d2e943f",
+                "timestamp": "2026-06-25T23:21:56Z"
+            },
+            {
                 "version": "10.11.3.9",
                 "changelog": "10.11.3.9 - Discogs discography scanning is faster and more accurate. It now checks only the artists your library has already tagged with a Discogs id, instead of guessing every artist by name (which was slow and sometimes matched the wrong act), and it fetches only album-level master releases, so a stray single or promo no longer turns up as a missing album.\n",
                 "targetAbi": "10.11.0.0",
