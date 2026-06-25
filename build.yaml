@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.3.9"
+version: "10.11.3.10"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,7 +20,8 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.3.9 - Discogs discography scanning is faster and more accurate. It now checks only the artists your
-  library has already tagged with a Discogs id, instead of guessing every artist by name (which was slow and
-  sometimes matched the wrong act), and it fetches only album-level master releases, so a stray single or
-  promo no longer turns up as a missing album.
+  10.11.3.10 - Two new opt-in sources, each with its own settings. Complete a Books subject from OpenLibrary
+  (for example every book tagged science fiction or fantasy) under Complete what you own, and discover the
+  unowned movies and shows on a Trakt list under Discover new titles. The TMDB-list setting now accepts a
+  pasted themoviedb.org/list URL, not just a bare id. In the Shows set-completion view each series shows its
+  year in the header, so a reboot is told apart from the original (Quantum Leap 1989 versus 2022).
