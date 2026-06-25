@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.8",
+                "changelog": "10.11.3.8 - Series completeness is more accurate and now follows your library's own providers. Each series is checked against every metadata provider your Shows library uses (TheMovieDb, TheTVDB, TVmaze), merged season by season in your configured order so your preferred provider is the authority, a lower-ranked one can only add a season none above it lists, and your own missing-episode list is the last-chance fallback; a stale or wrong season no longer reports every episode as missing. Episodes are reconciled by air date and folded title, not just number, so a provider that renumbers, reorders, or merges a two-part episode no longer flags your owned episodes as missing. The separate per-provider cross-check checkboxes are gone (TheTVDB still needs its API key). You can re-check a single series for missing episodes without a full rescan. The identification audit and the Diagnose popup now cover music albums and books, not just movies and shows. Row titles are larger and each source's section can be collapsed.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.8/mind-the-gaps_10.11.3.8.zip",
+                "checksum": "1a69f64dd1afd43d29badeefd32a3437",
+                "timestamp": "2026-06-25T05:51:40Z"
+            },
+            {
                 "version": "10.11.3.7",
                 "changelog": "10.11.3.7 - A transient provider failure mid-scan (a TMDB or music-source hiccup) no longer blanks a collection's or a discography's gaps from the report. A multi-episode file (S01E01-E02) is counted across its whole span, so its later parts no longer read as missing. A failed report load now shows an error instead of spinning forever, and no API key reaches the server log. Discogs fills the gaps in a MusicBrainz-covered artist's discography, surfacing the albums one provider lists and the other misses. The Diagnose popup verifies an episode by its number, and when the number is absent but you own the same title at another number (a two-part or off-by-one numbering mismatch) it points you to renumber the file rather than calling the episode missing.\n",
                 "targetAbi": "10.11.0.0",
