@@ -34,6 +34,8 @@ internal sealed class TraktClient
         _api = api;
     }
 
+    private static string? ClientId => Plugin.Instance?.Configuration.TraktClientId;
+
     /// <summary>
     /// Resolves a Trakt person id (slug preferred) from an external id.
     /// </summary>
@@ -66,6 +68,49 @@ internal sealed class TraktClient
             clientId,
             string.Create(CultureInfo.InvariantCulture, $"/people/{Uri.EscapeDataString(traktPersonId)}/movies?extended=full"),
             cancellationToken);
+
+    /// <summary>
+    /// Gets a list's items (movies and shows merged), each carrying the external ids Trakt records. Empty
+    /// when no client id is configured or the list is empty.
+    /// </summary>
+    /// <param name="listId">The Trakt list id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The list's items.</returns>
+    public async Task<IReadOnlyList<TraktListItem>> GetListItemsAsync(long listId, CancellationToken cancellationToken)
+    {
+        var clientId = ClientId;
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return [];
+        }
+
+        var items = await GetAsync<List<TraktListItem>>(
+            clientId,
+            string.Create(CultureInfo.InvariantCulture, $"/lists/{listId}/items/movie,show?extended=full"),
+            cancellationToken).ConfigureAwait(false);
+        return items ?? [];
+    }
+
+    /// <summary>
+    /// Resolves a list id to its display name (for the chip), or null when not found or no client id is set.
+    /// </summary>
+    /// <param name="listId">The Trakt list id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The list name, or null.</returns>
+    public async Task<string?> GetListNameAsync(long listId, CancellationToken cancellationToken)
+    {
+        var clientId = ClientId;
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return null;
+        }
+
+        var list = await GetAsync<TraktList>(
+            clientId,
+            string.Create(CultureInfo.InvariantCulture, $"/lists/{listId}"),
+            cancellationToken).ConfigureAwait(false);
+        return list?.Name;
+    }
 
     private Task<T?> GetAsync<T>(string clientId, string path, CancellationToken cancellationToken)
         where T : class

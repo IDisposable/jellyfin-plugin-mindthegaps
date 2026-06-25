@@ -78,6 +78,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, TraktListGapSource>();
 
         // The episode providers the series-content source merges per series (not gap sources themselves).
         serviceCollection.AddSingleton<ISeriesEpisodeProvider, TmdbEpisodeProvider>();

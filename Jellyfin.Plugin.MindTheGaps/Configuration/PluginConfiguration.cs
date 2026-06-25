@@ -32,6 +32,8 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanMdbList = false;
         MdbListApiKey = string.Empty;
         MdbListListIds = string.Empty;
+        ScanTraktLists = false;
+        CuratedTraktListIds = string.Empty;
         IncludeAvailability = true;
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
@@ -181,6 +183,19 @@ public class PluginConfiguration : BasePluginConfiguration
     /// page maintains this from its MDBList chip picker; the ids are never shown directly.
     /// </summary>
     public string MdbListListIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned titles from the Trakt lists in
+    /// <see cref="CuratedTraktListIds"/> as discovery (Recommendation) gaps. Needs a Trakt client id and at
+    /// least one chosen list. Off by default.
+    /// </summary>
+    public bool ScanTraktLists { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of Trakt list ids to surface as discovery (Recommendation) gaps.
+    /// A list is fetched by id, so the settings page takes the ids directly.
+    /// </summary>
+    public string CuratedTraktListIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where
