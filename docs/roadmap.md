@@ -34,12 +34,9 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 - **Upstream ask A** ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
-- **Deepen Diagnose, and extend the identification audit to Music and Books.** The per-gap Diagnose already
-  covers albums and books; the library-wide audit stays movies and shows (its duplicate-id section is
-  TheMovieDb-specific). Generalizing the duplicate detection per primary provider closes that gap.
-- **Widen the newest sources: Discogs discography completeness, and a curated-book gap source.** Merge the
-  Discogs and MusicBrainz release lists for an artist both cover, and add a curated-book source so Books gets
-  its own chip picker.
+- **A curated-book gap source, then Books chips.** Add a curated-book source (an OpenLibrary subject or
+  author set) so Books gets its own chip picker; the chip plumbing already covers studios, keywords, and
+  Discogs labels.
 - **Bulk and scheduled minting.** A one-click "mint a whole pattern or domain", and a scheduled task that
   keeps a chosen set materialized on the scan cadence, both built on the per-kind container strategy the
   minter already carries.
@@ -65,9 +62,6 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 - **"Fix the id" action.** Diagnose is advisory; a popup button that writes the correct provider id to the
   owned item and queues a refresh would close the loop. Mutates library metadata, so it needs a confirm.
-- **Extend the audit to Music and Books.** The per-gap Diagnose covers albums and books; the library-wide
-  identification audit stays movies and shows (its duplicate-id section is TheMovieDb-specific). Extending it
-  would generalize the duplicate detection per primary provider.
 
 ### Sources and curated sets
 
@@ -75,12 +69,6 @@ of them. Drafts in [docs/upstream/](upstream/).
   keywords, and Discogs labels; Books needs a curated-book **gap source** first (none today, only the author
   bibliography from owned books), for example an OpenLibrary subject or author set. Once that source and a
   config field exist, the chip kind is a `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance.
-- **Discogs: complete an artist's discography across both providers.** `DiscogsArtistGapSource` already
-  covers the artists the MusicBrainz sources cannot (no MusicBrainz id), so the two span disjoint artists with
-  no duplication. The open piece is *completeness* widening: for an artist MusicBrainz *does* cover, also
-  consult Discogs and merge the two release lists (de-duplicated by normalized title) so an album one provider
-  lists and the other misses still surfaces. Deferred because the cross-provider, name-keyed release de-dup is
-  fuzzy and would change the MusicBrainz gap-id scheme (a persisted-id contract, ADR-0008).
 - **Easier TMDB-list entry, and a searchable list source.** TMDB lists are the one curated source still
   entered as raw comma-separated ids (`CuratedTmdbListIds`); TMDB has no list-search API (only `/list/{id}`),
   so a name type-ahead is impossible. Near-term fix: accept a pasted `themoviedb.org/list/{id}` URL (or a bare
