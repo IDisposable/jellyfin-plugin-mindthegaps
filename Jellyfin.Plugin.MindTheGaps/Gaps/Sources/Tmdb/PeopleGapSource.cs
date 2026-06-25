@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// Finds movies and series from an owned person's filmography (TMDB person credits) that are missing
 /// from the library. Covers acting roles and key crew jobs (director/writer).
 /// </summary>
-public sealed class PeopleGapSource : IGapSource
+internal sealed class PeopleGapSource : IGapSource
 {
     // Fallback cap when the configured value is not set; TMDB person fetch is one cached call each.
     private const int DefaultMaxPeople = 1000;

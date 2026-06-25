@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// A Discogs label record (labels/{id}), used to resolve a stored label id back to its name for the
 /// settings chip picker.
 /// </summary>
-public class DiscogsLabel
+internal class DiscogsLabel
 {
     /// <summary>Gets or sets the Discogs label id.</summary>
     [JsonPropertyName("id")]

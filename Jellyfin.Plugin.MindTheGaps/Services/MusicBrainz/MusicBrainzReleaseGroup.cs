@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 /// <summary>
 /// A MusicBrainz release-group (the abstract "album", independent of its individual releases).
 /// </summary>
-public class MusicBrainzReleaseGroup
+internal class MusicBrainzReleaseGroup
 {
     /// <summary>Gets or sets the release-group MBID.</summary>
     [JsonPropertyName("id")]

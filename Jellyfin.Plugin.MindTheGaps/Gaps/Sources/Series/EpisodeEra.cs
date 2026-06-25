@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// so they agree: an earlier or later season of a long run you only partly own bridges in episode by episode,
 /// while a far-separated same-named reboot is left outside.
 /// </summary>
-public static class EpisodeEra
+internal static class EpisodeEra
 {
     /// <summary>
     /// The widest gap between consecutive episode years (owned or missing) that still reads as one continuous

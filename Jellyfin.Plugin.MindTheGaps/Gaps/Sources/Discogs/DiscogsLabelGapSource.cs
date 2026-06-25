@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// <see cref="GapPattern.SetCompletion"/> gap per unowned release. Opt-in; needs a Discogs token and at
 /// least one label id.
 /// </summary>
-public sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
+internal sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
 {
     // Cap the gaps emitted for one label so a broad label does not flood the list.
     private const int MaxGapsPerLabel = 150;
@@ -100,7 +100,7 @@ public sealed class DiscogsLabelGapSource : IGapSource, IExploreSource
 
             if (ServiceCircuit.IsOpen(ServiceNames.Discogs))
             {
-                _logger.LogInformation("Discogs labels: Discogs is unavailable this run; skipping the remaining labels");
+                _logger.LogWarning("Discogs labels: Discogs is unavailable this run; skipping the remaining labels");
                 break;
             }
 

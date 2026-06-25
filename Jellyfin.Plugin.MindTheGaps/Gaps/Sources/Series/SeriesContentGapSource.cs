@@ -29,7 +29,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// their virtual episodes alone, so a large library's missing episodes appear every run regardless of the
 /// per-run cap on the providers' (rate-limited) cross-checks.
 /// </summary>
-public sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
+internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 {
     // The largest plausible gap between an owned series' start year and a provider's first season for it.
     // Beyond this the provider almost certainly resolved a same-named reboot, not the same series.

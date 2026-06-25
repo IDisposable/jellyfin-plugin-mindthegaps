@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 /// Turns a Trakt person's movie credits into filmography gaps for the unowned titles. Emits the same
 /// gap ids as the TMDB filmography source so the engine de-dupes; Trakt only adds what TMDB missed.
 /// </summary>
-public static class TraktFilmographyMapper
+internal static class TraktFilmographyMapper
 {
     /// <summary>
     /// Builds filmography gaps for a person's unowned Trakt movie credits, capped per person.

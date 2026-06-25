@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// <summary>
 /// Turns TMDB "similar" results for an owned title into discovery gaps for the unowned ones.
 /// </summary>
-public static class RecommendationGapMapper
+internal static class RecommendationGapMapper
 {
     /// <summary>
     /// Builds movie recommendation gaps from a seed movie's similar results.

@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// the primary, grouping source, so a list's titles collapse under the list rather than scattering under the
 /// owned titles that also recommend them; the demoted recommendation rides along as a secondary source.
 /// </summary>
-public static class GapSourceMerge
+internal static class GapSourceMerge
 {
     // Cap how many secondary sources ride along on one gap, so a very popular title does not grow unbounded.
     private const int MaxSourcesPerGap = 12;

@@ -770,7 +770,7 @@ public sealed class GapEngine
 
         var ownership = new OwnershipIndex(byKey);
         _logger.LogInformation(
-            "Ownership index: {Items} owned items, {Keys} provider-id keys (an item has several ids), across kinds [{Kinds}]. Series content (missing episodes) is scanned separately and is not in this index",
+            "Ownership index: {Items} owned items, {Keys} provider-id keys, across kinds [{Kinds}].",
             itemCount,
             ownership.Count,
             string.Join(", ", kinds));

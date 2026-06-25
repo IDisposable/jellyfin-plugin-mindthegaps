@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// Discovery source: surfaces TMDB "similar" movies/series for owned titles that aren't in the library.
 /// Opt-in (off by default) since it can produce a lot of suggestions.
 /// </summary>
-public sealed class RecommendationsGapSource : IGapSource
+internal sealed class RecommendationsGapSource : IGapSource
 {
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;

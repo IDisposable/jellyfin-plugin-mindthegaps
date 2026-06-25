@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// Turns an artist's MusicBrainz release-groups into gaps for the studio albums the library does not
 /// own. Pure and host-free so the captured-fixture tests can exercise it directly.
 /// </summary>
-public static class MusicBrainzMapper
+internal static class MusicBrainzMapper
 {
     /// <summary>
     /// Builds gaps for an artist's unowned studio-album release-groups. The pattern and id prefix tell

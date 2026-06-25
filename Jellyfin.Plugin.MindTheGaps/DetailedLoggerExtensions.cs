@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// <summary>
 /// Logging helpers for the gated detailed external-API logging.
 /// </summary>
-public static class DetailedLoggerExtensions
+internal static class DetailedLoggerExtensions
 {
     /// <summary>
     /// Logs an external API call at Information level, but only when <see cref="Plugin.DetailedApiLogging"/>

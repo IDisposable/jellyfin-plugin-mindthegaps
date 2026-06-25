@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 /// An MDBList list, as returned by the search, top-lists, and list-info endpoints. Only the fields the
 /// settings chip picker needs (id and name) are bound.
 /// </summary>
-public sealed class MdbListListDto
+internal sealed class MdbListListDto
 {
     /// <summary>Gets or sets the list id.</summary>
     [JsonPropertyName("id")]

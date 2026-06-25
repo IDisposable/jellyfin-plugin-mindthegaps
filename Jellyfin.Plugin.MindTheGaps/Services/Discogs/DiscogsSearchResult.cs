@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// <summary>
 /// One result from the Discogs search endpoint (database/search), used to resolve a label name to its id.
 /// </summary>
-public class DiscogsSearchResult
+internal class DiscogsSearchResult
 {
     /// <summary>Gets or sets the Discogs id (a label id when searching labels).</summary>
     [JsonPropertyName("id")]

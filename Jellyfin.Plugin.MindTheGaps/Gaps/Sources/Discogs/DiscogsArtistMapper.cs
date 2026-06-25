@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// first, then the conservative artist-and-title name match, so an album held under a MusicBrainz id is still
 /// recognized. Pure and host-free so a fixture exercises it directly.
 /// </summary>
-public static class DiscogsArtistMapper
+internal static class DiscogsArtistMapper
 {
     /// <summary>
     /// Builds gaps for an artist's unowned master albums, de-duplicated by Discogs id and capped so one

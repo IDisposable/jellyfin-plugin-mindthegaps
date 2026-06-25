@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// <summary>
 /// A minimal client for the OpenLibrary public, key-free JSON API. See https://openlibrary.org/dev/docs/api/.
 /// </summary>
-public sealed class OpenLibraryClient
+internal sealed class OpenLibraryClient
 {
     private const string BaseUrl = "https://openlibrary.org";
 

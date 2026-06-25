@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 /// <summary>
 /// A Trakt person.
 /// </summary>
-public class TraktPerson
+internal class TraktPerson
 {
     /// <summary>Gets or sets the name.</summary>
     public string? Name { get; set; }

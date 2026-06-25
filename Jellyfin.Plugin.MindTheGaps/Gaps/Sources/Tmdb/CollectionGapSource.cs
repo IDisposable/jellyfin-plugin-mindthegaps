@@ -26,7 +26,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// container). Series in a mixed collection are left alone. Missing shows within a franchise is handled
 /// by the TVDB/TVMaze/Trakt sources (e.g. Wikidata P179 "part of the series" or Trakt lists).
 /// </remarks>
-public sealed class CollectionGapSource : IGapSource
+internal sealed class CollectionGapSource : IGapSource
 {
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;

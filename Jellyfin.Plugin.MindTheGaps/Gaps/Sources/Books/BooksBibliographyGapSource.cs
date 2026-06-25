@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// person/tag), so this is a deliberately modest slice: it resolves the author by name, lists that
 /// author's works, and diffs them against owned books by OpenLibrary work key.
 /// </summary>
-public sealed class BooksBibliographyGapSource : IGapSource
+internal sealed class BooksBibliographyGapSource : IGapSource
 {
     // OpenLibrary is keyless but still rate-limited; each author is two calls, so cap distinct authors.
     private const int MaxAuthors = 100;
@@ -77,7 +77,7 @@ public sealed class BooksBibliographyGapSource : IGapSource
 
             if (ServiceCircuit.IsOpen(ServiceNames.OpenLibrary))
             {
-                _logger.LogInformation("Bibliography: OpenLibrary is unavailable this run; skipping the remaining authors");
+                _logger.LogWarning("Bibliography: OpenLibrary is unavailable this run; skipping the remaining authors");
                 break;
             }
 

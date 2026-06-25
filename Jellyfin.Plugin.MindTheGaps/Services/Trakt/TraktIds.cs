@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 /// <summary>
 /// Cross-provider id block returned by Trakt.
 /// </summary>
-public class TraktIds
+internal class TraktIds
 {
     /// <summary>Gets or sets the numeric Trakt id.</summary>
     public int? Trakt { get; set; }

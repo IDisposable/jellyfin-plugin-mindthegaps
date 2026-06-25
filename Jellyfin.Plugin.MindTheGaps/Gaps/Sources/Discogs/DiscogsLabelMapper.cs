@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// MusicBrainz id rather than a Discogs one is still recognized as owned. Pure and host-free so the
 /// captured-fixture tests can exercise it directly.
 /// </summary>
-public static class DiscogsLabelMapper
+internal static class DiscogsLabelMapper
 {
     /// <summary>
     /// Builds gaps for a label's unowned releases, de-duplicated by Discogs id and capped so one prolific

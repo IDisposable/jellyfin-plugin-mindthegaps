@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// primary does not list, but cannot add episodes to a season the primary already covers (the primary's
 /// episode set for a season it covers is final). Specials (season 0) are dropped, as the diff also skips them.
 /// </summary>
-public static class SeriesContentMerge
+internal static class SeriesContentMerge
 {
     /// <summary>
     /// Combines the given canonical lists, highest priority first, claiming each season for the first list

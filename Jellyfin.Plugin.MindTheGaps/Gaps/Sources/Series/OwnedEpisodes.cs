@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// provider that numbers a season differently from the library's authority (a renumber, a reorder, or a
 /// two-part episode the library merged into one file) stop reading as a wall of false gaps.
 /// </summary>
-public sealed class OwnedEpisodes
+internal sealed class OwnedEpisodes
 {
     private readonly HashSet<(int Season, int Number)> _numbers = [];
 

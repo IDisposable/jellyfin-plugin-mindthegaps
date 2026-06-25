@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// <summary>
 /// Turns a TMDB collection's parts into movie gaps for the parts the library doesn't own.
 /// </summary>
-public static class CollectionGapMapper
+internal static class CollectionGapMapper
 {
     /// <summary>
     /// Builds a gap for every collection part not present in <paramref name="ownership"/>.

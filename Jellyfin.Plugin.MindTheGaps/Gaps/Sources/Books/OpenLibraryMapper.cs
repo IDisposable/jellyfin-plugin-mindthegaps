@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// Turns an author's OpenLibrary works into <see cref="GapPattern.CreatorWorks"/> gaps for the books
 /// the library does not already own. Pure and host-free so the captured-fixture tests exercise it.
 /// </summary>
-public static class OpenLibraryMapper
+internal static class OpenLibraryMapper
 {
     /// <summary>
     /// Builds bibliography gaps for an author's unowned works, capped to keep one prolific author from

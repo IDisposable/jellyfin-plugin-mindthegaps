@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Availability;
 /// <summary>
 /// The per-country offers in a TMDB watch/providers response.
 /// </summary>
-public class TmdbWatchCountry
+internal class TmdbWatchCountry
 {
     /// <summary>Gets or sets the TMDB region watch link.</summary>
     public string? Link { get; set; }

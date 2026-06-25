@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// <summary>
 /// Pure diff between an external source's canonical episode list and the episodes the library owns.
 /// </summary>
-public static class SeriesContentDiff
+internal static class SeriesContentDiff
 {
     /// <summary>
     /// Returns the canonical episodes that are not owned, skipping specials/unnumbered entries and

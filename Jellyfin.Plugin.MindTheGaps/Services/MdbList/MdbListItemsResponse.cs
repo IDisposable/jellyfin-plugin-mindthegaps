@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 /// The response from MDBList's list-items endpoint (lists/{id}/items), which splits a list's members into
 /// a movies array and a shows array.
 /// </summary>
-public sealed class MdbListItemsResponse
+internal sealed class MdbListItemsResponse
 {
     /// <summary>Gets or sets the movie members.</summary>
     [JsonPropertyName("movies")]

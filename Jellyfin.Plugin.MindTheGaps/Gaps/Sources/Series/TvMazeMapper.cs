@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// <summary>
 /// Maps TVmaze episode DTOs to the source-agnostic <see cref="CanonicalEpisode"/>.
 /// </summary>
-public static class TvMazeMapper
+internal static class TvMazeMapper
 {
     /// <summary>
     /// Converts TVmaze episodes to canonical episodes, keeping only entries with a season and number.

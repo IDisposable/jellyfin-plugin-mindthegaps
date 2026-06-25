@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// returns Frank Herbert Hayward first; the Dune author is further down). Pure so the captured author-search
 /// fixture exercises it.
 /// </summary>
-public static class OpenLibraryAuthorMatcher
+internal static class OpenLibraryAuthorMatcher
 {
     /// <summary>
     /// Picks the best author key for a searched name. Prefers a candidate whose name contains the searched

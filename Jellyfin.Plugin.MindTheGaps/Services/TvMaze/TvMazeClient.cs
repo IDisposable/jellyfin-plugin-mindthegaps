@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 /// <summary>
 /// A minimal client for TVmaze's public, key-free REST API. See https://www.tvmaze.com/api.
 /// </summary>
-public sealed class TvMazeClient
+internal sealed class TvMazeClient
 {
     private const string BaseUrl = "https://api.tvmaze.com";
 

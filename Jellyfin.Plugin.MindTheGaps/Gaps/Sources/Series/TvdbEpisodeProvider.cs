@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// Supplies TheTVDB's canonical episode list for a series, for the series-content merge. Opt-in; requires
 /// the user's own TheTVDB v4 API key.
 /// </summary>
-public sealed class TvdbEpisodeProvider : ISeriesEpisodeProvider
+internal sealed class TvdbEpisodeProvider : ISeriesEpisodeProvider
 {
     private readonly TvdbClient _client;
 

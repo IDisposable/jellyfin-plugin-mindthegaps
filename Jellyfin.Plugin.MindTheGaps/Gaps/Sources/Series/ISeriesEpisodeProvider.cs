@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// the primary within a season it covers. The orchestrator appends the library's own virtual (missing) episodes
 /// as the lowest-ranked, last-chance list, so a fresher provider's opinion always wins.
 /// </summary>
-public interface ISeriesEpisodeProvider
+internal interface ISeriesEpisodeProvider
 {
     /// <summary>
     /// Gets the provider this source speaks for, used to rank it against the library's metadata fetcher order.

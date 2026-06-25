@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 /// the per-kind and per-source-type mapping lives here, in one TMDB place, rather than in the generic link
 /// builders.
 /// </summary>
-public static class TmdbLinks
+internal static class TmdbLinks
 {
     private const string Base = "https://www.themoviedb.org/";
 

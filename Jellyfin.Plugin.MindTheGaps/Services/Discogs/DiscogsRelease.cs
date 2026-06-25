@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// (artists/{id}/releases). The label endpoint omits <see cref="Type"/>, <see cref="Role"/>, and
 /// <see cref="MainRelease"/>, which are present on the artist endpoint.
 /// </summary>
-public class DiscogsRelease
+internal class DiscogsRelease
 {
     /// <summary>Gets or sets the Discogs release (or master) id.</summary>
     [JsonPropertyName("id")]

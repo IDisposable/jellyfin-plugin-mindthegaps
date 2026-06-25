@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// library reader and the TVmaze/TheTVDB cross-checks) so the engine de-dupes the same missing
 /// episode regardless of which source surfaced it.
 /// </summary>
-public static class SeriesGapKey
+internal static class SeriesGapKey
 {
     /// <summary>
     /// Builds the gap id for a missing episode, anchored on the owned series and its season/episode

@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// rather than being remembered. TMDB is not here: it goes through TMDbLib, which carries its own cache and
 /// retry.
 /// </summary>
-public sealed class CachedApiClient
+internal sealed class CachedApiClient
 {
     /// <summary>
     /// The default time a fetched result is cached: long enough to cover a scan and any quick re-scan, short

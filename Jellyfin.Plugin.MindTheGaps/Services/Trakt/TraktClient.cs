@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 /// A minimal client for Trakt's public, read-only API. Requires only a user-supplied client id
 /// (no OAuth). See https://trakt.docs.apiary.io/.
 /// </summary>
-public sealed class TraktClient
+internal sealed class TraktClient
 {
     private const string BaseUrl = "https://api.trakt.tv";
 

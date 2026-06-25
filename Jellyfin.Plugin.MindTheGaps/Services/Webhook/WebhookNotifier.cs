@@ -89,13 +89,13 @@ public sealed class WebhookNotifier
             var safeUrl = uri.GetLeftPart(UriPartial.Authority);
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogInformation("Webhook: POST {Url} body {Body}", safeUrl, json);
+                _logger.LogDebug("Webhook: POST {Url} body {Body}", safeUrl, json);
             }
 
             using var response = await client.PostAsync(uri, body, cancellationToken).ConfigureAwait(false);
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogInformation("Webhook: POST {Url} returned {Status}", safeUrl, (int)response.StatusCode);
+                _logger.LogDebug("Webhook: POST {Url} returned {Status}", safeUrl, (int)response.StatusCode);
             }
 
             if (!response.IsSuccessStatusCode)

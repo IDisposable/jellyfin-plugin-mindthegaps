@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// directing/writing crew). Movie credits become Movies/Movie gaps and TV credits become Shows/Series
 /// gaps, both under the Creator works pattern.
 /// </summary>
-public static class FilmographyGapMapper
+internal static class FilmographyGapMapper
 {
     // Filter crew credits by department, not by individual job strings: TMDB's job names are a large,
     // evolving free-text taxonomy (Writing alone = Screenplay/Story/Novel/Characters/...), whereas the

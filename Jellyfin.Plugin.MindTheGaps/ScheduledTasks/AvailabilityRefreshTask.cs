@@ -49,7 +49,7 @@ public sealed class AvailabilityRefreshTask : IScheduledTask
         var config = Plugin.RequireConfiguration();
         if (!config.IncludeAvailability)
         {
-            _logger.LogInformation("Availability refresh skipped: 'where to watch' is turned off");
+            _logger.LogWarning("Availability refresh skipped: 'where to watch' is turned off");
             return;
         }
 

@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// service names, distinct from the provider-id keys an owned item carries (for example
 /// <c>ProviderIds.Discogs</c>), even where the text happens to match.
 /// </summary>
-public static class ServiceNames
+internal static class ServiceNames
 {
     /// <summary>TheMovieDb (the availability fetch that goes through <see cref="HttpRetry"/>).</summary>
     public const string Tmdb = "TMDB";

@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 /// callers to send a descriptive User-Agent and to keep below one request per second, so the caller
 /// caps how many artists it scans per run. See https://musicbrainz.org/doc/MusicBrainz_API.
 /// </summary>
-public sealed class MusicBrainzClient
+internal sealed class MusicBrainzClient
 {
     private const string BaseUrl = "https://musicbrainz.org/ws/2";
 

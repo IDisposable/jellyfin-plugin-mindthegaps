@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// <summary>
 /// A single author hit from OpenLibrary's author search.
 /// </summary>
-public class OpenLibraryAuthorDoc
+internal class OpenLibraryAuthorDoc
 {
     /// <summary>Gets or sets the author key (for example "OL23919A").</summary>
     [JsonPropertyName("key")]

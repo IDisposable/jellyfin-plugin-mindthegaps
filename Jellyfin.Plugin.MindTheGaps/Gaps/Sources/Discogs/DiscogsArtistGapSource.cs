@@ -25,7 +25,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// track by yields <see cref="GapPattern.CreatorWorks"/>. Opt-in; needs a Discogs token. It shares the
 /// owned-artist walk, the cap, and the circuit handling with <see cref="MusicArtistGapSourceBase"/>.
 /// </summary>
-public sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
+internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
 {
     // Cap the gaps emitted for one artist so a prolific discography does not flood the list.
     private const int MaxGapsPerArtist = 150;

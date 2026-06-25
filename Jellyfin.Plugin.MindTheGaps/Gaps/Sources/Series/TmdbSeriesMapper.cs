@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// Maps TheMovieDb season episodes (TMDbLib) to the canonical episode list the series-content diff uses.
 /// Specials and unnumbered entries are carried through and dropped by the diff, as with the other mappers.
 /// </summary>
-public static class TmdbSeriesMapper
+internal static class TmdbSeriesMapper
 {
     /// <summary>
     /// Maps TMDB season episodes to canonical episodes.

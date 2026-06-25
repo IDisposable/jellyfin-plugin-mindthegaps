@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// resolve, fetch, and map each artist's discography. The provider-specific parts (which service, and how to
 /// process one artist) are abstract, so the providers share this loop rather than each re-implementing it.
 /// </summary>
-public abstract class MusicArtistGapSourceBase : IGapSource
+internal abstract class MusicArtistGapSourceBase : IGapSource
 {
     // Each artist costs at least one paced request, so cap the artists scanned per run the way the people
     // source caps people. The cap counts artists for which an API call is spent, not artists skipped early.
@@ -84,7 +84,7 @@ public abstract class MusicArtistGapSourceBase : IGapSource
             // only fast-fail, so stop here rather than churn through them. Next run starts fresh.
             if (ServiceCircuit.IsOpen(ServiceName))
             {
-                Logger.LogInformation("{Source}: {Service} is unavailable this run; skipping the remaining artists", Name, ServiceName);
+                Logger.LogWarning("{Source}: {Service} is unavailable this run; skipping the remaining artists", Name, ServiceName);
                 break;
             }
 

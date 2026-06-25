@@ -22,7 +22,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Availability;
 /// officially licensed through TMDB, making it the safe default. Region link only (no per-provider
 /// deep-links).
 /// </summary>
-public sealed class TmdbAvailabilitySource : IAvailabilitySource
+internal sealed class TmdbAvailabilitySource : IAvailabilitySource
 {
     // Keep a served-stale entry around well past its freshness window so it can be served while a refresh
     // runs, and so it survives a quiet spell. A new fetch resets freshness; this just bounds memory.

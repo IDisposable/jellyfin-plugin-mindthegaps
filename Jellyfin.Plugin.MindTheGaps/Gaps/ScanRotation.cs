@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// and then the longest-unscanned refresh. One place for the ordering; each source adds its own tiebreak and
 /// prunes and marks the cursor via <see cref="ScanCursorStore"/>.
 /// </summary>
-public static class ScanRotation
+internal static class ScanRotation
 {
     /// <summary>
     /// Orders candidates stalest-first by their last-scanned time, a never-scanned candidate ranking oldest.

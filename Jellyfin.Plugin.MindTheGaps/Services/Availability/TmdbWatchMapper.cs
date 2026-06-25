@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Availability;
 /// <summary>
 /// Maps a TMDB watch/providers response to availability offers for one country.
 /// </summary>
-public static class TmdbWatchMapper
+internal static class TmdbWatchMapper
 {
     /// <summary>
     /// Flattens the offers for a single country into <see cref="AvailabilityOffer"/>s.

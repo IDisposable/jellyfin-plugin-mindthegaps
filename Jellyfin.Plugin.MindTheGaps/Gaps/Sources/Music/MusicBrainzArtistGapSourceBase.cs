@@ -25,7 +25,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// completeness pass: the albums Discogs lists that MusicBrainz misses, added without changing the MusicBrainz
 /// gaps' ids.
 /// </summary>
-public abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBase
+internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBase
 {
     // Cap the supplementary Discogs-completeness gaps for one artist; MusicBrainz is usually comprehensive,
     // so this is smaller than the standalone Discogs source's per-artist cap.

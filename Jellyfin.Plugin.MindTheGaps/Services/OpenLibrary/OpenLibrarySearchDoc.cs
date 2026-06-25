@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// One work-level document from OpenLibrary's search endpoint (search.json). Unlike the author-works list,
 /// search results carry the first publish year, so book gaps can get a year in a single call.
 /// </summary>
-public class OpenLibrarySearchDoc
+internal class OpenLibrarySearchDoc
 {
     /// <summary>Gets or sets the work key (for example "/works/OL45804W").</summary>
     [JsonPropertyName("key")]

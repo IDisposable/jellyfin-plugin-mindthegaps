@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// The user's top fetcher ranks first; a provider the library does not list ranks below the listed ones; a
 /// source that is not a Jellyfin metadata fetcher (TVmaze, <see cref="KnownProvider"/> null) ranks last.
 /// </summary>
-public static class SeriesContentPriority
+internal static class SeriesContentPriority
 {
     /// <summary>
     /// The Shows library's metadata fetcher order for the series, resolved to known providers. An unknown

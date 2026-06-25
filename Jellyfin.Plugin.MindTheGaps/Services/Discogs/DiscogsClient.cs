@@ -15,13 +15,19 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// to browse the catalog and a descriptive User-Agent (which HttpRetry adds). The token comes from the
 /// plugin configuration. See https://www.discogs.com/developers.
 /// </summary>
-public sealed class DiscogsClient
+internal sealed class DiscogsClient
 {
     private const string BaseUrl = "https://api.discogs.com";
 
     // Discogs returns up to 100 items per page; cap paging so a large label does not run away.
     private const int PageSize = 100;
     private const int MaxPages = 20;
+
+    // The artist releases endpoint mixes masters (release groups) with every individual pressing and guest
+    // appearance, and has no server-side type filter, so we keep only the masters and cap the paging tighter
+    // than the label browse. Discogs is paced at roughly one request a second, so an artist with thousands of
+    // pressings would otherwise cost many seconds of paging for rows we only discard.
+    private const int ArtistReleasesMaxPages = 5;
 
     // The settings type-ahead shows a short list, so a partial query does not flood the dropdown.
     private const int MaxSuggestions = 10;
@@ -146,15 +152,18 @@ public sealed class DiscogsClient
     }
 
     /// <summary>
-    /// Browses every release credited to a Discogs artist, paging through the result set up to the page cap.
+    /// Browses a Discogs artist's discography and returns only the artist's own master releases (one entry per
+    /// album, the release-group equivalent), not the individual pressings or guest appearances. Discogs has no
+    /// server-side type filter, so the masters are sieved out of each page as it is read and the paging is
+    /// capped tighter than the label browse.
     /// </summary>
     /// <param name="artistId">The Discogs artist id.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The artist's releases (masters and individual releases), or an empty list on failure.</returns>
+    /// <returns>The artist's master releases (release groups), or an empty list on failure.</returns>
     public async Task<IReadOnlyList<DiscogsRelease>> GetArtistReleasesAsync(long artistId, CancellationToken cancellationToken)
     {
-        var releases = new List<DiscogsRelease>();
-        for (var page = 1; page <= MaxPages; page++)
+        var masters = new List<DiscogsRelease>();
+        for (var page = 1; page <= ArtistReleasesMaxPages; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -166,7 +175,16 @@ public sealed class DiscogsClient
                 break;
             }
 
-            releases.AddRange(pageReleases);
+            // Keep one entry per album (a master) credited to the artist as a main work, dropping every
+            // individual pressing and guest appearance before they are carried any further.
+            foreach (var release in pageReleases)
+            {
+                if (string.Equals(release.Type, "master", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(release.Role, "Main", StringComparison.OrdinalIgnoreCase))
+                {
+                    masters.Add(release);
+                }
+            }
 
             var totalPages = response!.Pagination?.Pages ?? page;
             if (page >= totalPages)
@@ -175,7 +193,7 @@ public sealed class DiscogsClient
             }
         }
 
-        return releases;
+        return masters;
     }
 
     private Task<T?> GetAsync<T>(string path, TimeSpan cacheDuration, CancellationToken cancellationToken)

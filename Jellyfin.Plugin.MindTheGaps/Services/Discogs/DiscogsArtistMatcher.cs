@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// toward not scanning an artist is safer than scanning the wrong one (which would emit a stranger's albums
 /// as gaps). Pure so a fixture exercises it.
 /// </summary>
-public static class DiscogsArtistMatcher
+internal static class DiscogsArtistMatcher
 {
     /// <summary>
     /// Picks the best Discogs artist id for a searched name, or null when no result's name matches exactly.

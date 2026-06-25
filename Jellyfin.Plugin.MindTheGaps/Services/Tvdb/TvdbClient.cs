@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 /// A minimal client for TheTVDB v4 REST API. Logs in with the user's own API key and caches the
 /// bearer token, re-authenticating when it expires. See https://thetvdb.github.io/v4-api/.
 /// </summary>
-public sealed class TvdbClient : IDisposable
+internal sealed class TvdbClient : IDisposable
 {
     private const string BaseUrl = "https://api4.thetvdb.com/v4";
 

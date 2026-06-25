@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 /// comes from the plugin configuration. Calls go through the shared read-through cache, so a list's items
 /// are not re-fetched within or across back-to-back scans. See https://docs.mdblist.com.
 /// </summary>
-public sealed class MdbListClient
+internal sealed class MdbListClient
 {
     private const string BaseUrl = "https://api.mdblist.com";
     private const int MaxSuggestions = 10;

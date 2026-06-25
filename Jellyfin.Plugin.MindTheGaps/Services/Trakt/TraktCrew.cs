@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 /// <summary>
 /// The crew block, keyed by department.
 /// </summary>
-public class TraktCrew
+internal class TraktCrew
 {
     /// <summary>Gets or sets directing credits.</summary>
     public IReadOnlyList<TraktMovieCrewCredit>? Directing { get; set; }

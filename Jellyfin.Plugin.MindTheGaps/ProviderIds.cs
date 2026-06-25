@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// Discogs, OpenLibrary), which are not in the core enum, are plain literals. Lives in the root namespace so
 /// it is in scope everywhere without a using.
 /// </summary>
-public static class ProviderIds
+internal static class ProviderIds
 {
     /// <summary>TVmaze (a plugin provider, not in the core enum).</summary>
     public const string TVmaze = "TVmaze";

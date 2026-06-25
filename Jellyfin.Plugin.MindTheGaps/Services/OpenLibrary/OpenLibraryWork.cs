@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// <summary>
 /// An OpenLibrary "work" (the abstract book, independent of its individual editions).
 /// </summary>
-public class OpenLibraryWork
+internal class OpenLibraryWork
 {
     /// <summary>Gets or sets the work key (for example "/works/OL45804W").</summary>
     [JsonPropertyName("key")]

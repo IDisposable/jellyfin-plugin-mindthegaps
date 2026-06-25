@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 /// The MusicBrainz "browse release-groups by artist" response shape
 /// (ws/2/release-group?artist={mbid}).
 /// </summary>
-public class MusicBrainzReleaseGroupResponse
+internal class MusicBrainzReleaseGroupResponse
 {
     /// <summary>Gets or sets the total matching release-group count (for paging).</summary>
     [JsonPropertyName("release-group-count")]

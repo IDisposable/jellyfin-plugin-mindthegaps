@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// at least one album by), emitting a <see cref="GapPattern.SetCompletion"/> gap per unowned release-group.
 /// Artists you only own the odd track by are left to <see cref="MusicArtistWorksGapSource"/>.
 /// </summary>
-public sealed class MusicDiscographyGapSource : MusicBrainzArtistGapSourceBase
+internal sealed class MusicDiscographyGapSource : MusicBrainzArtistGapSourceBase
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MusicDiscographyGapSource"/> class.

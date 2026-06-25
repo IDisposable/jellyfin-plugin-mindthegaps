@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 /// <summary>
 /// A TVmaze episode.
 /// </summary>
-public class TvMazeEpisode
+internal class TvMazeEpisode
 {
     /// <summary>Gets or sets the TVmaze episode id.</summary>
     public int Id { get; set; }

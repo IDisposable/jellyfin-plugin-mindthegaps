@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// those directly (no resolution step) and the ownership diff and link building work unchanged. The
 /// <c>mediatype</c> routes a movie to the Movies domain and a show to the Shows domain.
 /// </summary>
-public static class MdbListMapper
+internal static class MdbListMapper
 {
     /// <summary>
     /// Builds gaps for a list's unowned items, de-duplicated by their strongest id and capped.

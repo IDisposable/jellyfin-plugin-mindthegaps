@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services;
 /// example, that "TheMovieDb", "Tmdb", and "TMDB" are the same provider, so the rest of the code resolves a
 /// name through here instead of re-listing the aliases.
 /// </summary>
-public static class KnownProviders
+internal static class KnownProviders
 {
     /// <summary>Gets TheMovieDb.</summary>
     public static KnownProvider Tmdb { get; } = new(ProviderIds.Tmdb, "TheMovieDb", "TheMovieDb", ServiceNames.Tmdb);

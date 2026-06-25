@@ -3,7 +3,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 /// <summary>
 /// A TheTVDB episode record.
 /// </summary>
-public class TvdbEpisode
+internal class TvdbEpisode
 {
     /// <summary>Gets or sets the TheTVDB episode id.</summary>
     public long Id { get; set; }

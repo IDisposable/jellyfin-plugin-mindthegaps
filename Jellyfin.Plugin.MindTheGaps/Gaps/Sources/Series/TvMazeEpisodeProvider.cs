@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// Supplies TVmaze's canonical episode list for a series, for the series-content merge. Keyless, opt-in,
 /// rate-limited. Not a Jellyfin metadata fetcher, so it ranks below the named providers in the merge.
 /// </summary>
-public sealed class TvMazeEpisodeProvider : ISeriesEpisodeProvider
+internal sealed class TvMazeEpisodeProvider : ISeriesEpisodeProvider
 {
     private readonly TvMazeClient _client;
 

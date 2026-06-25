@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// Builds <see cref="GapItem"/>s from the fields common to every source, so sources don't repeat
 /// the boilerplate (year/upcoming derivation, link building, source-item wiring).
 /// </summary>
-public static class GapItemFactory
+internal static class GapItemFactory
 {
     /// <summary>
     /// Creates a gap item, deriving <see cref="GapItem.Year"/>/<see cref="GapItem.IsUpcoming"/> from

@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 /// One item on an MDBList list. The list already records the external ids (TMDB, IMDb, TheTVDB), so an
 /// item drops straight into the ownership diff and link building without a separate id-resolution step.
 /// </summary>
-public sealed class MdbListItem
+internal sealed class MdbListItem
 {
     /// <summary>Gets or sets the title.</summary>
     [JsonPropertyName("title")]

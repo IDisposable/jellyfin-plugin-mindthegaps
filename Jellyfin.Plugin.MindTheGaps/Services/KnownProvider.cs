@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services;
 /// label lives in one place instead of being re-correlated wherever a name from one context must be
 /// matched to a name from another.
 /// </summary>
-public sealed class KnownProvider
+internal sealed class KnownProvider
 {
     private readonly HashSet<string> _aliases;
 

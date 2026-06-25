@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// <summary>
 /// The OpenLibrary author-search response (search/authors.json?q={name}).
 /// </summary>
-public class OpenLibraryAuthorSearchResponse
+internal class OpenLibraryAuthorSearchResponse
 {
     /// <summary>Gets or sets the matching author documents, best match first.</summary>
     [JsonPropertyName("docs")]

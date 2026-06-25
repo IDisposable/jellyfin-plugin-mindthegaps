@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// keyless (the plugin's shared TheMovieDb key), so a library that follows TheMovieDb is diffed against its
 /// own numbering.
 /// </summary>
-public sealed class TmdbEpisodeProvider : ISeriesEpisodeProvider
+internal sealed class TmdbEpisodeProvider : ISeriesEpisodeProvider
 {
     private readonly TmdbClient _client;
 

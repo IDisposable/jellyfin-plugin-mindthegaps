@@ -99,7 +99,7 @@ public sealed class GapScanRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Background gap scan cancelled (plugin shutting down)");
+            _logger.LogWarning("Background gap scan cancelled (plugin shutting down)");
         }
         catch (Exception ex)
         {

@@ -228,7 +228,7 @@ public sealed class AcquisitionService
 
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogInformation("{Service}: POST {Url} body {Body}", service, uri, json);
+                _logger.LogDebug("{Service}: POST {Url} body {Body}", service, uri, json);
             }
 
             using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -236,7 +236,7 @@ public sealed class AcquisitionService
             {
                 if (Plugin.DetailedApiLogging)
                 {
-                    _logger.LogInformation("{Service}: {Status} accepted POST {Url}", service, (int)response.StatusCode, uri);
+                    _logger.LogDebug("{Service}: {Status} accepted POST {Url}", service, (int)response.StatusCode, uri);
                 }
 
                 return AcquisitionResult.Ok(successMessage);

@@ -103,7 +103,7 @@ public sealed class MintRunner
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Background mint operation cancelled (plugin shutting down)");
+                _logger.LogWarning("Background mint operation cancelled (plugin shutting down)");
                 message = "Operation cancelled.";
             }
             catch (Exception ex)

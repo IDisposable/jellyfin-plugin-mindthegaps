@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// title page, and a Discogs id is an artist or a label. A link is labeled with the service's canonical name
 /// (<see cref="ServiceNames"/>) where it is a service the plugin knows.
 /// </summary>
-public static class CreatorLinks
+internal static class CreatorLinks
 {
     /// <summary>
     /// Builds the links to the source's own page from the source's provider ids.

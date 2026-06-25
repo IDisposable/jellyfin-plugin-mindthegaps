@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// <summary>
 /// Maps TheTVDB episode records to the source-agnostic <see cref="CanonicalEpisode"/>.
 /// </summary>
-public static class TvdbMapper
+internal static class TvdbMapper
 {
     /// <summary>
     /// Converts TheTVDB episodes to canonical episodes, keeping only entries with a season and number.

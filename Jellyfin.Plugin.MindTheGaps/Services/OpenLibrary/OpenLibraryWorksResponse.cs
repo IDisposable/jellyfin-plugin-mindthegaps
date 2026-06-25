@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 /// <summary>
 /// The OpenLibrary author-works response (authors/{key}/works.json).
 /// </summary>
-public class OpenLibraryWorksResponse
+internal class OpenLibraryWorksResponse
 {
     /// <summary>Gets or sets the total work count.</summary>
     [JsonPropertyName("size")]

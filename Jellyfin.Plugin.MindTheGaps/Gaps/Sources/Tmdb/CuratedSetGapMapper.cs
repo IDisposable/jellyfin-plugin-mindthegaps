@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// gaps for the movies in that set the library does not own. Widens SetCompletion beyond formal TMDB
 /// BoxSets to broader sets like "every A24 film" or "every Studio Ghibli film".
 /// </summary>
-public static class CuratedSetGapMapper
+internal static class CuratedSetGapMapper
 {
     /// <summary>
     /// Builds movie gaps for the unowned members of a curated set.

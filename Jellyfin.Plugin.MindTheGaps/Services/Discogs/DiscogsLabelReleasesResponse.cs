@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// <summary>
 /// The Discogs label-releases response (labels/{id}/releases), a page of releases plus pagination.
 /// </summary>
-public class DiscogsLabelReleasesResponse
+internal class DiscogsLabelReleasesResponse
 {
     /// <summary>Gets or sets the pagination block.</summary>
     [JsonPropertyName("pagination")]

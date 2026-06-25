@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Configuration;
 /// ids): blanks and non-numbers are dropped, only positive ids are kept, de-duplicated in input order. One
 /// place so every id-list field parses the same way.
 /// </summary>
-public static class ConfigIds
+internal static class ConfigIds
 {
     /// <summary>
     /// Parses a comma-separated list of positive <see cref="int"/> ids.

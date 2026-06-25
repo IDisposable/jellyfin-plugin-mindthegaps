@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Text;
 /// or paragraph end (<c>&lt;/p&gt;</c>) becomes a newline, and the remaining HTML entities are decoded.
 /// Applied centrally in <c>GapItemFactory.Create</c> so a gap's overview is stored plain whatever produced it.
 /// </summary>
-public static partial class HtmlText
+internal static partial class HtmlText
 {
     /// <summary>
     /// Strips HTML from a provider summary, keeping the text. Returns the input unchanged when it is

@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// for a picked set of ids. Implemented by the curated and discovery sources (TMDB curated sets, Discogs
 /// labels, MDBList lists); the owned-derived sources (collections, filmographies, series content) do not.
 /// </summary>
-public interface IExploreSource
+internal interface IExploreSource
 {
     /// <summary>
     /// Gets the explore kinds this source exposes.

@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services;
 /// case differences do not block a comparison. Used to key titles and names for matching and de-duplication
 /// (a title's match key, an author's name key, and so on).
 /// </summary>
-public static class TextKey
+internal static class TextKey
 {
     /// <summary>
     /// Reduces a string to a comparison key: lowercase letters and digits only, everything else dropped.

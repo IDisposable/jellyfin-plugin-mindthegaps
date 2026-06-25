@@ -13,7 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// id on an item becomes a clickable link without each source hand-rolling URLs. A link is labeled with the
 /// service's canonical name (<see cref="ServiceNames"/>) where it is a service the plugin knows.
 /// </summary>
-public static class ProviderLinks
+internal static class ProviderLinks
 {
     /// <summary>
     /// Builds the external links implied by a set of provider ids.

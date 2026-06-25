@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// by the TMDB/IMDb ids the list already carries. Opt-in: needs a Discover toggle, an MDBList API key, and
 /// at least one chosen list.
 /// </summary>
-public sealed class MdbListGapSource : IGapSource, IExploreSource
+internal sealed class MdbListGapSource : IGapSource, IExploreSource
 {
     // Cap a single list so a huge community list does not flood the discovery feed.
     private const int MaxGapsPerList = 200;
@@ -98,7 +98,7 @@ public sealed class MdbListGapSource : IGapSource, IExploreSource
             cancellationToken.ThrowIfCancellationRequested();
             if (ServiceCircuit.IsOpen(ServiceNames.MdbList))
             {
-                _logger.LogInformation("MDBList: service unavailable this run; skipping the remaining lists");
+                _logger.LogWarning("MDBList: service unavailable this run; skipping the remaining lists");
                 break;
             }
 

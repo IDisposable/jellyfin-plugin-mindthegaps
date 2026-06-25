@@ -126,7 +126,7 @@ public sealed class ExploreRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Background explore cancelled (plugin shutting down)");
+            _logger.LogWarning("Background explore cancelled (plugin shutting down)");
         }
         catch (Exception ex)
         {

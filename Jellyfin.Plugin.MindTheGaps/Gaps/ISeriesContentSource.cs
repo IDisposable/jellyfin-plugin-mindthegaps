@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// reader and the TVmaze/TheTVDB cross-checks); the engine runs them all for one series and merges the
 /// result into the report.
 /// </summary>
-public interface ISeriesContentSource
+internal interface ISeriesContentSource
 {
     /// <summary>
     /// Re-checks one owned series for the episodes it is missing.

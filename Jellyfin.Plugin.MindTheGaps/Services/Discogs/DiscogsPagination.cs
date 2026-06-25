@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 /// <summary>
 /// The pagination block on a paged Discogs response.
 /// </summary>
-public class DiscogsPagination
+internal class DiscogsPagination
 {
     /// <summary>Gets or sets the total number of pages.</summary>
     [JsonPropertyName("pages")]

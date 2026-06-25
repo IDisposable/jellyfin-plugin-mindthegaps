@@ -257,7 +257,7 @@ public sealed class AvailabilityRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Availability refresh cancelled");
+            _logger.LogWarning("Availability refresh cancelled");
             SetMessage("Availability lookup was cancelled.");
             throw;
         }
@@ -316,7 +316,7 @@ public sealed class AvailabilityRunner
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Availability enrichment cancelled (plugin shutting down)");
+            _logger.LogWarning("Availability enrichment cancelled (plugin shutting down)");
             SetMessage("Availability lookup was cancelled.");
         }
         catch (Exception ex)

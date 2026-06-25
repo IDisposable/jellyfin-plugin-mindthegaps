@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// company) or tagged with a keyword. Tracks the studios/keywords the user configures (by TMDB id) and
 /// surfaces the ones the library does not own, grouped by the set's name. Opt-in (off by default).
 /// </summary>
-public sealed class CuratedSetGapSource : IGapSource, IExploreSource
+internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
 {
     // 20 results per discover page; cap pages and emitted gaps so a broad studio does not flood the list.
     private const int MaxPagesPerSet = 10;

@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 /// (<c>filmography:movie:{tmdbId}</c>), so the engine de-dupes; Trakt only contributes movies
 /// TMDB missed. Opt-in: requires <see cref="PluginConfiguration.TraktEnabled"/> and a client id.
 /// </summary>
-public sealed class TraktFilmographyGapSource : IGapSource
+internal sealed class TraktFilmographyGapSource : IGapSource
 {
     // Trakt costs ~2 calls/person and is rate-limited (1000/5min), so cap lower than TMDB.
     private const int MaxPeople = 200;
@@ -76,7 +76,7 @@ public sealed class TraktFilmographyGapSource : IGapSource
 
             if (ServiceCircuit.IsOpen(ServiceNames.Trakt))
             {
-                _logger.LogInformation("Trakt filmography: Trakt is unavailable this run; skipping the remaining people");
+                _logger.LogWarning("Trakt filmography: Trakt is unavailable this run; skipping the remaining people");
                 break;
             }
 
