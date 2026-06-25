@@ -24,6 +24,8 @@ public class PluginConfiguration : BasePluginConfiguration
         AutoSeedStudios = false;
         ScanMusic = true;
         ScanBooks = true;
+        ScanCuratedBooks = false;
+        CuratedOpenLibrarySubjects = string.Empty;
         ScanDiscogs = false;
         DiscogsToken = string.Empty;
         DiscogsLabelIds = string.Empty;
@@ -129,6 +131,20 @@ public class PluginConfiguration : BasePluginConfiguration
     /// bibliography or the book's series (OpenLibrary). On by default.
     /// </summary>
     public bool ScanBooks { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to complete curated books sets from the OpenLibrary subjects
+    /// in <see cref="CuratedOpenLibrarySubjects"/>. Separate from <see cref="ScanBooks"/> so the curated
+    /// subject sets can run without the owned-book bibliography walk. Off by default.
+    /// </summary>
+    public bool ScanCuratedBooks { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of OpenLibrary subject slugs to complete as curated sets (for
+    /// example "science_fiction,fantasy"). A subject is fetched by slug, so the settings page takes the
+    /// slugs directly.
+    /// </summary>
+    public string CuratedOpenLibrarySubjects { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to surface missing releases from curated Discogs record

@@ -74,6 +74,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, MusicDiscographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, MusicArtistWorksGapSource>();
         serviceCollection.AddSingleton<IGapSource, BooksBibliographyGapSource>();
+        serviceCollection.AddSingleton<IGapSource, BooksSubjectGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();

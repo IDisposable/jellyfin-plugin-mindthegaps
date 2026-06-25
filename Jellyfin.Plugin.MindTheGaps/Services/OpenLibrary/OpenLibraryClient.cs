@@ -79,6 +79,23 @@ internal sealed class OpenLibraryClient
     }
 
     /// <summary>
+    /// Lists the works tagged with a subject (subjects/{subject}.json), the page used to complete a curated
+    /// books set. Each work carries its first publish year and authors, so a gap can get a year and an author
+    /// in a single call. Null when the subject cannot be read.
+    /// </summary>
+    /// <param name="subject">The subject slug (for example "science_fiction").</param>
+    /// <param name="limit">The maximum number of works to request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The subject response (its display name and works), or <see langword="null"/>.</returns>
+    public Task<OpenLibrarySubjectResponse?> GetSubjectWorksAsync(string subject, int limit, CancellationToken cancellationToken)
+    {
+        var bounded = limit < 1 ? 1 : limit;
+        return GetAsync<OpenLibrarySubjectResponse>(
+            string.Create(CultureInfo.InvariantCulture, $"/subjects/{Uri.EscapeDataString(subject)}.json?limit={bounded}"),
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Lists an author's works via the search endpoint (search.json?author_key=...), which carries the first
     /// publish year (the author-works list does not), so book gaps can get a year in a single call.
     /// </summary>
