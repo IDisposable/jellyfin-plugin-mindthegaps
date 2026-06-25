@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.3.9",
+                "changelog": "10.11.3.9 - Discogs discography scanning is faster and more accurate. It now checks only the artists your library has already tagged with a Discogs id, instead of guessing every artist by name (which was slow and sometimes matched the wrong act), and it fetches only album-level master releases, so a stray single or promo no longer turns up as a missing album.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.3.9/mind-the-gaps_10.11.3.9.zip",
+                "checksum": "4fe9d9344d666dafe2c60787172c4385",
+                "timestamp": "2026-06-25T09:13:20Z"
+            },
+            {
                 "version": "10.11.3.8",
                 "changelog": "10.11.3.8 - Series completeness is more accurate and now follows your library's own providers. Each series is checked against every metadata provider your Shows library uses (TheMovieDb, TheTVDB, TVmaze), merged season by season in your configured order so your preferred provider is the authority, a lower-ranked one can only add a season none above it lists, and your own missing-episode list is the last-chance fallback; a stale or wrong season no longer reports every episode as missing. Episodes are reconciled by air date and folded title, not just number, so a provider that renumbers, reorders, or merges a two-part episode no longer flags your owned episodes as missing. The separate per-provider cross-check checkboxes are gone (TheTVDB still needs its API key). You can re-check a single series for missing episodes without a full rescan. The identification audit and the Diagnose popup now cover music albums and books, not just movies and shows. Row titles are larger and each source's section can be collapsed.\n",
                 "targetAbi": "10.11.0.0",
