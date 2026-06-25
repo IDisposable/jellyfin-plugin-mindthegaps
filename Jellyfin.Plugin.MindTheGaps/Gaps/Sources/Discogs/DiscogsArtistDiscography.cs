@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using MediaBrowser.Controller.Entities;
@@ -19,27 +17,21 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 internal static class DiscogsArtistDiscography
 {
     /// <summary>
-    /// Resolves an owned artist's Discogs id: a Discogs id already on the item if present, otherwise a
-    /// conservative name search. Null when the item has no Discogs id and the name resolves to nothing (or
-    /// the artist has no name).
+    /// Resolves an owned artist's Discogs id from a Discogs id already on the library item, or null when the
+    /// item carries none. Discogs is consulted only for an artist the library has already identified on
+    /// Discogs, never resolved by a name search: that kept the scan slow (a search call for every untagged
+    /// artist) and risked matching a namesake.
     /// </summary>
     /// <param name="artist">The owned library artist.</param>
-    /// <param name="discogs">The Discogs client.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The Discogs artist id, or null.</returns>
-    public static async Task<long?> ResolveIdAsync(BaseItem artist, DiscogsClient discogs, CancellationToken cancellationToken)
+    public static long? ResolveId(BaseItem artist)
     {
         // ProviderIds.Discogs is the provider-id key an item carries (distinct from the HTTP service name).
-        if (artist.TryGetProviderId(ProviderIds.Discogs, out var tagged)
+        return artist.TryGetProviderId(ProviderIds.Discogs, out var tagged)
             && long.TryParse(tagged, NumberStyles.Integer, CultureInfo.InvariantCulture, out var taggedId)
-            && taggedId > 0)
-        {
-            return taggedId;
-        }
-
-        return string.IsNullOrEmpty(artist.Name)
-            ? null
-            : await discogs.SearchArtistAsync(artist.Name, cancellationToken).ConfigureAwait(false);
+            && taggedId > 0
+            ? taggedId
+            : null;
     }
 
     /// <summary>

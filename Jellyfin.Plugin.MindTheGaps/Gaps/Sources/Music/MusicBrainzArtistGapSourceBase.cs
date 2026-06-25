@@ -118,7 +118,8 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
     // Opt-in widening: for an artist MusicBrainz covers, also consult Discogs and surface the albums Discogs
     // lists that the MusicBrainz album list misses (matched by normalized title). These are additive and keyed
     // by Discogs id, so the MusicBrainz gaps keep their ids (a persisted-id contract, ADR-0008). Skipped unless
-    // Discogs is configured and its circuit is closed, and when the artist has no resolvable Discogs id.
+    // Discogs is configured and its circuit is closed, and for an artist the library has not tagged with a
+    // Discogs id (Discogs is never resolved by a name search).
     private async Task<IReadOnlyList<GapItem>> CompletenessGapsAsync(
         BaseItem artist,
         IReadOnlyList<MusicBrainzReleaseGroup> musicBrainzAlbums,
@@ -133,7 +134,7 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
             return [];
         }
 
-        var discogsId = await DiscogsArtistDiscography.ResolveIdAsync(artist, _discogs, cancellationToken).ConfigureAwait(false);
+        var discogsId = DiscogsArtistDiscography.ResolveId(artist);
         if (discogsId is null)
         {
             return [];

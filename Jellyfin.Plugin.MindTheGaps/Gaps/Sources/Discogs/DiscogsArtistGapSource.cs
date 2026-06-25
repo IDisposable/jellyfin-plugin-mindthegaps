@@ -17,9 +17,11 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 
 /// <summary>
-/// Widens the music gap sources with Discogs: it scans owned music-artist items the
-/// MusicBrainz sources cannot (those with no MusicBrainz artist id) and diffs each artist's Discogs
-/// discography against the library. Because it handles exactly the artists MusicBrainz skips, the two never
+/// Widens the music gap sources with Discogs: it scans owned music-artist items the MusicBrainz sources
+/// cannot (those with no MusicBrainz artist id) that the library has tagged with a Discogs artist id, and
+/// diffs each artist's Discogs discography against the library. Discogs is consulted only for an artist the
+/// library has already identified on Discogs, never resolved by a name search, so the scan stays fast.
+/// Because it handles exactly the artists MusicBrainz skips, the two never
 /// report the same album twice. The pattern follows the same split as the MusicBrainz sources: an album
 /// artist you collect yields a <see cref="GapPattern.SetCompletion"/> discography, an artist you only own a
 /// track by yields <see cref="GapPattern.CreatorWorks"/>. Opt-in; needs a Discogs token. It shares the
@@ -72,14 +74,12 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
             return ([], false);
         }
 
-        // Prefer a Discogs id already on the item; otherwise resolve the artist by name (conservatively).
-        var artistId = await DiscogsArtistDiscography.ResolveIdAsync(artist, _discogs, cancellationToken).ConfigureAwait(false);
-
-        // A Discogs call was spent resolving the artist (and another is about to be spent fetching), so this
-        // counts toward the cap whether or not the name resolved.
+        // Only scan an artist the library has already identified on Discogs. The id resolves from the item with
+        // no Discogs call, so an untagged artist costs nothing and does not count against the per-scan cap.
+        var artistId = DiscogsArtistDiscography.ResolveId(artist);
         if (artistId is null)
         {
-            return ([], true);
+            return ([], false);
         }
 
         IReadOnlyList<DiscogsRelease> releases;

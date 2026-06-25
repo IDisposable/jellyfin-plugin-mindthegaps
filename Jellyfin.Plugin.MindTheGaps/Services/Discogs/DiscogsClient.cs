@@ -132,26 +132,6 @@ internal sealed class DiscogsClient
     }
 
     /// <summary>
-    /// Resolves a Discogs artist id from an artist name, conservatively: the highest-ranked result whose name
-    /// matches exactly, or null when none does (so a namesake is not scanned as if it were the owned artist).
-    /// </summary>
-    /// <param name="name">The artist name to search for.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The Discogs artist id, or null.</returns>
-    public async Task<long?> SearchArtistAsync(string name, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return null;
-        }
-
-        // An artist's Discogs id is stable, so cache the name resolution for far longer than a scan.
-        var path = string.Create(CultureInfo.InvariantCulture, $"/database/search?type=artist&q={Uri.EscapeDataString(name)}&per_page={MaxSuggestions}");
-        var response = await GetAsync<DiscogsSearchResponse>(path, CachedApiClient.StableCacheDuration, cancellationToken).ConfigureAwait(false);
-        return DiscogsArtistMatcher.Pick(response?.Results, name);
-    }
-
-    /// <summary>
     /// Browses a Discogs artist's discography and returns only the artist's own master releases (one entry per
     /// album, the release-group equivalent), not the individual pressings or guest appearances. Discogs has no
     /// server-side type filter, so the masters are sieved out of each page as it is read and the paging is

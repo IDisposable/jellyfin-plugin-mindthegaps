@@ -52,7 +52,7 @@ flowchart LR
 
     col["TMDB collections and BoxSets"]:::movies --> SET
     cur["Curated studios and keywords"]:::movies --> SET
-    ser["Series content (Jellyfin, TVmaze, TheTVDB)"]:::shows --> SET
+    ser["Series content (Jellyfin, TheMovieDb, TVmaze, TheTVDB)"]:::shows --> SET
     mbd["MusicBrainz discography, Discogs labels"]:::music --> SET
 
     ppl["TMDB people"]:::movies --> CRE
@@ -67,6 +67,32 @@ flowchart LR
     SET["Set completion<br/>Movies: Set completion<br/>Shows: Series completion<br/>Music: Discography"]
     CRE["Creator works<br/>Movies and Shows: Creator works<br/>Music: Artist works<br/>Books: Author works"]
     DIS["Discover<br/>related titles and curated lists"]
+```
+
+Series content is the one source that consults several providers at once, so it gets a closer look. For
+each owned series the plugin gathers every reachable provider's episode list, merges them season by season
+in your library's own provider order, and reconciles what is left against the episodes you already hold:
+
+```mermaid
+flowchart TD
+    classDef provider fill:#ede7f6,stroke:#5e35b1,color:#311b92;
+    classDef merge fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
+    classDef lib fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef out fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+
+    S["Owned series"]:::lib --> Q{"Any provider reachable? library lists it as a<br/>fetcher, has credentials, and the series carries its id"}
+    Q -->|no| B["Surface missing episodes from the library's<br/>own virtual episodes alone"]:::lib
+    Q -->|yes| A["Ask each reachable provider for its episode list<br/>(TheMovieDb, TheTVDB, TVmaze)"]:::provider
+    A --> R["Rank by the library's fetcher order; TVmaze ranks last,<br/>and no configured order means every credentialed provider"]:::provider
+    R --> M["Merge season by season"]:::merge
+    M --> M1["The top-ranked provider owns each season it lists"]:::merge
+    M --> M2["A lower-ranked provider may add a season none above it<br/>lists, but never contradict a covered one"]:::merge
+    M1 --> L["Append the library's own virtual episodes last-chance,<br/>dropping a stale season the authority contradicts"]:::lib
+    M2 --> L
+    L --> D["Reconcile the merged list against owned episodes<br/>by air date and folded title, not just number"]:::merge
+    D --> O1["Owned, even if renumbered, reordered,<br/>or a merged two-parter"]:::out
+    D --> O2["Missing, reported as a gap"]:::out
+    B --> O2
 ```
 
 ## Features

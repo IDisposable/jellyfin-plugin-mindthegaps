@@ -99,37 +99,4 @@ public class DiscogsArtistTests
     {
         Assert.Single(Build(IndexWith(), cap: 1));
     }
-
-    [Fact]
-    public void Matcher_PicksTheExactNameMatch()
-    {
-        var results = new List<DiscogsSearchResult>
-        {
-            new() { Id = 1, Title = "Test Artist Tribute Band" },
-            new() { Id = 2, Title = "Test Artist" },
-            new() { Id = 3, Title = "Test Artist" }
-        };
-
-        // The first exact-name match wins (Discogs ranks by relevance); the longer namesake is not chosen.
-        Assert.Equal(2, DiscogsArtistMatcher.Pick(results, "test artist!"));
-    }
-
-    [Fact]
-    public void Matcher_ReturnsNull_WhenNoExactNameMatch()
-    {
-        var results = new List<DiscogsSearchResult>
-        {
-            new() { Id = 1, Title = "Test Artist Tribute Band" },
-            new() { Id = 2, Title = "A Different Artist" }
-        };
-
-        Assert.Null(DiscogsArtistMatcher.Pick(results, "Test Artist"));
-    }
-
-    [Fact]
-    public void Matcher_ReturnsNull_OnEmptyInput()
-    {
-        Assert.Null(DiscogsArtistMatcher.Pick(null, "Test Artist"));
-        Assert.Null(DiscogsArtistMatcher.Pick(new List<DiscogsSearchResult>(), "Test Artist"));
-    }
 }
