@@ -1154,7 +1154,7 @@
             var lbl = patternLabel(p, domain);
             return h('button', {
                 type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-pattern': p
-            }, lbl + ' (' + (counts[p] || 0) + ')').outerHTML;
+            }, lbl).outerHTML;
         }).join('');
     }
 
