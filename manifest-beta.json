@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.4.0",
+                "changelog": "10.11.4.0 - Discovery lists: complete or explore a curated TMDB list, MDBList community list, or Trakt list the way you complete a collection (a TMDB list takes a pasted themoviedb.org/list URL, a Trakt list a numeric id or slug), complete a Books subject from OpenLibrary, and try any source from a Run button without a full scan. Series completeness now follows your library's own providers, merging TheMovieDb, TheTVDB, and TVmaze season by season in your order and reconciling episodes by air date and folded title, so a renumbered or merged two-part episode reads as owned; the per-provider checkboxes are gone, and you can re-check one series without a rescan. Music and books are on by default, Creator works surfaces an owned person's missing series as well as films, and Discogs completes a label's releases and an owned artist's discography quickly and accurately. Diagnose and the identification audit cover albums and books, explain an episode-numbering mismatch, and export an AI-analysis dossier. Round out a gap with a personal TODO list, a send to Radarr, Sonarr, or Jellyseerr, or a reversible virtual placeholder for any domain. The report regroups its settings, labels every tab for the media type in view, enlarges titles, collapses sections, and keeps shareable links short, while scans shrug off a transient provider failure and never log an API key.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.4.0/mind-the-gaps_10.11.4.0.zip",
+                "checksum": "966f37802268304747a13b63743dd3e9",
+                "timestamp": "2026-06-26T02:36:40Z"
+            },
+            {
                 "version": "10.11.3.10",
                 "changelog": "10.11.3.10 - Two new opt-in sources, each with its own settings. Complete a Books subject from OpenLibrary (for example every book tagged science fiction or fantasy) under Complete what you own, and discover the unowned movies and shows on a Trakt list under Discover new titles. The TMDB-list setting now accepts a pasted themoviedb.org/list URL, not just a bare id. In the Shows set-completion view each series shows its year in the header, so a reboot is told apart from the original (Quantum Leap 1989 versus 2022).\n",
                 "targetAbi": "10.11.0.0",
