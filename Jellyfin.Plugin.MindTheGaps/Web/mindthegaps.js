@@ -1146,12 +1146,12 @@
         if (!page._pattern || !counts[page._pattern]) {
             page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
         }
-        // The active tab is worded for the domain in view (Series completion, Discography, ...);
-        // the others keep their generic wording, since each tab carries its own Type selection.
+        // Every tab is worded for the domain in view (Series completion, Discography, Artist works,
+        // ...), since the Type selector applies to the whole report, not per tab.
         var domain = page.querySelector('#cgTypeFilter').value;
         page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
             var active = p === page._pattern ? ' cgActive' : '';
-            var lbl = patternLabel(p, p === page._pattern ? domain : '');
+            var lbl = patternLabel(p, domain);
             return h('button', {
                 type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-pattern': p
             }, lbl + ' (' + (counts[p] || 0) + ')').outerHTML;
