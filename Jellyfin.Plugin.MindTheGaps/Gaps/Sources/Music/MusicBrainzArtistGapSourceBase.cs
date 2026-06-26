@@ -79,8 +79,10 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
         GapScanContext context,
         CancellationToken cancellationToken)
     {
+        // A MusicBrainz artist id is a GUID; skip an item carrying a bogus value (a stray "0", say) so a
+        // MusicBrainz call is not spent only to come back BadRequest.
         if (!artist.TryGetProviderId(ProviderIds.MusicBrainzArtist, out var artistMbid)
-            || string.IsNullOrEmpty(artistMbid))
+            || !Guid.TryParse(artistMbid, out _))
         {
             return ([], false);
         }
