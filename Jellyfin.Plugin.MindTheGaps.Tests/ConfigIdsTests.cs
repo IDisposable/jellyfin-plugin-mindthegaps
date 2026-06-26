@@ -29,4 +29,17 @@ public class ConfigIdsTests
     {
         Assert.Equal(new[] { 9000000000L, 2L }, ConfigIds.ParseLongs("9000000000, 2, 2"));
     }
+
+    [Fact]
+    public void ParseTokens_KeepsIdsAndSlugsTrimmedDeduplicatedInOrder()
+    {
+        Assert.Equal(new[] { "11416887", "trending", "my-list" }, ConfigIds.ParseTokens(" 11416887 , trending, my-list , trending "));
+    }
+
+    [Fact]
+    public void ParseTokens_NullOrBlankIsEmpty()
+    {
+        Assert.Empty(ConfigIds.ParseTokens(null));
+        Assert.Empty(ConfigIds.ParseTokens("  "));
+    }
 }

@@ -76,17 +76,18 @@ internal sealed class TraktClient
     /// <param name="listId">The Trakt list id.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The list's items.</returns>
-    public async Task<IReadOnlyList<TraktListItem>> GetListItemsAsync(long listId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TraktListItem>> GetListItemsAsync(string listId, CancellationToken cancellationToken)
     {
         var clientId = ClientId;
-        if (string.IsNullOrWhiteSpace(clientId))
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(listId))
         {
             return [];
         }
 
+        // A list is addressed by its numeric Trakt id or its slug, so escape it into the path.
         var items = await GetAsync<List<TraktListItem>>(
             clientId,
-            string.Create(CultureInfo.InvariantCulture, $"/lists/{listId}/items/movie,show?extended=full"),
+            string.Create(CultureInfo.InvariantCulture, $"/lists/{Uri.EscapeDataString(listId)}/items/movie,show?extended=full"),
             cancellationToken).ConfigureAwait(false);
         return items ?? [];
     }
@@ -97,17 +98,17 @@ internal sealed class TraktClient
     /// <param name="listId">The Trakt list id.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The list name, or null.</returns>
-    public async Task<string?> GetListNameAsync(long listId, CancellationToken cancellationToken)
+    public async Task<string?> GetListNameAsync(string listId, CancellationToken cancellationToken)
     {
         var clientId = ClientId;
-        if (string.IsNullOrWhiteSpace(clientId))
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(listId))
         {
             return null;
         }
 
         var list = await GetAsync<TraktList>(
             clientId,
-            string.Create(CultureInfo.InvariantCulture, $"/lists/{listId}"),
+            string.Create(CultureInfo.InvariantCulture, $"/lists/{Uri.EscapeDataString(listId)}"),
             cancellationToken).ConfigureAwait(false);
         return list?.Name;
     }

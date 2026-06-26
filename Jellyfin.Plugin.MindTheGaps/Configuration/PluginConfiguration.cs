@@ -192,8 +192,8 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanTraktLists { get; set; }
 
     /// <summary>
-    /// Gets or sets a comma-separated list of Trakt list ids to surface as discovery (Recommendation) gaps.
-    /// A list is fetched by id, so the settings page takes the ids directly.
+    /// Gets or sets a comma-separated list of Trakt lists to surface as discovery (Recommendation) gaps. Each
+    /// entry is a list's numeric id or its slug (Trakt accepts either on the lists endpoint).
     /// </summary>
     public string CuratedTraktListIds { get; set; }
 

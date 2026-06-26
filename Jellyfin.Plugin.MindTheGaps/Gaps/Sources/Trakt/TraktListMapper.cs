@@ -19,13 +19,13 @@ internal static class TraktListMapper
     /// <summary>
     /// Builds gaps for a list's unowned entries, de-duplicated by their strongest id and capped.
     /// </summary>
-    /// <param name="listId">The Trakt list id.</param>
+    /// <param name="listId">The Trakt list id or slug.</param>
     /// <param name="listName">The list's display name (the gap's source).</param>
     /// <param name="items">The list's entries.</param>
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="maxResults">The most gaps to emit for this list.</param>
     /// <returns>The discovery gaps for unowned entries.</returns>
-    public static IEnumerable<GapItem> Build(long listId, string? listName, IEnumerable<TraktListItem> items, OwnershipIndex ownership, int maxResults)
+    public static IEnumerable<GapItem> Build(string listId, string? listName, IEnumerable<TraktListItem> items, OwnershipIndex ownership, int maxResults)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(ownership);

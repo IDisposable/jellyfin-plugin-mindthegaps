@@ -139,9 +139,9 @@
                 </label>
             </div>
             <div class="inputContainer">
-                <label class="inputLabel inputLabelUnfocused" for="CuratedTraktListIds">Trakt list ids</label>
-                <input id="CuratedTraktListIds" name="CuratedTraktListIds" type="text" is="emby-input" placeholder="e.g. 11416887, 2142753" />
-                <div class="fieldDescription">Comma-separated Trakt list ids; the movies and shows on each that you do not own become discovery gaps. A list id is the number in its trakt.tv list URL. Needs the Trakt client id, set under Data sources.</div>
+                <label class="inputLabel inputLabelUnfocused" for="CuratedTraktListIds">Trakt lists</label>
+                <input id="CuratedTraktListIds" name="CuratedTraktListIds" type="text" is="emby-input" placeholder="e.g. 11416887, trending" />
+                <div class="fieldDescription">Comma-separated Trakt lists, each a numeric id or a slug (the part after /lists/ in a trakt.tv list URL); the movies and shows on each that you do not own become discovery gaps. Needs the Trakt client id, set under Data sources.</div>
             </div>
         </div>
         <div class="verticalSection">

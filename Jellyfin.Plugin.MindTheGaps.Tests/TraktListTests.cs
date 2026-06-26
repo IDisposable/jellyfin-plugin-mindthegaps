@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 //     "https://api.trakt.tv/lists/11416887/items/movie,show?limit=12&extended=full" -o trakt_list_items.json
 public class TraktListTests
 {
-    private const long ListId = 11416887;
+    private const string ListId = "11416887";
     private const string ListName = "True Crime Documentary Series & Film";
 
     private static readonly JsonSerializerOptions _jsonOptions = new()

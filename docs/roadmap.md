@@ -34,9 +34,6 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 - **Upstream ask A** ([jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
-- **Config UI for the new Books and Trakt-list sources.** The curated-book (`BooksSubjectGapSource`) and
-  Trakt-list (`TraktListGapSource`) sources exist but have no settings UI, so nothing reaches them yet; add the
-  config inputs (a raw field each, like the TMDB-list one), then their chip pickers.
 - **Batch send to an arr/Seerr stack.** A multi-select selection (or the whole todo list) handed to
   Radarr/Sonarr/Jellyseerr in one pass. Preferred over bulk minting in the near term: minting is held as long
   as possible in the hope upstream B makes it native, so acquisition handoff is the better place to spend
@@ -59,18 +56,16 @@ of them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **TMDB-list and Trakt-list polish.** The `CuratedTmdbListIds` field now accepts a pasted
-  `themoviedb.org/list/{id}` URL as well as a bare id (`TmdbListInput`); the open polish is a chip input over
-  the existing `tmdblist` `CuratedResolve` branch (TMDB has no list-search API, so its chip can only ever
-  paste-and-confirm). The **Trakt-list** discovery source now exists too (`TraktListGapSource`, the MDBList
-  sibling, with the `ScanTraktLists` toggle and `CuratedTraktListIds` field), but like the curated-book source
-  it has no settings UI yet; once a list-ids input exists, a `SearchListsAsync` over Trakt's list search
-  (`/lists/popular`, `/lists/trending`, list search) would make its chip a live type-ahead.
-- **Config UI and chips for the curated-book source.** The curated-book gap source now exists
-  (`BooksSubjectGapSource` completes an OpenLibrary subject, with the `ScanCuratedBooks` toggle and the
-  `CuratedOpenLibrarySubjects` field), but it has no settings UI yet, so nothing reaches it: add a subjects
-  input to the config page (a raw field like the TMDB-list one) to make it usable, then a type-ahead chip (a
-  `CuratedSearch`/`CuratedResolve` branch plus a `setupChips` instance).
+- **Chip pickers for the list sources.** All three list sources are reachable from settings as raw text
+  fields: `CuratedTmdbListIds` accepts a pasted `themoviedb.org/list/{id}` URL or a bare id (`TmdbListInput`),
+  and `CuratedTraktListIds` accepts a list's numeric id or its slug. The open polish is a chip picker each: a
+  paste-and-confirm chip over the existing `tmdblist` `CuratedResolve` branch (TMDB has no list-search API),
+  and for Trakt a `SearchListsAsync` over its list search (`/lists/popular`, `/lists/trending`, list search)
+  would make a live type-ahead.
+- **A chip picker for the curated-book source.** The curated-book source (`BooksSubjectGapSource`, completing
+  an OpenLibrary subject via the `ScanCuratedBooks` toggle and the `CuratedOpenLibrarySubjects` raw field) is
+  reachable from settings; the open polish is a type-ahead chip (a `CuratedSearch`/`CuratedResolve` branch
+  plus a `setupChips` instance) over an OpenLibrary subject search.
 
 ### Acquisition handoff
 

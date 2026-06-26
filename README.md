@@ -115,10 +115,11 @@ flowchart TD
   library's provider order, so your top provider (TheMovieDb for most) owns each series' episode list rather
   than one that numbers it differently. A refresh icon on each series and season
   re-checks just that show on the spot, so you can confirm a metadata fix without a full rescan.
-- **Curated sets (studio / keyword / label)**: complete the movies of a studio ("every A24 film", "every
-  Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, plus a record label's releases
-  via Discogs. Opt-in: pick studios, keywords, and labels with a type-ahead chip picker
-  (search, pick a match, it becomes a removable chip), no id-hunting required.
+- **Curated sets (studio / keyword / label / book subject)**: complete the movies of a studio ("every A24
+  film", "every Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, a record label's
+  releases via Discogs, or the books tagged with an OpenLibrary subject. Opt-in: studios, keywords, and labels
+  use a type-ahead chip picker (search, pick a match, it becomes a removable chip, no id-hunting); OpenLibrary
+  subjects are entered as slugs (for example science_fiction).
 - **Music and books (on by default)**: complete an album artist's discography and discover a
   track-only artist's wider catalog (MusicBrainz, with the opt-in Discogs source covering an owned artist
   that carries a Discogs id), and surface other books in an owned author's bibliography (OpenLibrary).
@@ -126,13 +127,14 @@ flowchart TD
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
   that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
   groups each suggestion under the owned title that surfaced it.
-- **Discovery lists (TMDB and MDBList)**: point the report at a curated list and complete it the way you
-  complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list ids pasted
-  in) or an **MDBList community list** (a type-ahead chip picker: search, pick a match, it becomes a
-  removable chip); the titles on it you do not own surface in the Discover tab, grouped under the list's
-  name (MDBList lists can include shows as well as movies). A title that is both on a curated list and
-  recommended groups under the list, with the recommendation kept as a secondary source, so the list stays
-  its own group. Opt-in, and MDBList needs a free API key.
+- **Discovery lists (TMDB, MDBList, and Trakt)**: point the report at a curated list and complete it the way
+  you complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list ids or
+  themoviedb.org/list URLs pasted in), an **MDBList community list** (a type-ahead chip picker: search, pick a
+  match, it becomes a removable chip), or a **Trakt list** (its **Scan Trakt lists** toggle, with each list's
+  numeric id or slug entered; needs a Trakt client id); the titles on it you do not own surface in the
+  Discover tab, grouped under the list's name (MDBList and Trakt lists can include shows as well as movies). A
+  title that is both on a curated list and recommended groups under the list, with the recommendation kept as
+  a secondary source, so the list stays its own group. Opt-in, and MDBList needs a free API key.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.

@@ -27,6 +27,32 @@ internal static class ConfigIds
     public static IReadOnlyList<long> ParseLongs(string? raw)
         => Parse(raw, part => long.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : (long?)null);
 
+    /// <summary>
+    /// Parses a comma-separated list of string tokens (for example a Trakt list's numeric id or its slug):
+    /// trimmed, blanks dropped, de-duplicated in input order.
+    /// </summary>
+    /// <param name="raw">The raw comma-separated value, or null.</param>
+    /// <returns>The parsed tokens, de-duplicated in input order.</returns>
+    public static IReadOnlyList<string> ParseTokens(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return [];
+        }
+
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (seen.Add(part))
+            {
+                result.Add(part);
+            }
+        }
+
+        return result;
+    }
+
     private static IReadOnlyList<T> Parse<T>(string? raw, Func<string, T?> parse)
         where T : struct
     {

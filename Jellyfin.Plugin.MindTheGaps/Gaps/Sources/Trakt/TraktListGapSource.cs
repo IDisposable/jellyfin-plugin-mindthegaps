@@ -46,12 +46,13 @@ internal sealed class TraktListGapSource : IGapSource, IExploreSource
                 Kind = "traktlist",
                 Label = "Trakt list",
                 Source = this,
-                // Trakt list ids are long; the chip picker works in ints, so widen here.
-                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids.Select(id => (long)id).ToList(), ct),
+                // A list id is a string (a numeric id or a slug). The explore chip picker works in ints, so an
+                // ad-hoc explore run reaches only numeric lists; a slug is entered in the settings field.
+                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList(), ct),
 
-                // Trakt has no list search yet (a follow-up could add one); a list is entered by raw id.
+                // Trakt has no list search yet (a follow-up could add one); a list is entered by raw id or slug.
                 Search = null,
-                Resolve = (id, ct) => _trakt.GetListNameAsync(id, ct)
+                Resolve = (id, ct) => _trakt.GetListNameAsync(id.ToString(CultureInfo.InvariantCulture), ct)
             }
         };
     }
@@ -69,13 +70,13 @@ internal sealed class TraktListGapSource : IGapSource, IExploreSource
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanTraktLists
             && !string.IsNullOrWhiteSpace(config.TraktClientId)
-            && ConfigIds.ParseLongs(config.CuratedTraktListIds).Count > 0;
+            && ConfigIds.ParseTokens(config.CuratedTraktListIds).Count > 0;
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
         CancellationToken cancellationToken)
-        => FindGapsForListsAsync(context, ConfigIds.ParseLongs(context.Config.CuratedTraktListIds), cancellationToken);
+        => FindGapsForListsAsync(context, ConfigIds.ParseTokens(context.Config.CuratedTraktListIds), cancellationToken);
 
     /// <summary>
     /// Streams the gaps for an explicit set of list ids, diffed against the context's ownership index. The
@@ -83,12 +84,12 @@ internal sealed class TraktListGapSource : IGapSource, IExploreSource
     /// the user picked, so a single list can be surfaced without a full rescan.
     /// </summary>
     /// <param name="context">The scan context.</param>
-    /// <param name="listIds">The Trakt list ids to fetch and diff.</param>
+    /// <param name="listIds">The Trakt list ids or slugs to fetch and diff.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>An async stream of gaps.</returns>
     public async IAsyncEnumerable<GapItem> FindGapsForListsAsync(
         GapScanContext context,
-        IReadOnlyList<long> listIds,
+        IReadOnlyList<string> listIds,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);

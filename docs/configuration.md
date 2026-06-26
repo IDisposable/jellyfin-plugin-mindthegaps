@@ -26,6 +26,8 @@ from your library. Leaving everything off produces an empty report.
 | **Auto-seed studios from your library** (`AutoSeedStudios`) | Off | Tracks the studios most common across your owned movies and series without you picking anything. Combine with the chips or use alone. Only matters when **Track curated sets** is on. | Only the studios/keywords you picked are tracked. |
 | **Music (artist discographies)** (`ScanMusic`) | On | For each owned music artist, lists missing studio-album release-groups from the MusicBrainz discography. An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works" (discover their wider catalog). | No music gaps. |
 | **Books (author bibliographies)** (`ScanBooks`) | On | For each owned book, lists other entries in the author's bibliography (OpenLibrary). Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). | No book gaps. |
+| **Curated books (OpenLibrary subjects)** (`ScanCuratedBooks`) | Off | Treats the OpenLibrary subjects below as Books sets to complete: lists the books tagged with each subject you do not own. | The OpenLibrary subjects are ignored. |
+| **OpenLibrary subjects** (`CuratedOpenLibrarySubjects`) | Empty | Comma-separated OpenLibrary subject slugs (the part after `/subjects/` in an `openlibrary.org/subjects/<slug>` URL, lowercase with underscores, for example `science_fiction`). Only matters when **Curated books** is on. | No curated-book gaps. |
 
 ### Curated set inputs
 
@@ -51,6 +53,8 @@ with the recommendation kept as a secondary source, so each list reads as its ow
 | **TMDB list ids** (`CuratedTmdbListIds`) | Empty | Comma-separated TMDB list ids; a list id is the number in its `themoviedb.org/list/<id>` URL. TMDB has no list search, so paste the id. Only matters when **Scan TMDB lists** is on. | No TMDB-list gaps. |
 | **Scan MDBList community lists** (`ScanMdbList`) | Off | Surfaces the unowned titles (movies and shows) from the MDBList lists chosen below. Needs the **MDBList API key** under Data sources. | The MDBList lists are ignored. |
 | **MDBList lists** (`MdbListListIds`) | Empty | Search MDBList for a public list and pick a match in the chip box; each becomes a removable chip. Only the chosen list id is stored. Only matters when **Scan MDBList community lists** is on. | No MDBList gaps. |
+| **Scan Trakt lists** (`ScanTraktLists`) | Off | Surfaces the unowned titles (movies and shows) from the Trakt lists named below. Needs the **Trakt Client ID** under Data sources. | The Trakt lists are ignored. |
+| **Trakt lists** (`CuratedTraktListIds`) | Empty | Comma-separated Trakt lists, each a numeric id or a slug (the part after `/lists/` in a `trakt.tv` list URL; Trakt accepts either). Only matters when **Scan Trakt lists** is on. | No Trakt-list gaps. |
 
 ## Where to watch
 
