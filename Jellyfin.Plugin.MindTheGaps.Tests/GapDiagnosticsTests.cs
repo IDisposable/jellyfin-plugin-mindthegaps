@@ -588,4 +588,87 @@ public class GapDiagnosticsTests
         Assert.Contains("S01E19", d.Summary, StringComparison.Ordinal);
         Assert.Contains("2 versions", d.Summary, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void DiagnoseSeriesContent_NoOwnedEpisodesAtAll_PointsAtSeasonFolders()
+    {
+        // The Highlander case: the series is owned and richly identified, but a duplicate "Season 1" / "Season 01"
+        // left it with no episodes the diagnosis can see. The verdict must point at the folders, not call every
+        // episode a genuine gap with no detail.
+        var gap = new GapItem { Id = "seriescontent:show:s01e01", Name = "Highlander: The Series S01E01 - The Gathering", Year = 1992, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Highlander: The Series", 1992, new Dictionary<string, string> { ["Tmdb"] = "4414" }, "series-guid", [], [], []);
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Contains("no episodes on disk", d.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("season folder", d.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiagnoseSeriesContent_OwnsEpisodesButNoneDated_ReportsTheCounts()
+    {
+        // Episodes are owned but none carry an air date, so the era comparison cannot run. The verdict names how
+        // many episodes and seasons are owned rather than the old bare "not enough dated content".
+        var gap = new GapItem { Id = "seriescontent:show:s03e04", Name = "Some Show S03E04", Year = 1990, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
+
+        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+            gap, "Some Show", 1988, new Dictionary<string, string> { ["Tmdb"] = "999" }, "series-guid",
+            [], [], new (int, int, string?, int)[] { (1, 1, "A", 1), (1, 2, "B", 1), (2, 1, "C", 1) });
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        Assert.Contains("3 episode(s) across 2 season(s)", d.Summary, StringComparison.Ordinal);
+        Assert.Contains("S03E04", d.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FindDuplicateSeasons_FlagsASeasonNumberInMoreThanOneFolder()
+    {
+        // Two folders both map to season 1: one full, one extras-only. The count of folders is what matters, not
+        // the lopsided episode counts, so this is flagged with both folders and their counts carried through.
+        var seasons = new[]
+        {
+            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 1, "Season 1", "/media/Highlander/Season 1", "season-a", 22),
+            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 1, "Season 01", "/media/Highlander/Season 01", "season-b", 0),
+            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 2, "Season 2", "/media/Highlander/Season 2", "season-c", 22)
+        };
+
+        var groups = GapDiagnostics.FindDuplicateSeasons(seasons);
+
+        var group = Assert.Single(groups);
+        Assert.Equal(1, group.SeasonNumber);
+        Assert.Equal("Highlander", group.SeriesName);
+        Assert.Equal(2, group.Folders.Count);
+        Assert.Contains(group.Folders, f => f.Name == "Season 01" && f.EpisodeCount == 0);
+        Assert.Contains(group.Folders, f => f.Name == "Season 1" && f.EpisodeCount == 22);
+    }
+
+    [Fact]
+    public void FindDuplicateSeasons_AlsoFlagsTwoFullCopies()
+    {
+        // The "two copies of everything" shape: both season-1 folders are full. Still one finding, because a
+        // season number split across folders is wrong however the episodes fall out.
+        var seasons = new[]
+        {
+            new GapDiagnostics.SeasonInfo("Show", "series-1", 1, "Season 1", "/a/Season 1", "s-a", 22),
+            new GapDiagnostics.SeasonInfo("Show", "series-1", 1, "Season 1 dup", "/b/Season 1", "s-b", 22)
+        };
+
+        var group = Assert.Single(GapDiagnostics.FindDuplicateSeasons(seasons));
+        Assert.Equal(2, group.Folders.Count);
+    }
+
+    [Fact]
+    public void FindDuplicateSeasons_DistinctNumbersAndDistinctSeriesAreNotFlagged()
+    {
+        // One folder per number, and a same-numbered season under a different series, are both fine.
+        var seasons = new[]
+        {
+            new GapDiagnostics.SeasonInfo("Show A", "series-1", 1, "Season 1", null, "s-a", 10),
+            new GapDiagnostics.SeasonInfo("Show A", "series-1", 2, "Season 2", null, "s-b", 10),
+            new GapDiagnostics.SeasonInfo("Show B", "series-2", 1, "Season 1", null, "s-c", 10)
+        };
+
+        Assert.Empty(GapDiagnostics.FindDuplicateSeasons(seasons));
+    }
 }

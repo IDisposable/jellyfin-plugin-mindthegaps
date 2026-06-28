@@ -63,4 +63,10 @@ public sealed class IdentificationAudit
     /// Gets or sets the groups of owned items that share a provider id (one of each group is misidentified).
     /// </summary>
     public IReadOnlyList<DuplicateIdGroup> Duplicates { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the series that hold one season number in more than one folder (the "Season 1" and
+    /// "Season 01" footgun), so a season's episodes are duplicated or scattered across folders. Shows-scoped.
+    /// </summary>
+    public IReadOnlyList<DuplicateSeasonGroup> DuplicateSeasons { get; set; } = [];
 }

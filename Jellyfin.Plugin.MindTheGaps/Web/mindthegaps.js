@@ -1465,6 +1465,27 @@
         }
         sections.push({ heading: 'Duplicate TheMovieDb ids', body: dupBody });
 
+        // Series whose episodes are split or duplicated across two folders that map to the same season
+        // number (a "Season 1" and a "Season 01"). Each folder's path and episode count is listed so the
+        // reader can see which copy to keep.
+        var dupSeasons = audit.DuplicateSeasons || [];
+        var dsBody = [];
+        if (!dupSeasons.length) {
+            dsBody.push('None found: no series has the same season number in more than one folder.', '');
+        } else {
+            dsBody.push('**' + dupSeasons.length + '** Each series below holds one season number in more than one folder (for example a "Season 1" and a "Season 01"), so that season is duplicated or its episodes are scattered. Merge the folders into one, then rescan.', '');
+            dupSeasons.forEach(function (g) {
+                var lines = [];
+                (g.Folders || []).forEach(function (f) {
+                    var where = f.Path ? ' `' + f.Path + '`' : '';
+                    lines.push('- "' + mdEsc(f.Name || '') + '"' + where + ': ' + (f.EpisodeCount || 0) + ' episode(s)' + jf(f));
+                });
+                var n = (g.Folders || []).length;
+                dsBody = dsBody.concat(detailsBlock(esc(g.SeriesName || 'Series') + ' - season ' + g.SeasonNumber + ' in ' + n + ' folders', lines));
+            });
+        }
+        sections.push({ heading: 'Duplicate season folders', body: dsBody });
+
         var anchorFor = anchorAllocator();
         sections.forEach(function (s) { s.anchor = anchorFor(s.heading); });
 

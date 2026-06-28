@@ -189,7 +189,18 @@ public sealed class GapDiagnostics
             };
         }
 
-        return AuditAgainst(report, LoadOwned(kinds), scopeDomain, scopePattern);
+        var owned = LoadOwned(kinds);
+        var audit = AuditAgainst(report, owned, scopeDomain, scopePattern);
+
+        // Duplicate season folders are a Shows-only structural problem (a "Season 1" and a "Season 01" both
+        // mapping to season 1), so only look when Series are in scope. It reads each series' seasons from the
+        // library, so it lives here rather than in the pure AuditAgainst seam.
+        if (kinds.Contains(BaseItemKind.Series))
+        {
+            audit.DuplicateSeasons = FindDuplicateSeasons(OwnedSeasons(owned));
+        }
+
+        return audit;
     }
 
     // Audit a report against an explicit set of owned items: the testable seam, no library load.
@@ -261,6 +272,43 @@ public sealed class GapDiagnostics
             Mismatches = mismatches,
             Duplicates = duplicates
         };
+    }
+
+    // Group the owned seasons by series and season number, and flag any number that more than one folder
+    // claims. A duplicate season number is wrong regardless of how its episodes fall out (two full copies, the
+    // episodes scattered across both folders, or one folder holding only extras), so the test is the count of
+    // folders per number, not their episodes; the episode counts ride along only so the reader can see which
+    // folder to keep. The testable seam; BuildAudit gathers the seasons from the library.
+    internal static IReadOnlyList<DuplicateSeasonGroup> FindDuplicateSeasons(IReadOnlyList<SeasonInfo> seasons)
+    {
+        var groups = new List<DuplicateSeasonGroup>();
+        foreach (var bySeries in seasons.Where(s => s.Number.HasValue).GroupBy(s => s.SeriesId, StringComparer.Ordinal))
+        {
+            foreach (var byNumber in bySeries.GroupBy(s => s.Number!.Value).OrderBy(g => g.Key))
+            {
+                var folders = byNumber.ToList();
+                if (folders.Count < 2)
+                {
+                    continue;
+                }
+
+                groups.Add(new DuplicateSeasonGroup
+                {
+                    SeriesName = folders[0].SeriesName,
+                    SeriesJellyfinItemId = folders[0].SeriesId,
+                    SeasonNumber = byNumber.Key,
+                    Folders = folders.Select(f => new DuplicateSeasonFolder
+                    {
+                        Name = f.SeasonName,
+                        Path = f.Path,
+                        JellyfinItemId = f.SeasonId,
+                        EpisodeCount = f.EpisodeCount
+                    }).ToList()
+                });
+            }
+        }
+
+        return groups;
     }
 
     // Diagnose an episode or season gap against the owning series, the episode numbers you own for it, and the
@@ -360,9 +408,33 @@ public sealed class GapDiagnostics
             }
         }
 
-        if (gap.Year is not int airedYear || ownedEpisodeYears.Count == 0)
+        // No dated episode to compare against. Split the old single "not enough dated content" message by what
+        // it actually means: owning nothing on disk for the whole series is the structural footgun (an empty or
+        // duplicate season folder), not a per-episode gap; owning episodes that simply lack air dates is a
+        // metadata problem. Calling it "genuinely missing" with no detail is what hid the Highlander case, where
+        // a duplicate "Season 1" and "Season 01" left the series with no episodes the diagnosis could see.
+        if (ownedEpisodeYears.Count == 0)
         {
-            return Result(DiagnosisReason.NotOwned, string.Create(CultureInfo.InvariantCulture, $"There is not enough dated content to compare, so this {noun} looks like a genuine gap in '{name}'."));
+            if (ownedEpisodes.Count == 0)
+            {
+                return Result(
+                    DiagnosisReason.NotOwned,
+                    string.Create(CultureInfo.InvariantCulture, $"You own no episodes on disk for '{name}', so every episode reads as missing. That usually points to an empty or mis-structured season folder (for example a duplicate 'Season 1' and 'Season 01' where one holds only extras, so the episodes are split or hidden), not a real gap. Run the library audit to check this series' season folders, fix them, then rescan."));
+            }
+
+            var ownedSeasons = ownedEpisodes.Select(e => e.Season).Distinct().Count();
+            var ownedCount = ownedEpisodes.Select(e => (e.Season, e.Number)).Distinct().Count();
+            var subject = episodeCode ?? string.Create(CultureInfo.InvariantCulture, $"this {noun}");
+            return Result(
+                DiagnosisReason.NotOwned,
+                string.Create(CultureInfo.InvariantCulture, $"You own {ownedCount} episode(s) across {ownedSeasons} season(s) of '{name}', but none carry an air date, so {subject} cannot be placed by year. It is not among the owned episodes by number or title either, so it looks like a genuine gap; refresh the series' metadata to restore air dates if that is wrong."));
+        }
+
+        if (gap.Year is not int airedYear)
+        {
+            return Result(
+                DiagnosisReason.NotOwned,
+                string.Create(CultureInfo.InvariantCulture, $"This {noun} carries no air date to place against the run of '{name}', and it is not among the episodes you own by number or title, so it looks like a genuine gap."));
         }
 
         // Expand the owned run through the series' missing-episode years into its real episode era, the same
@@ -719,6 +791,55 @@ public sealed class GapDiagnostics
         return owned;
     }
 
+    // The non-virtual (folder-backed) seasons of each owned series, with each season's path and episode count,
+    // so the audit can flag a season number that more than one folder claims. Only real folders are read
+    // (IsVirtualItem = false), so a virtual placeholder season is never mistaken for a duplicate folder.
+    private IReadOnlyList<SeasonInfo> OwnedSeasons(IReadOnlyList<BaseItem> owned)
+    {
+        var seasons = new List<SeasonInfo>();
+        foreach (var item in owned)
+        {
+            if (item is not Series series)
+            {
+                continue;
+            }
+
+            var seriesId = series.Id.ToString("N", CultureInfo.InvariantCulture);
+            foreach (var child in _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                IncludeItemTypes = new[] { BaseItemKind.Season },
+                AncestorIds = new[] { series.Id },
+                IsVirtualItem = false,
+                Recursive = true
+            }))
+            {
+                if (child is not Season season)
+                {
+                    continue;
+                }
+
+                var episodes = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = new[] { BaseItemKind.Episode },
+                    AncestorIds = new[] { season.Id },
+                    IsVirtualItem = false,
+                    Recursive = true
+                }).Count;
+
+                seasons.Add(new SeasonInfo(
+                    series.Name ?? string.Empty,
+                    seriesId,
+                    season.IndexNumber,
+                    season.Name ?? string.Empty,
+                    season.Path,
+                    season.Id.ToString("N", CultureInfo.InvariantCulture),
+                    episodes));
+            }
+        }
+
+        return seasons;
+    }
+
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
     {
         // Skip the load entirely for any kind the diagnosis cannot analyze.
@@ -865,6 +986,10 @@ public sealed class GapDiagnostics
 
         list.Add(value);
     }
+
+    // One owned season for the duplicate-season audit: its series, its number, and the display fields the
+    // finding carries through (the season's name, folder path, id, and episode count).
+    internal readonly record struct SeasonInfo(string SeriesName, string SeriesId, int? Number, string SeasonName, string? Path, string SeasonId, int EpisodeCount);
 
     private readonly record struct OwnedItem(BaseItemKind Kind, string Name, string NormalizedName, int? Year, IReadOnlyDictionary<string, string> ProviderIds, string JellyfinId);
 
