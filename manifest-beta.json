@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "10.11.4.2",
+                "changelog": "10.11.4.2 - The gaps report and the settings are separate dashboard pages. The report opens without the settings form attached, and the plugin's Settings button opens the settings. Resetting the scan rotation and removing minted items are on the report now, under Maintenance, beside the library they act on. Shared report links and exported audit dossiers still open the report.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.4.2/mind-the-gaps_10.11.4.2.zip",
+                "checksum": "4bea009baf2d7080a7c8996e8b8f089d",
+                "timestamp": "2026-07-15T19:36:33Z"
+            },
+            {
                 "version": "10.11.4.1",
                 "changelog": "10.11.4.1 - Fixes installing on a server running an earlier 10.11 patch. The plugin declares the 10.11.0.0 ABI but was built against the 10.11.11 assemblies, which stamp their own patch number, so the package asked any server for 10.11.11 and a server on an earlier patch refused to load it. It is now built against 10.11.0 and loads on any 10.11.x server. In the TODO list, the source column now says what it is showing, using the same wording as the report's section buttons (the series for an episode, Discover for a recommendation, the creator, the set), instead of a bare name that read as a wrong series when you added a whole show. A movie or show with no JustWatch link of its own now gets a JustWatch search there too, both in the list and in the Markdown export.\n",
                 "targetAbi": "10.11.0.0",
