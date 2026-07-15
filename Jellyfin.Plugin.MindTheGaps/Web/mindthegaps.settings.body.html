@@ -1,8 +1,8 @@
-<div id="cgSettingsPanel" style="display:none;">
+<div id="cgSettingsPanel">
     <form id="MindTheGapsConfigForm" onsubmit="return false;">
         <div class="verticalSection">
             <h2 class="sectionTitle">Settings</h2>
-            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Use the X at the top to close this panel and return to the report.</p>
+            <p class="fieldDescription" style="margin:0;">Choose what the gap scanner looks for. Use the button at the top to go back to the gaps report.</p>
         </div>
         <div class="verticalSection">
             <h2 class="sectionTitle">Complete what you own</h2>
@@ -342,27 +342,6 @@
                 <input id="MaxCastBillingOrder" name="MaxCastBillingOrder" type="number" is="emby-input" min="0" max="100" />
                 <div class="fieldDescription">Drops minor (deeply billed) acting roles, so a bit part is not counted as the person's work. 0 keeps any billing; for example 10 keeps only roles billed in the top 10. Does not affect directing/writing.</div>
             </div>
-            <div style="margin: 0.5em 0;">
-                <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">
-                    <span>Reset scan rotation</span>
-                </button>
-                <div class="fieldDescription">Forgets which items were scanned recently, so the next scan starts a fresh coverage cycle treating everything as never-scanned. Does not delete any gaps or dismissals. Stale entries for items that left the library are pruned automatically, so you rarely
-                    need this.</div>
-            </div>
-        </div>
-        <div class="verticalSection">
-            <h2 class="sectionTitle">Virtual items</h2>
-            <p class="fieldDescription" style="color:#e08000;"> The plugin can write a tagged, reversible "virtual" placeholder into your library for any missing movie, series, album, or book, so the gap renders greyed-out the way missing episodes do. This is off by default and loudly temporary: a
-                stand-in for proper server support that belongs in core, so the server will not reconcile or garbage-collect these for you. Mint individual gaps, or a multi-select batch, from the <strong>Mint</strong> buttons on the report. Every placeholder is fully removable; use <strong>Remove
-                    minted items</strong> here to undo everything at once. </p>
-            <div style="margin: 0.5em 0 1.5em 0;">
-                <button id="RemovePreview" is="emby-button" type="button" class="raised emby-button">
-                    <span>Preview removal (dry run)</span>
-                </button>
-                <button id="RemoveMinted" is="emby-button" type="button" class="raised emby-button">
-                    <span>Remove minted items</span>
-                </button>
-            </div>
         </div>
         <div>
             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
@@ -371,9 +350,3 @@
         </div>
     </form>
 </div>
-</div>
-</div>
-<button is="paper-icon-button-light" type="button" id="cgScrollTop" title="Back to top" aria-label="Back to top"
-        style="position:fixed;right:1.4em;bottom:1.4em;z-index:1000;display:none;background:#00a4dc;color:#fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.45);">
-    <span class="material-icons" aria-hidden="true">keyboard_arrow_up</span>
-</button>

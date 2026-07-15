@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Mind the Gaps settings</title>
+</head>
+
+<body>
+    <div id="MindTheGapsSettingsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-checkbox,emby-linkbutton,paper-icon-button-light">
+        <style>
+            @@MTG_CSS@@
+        </style>
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Mind the Gaps settings</h2>
+                    <button is="paper-icon-button-light" type="button" id="cgBackToReport" style="margin-left:auto;" title="Back to the gaps report" aria-label="Back to the gaps report">
+                        <span class="material-icons" aria-hidden="true">list_alt</span>
+                    </button>
+                </div>
+                @@MTG_BODY@@
+                <script type="text/javascript">
+                    (function () {
+                        @@MTG_COMMON@@
+                        @@MTG_JS@@
+                    })();
+                </script>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

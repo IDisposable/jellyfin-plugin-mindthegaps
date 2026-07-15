@@ -18,9 +18,10 @@ your cast and crew made that you don't own, and related titles worth adding.
 
 ## What it does
 
-A scheduled task scans your library; a dashboard page (**Dashboard > Mind the Gaps**) shows the
+A scheduled task scans your library; a dashboard page (**Dashboard > Gaps Report**) shows the
 results: filterable by tab and media type, searchable, with links out (TMDB, IMDb, and more) and an
-on-demand "Where to watch" for each item.
+on-demand "Where to watch" for each item. What it scans for is on its own page
+(**Dashboard > Mind the Gaps**), which is also where the plugin's Settings button lands.
 
 <p align="center">
   <a href="docs/screenshots/report-movies-set-completion.png"><img src="docs/screenshots/report-movies-set-completion.png" alt="The Mind the Gaps report: movie collections laid out in columns with their missing parts" width="860"></a>

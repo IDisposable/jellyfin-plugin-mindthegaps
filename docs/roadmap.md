@@ -122,7 +122,9 @@ of them. Drafts in [docs/upstream/](upstream/).
   (multi-file atomic writes), `GapEngine` (per-domain de-dup and carry-forward), and `AvailabilityRunner`.
 - **Virtualize the dashboard render.** Full filmography coverage of a large library can reach tens of
   thousands of gaps; the flat render may eventually want windowing. Pairs with the report sharding.
-- **Finer dashboard JS split.** The dashboard is authored as `Web/mindthegaps.{html,css,js}` concatenated at
-  build time. Optionally split `mindthegaps.js` into concern-grouped sections (filters/state, tree render,
-  row actions, availability, views/export) and concatenate them too; the shared IIFE scope makes that a
-  careful, browser-tested change, and the build pipeline already absorbs extra inputs.
+- **Finer dashboard JS split.** The report and the settings form are separate pages now, so the settings
+  page no longer carries the report's script (`mindthegaps.report.js` is still ~3.3k lines, against ~300 for
+  settings and ~50 shared). Optionally split the report script into concern-grouped sections (filters/state,
+  tree render, row actions, availability, views/export) and concatenate those too; the shell owns the IIFE,
+  so extra parts share one scope for free and the build pipeline already absorbs extra inputs. What makes it
+  a careful, browser-tested change is that nothing but the browser proves the parts still see each other.

@@ -62,16 +62,24 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         var ns = GetType().Namespace;
 
-        // One page for the whole plugin: the report and the settings form live on the same page, with the
-        // gear toggling between them (accordion), so there is a single sidebar entry rather than two. It is
-        // EnableInMainMenu so it shows in the dashboard drawer and so jellyfin-web's findBestConfigurationPage
-        // (apps/dashboard/features/plugins) resolves the plugin-details "Settings" button to it; that button
-        // opens the page with the report showing, and the gear opens the settings panel.
+        // Settings first: jellyfin-web's findBestConfigurationPage (apps/dashboard/features/plugins)
+        // resolves the plugin-details "Settings" button to the first page flagged EnableInMainMenu, and
+        // ignores page names. The report must keep the "MindTheGaps" name: shared view links and exported
+        // audit dossiers carry configurationpage?name=MindTheGaps.
+        yield return new PluginPageInfo
+        {
+            Name = "MindTheGapsSettings",
+            DisplayName = "Mind the Gaps",
+            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.settings.html", ns),
+            EnableInMainMenu = true,
+            MenuIcon = "settings"
+        };
+
         yield return new PluginPageInfo
         {
             Name = "MindTheGaps",
-            DisplayName = "Mind the Gaps",
-            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.html", ns),
+            DisplayName = "Gaps Report",
+            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.mindthegaps.report.html", ns),
             EnableInMainMenu = true,
             MenuIcon = "playlist_add_check"
         };

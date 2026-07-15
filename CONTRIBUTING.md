@@ -85,7 +85,8 @@ Jellyfin.Plugin.MindTheGaps/            # the plugin
   Services/                             # TMDB, Trakt, TVmaze, TheTVDB, MusicBrainz, OpenLibrary, availability
   ScheduledTasks/                       # the gap scan and the availability refresh tasks
   Api/GapsController.cs                 # the dashboard's HTTP endpoints
-  Web/mindthegaps.html                  # the dashboard (the gear toggles an inline settings panel)
+  Web/                                  # two dashboard pages (the gaps report and the settings form),
+                                        # each a shell + body + script over the shared css/common.js
   Configuration/PluginConfiguration.cs
   VirtualItems/VirtualItemMinter.cs     # temporary, opt-in
 .editorconfig                           # code style + analyzer severities

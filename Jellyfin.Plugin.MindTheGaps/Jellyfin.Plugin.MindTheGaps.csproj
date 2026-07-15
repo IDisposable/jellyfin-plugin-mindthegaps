@@ -22,18 +22,18 @@
   <UsingTask TaskName="ConcatDashboard" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Shell ParameterType="System.String" Required="true" />
-      <Report ParameterType="System.String" Required="true" />
-      <Config ParameterType="System.String" Required="true" />
+      <Body ParameterType="System.String" Required="true" />
       <Css ParameterType="System.String" Required="true" />
+      <Common ParameterType="System.String" Required="true" />
       <Js ParameterType="System.String" Required="true" />
       <Output ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
       <Code Type="Fragment" Language="cs"><![CDATA[
         var html = System.IO.File.ReadAllText(Shell)
-            .Replace("@@MTG_REPORT@@", System.IO.File.ReadAllText(Report))
-            .Replace("@@MTG_CONFIG@@", System.IO.File.ReadAllText(Config))
+            .Replace("@@MTG_BODY@@", System.IO.File.ReadAllText(Body))
             .Replace("@@MTG_CSS@@", System.IO.File.ReadAllText(Css))
+            .Replace("@@MTG_COMMON@@", System.IO.File.ReadAllText(Common))
             .Replace("@@MTG_JS@@", System.IO.File.ReadAllText(Js));
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Output));
         System.IO.File.WriteAllText(Output, html);
@@ -42,14 +42,16 @@
   </UsingTask>
 
   <ItemGroup>
-    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.html" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.report.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.html" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.settings.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.html" />
   </ItemGroup>
 
   <Target Name="BuildDashboard"
           BeforeTargets="PrepareResources;BeforeCompile;CoreCompile"
-          Inputs="Web\mindthegaps.html;Web\mindthegaps.report.html;Web\mindthegaps.config.html;Web\mindthegaps.css;Web\mindthegaps.js"
-          Outputs="$(IntermediateOutputPath)mindthegaps.generated.html">
-    <ConcatDashboard Shell="Web\mindthegaps.html" Report="Web\mindthegaps.report.html" Config="Web\mindthegaps.config.html" Css="Web\mindthegaps.css" Js="Web\mindthegaps.js" Output="$(IntermediateOutputPath)mindthegaps.generated.html" />
+          Inputs="Web\mindthegaps.report.html;Web\mindthegaps.report.body.html;Web\mindthegaps.report.js;Web\mindthegaps.settings.html;Web\mindthegaps.settings.body.html;Web\mindthegaps.settings.js;Web\mindthegaps.css;Web\mindthegaps.common.js"
+          Outputs="$(IntermediateOutputPath)mindthegaps.report.generated.html;$(IntermediateOutputPath)mindthegaps.settings.generated.html">
+    <ConcatDashboard Shell="Web\mindthegaps.report.html" Body="Web\mindthegaps.report.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.report.js" Output="$(IntermediateOutputPath)mindthegaps.report.generated.html" />
+    <ConcatDashboard Shell="Web\mindthegaps.settings.html" Body="Web\mindthegaps.settings.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.settings.js" Output="$(IntermediateOutputPath)mindthegaps.settings.generated.html" />
   </Target>
 
   <ItemGroup>

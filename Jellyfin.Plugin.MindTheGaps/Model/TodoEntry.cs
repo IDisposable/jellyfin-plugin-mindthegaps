@@ -38,7 +38,7 @@ public class TodoEntry
     /// <summary>
     /// Gets or sets the gap pattern name (SetCompletion, CreatorWorks, Recommendation). The list needs it
     /// to say what <see cref="Creator"/> means, since the same field holds a series, a recommending title,
-    /// a creator, or a set depending on the pattern. Empty on entries saved before this was captured.
+    /// a creator, or a set depending on the pattern. Empty on an entry persisted without it.
     /// </summary>
     public string PatternName { get; set; } = string.Empty;
 

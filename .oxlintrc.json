@@ -10,5 +10,11 @@
   },
   "rules": {
     "no-unused-vars": ["warn", { "caughtErrors": "none" }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/mindthegaps.common.js"],
+      "rules": { "no-unused-vars": "off" }
+    }
+  ]
 }
