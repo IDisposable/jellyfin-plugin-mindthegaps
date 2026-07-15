@@ -1,19 +1,21 @@
 {
-    // Minimal dev container for plugin work: just the .NET 10 SDK.
-    // Not the Jellyfin server devcontainer; no ffmpeg, docker-in-docker, or workloads.
-    "name": "jellyfin-plugin-justwatch",
+    "name": "jellyfin-plugin-mindthegaps",
     "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
-    // Node is for the dashboard JavaScript lint only (oxlint); the plugin itself is .NET.
     "features": {
         "ghcr.io/devcontainers/features/node:1": {
             "version": "lts"
-        }
+        },
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {}
     },
     "postCreateCommand": "npm ci",
     "customizations": {
         "vscode": {
             "extensions": [
+                "anthropic.claude-code",
                 "ms-dotnettools.csharp",
+                "editorconfig.editorconfig",
+                "github.vscode-github-actions",
                 "ms-dotnettools.csdevkit"
             ]
         }

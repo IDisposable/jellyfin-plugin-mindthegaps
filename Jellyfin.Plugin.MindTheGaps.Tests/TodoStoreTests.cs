@@ -22,6 +22,7 @@ public class TodoStoreTests
             Id = id,
             Name = name,
             Year = year,
+            Pattern = GapPattern.CreatorWorks,
             Domain = MediaDomain.Movies,
             TargetKind = BaseItemKind.Movie,
             SourceItemName = "Some Creator",
@@ -48,6 +49,7 @@ public class TodoStoreTests
             Assert.Equal(1999, entry.Year);
             Assert.Equal("Movies", entry.DomainName);
             Assert.Equal("Movie", entry.TargetKindName);
+            Assert.Equal("CreatorWorks", entry.PatternName);
             Assert.Equal("Some Creator", entry.Creator);
             Assert.Equal("603", entry.ProviderIds["Tmdb"]);
             Assert.Single(entry.Links);

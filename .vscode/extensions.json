@@ -3,6 +3,7 @@
         "ms-dotnettools.csharp",
         "ms-dotnettools.csdevkit",
         "editorconfig.editorconfig",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "anthropic.claude-code"
     ]
 }

@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.4.0"
+version: "10.11.4.1"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,16 +20,11 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.4.0 - Discovery lists: complete or explore a curated TMDB list, MDBList community list, or Trakt list
-  the way you complete a collection (a TMDB list takes a pasted themoviedb.org/list URL, a Trakt list a numeric
-  id or slug), complete a Books subject from OpenLibrary, and try any source from a Run button without a full
-  scan. Series completeness now follows your library's own providers, merging TheMovieDb, TheTVDB, and TVmaze
-  season by season in your order and reconciling episodes by air date and folded title, so a renumbered or
-  merged two-part episode reads as owned; the per-provider checkboxes are gone, and you can re-check one series
-  without a rescan. Music and books are on by default, Creator works surfaces an owned person's missing series
-  as well as films, and Discogs completes a label's releases and an owned artist's discography quickly and
-  accurately. Diagnose and the identification audit cover albums and books, explain an episode-numbering
-  mismatch, and export an AI-analysis dossier. Round out a gap with a personal TODO list, a send to Radarr,
-  Sonarr, or Jellyseerr, or a reversible virtual placeholder for any domain. The report regroups its settings,
-  labels every tab for the media type in view, enlarges titles, collapses sections, and keeps shareable links
-  short, while scans shrug off a transient provider failure and never log an API key.
+  10.11.4.1 - Fixes installing on a server running an earlier 10.11 patch. The plugin declares the 10.11.0.0
+  ABI but was built against the 10.11.11 assemblies, which stamp their own patch number, so the package asked
+  any server for 10.11.11 and a server on an earlier patch refused to load it. It is now built against 10.11.0
+  and loads on any 10.11.x server. In the TODO list, the source column now says what it is showing, using the
+  same wording as the report's section buttons (the series for an episode, Discover for a recommendation, the
+  creator, the set), instead of a bare name that read as a wrong series when you added a whole show. A movie or
+  show with no JustWatch link of its own now gets a JustWatch search there too, both in the list and in the
+  Markdown export.

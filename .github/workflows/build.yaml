@@ -30,7 +30,10 @@ jobs:
           # (build.yaml 10.11.0.3 -> 12.0.0.3). A non-empty plugin-version overrides. plugin-version and
           # abi-base are declared empty here (not just omitted) so the matrix context type includes them and
           # the "Resolve version" step's matrix['plugin-version'] / matrix['abi-base'] do not warn.
-          - { abi: "10.11", framework: net9.0, dotnet: "9.0.x", jellyfin: "10.11.11", targetabi: "10.11.0.0", plugin-version: "", abi-base: "" }
+          # jellyfin must be the OLDEST patch of the ABI line (the .0): the Jellyfin NuGets stamp their
+          # patch into AssemblyVersion, so a later patch here emits assembly references that servers on
+          # earlier patches of the same ABI cannot bind. It must agree with targetabi.
+          - { abi: "10.11", framework: net9.0, dotnet: "9.0.x", jellyfin: "10.11.0", targetabi: "10.11.0.0", plugin-version: "", abi-base: "" }
           # Enable 12.x by uncommenting (set jellyfin to the real published version):
           # - { abi: "12.x", framework: net10.0, dotnet: "10.0.x", jellyfin: "12.0.0", plugin-version: "", abi-base: "12.0", targetabi: "12.0.0.0" }
     name: build (${{ matrix.abi }})
@@ -134,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: npm

@@ -2518,7 +2518,57 @@
         });
     }
 
-    // One TODO row: the done checkbox, the title and year, the creator, the links cell, and the
+    // The source column. The gap's source item is whatever surfaced it, which differs per pattern: the
+    // series for an episode, the title that recommended it, the creator, the set it completes. The
+    // report gives that name a section button for context; here it is a bare cell, so it carries that
+    // same label, worded for the entry's domain and trimmed of the "works"/"completion" tail the
+    // column does not need. An entry saved before the pattern was snapshotted shows the bare name.
+    function todoSourceLabel(entry) {
+        if (!entry.PatternName) { return ''; }
+        return patternLabel(entry.PatternName, entry.DomainName).replace(/\s+(works|completion)$/i, '');
+    }
+
+    // Plain "Label: Name", for the Markdown export.
+    function todoSourceText(entry) {
+        var src = entry.Creator || '';
+        var label = src ? todoSourceLabel(entry) : '';
+        return label ? label + ': ' + src : src;
+    }
+
+    // The same thing for a row, with the label dimmed so it reads as context and the name stays the
+    // thing you scan for.
+    function todoSourceCell(entry) {
+        var src = entry.Creator || '';
+        if (!src) { return ''; }
+        var label = todoSourceLabel(entry);
+        return (label ? wrap('span', { 'class': 'cgTodoSrcKind' }, esc(label) + ':') + ' ' : '') + esc(src);
+    }
+
+    // A JustWatch search for a movie or show carrying no JustWatch link of its own (the JustWatch
+    // plugin only links owned items), so an entry always has a "where can I watch this" path, the way
+    // the report offers one. Empty for any other kind, and for an entry that already has the link.
+    function todoJustWatchUrl(entry) {
+        if (entry.TargetKindName !== 'Movie' && entry.TargetKindName !== 'Series') { return ''; }
+        var hasJw = (entry.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
+        if (hasJw) { return ''; }
+        return 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(entry.Name || '');
+    }
+
+    // One entry's links in render order: the Amazon and web searches, the gap's own provider links,
+    // then the JustWatch fallback. The row and the Markdown export both build from this, so a link
+    // added here shows up in both. Provider marks a link that came from the gap itself; the row gives
+    // those the provider-button treatment.
+    function todoLinks(entry, template) {
+        var out = [{ Name: 'Amazon', Url: todoAmazonUrl(entry), Title: 'Search Amazon' }];
+        var webUrl = todoWebSearchUrl(template, entry);
+        if (webUrl) { out.push({ Name: 'Web search', Url: webUrl, Title: 'Web search' }); }
+        (entry.Links || []).forEach(function (l) { if (l && l.Url) { out.push({ Name: l.Name, Url: l.Url, Provider: true }); } });
+        var jwUrl = todoJustWatchUrl(entry);
+        if (jwUrl) { out.push({ Name: 'JustWatch search', Url: jwUrl, Title: 'Search JustWatch for where to watch' }); }
+        return out;
+    }
+
+    // One TODO row: the done checkbox, the title and year, the source, the links cell, and the
     // Verify/Delete actions. Built with the same h/wrap/newTab/providerLink helpers as the report.
     function todoRowHtml(entry, template) {
         var done = !!entry.Done;
@@ -2529,15 +2579,13 @@
         if (done) { check.setAttribute('checked', 'checked'); }
         var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '');
         var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
-        var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, esc(entry.Creator || ''));
+        var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, todoSourceCell(entry));
 
-        var links = [];
-        links.push(newTab(true, { 'class': 'cgLink', href: todoAmazonUrl(entry), title: 'Search Amazon' }, 'Amazon'));
-        var webUrl = todoWebSearchUrl(template, entry);
-        if (webUrl) {
-            links.push(newTab(true, { 'class': 'cgLink', href: webUrl, title: 'Web search' }, 'Web search'));
-        }
-        (entry.Links || []).forEach(function (l) { if (l && l.Url) { links.push(providerLink(l)); } });
+        var links = todoLinks(entry, template).map(function (l) {
+            return l.Provider
+                ? providerLink(l)
+                : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
+        });
         var note = entry.Done && entry.DoneUtc
             ? wrap('div', { 'class': 'cgTodoNote' }, 'Done')
             : '';
@@ -2632,7 +2680,7 @@
     }
 
     // Build the TODO export: one H2 per domain (in the report's domain order), then a table per
-    // domain with a checkbox cell, the title and year, the creator, and the links as Markdown links.
+    // domain with a checkbox cell, the title and year, the source, and the links as Markdown links.
     function buildTodoMarkdown(modal) {
         var data = modal._data || { Items: [] };
         var items = data.Items || [];
@@ -2646,19 +2694,15 @@
         });
         byDomain.order.forEach(function (domain) {
             out.push('## ' + mdHeading(domain), '');
-            out.push('| Done | Title | Creator | Links |');
+            out.push('| Done | Title | Source | Links |');
             out.push('| --- | --- | --- | --- |');
             byDomain.map[domain].forEach(function (entry) {
                 var box = entry.Done ? '[x]' : '[ ]';
                 var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '');
-                var links = [];
-                links.push('[Amazon](' + safeUrl(todoAmazonUrl(entry)) + ')');
-                var webUrl = todoWebSearchUrl(template, entry);
-                if (webUrl) { links.push('[Web search](' + safeUrl(webUrl) + ')'); }
-                (entry.Links || []).forEach(function (l) {
-                    if (l && l.Url) { links.push('[' + mdEsc(l.Name || 'Link') + '](' + safeUrl(l.Url) + ')'); }
+                var links = todoLinks(entry, template).map(function (l) {
+                    return '[' + mdEsc(l.Name || 'Link') + '](' + safeUrl(l.Url) + ')';
                 });
-                out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(entry.Creator || '') + ' | ' + links.join(' ') + ' |');
+                out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(todoSourceText(entry)) + ' | ' + links.join(' ') + ' |');
             });
             out.push('');
         });

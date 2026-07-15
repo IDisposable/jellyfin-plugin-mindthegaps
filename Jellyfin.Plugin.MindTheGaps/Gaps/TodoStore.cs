@@ -188,6 +188,7 @@ public sealed class TodoStore
             Year = gap.Year,
             DomainName = gap.DomainName,
             TargetKindName = gap.TargetKindName,
+            PatternName = gap.PatternName,
             Creator = gap.SourceItemName,
             ProviderIds = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase),
             Links = new List<ExternalLink>(gap.Links),

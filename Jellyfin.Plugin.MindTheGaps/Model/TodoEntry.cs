@@ -36,6 +36,13 @@ public class TodoEntry
     public string TargetKindName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the gap pattern name (SetCompletion, CreatorWorks, Recommendation). The list needs it
+    /// to say what <see cref="Creator"/> means, since the same field holds a series, a recommending title,
+    /// a creator, or a set depending on the pattern. Empty on entries saved before this was captured.
+    /// </summary>
+    public string PatternName { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the author, artist, creator, or source that surfaced the gap (the gap's source item
     /// name). Null when the gap carried no owning source.
     /// </summary>

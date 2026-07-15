@@ -125,6 +125,7 @@
 .cgTodoTable td.cgTodoActions { white-space: nowrap; text-align: right; }
 .cgTodoTitle { font-weight: 500; }
 .cgTodoCreator { opacity: .8; }
+.cgTodoSrcKind { opacity: .7; font-size: .85em; }
 .cgTodoLinks { display: flex; flex-wrap: wrap; gap: .25em; align-items: center; }
 .cgTodoRow.cgTodoDone .cgTodoTitle, .cgTodoRow.cgTodoDone .cgTodoCreator { text-decoration: line-through; opacity: .55; }
 .cgTodoNote { opacity: .65; font-size: .85em; margin-top: .15em; }
