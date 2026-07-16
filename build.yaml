@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.4.2"
+version: "10.11.5.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,7 +20,16 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.4.2 - The gaps report and the settings are separate dashboard pages. The report opens without the
-  settings form attached, and the plugin's Settings button opens the settings. Resetting the scan rotation
-  and removing minted items are on the report now, under Maintenance, beside the library they act on.
-  Shared report links and exported audit dossiers still open the report.
+  10.11.5.0 - Fixes installing on a server running an earlier 10.11 patch. The plugin declares the 10.11.0.0
+  ABI but was built against the 10.11.11 assemblies, which stamp their own patch number, so the package asked
+  any server for 10.11.11 and a server on an earlier patch refused to load it. It is now built against 10.11.0
+  and loads on any 10.11.x server. The identification audit reports series whose episodes are split across two
+  folders that map to the same season, listing each folder and its episode count so you can see which one to
+  keep. The gaps report and the settings are separate dashboard pages now: the report opens without the
+  settings form attached, the plugin's Settings button opens the settings, and resetting the scan rotation and
+  removing minted items move to a Maintenance section on the report, beside the library they act on. Shared
+  report links and exported audit dossiers still open the report. In the TODO list, the source column says
+  what it is showing, using the same wording as the report's section buttons (the series for an episode,
+  Discover for a recommendation, the creator, the set), instead of a bare name that read as a wrong series
+  when you added a whole show, and a movie or show with no JustWatch link of its own gets a JustWatch search,
+  in the list and in the Markdown export.
