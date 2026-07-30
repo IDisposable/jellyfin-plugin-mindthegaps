@@ -321,7 +321,13 @@ function renderRow(item) {
     var meta = [];
     if (item.Year) { meta.push(esc(item.Year)); }
     meta.push(esc(item.TargetKindName));
-    if (item.IsUpcoming) { meta.push(h('span', { style: 'color:#f0ad4e;' }, 'Upcoming').outerHTML); }
+    // "Upcoming" when the release date is known. An undated movie/series/episode is also not out
+    // yet, but says "Announced" rather than implying a date the provider never gave us.
+    if (item.IsUpcoming) {
+        meta.push(item.ReleaseDate
+            ? h('span', { style: 'color:#f0ad4e;', title: 'Not released yet.' }, 'Upcoming').outerHTML
+            : h('span', { style: 'color:#f0ad4e;', title: 'Announced, with no release date yet.' }, 'Announced').outerHTML);
+    }
 
     var providerLinks = (item.Links || []).map(providerLink).join('');
 

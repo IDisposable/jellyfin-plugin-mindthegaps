@@ -10,11 +10,14 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
 public class GapItemFactoryTests
 {
-    private static GapItem Create(DateTime? releaseDate = null, IEnumerable<ExternalLink>? extraLinks = null)
+    private static GapItem Create(
+        DateTime? releaseDate = null,
+        IEnumerable<ExternalLink>? extraLinks = null,
+        MediaDomain domain = MediaDomain.Movies)
         => GapItemFactory.Create(
             id: "gap:1",
             pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Movies,
+            domain: domain,
             targetKind: BaseItemKind.Movie,
             name: "The Matrix",
             providerIds: new Dictionary<string, string> { ["Tmdb"] = "603" },
@@ -47,11 +50,10 @@ public class GapItemFactoryTests
     }
 
     [Fact]
-    public void Create_NullReleaseDate_NoYear_NotUpcoming()
+    public void Create_NullReleaseDate_NoYear()
     {
         var gap = Create(releaseDate: null);
         Assert.Null(gap.Year);
-        Assert.False(gap.IsUpcoming);
     }
 
     [Fact]
@@ -65,6 +67,28 @@ public class GapItemFactoryTests
     public void Create_PastReleaseDate_NotUpcoming()
     {
         var gap = Create(DateTime.UtcNow.AddYears(-1));
+        Assert.False(gap.IsUpcoming);
+    }
+
+    // An undated movie or series is announced but unscheduled ("Bond 26" in the James Bond
+    // collection), since TMDB and the episode providers date anything actually released.
+    [Theory]
+    [InlineData(MediaDomain.Movies)]
+    [InlineData(MediaDomain.Shows)]
+    public void Create_NullReleaseDate_ScreenDomain_IsUpcoming(MediaDomain domain)
+    {
+        var gap = Create(releaseDate: null, domain: domain);
+        Assert.True(gap.IsUpcoming);
+    }
+
+    // Music and books are the opposite: a sparse Discogs/MusicBrainz/OpenLibrary entry for a
+    // long-released title carries no date, so it stays a reported gap rather than being hidden.
+    [Theory]
+    [InlineData(MediaDomain.Music)]
+    [InlineData(MediaDomain.Books)]
+    public void Create_NullReleaseDate_NonScreenDomain_NotUpcoming(MediaDomain domain)
+    {
+        var gap = Create(releaseDate: null, domain: domain);
         Assert.False(gap.IsUpcoming);
     }
 

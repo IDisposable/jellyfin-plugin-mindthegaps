@@ -14,7 +14,8 @@ internal static class GapItemFactory
 {
     /// <summary>
     /// Creates a gap item, deriving <see cref="GapItem.Year"/>/<see cref="GapItem.IsUpcoming"/> from
-    /// <paramref name="releaseDate"/> and building links from <paramref name="providerIds"/>.
+    /// <paramref name="releaseDate"/> (and, for an undated title, <paramref name="domain"/>) and
+    /// building links from <paramref name="providerIds"/>.
     /// </summary>
     /// <param name="id">Stable de-dup id.</param>
     /// <param name="pattern">The gap pattern.</param>
@@ -75,7 +76,7 @@ internal static class GapItemFactory
             Year = releaseDate?.Year,
             Season = season,
             ReleaseDate = releaseDate,
-            IsUpcoming = releaseDate.HasValue && releaseDate.Value.Date > DateTime.UtcNow.Date,
+            IsUpcoming = NotYetReleased(domain, releaseDate),
             ImageUrl = imageUrl,
             Overview = HtmlText.ToPlainText(overview),
             ProviderIds = providerIds,
@@ -90,4 +91,14 @@ internal static class GapItemFactory
             SortScore = sortScore
         };
     }
+
+    // Not yet released: a known future date, or, for a movie/series/episode, no date at all.
+    // TMDB and the episode providers carry a date on anything that has actually come out, so an
+    // undated title from them is announced but unscheduled (a "Bond 26", a "Mad Max: Wasteland").
+    // Music and books are the opposite: Discogs, MusicBrainz, and OpenLibrary routinely have no
+    // date on a release from decades ago, so an undated one there stays reported as missing.
+    private static bool NotYetReleased(MediaDomain domain, DateTime? releaseDate)
+        => releaseDate.HasValue
+            ? releaseDate.Value.Date > DateTime.UtcNow.Date
+            : domain is MediaDomain.Movies or MediaDomain.Shows;
 }
