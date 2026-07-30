@@ -188,17 +188,14 @@
                 <div class="fieldDescription">Create a free API app at <a is="emby-linkbutton" class="button-link" href="https://trakt.tv/oauth/applications" target="_blank" rel="noopener">trakt.tv/oauth/applications</a> and paste its Client ID. Required for the Trakt cross-check (opt-in per Trakt's
                     terms).</div>
             </div>
-            <div class="fieldDescription" style="margin:.5em 0 1em;">
-                Episode cross-checks follow your Shows library's metadata fetchers (Dashboard, Libraries, your
-                Shows library, Metadata): each provider you have enabled there is asked for the series' episode
-                list and the lists are merged in your fetcher order, so your preferred provider is the authority
-                for a series. TheMovieDb and TVmaze are keyless; TheTVDB needs the key below.
-            </div>
+            <div class="fieldDescription" style="margin:.5em 0 1em;">Episode cross-checks follow your Shows library's metadata fetchers (Dashboard, Libraries, your Shows library, Metadata): each provider you have enabled there is asked for the series' episode list and the lists are merged in your
+                fetcher order, so your preferred provider is the authority for a series. TheMovieDb and TVmaze are keyless; TheTVDB needs the key below. </div>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="TvdbApiKey">TheTVDB API key</label>
                 <input id="TvdbApiKey" name="TvdbApiKey" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                 <button id="RevealTvdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
-                <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. The TheTVDB cross-check runs when your Shows library lists TheTVDB as a metadata fetcher and this key is set.</div>
+                <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. The TheTVDB cross-check runs when your Shows library lists
+                    TheTVDB as a metadata fetcher and this key is set.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">

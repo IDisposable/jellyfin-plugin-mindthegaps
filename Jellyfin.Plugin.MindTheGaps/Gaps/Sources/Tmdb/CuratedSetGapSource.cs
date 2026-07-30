@@ -53,7 +53,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             new ExploreDescriptor
             {
                 Kind = "studio",
-                Label = "Studio",
+                Label = SourceItemTypes.Studio,
                 Source = this,
                 Run = (context, ids, ct) => FindGapsForSetsAsync(context, "studio", ids, ct),
                 Search = (query, ct) => _tmdb.SearchCompaniesAsync(query, ct),
@@ -62,7 +62,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             new ExploreDescriptor
             {
                 Kind = "keyword",
-                Label = "Keyword",
+                Label = SourceItemTypes.Keyword,
                 Source = this,
                 Run = (context, ids, ct) => FindGapsForSetsAsync(context, "keyword", ids, ct),
                 Search = (query, ct) => _tmdb.SearchKeywordsAsync(query, ct),
@@ -219,7 +219,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             results,
             string.Create(CultureInfo.InvariantCulture, $"company:{companyId}"),
             label,
-            "Studio",
+            SourceItemTypes.Studio,
             context.Ownership,
             _tmdb.GetPosterUrl,
             MaxGapsPerSet))
@@ -252,7 +252,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             results,
             string.Create(CultureInfo.InvariantCulture, $"keyword:{keywordId}"),
             label,
-            "Keyword",
+            SourceItemTypes.Keyword,
             context.Ownership,
             _tmdb.GetPosterUrl,
             MaxGapsPerSet))
@@ -277,7 +277,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             list.Movies,
             string.Create(CultureInfo.InvariantCulture, $"list:{listId}"),
             label,
-            "List",
+            SourceItemTypes.TmdbList,
             context.Ownership,
             _tmdb.GetPosterUrl,
             MaxGapsPerSet,

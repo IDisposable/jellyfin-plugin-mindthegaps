@@ -8,6 +8,7 @@ using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
+using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -31,6 +32,7 @@ public class GapsController : ControllerBase
     private readonly ScanCursorStore _cursors;
     private readonly ExploreRegistry _explore;
     private readonly LibraryVerifier _verifier;
+    private readonly GapEngine _engine;
     private readonly RecheckRunner _recheckRunner;
 
     /// <summary>
@@ -42,8 +44,9 @@ public class GapsController : ControllerBase
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="explore">The explore-kind registry, backing the curated type-ahead, id resolution, and kinds list.</param>
     /// <param name="verifier">The library verifier, for clearing gaps the library has since been given.</param>
+    /// <param name="engine">The gap engine, which reports what it is able to re-check per item.</param>
     /// <param name="recheckRunner">The background bulk re-check runner.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, RecheckRunner recheckRunner)
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, GapEngine engine, RecheckRunner recheckRunner)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -51,6 +54,7 @@ public class GapsController : ControllerBase
         _cursors = cursors;
         _explore = explore;
         _verifier = verifier;
+        _engine = engine;
         _recheckRunner = recheckRunner;
     }
 
@@ -114,6 +118,13 @@ public class GapsController : ControllerBase
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
             PatternCounts = counts,
+            // The dashboard's vocabulary, served rather than restated there: tabs, the Type selector, and
+            // the Set completion group order all come from the model's own definitions.
+            Patterns = Enum.GetValues<GapPattern>().Select(p => p.ToString()).ToArray(),
+            Domains = MediaDomains.Implemented.Select(d => d.ToString()).ToArray(),
+            SetKinds = SourceItemTypes.SetKindsInOrder,
+            RecheckPrefixes = _engine.RecheckablePrefixes(),
+            MintableKinds = VirtualItemMinter.MintableKinds,
             Providers = providers.ToArray(),
             AvailabilityEnabled = config.IncludeAvailability,
             AvailabilityPending = config.IncludeAvailability ? AvailabilityRunner.PendingTitleCount(report) : 0

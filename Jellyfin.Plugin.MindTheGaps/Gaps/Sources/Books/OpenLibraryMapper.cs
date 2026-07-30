@@ -70,7 +70,7 @@ internal static class OpenLibraryMapper
                 providerIds: ProviderIdsFor(work),
                 sourceItemId: sourceItemId,
                 sourceItemName: authorName,
-                sourceItemType: "Book",
+                sourceItemType: SourceItemTypes.Book,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.OpenLibrary] = authorKey },
                 releaseDate: ParseDate(work.FirstPublishDate));
         }

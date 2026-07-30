@@ -460,6 +460,36 @@ public sealed class GapEngine
         return done;
     }
 
+    /// <summary>
+    /// Gets the gap-id prefixes whose owning item can be re-checked on its own right now, which is what the
+    /// dashboard offers after a verify leaves something still missing. Derived from the sources actually
+    /// enabled, so a prefix disappears when its source is switched off rather than the page prompting for a
+    /// pass this would then skip.
+    /// </summary>
+    /// <returns>The re-checkable gap-id prefixes.</returns>
+    public IReadOnlyList<string> RecheckablePrefixes()
+    {
+        var config = Plugin.RequireConfiguration();
+        var prefixes = new List<string>();
+
+        foreach (var source in _sources.OfType<ISetContentSource>())
+        {
+            if (((IGapSource)source).IsEnabled(config))
+            {
+                prefixes.Add(source.GapIdPrefix);
+            }
+        }
+
+        // Series are re-checked through the series-content sources rather than a set source, so their
+        // prefix is added on the same terms: only when something is enabled to answer for them.
+        if (_sources.OfType<ISeriesContentSource>().Any(s => ((IGapSource)s).IsEnabled(config)))
+        {
+            prefixes.AddRange(SeriesPrefixes);
+        }
+
+        return prefixes;
+    }
+
     // The enabled set sources that produce gaps for this owning item. Empty for an item no source handles
     // (a Person filmography, a recommendation seed), which is what makes a mis-aimed re-check a no-op
     // rather than a swap that wipes the item's gaps.

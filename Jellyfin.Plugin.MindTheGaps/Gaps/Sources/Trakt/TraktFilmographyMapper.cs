@@ -125,7 +125,7 @@ internal static class TraktFilmographyMapper
             providerIds: providerIds,
             sourceItemId: sourceItemId,
             sourceItemName: sourceItemName,
-            sourceItemType: "Person",
+            sourceItemType: SourceItemTypes.Person,
             releaseDate: movie.Year.HasValue ? new DateTime(movie.Year.Value, 1, 1) : null,
             overview: role,
             extraLinks: extraLinks);

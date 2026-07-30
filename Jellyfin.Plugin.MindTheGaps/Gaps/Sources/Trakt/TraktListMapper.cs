@@ -91,7 +91,7 @@ internal static class TraktListMapper
                 providerIds: providerIds,
                 sourceItemId: string.Create(CultureInfo.InvariantCulture, $"traktlist-{listId}"),
                 sourceItemName: listName,
-                sourceItemType: "TraktList",
+                sourceItemType: SourceItemTypes.TraktList,
                 releaseDate: year is > 0
                     ? new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null);

@@ -94,7 +94,7 @@ internal static class MdbListMapper
                 providerIds: providerIds,
                 sourceItemId: string.Create(CultureInfo.InvariantCulture, $"mdblist-{listId}"),
                 sourceItemName: listName,
-                sourceItemType: "MdbList",
+                sourceItemType: SourceItemTypes.MdbList,
                 releaseDate: item.ReleaseYear is > 0
                     ? new DateTime(item.ReleaseYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null);

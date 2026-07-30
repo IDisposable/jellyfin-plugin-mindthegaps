@@ -70,7 +70,7 @@ internal static class OpenLibrarySubjectMapper
                 providerIds: providerIds,
                 sourceItemId: string.Create(CultureInfo.InvariantCulture, $"openlibrary-subject-{subject}"),
                 sourceItemName: string.IsNullOrEmpty(subjectName) ? subject : subjectName,
-                sourceItemType: "Subject",
+                sourceItemType: SourceItemTypes.Subject,
                 releaseDate: work.FirstPublishYear is > 0 and <= 9999
                     ? new DateTime(work.FirstPublishYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null);

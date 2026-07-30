@@ -62,7 +62,7 @@ internal static class CollectionGapMapper
                 providerIds: providerIds,
                 sourceItemId: boxSetId,
                 sourceItemName: boxSetName,
-                sourceItemType: "BoxSet",
+                sourceItemType: SourceItemTypes.BoxSet,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = collectionId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: part.ReleaseDate,
                 imageUrl: posterUrl(part.PosterPath),

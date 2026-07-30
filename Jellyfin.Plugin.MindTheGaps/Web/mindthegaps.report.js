@@ -1,4 +1,28 @@
-var PATTERNS = ['SetCompletion', 'CreatorWorks', 'Recommendation'];
+// There is one report page, and several helpers below are reached from render paths that do not carry
+// it, so they look it up rather than taking it as a parameter.
+function reportPage() { return document.querySelector('#MindTheGapsPage'); }
+
+// The report's vocabulary (patterns, domains, Set completion kinds) is served on the summary rather
+// than restated here, so the dashboard cannot drift from the model: a new domain or set kind appears
+// on its own, and the display order is the server's. Only the wording of each stays below.
+// Empty until the summary loads, which is before anything renders.
+function vocab() {
+    var s = (reportPage() || {})._summary || {};
+    return {
+        patterns: s.Patterns || [],
+        domains: s.Domains || [],
+        setKinds: s.SetKinds || [],
+        recheckPrefixes: s.RecheckPrefixes || [],
+        mintableKinds: s.MintableKinds || {}
+    };
+}
+
+// Position of a value in an ordered vocabulary, with anything unlisted sorting last rather than first
+// (which a bare indexOf would do, -1 being lowest).
+function rankIn(order, value) {
+    var i = order.indexOf(value);
+    return i < 0 ? 9999 : i;
+}
 // Pattern labels worded for the domain in view (the Type filter): each pattern maps a domain to
 // its label, with the '' entry the default wording for a domain that has no special label (for
 // example Movies under SetCompletion) and for an inactive tab. So a movie set is "Set
@@ -18,7 +42,6 @@ function patternLabel(pattern, domain) {
 function slugify(s) {
     return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, '-');
 }
-var CATEGORY_ORDER = { Movies: 0, Shows: 1, Music: 2, Books: 3 };
 var MONETIZATION_LABELS = { flatrate: 'Subscription', free: 'Free', ads: 'With ads', rent: 'Rent', buy: 'Buy' };
 
 
@@ -190,15 +213,13 @@ function batchDismissBtns(label) {
 }
 
 // Whether the server can re-run the source behind this owning item on its own, which is what the
-// clear-down offers once a verify leaves something still missing. Every Set completion owner that is
-// a library item qualifies (a BoxSet, a Series, a MusicArtist, a Book), as does a music or book
-// creator. A studio, keyword, label, or curated list carries a synthetic owner id, not a library
-// one; a film filmography and a recommendation seed have no per-item re-check at all. Offering one
-// for those would prompt for a pass the server would then skip.
+// clear-down offers once a verify leaves something still missing. The server lists the gap-id prefixes
+// it can re-check (summary.RecheckPrefixes), so this asks rather than inferring it from the pattern and
+// domain: the answer also depends on which sources are enabled, which the page cannot see. The owner
+// must still be a library item, since a studio, keyword, label, or curated list carries a synthetic id.
 function ownerRecheckable(it) {
     if (!it || !isGuidId(it.SourceItemId)) { return false; }
-    if (it.PatternName === 'SetCompletion') { return true; }
-    return it.PatternName === 'CreatorWorks' && (it.DomainName === 'Music' || it.DomainName === 'Books');
+    return vocab().recheckPrefixes.some(function (p) { return it.Id.indexOf(p) === 0; });
 }
 
 // An N-format Jellyfin guid, which is what a library-backed source carries in SourceItemId. The
@@ -322,22 +343,12 @@ function recSourceDismissBtn(guid, name) {
     return ' ' + idAnchor('cgDismissRecSource', guid, 'Stop recommendations from this source', { 'data-name': name || '', 'aria-label': 'Stop recommendations from this source' }, '&times;');
 }
 
-// A gap is mintable when its kind is one the server can mint and it carries that kind's
-// primary provider id: Tmdb for a Movie or Series, MusicBrainzReleaseGroup for a MusicAlbum,
-// OpenLibrary for a Book. Episodes are native in core, so they are never minted here.
+// A gap is mintable when its kind is one the server can mint and it carries the provider id that kind
+// is minted under. Both come from the minter (summary.MintableKinds), so the button appears exactly
+// where a mint would be accepted. Episodes are native in core and so are not a mintable kind.
 function isMintable(item) {
-    var ids = item.ProviderIds || {};
-    switch (item.TargetKindName) {
-        case 'Movie':
-        case 'Series':
-            return !!ids.Tmdb;
-        case 'MusicAlbum':
-            return !!ids.MusicBrainzReleaseGroup;
-        case 'Book':
-            return !!ids.OpenLibrary;
-        default:
-            return false;
-    }
+    var provider = vocab().mintableKinds[item.TargetKindName];
+    return !!provider && !!(item.ProviderIds || {})[provider];
 }
 
 function renderRow(item) {
@@ -455,7 +466,7 @@ function renderRow(item) {
 
     var titleLine = wrap('div', { 'class': 'listItemBodyText cgRowTitle' },
         esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId)
-            + clearBtn('row', item.Id, 'this title'));
+        + clearBtn('row', item.Id, 'this title'));
     var secondaryLine = wrap('div', { 'class': 'listItemBodyText secondary' }, meta.join(' &middot; '));
     var body = wrap('div', { style: 'flex:1;min-width:0;' },
         titleLine + secondaryLine + details + avail + resolvedLine + linksRow);
@@ -963,17 +974,34 @@ function lettersOf(items, pattern) {
 
 // The "kind of set" a SetCompletion gap completes, from its owning item's type, so the tab can
 // group collections, studios, keywords, series, and discographies into separate sections.
-var SET_KIND_ORDER = { 'Collections & franchises': 0, 'Series': 1, 'Discography': 2, 'Labels': 3, 'Studios': 4, 'Keywords': 5, 'Other': 9 };
+// The wording for each Set completion kind. The set of kinds and their order come from the server
+// (summary.SetKinds); this only says how each is spelled on screen. A kind with no entry here falls
+// back to its own name, so a new one reads as itself rather than being pooled into a bucket.
 var SET_KIND_LABELS = {
     BoxSet: 'Collections & franchises',
     Series: 'Series',
     MusicArtist: 'Discography',
     MusicLabel: 'Record labels',
     Studio: 'Studios',
-    Keyword: 'Keywords'
+    Keyword: 'Keywords',
+    Subject: 'Subjects'
 };
 function setKindLabel(sourceItemType) {
-    return SET_KIND_LABELS[sourceItemType] || 'Other';
+    return SET_KIND_LABELS[sourceItemType] || sourceItemType || 'Other';
+}
+
+// Comparator for Set completion group headings, ordered as the server lists their kinds. Groups are
+// keyed by label, so the served kinds are mapped through the wording once per sort rather than per
+// comparison.
+function setKindCompare() {
+    var order = vocab().setKinds.map(setKindLabel);
+    return function (a, b) { return rankIn(order, a) - rankIn(order, b); };
+}
+
+// Comparator for media domains, ordered as the server lists them.
+function domainCompare() {
+    var order = vocab().domains;
+    return function (a, b) { return rankIn(order, a) - rankIn(order, b); };
 }
 
 // The H2 source group for the Markdown export, mirroring the on-screen tree: a set's kind for
@@ -986,7 +1014,7 @@ function exportGroupLabel(it) {
 // Order the export's source groups: set kinds in their canonical order, sources alphabetically.
 function exportGroupSort(pattern) {
     if (pattern === 'SetCompletion') {
-        return function (a, b) { return (SET_KIND_ORDER[a] != null ? SET_KIND_ORDER[a] : 9) - (SET_KIND_ORDER[b] != null ? SET_KIND_ORDER[b] : 9); };
+        return setKindCompare();
     }
     return ci;
 }
@@ -1074,9 +1102,7 @@ function buildTree(items) {
     // responsive grid. One domain can hold several kinds (Movies has collections, studios, and
     // keywords), so each kind gets a heading; with a single kind the heading is dropped.
     var byKind = groupBy(items, function (it) { return setKindLabel(it.SourceItemType); });
-    byKind.order.sort(function (a, b) {
-        return (SET_KIND_ORDER[a] != null ? SET_KIND_ORDER[a] : 9) - (SET_KIND_ORDER[b] != null ? SET_KIND_ORDER[b] : 9);
-    });
+    byKind.order.sort(setKindCompare());
     var multiKind = byKind.order.length > 1;
     return byKind.order.map(function (kind) {
         var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
@@ -1089,7 +1115,7 @@ function buildTree(items) {
         if (!multiKind) { return grid; }
         var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
             h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML
-                + clearBtn('kind', kind, 'everything under ' + kind));
+            + clearBtn('kind', kind, 'everything under ' + kind));
         return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
             hdr + wrap('div', { 'class': 'cgBody' }, grid));
     }).join('');
@@ -1131,13 +1157,14 @@ function renderTabs(page) {
     var counts = (page._summary && page._summary.PatternCounts) || {};
     // Stay on a pattern that has any gaps at all, so toggling a filter down to zero does not
     // yank you to another tab; only fall back when the current pattern is truly empty.
+    var patterns = vocab().patterns;
     if (!page._pattern || !counts[page._pattern]) {
-        page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
+        page._pattern = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
     }
     // Every tab is worded for the domain in view (Series completion, Discography, Artist works,
     // ...), since the Type selector applies to the whole report, not per tab.
     var domain = page.querySelector('#cgTypeFilter').value;
-    page.querySelector('#cgTabs').innerHTML = PATTERNS.map(function (p) {
+    page.querySelector('#cgTabs').innerHTML = patterns.map(function (p) {
         var active = p === page._pattern ? ' cgActive' : '';
         var lbl = patternLabel(p, domain);
         return h('button', {
@@ -1146,13 +1173,10 @@ function renderTabs(page) {
     }).join('');
 }
 
-// The media domains the plugin covers, always offered in the "Type:" selector so a domain with
-// zero entries this scan (for example Music when nothing music is owned) still shows and does
-// not look unsupported.
-var ALL_DOMAINS = ['Movies', 'Shows', 'Music', 'Books'];
-
-// Build the "Type:" (media domain) selector. It always offers every covered domain (plus any
-// unexpected one actually present), in display order, so the chooser is never hidden and a
+// Build the "Type:" (media domain) selector. It offers every domain the server says is covered
+// (summary.Domains, which leaves out any the model names but nothing fills), plus any unexpected one
+// actually present, in the server's display order. A covered domain with zero entries this scan
+// (Music when nothing music is owned) still shows, so the chooser is never hidden and a
 // domain is never missing just because this scan found nothing for it. It defaults to the first
 // domain that does have entries, so the report opens on content; a remembered domain
 // (page._wantType, from a saved view or the per-browser filters) is applied once.
@@ -1163,11 +1187,9 @@ function renderTypeFilter(page) {
     ((page._report && page._report.Items) || []).forEach(function (it) {
         if (it.PatternName === page._pattern) { present[categoryOf(it)] = true; }
     });
-    var domains = ALL_DOMAINS.slice();
+    var domains = vocab().domains.slice();
     Object.keys(present).forEach(function (d) { if (domains.indexOf(d) === -1) { domains.push(d); } });
-    domains.sort(function (a, b) {
-        return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9);
-    });
+    domains.sort(domainCompare());
     if (wrap) { wrap.style.display = 'inline-flex'; }
     // Decide before rebuilding the options (which clears sel.value): a remembered domain wins,
     // else keep the current one, else the first domain that actually has entries.
@@ -1283,7 +1305,7 @@ function buildMarkdown(page) {
     var anchorFor = anchorAllocator();
 
     var byCat = groupBy(items, categoryOf);
-    byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+    byCat.order.sort(domainCompare());
     var groupSort = exportGroupSort(page._pattern);
 
     // Model the document (domains -> source groups) and allocate anchors in render order.
@@ -1544,7 +1566,7 @@ function rollupHtml(items) {
     if (!items.length) { return ''; }
     var noun = page_pattern_noun();
     var byCat = groupBy(items, categoryOf);
-    byCat.order.sort(function (a, b) { return (CATEGORY_ORDER[a] != null ? CATEGORY_ORDER[a] : 9) - (CATEGORY_ORDER[b] != null ? CATEGORY_ORDER[b] : 9); });
+    byCat.order.sort(domainCompare());
     var parts = byCat.order.map(function (cat) {
         var catItems = byCat.map[cat];
         var groups = {}, ownedSum = 0, totalSum = 0;
@@ -1564,7 +1586,7 @@ function rollupHtml(items) {
 }
 
 function page_pattern_noun() {
-    var p = document.querySelector('#MindTheGapsPage') && document.querySelector('#MindTheGapsPage')._pattern;
+    var p = (reportPage() || {})._pattern;
     if (p === 'CreatorWorks') { return 'creator'; }
     if (p === 'Recommendation') { return 'source'; }
     return 'set';
@@ -2191,7 +2213,8 @@ function load(page) {
             // Pick a pattern that has gaps before loading its slice.
             var counts = summary.PatternCounts || {};
             if (!page._pattern || !counts[page._pattern]) {
-                page._pattern = PATTERNS.filter(function (p) { return counts[p]; })[0] || PATTERNS[0];
+                var patterns = vocab().patterns;
+                page._pattern = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
             }
             return fetchResolved().then(function () {
                 // A shared link (cgview in the URL) overrides the default tab and the
