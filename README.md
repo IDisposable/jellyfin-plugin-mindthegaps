@@ -154,6 +154,12 @@ flowchart TD
   item, the matching rules, the plugin verdict, the owned candidates, and an analysis prompt) to hand to any
   AI, and an identification audit runs the same check across the domain and pattern you are viewing and
   downloads as Markdown.
+- **Clear down what you have filled**: one refresh control on every row and every heading (a domain, a set
+  kind, a group, a season) plus a **Clear what I have** button for the whole visible list. It checks your
+  library right now and drops the rows you already hold: local, instant, no provider contacted, every domain
+  and kind. A title you have acquired leaves every tab it was on at once, so one film clears out of its
+  collection, the studio set that wanted it, its director's filmography, and any list that suggested it. Anything still missing then prompts to re-check the sources it belongs to against their
+  providers, which also picks up what has been added since the last scan.
 - **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
   season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
 - **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a

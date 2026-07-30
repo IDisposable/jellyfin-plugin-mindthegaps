@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -26,7 +28,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// container). Series in a mixed collection are left alone. Missing shows within a franchise is handled
 /// by the TVDB/TVMaze/Trakt sources (e.g. Wikidata P179 "part of the series" or Trakt lists).
 /// </remarks>
-internal sealed class CollectionGapSource : IGapSource
+internal sealed class CollectionGapSource : IGapSource, ISetContentSource
 {
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
@@ -55,16 +57,20 @@ internal sealed class CollectionGapSource : IGapSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie };
 
     /// <inheritdoc />
+    public string GapIdPrefix => "collection:";
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanCollections;
+
+    /// <inheritdoc />
+    public bool Claims(BaseItem owner)
+        => owner is not null && owner.GetBaseItemKind() == BaseItemKind.BoxSet;
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
         GapScanContext context,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var language = context.Config.MetadataLanguage;
-        var country = context.Config.MetadataCountryCode;
-
         var boxSets = _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = new[] { BaseItemKind.BoxSet },
@@ -77,41 +83,60 @@ internal sealed class CollectionGapSource : IGapSource
             cancellationToken.ThrowIfCancellationRequested();
             context.ReportProgress((double)index++ / Math.Max(1, boxSets.Count));
 
-            if (!boxSet.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
-                || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))
+            var gaps = await CheckOneAsync(boxSet, context, cancellationToken).ConfigureAwait(false);
+            if (gaps is null)
             {
+                // Nothing determined for this collection (no TMDB id, or the fetch failed). Skip it and
+                // keep scanning: the scan's carry-forward keeps whatever it already had.
                 continue;
             }
-
-            Collection? collection = null;
-            try
-            {
-                collection = await _tmdb
-                    .GetCollectionAsync(collectionId, language, country, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch TMDB collection {CollectionId} for {Name}", collectionId, boxSet.Name);
-            }
-
-            if (collection?.Parts is null)
-            {
-                continue;
-            }
-
-            var gaps = CollectionGapMapper.Build(
-                collectionId,
-                collection.Parts,
-                boxSet.Id.ToString("N", CultureInfo.InvariantCulture),
-                boxSet.Name,
-                context.Ownership,
-                _tmdb.GetPosterUrl);
 
             foreach (var gap in gaps)
             {
                 yield return gap;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GapItem>?> CheckOneAsync(BaseItem owner, GapScanContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (!owner.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
+            || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))
+        {
+            // No TMDB id to diff against: undetermined, not "complete".
+            return null;
+        }
+
+        Collection? collection;
+        try
+        {
+            collection = await _tmdb
+                .GetCollectionAsync(collectionId, context.Config.MetadataLanguage, context.Config.MetadataCountryCode, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Cancellation is deliberately not caught: a shutdown mid-batch must abort the run, not report
+            // this collection as merely unresolvable and let the batch carry on.
+            _logger.LogWarning(ex, "Failed to fetch TMDB collection {CollectionId} for {Name}", collectionId, owner.Name);
+            return null;
+        }
+
+        if (collection?.Parts is null)
+        {
+            return null;
+        }
+
+        return CollectionGapMapper.Build(
+            collectionId,
+            collection.Parts,
+            owner.Id.ToString("N", CultureInfo.InvariantCulture),
+            owner.Name,
+            context.Ownership,
+            _tmdb.GetPosterUrl).ToList();
     }
 }

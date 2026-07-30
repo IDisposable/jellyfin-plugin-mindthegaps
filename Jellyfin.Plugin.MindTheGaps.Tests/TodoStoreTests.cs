@@ -171,4 +171,77 @@ public class TodoStoreTests
             Directory.Delete(dir, true);
         }
     }
+
+    [Fact]
+    public void ReconcileDone_AppliesEveryStateAndReportsWhatChanged()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Add(new[] { Gap("a") });
+            store.Add(new[] { Gap("b") });
+            store.Add(new[] { Gap("c") });
+            store.SetDone("b", true);
+
+            // a goes done, b stays done, c stays outstanding: only a moved.
+            var changed = store.ReconcileDone(new Dictionary<string, bool>
+            {
+                ["a"] = true,
+                ["b"] = true,
+                ["c"] = false,
+                ["missing"] = true
+            });
+
+            var byId = store.Load().ToDictionary(e => e.Id, StringComparer.Ordinal);
+            Assert.Equal(1, changed);
+            Assert.True(byId["a"].Done);
+            Assert.True(byId["b"].Done);
+            Assert.False(byId["c"].Done);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ReconcileDone_ClearsAnEntryWhoseTitleHasLeftTheLibrary()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Add(new[] { Gap("a") });
+            store.SetDone("a", true);
+
+            Assert.Equal(1, store.ReconcileDone(new Dictionary<string, bool> { ["a"] = false }));
+
+            var entry = Assert.Single(store.Load());
+            Assert.False(entry.Done);
+            Assert.Null(entry.DoneUtc);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ReconcileDone_WithNothingToChange_ReportsZero()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Add(new[] { Gap("a") });
+
+            Assert.Equal(0, store.ReconcileDone(new Dictionary<string, bool> { ["a"] = false }));
+            Assert.Equal(0, store.ReconcileDone(new Dictionary<string, bool>()));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
 }

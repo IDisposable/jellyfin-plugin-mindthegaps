@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 /// resolve, fetch, and map each artist's discography. The provider-specific parts (which service, and how to
 /// process one artist) are abstract, so the providers share this loop rather than each re-implementing it.
 /// </summary>
-internal abstract class MusicArtistGapSourceBase : IGapSource
+internal abstract class MusicArtistGapSourceBase : IGapSource, ISetContentSource
 {
     // Each artist costs at least one paced request, so cap the artists scanned per run the way the people
     // source caps people. The cap counts artists for which an API call is spent, not artists skipped early.
@@ -42,6 +42,9 @@ internal abstract class MusicArtistGapSourceBase : IGapSource
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.MusicAlbum };
+
+    /// <inheritdoc />
+    public abstract string GapIdPrefix { get; }
 
     /// <summary>
     /// Gets the library manager, so a subclass can classify an artist against the owned library.
@@ -102,11 +105,31 @@ internal abstract class MusicArtistGapSourceBase : IGapSource
                 processed++;
             }
 
+            if (gaps is null)
+            {
+                // Nothing determined for this artist (not this source's to handle, no usable id, or the
+                // provider failed). Move on to the next artist.
+                continue;
+            }
+
             foreach (var gap in gaps)
             {
                 yield return gap;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public bool Claims(BaseItem owner)
+        => owner is not null && owner.GetBaseItemKind() == BaseItemKind.MusicArtist;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GapItem>?> CheckOneAsync(BaseItem owner, GapScanContext context, CancellationToken cancellationToken)
+    {
+        // The per-artist step the scan loop already calls; a re-check is that same step on its own, so the
+        // per-run artist cap and the circuit check (both properties of a whole run) do not apply.
+        var (gaps, _) = await ProcessArtistAsync(owner, context, cancellationToken).ConfigureAwait(false);
+        return gaps;
     }
 
     /// <summary>
@@ -118,8 +141,13 @@ internal abstract class MusicArtistGapSourceBase : IGapSource
     /// <param name="artist">The owned library artist.</param>
     /// <param name="context">The scan context.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The gaps for this artist, and whether an API call was spent.</returns>
-    protected abstract Task<(IReadOnlyList<GapItem> Gaps, bool CallSpent)> ProcessArtistAsync(
+    /// <returns>
+    /// The gaps for this artist, empty when the provider answered and the artist is missing nothing, or
+    /// <see langword="null"/> when nothing was determined (the provider failed, or the artist carries no id
+    /// this source can resolve). A re-check replaces an artist's gaps, so the two must not be conflated.
+    /// Also returns whether an API call was spent, so the per-run cap bounds calls rather than artists.
+    /// </returns>
+    protected abstract Task<(IReadOnlyList<GapItem>? Gaps, bool CallSpent)> ProcessArtistAsync(
         BaseItem artist,
         GapScanContext context,
         CancellationToken cancellationToken);

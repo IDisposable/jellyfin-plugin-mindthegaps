@@ -55,6 +55,9 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
     /// <inheritdoc />
     protected override string ServiceName => ServiceNames.MusicBrainz;
 
+    /// <inheritdoc />
+    public override string GapIdPrefix => IdPrefix + ":";
+
     /// <summary>
     /// Gets the pattern this source tags its gaps with.
     /// </summary>
@@ -74,7 +77,7 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
     protected abstract bool Handles(BaseItem artist);
 
     /// <inheritdoc />
-    protected override async Task<(IReadOnlyList<GapItem> Gaps, bool CallSpent)> ProcessArtistAsync(
+    protected override async Task<(IReadOnlyList<GapItem>? Gaps, bool CallSpent)> ProcessArtistAsync(
         BaseItem artist,
         GapScanContext context,
         CancellationToken cancellationToken)
@@ -84,13 +87,13 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
         if (!artist.TryGetProviderId(ProviderIds.MusicBrainzArtist, out var artistMbid)
             || !Guid.TryParse(artistMbid, out _))
         {
-            return ([], false);
+            return (null, false);
         }
 
         // Classify against the library (a cheap indexed lookup) before spending a MusicBrainz call.
         if (!Handles(artist))
         {
-            return ([], false);
+            return (null, false);
         }
 
         IReadOnlyList<MusicBrainzReleaseGroup> albums;
@@ -101,7 +104,7 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Logger.LogWarning(ex, "{Source}: failed to fetch MusicBrainz albums for {Name} ({Mbid})", Name, artist.Name, artistMbid);
-            return ([], true);
+            return (null, true);
         }
 
         var gaps = MusicBrainzMapper.Build(

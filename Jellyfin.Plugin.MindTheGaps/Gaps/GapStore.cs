@@ -226,19 +226,74 @@ public sealed class GapStore
     }
 
     /// <summary>
-    /// Replaces a single series' content gaps with a fresh re-check and saves, leaving every other gap
-    /// untouched. Used by the per-series re-check so a metadata fix can be verified without a full rescan;
+    /// Removes the gaps with the given ids and saves, leaving every other gap untouched. Backs the report's
+    /// verify actions, which drop the rows the library has since been given. The report's scan time and
+    /// version are preserved (a verify is a partial update, not a new scan).
+    /// </summary>
+    /// <param name="ids">The gap ids to drop.</param>
+    /// <returns>The number of gaps removed.</returns>
+    public int RemoveGaps(IEnumerable<string> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var drop = new HashSet<string>(ids, StringComparer.Ordinal);
+        if (drop.Count == 0)
+        {
+            return 0;
+        }
+
+        lock (_lock)
+        {
+            var current = Load();
+            var kept = new List<GapItem>(current.Items.Count);
+            var removed = 0;
+            foreach (var item in current.Items)
+            {
+                if (drop.Contains(item.Id))
+                {
+                    removed++;
+                    continue;
+                }
+
+                kept.Add(item);
+            }
+
+            if (removed == 0)
+            {
+                return 0;
+            }
+
+            var report = new GapReport
+            {
+                GeneratedUtc = current.GeneratedUtc,
+                GeneratedVersion = current.GeneratedVersion,
+                TotalGaps = kept.Count,
+                Items = kept
+            };
+            _cached = report;
+            Flush(report);
+            return removed;
+        }
+    }
+
+    /// <summary>
+    /// Replaces one owning item's gaps with a fresh re-check and saves, leaving every other gap untouched.
+    /// Used by the per-source re-check so a fix or an acquisition can be verified without a full rescan;
     /// unlike an additive merge, this also drops gaps the fix resolved. The report's scan time and version
     /// are preserved (a re-check is a partial update, not a new scan).
     /// </summary>
-    /// <param name="seriesId">The owned series whose episode gaps are being replaced.</param>
-    /// <param name="recheck">The freshly computed gaps for that series.</param>
+    /// <param name="sourceItemId">The owning item whose gaps are being replaced.</param>
+    /// <param name="idPrefixes">
+    /// The gap-id prefixes the re-checking sources produce. Only gaps carrying both this owning item and one
+    /// of these prefixes are swapped, so a re-check of (say) a collection cannot disturb a recommendation or
+    /// a filmography entry the same owning item also seeded.
+    /// </param>
+    /// <param name="recheck">The freshly computed gaps for that owning item.</param>
     /// <returns>The updated report.</returns>
-    public GapReport ReplaceSeriesGaps(Guid seriesId, GapReport recheck)
+    public GapReport ReplaceSourceGaps(string sourceItemId, IReadOnlyCollection<string> idPrefixes, GapReport recheck)
     {
+        ArgumentNullException.ThrowIfNull(idPrefixes);
         ArgumentNullException.ThrowIfNull(recheck);
-
-        var seriesKey = seriesId.ToString("N", CultureInfo.InvariantCulture);
 
         lock (_lock)
         {
@@ -246,11 +301,7 @@ public sealed class GapStore
             var kept = new List<GapItem>(current.Items.Count + recheck.Items.Count);
             foreach (var item in current.Items)
             {
-                // A series' content gaps all carry the series as their source and a "seriescontent:" id; drop
-                // exactly those (the prefix avoids touching a recommendation the series happens to seed).
-                var isSeriesContent = string.Equals(item.SourceItemId, seriesKey, StringComparison.Ordinal)
-                    && item.Id.StartsWith("seriescontent:", StringComparison.Ordinal);
-                if (!isSeriesContent)
+                if (!IsReplaced(item, sourceItemId, idPrefixes))
                 {
                     kept.Add(item);
                 }
@@ -269,6 +320,24 @@ public sealed class GapStore
             Flush(report);
             return report;
         }
+    }
+
+    private static bool IsReplaced(GapItem item, string sourceItemId, IReadOnlyCollection<string> idPrefixes)
+    {
+        if (!string.Equals(item.SourceItemId, sourceItemId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        foreach (var prefix in idPrefixes)
+        {
+            if (item.Id.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Keep an ad-hoc re-run of the same source from discarding a "where to watch" result the background

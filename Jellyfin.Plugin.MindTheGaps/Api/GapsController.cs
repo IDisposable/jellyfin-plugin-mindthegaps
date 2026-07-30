@@ -30,7 +30,8 @@ public class GapsController : ControllerBase
     private readonly ExploreRunner _exploreRunner;
     private readonly ScanCursorStore _cursors;
     private readonly ExploreRegistry _explore;
-    private readonly GapEngine _engine;
+    private readonly LibraryVerifier _verifier;
+    private readonly RecheckRunner _recheckRunner;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -40,15 +41,17 @@ public class GapsController : ControllerBase
     /// <param name="exploreRunner">The background ad-hoc explore runner.</param>
     /// <param name="cursors">The scan-rotation cursor store.</param>
     /// <param name="explore">The explore-kind registry, backing the curated type-ahead, id resolution, and kinds list.</param>
-    /// <param name="engine">The gap engine, for a targeted single-series re-check.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, GapEngine engine)
+    /// <param name="verifier">The library verifier, for clearing gaps the library has since been given.</param>
+    /// <param name="recheckRunner">The background bulk re-check runner.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, RecheckRunner recheckRunner)
     {
         _store = store;
         _scanRunner = scanRunner;
         _exploreRunner = exploreRunner;
         _cursors = cursors;
         _explore = explore;
-        _engine = engine;
+        _verifier = verifier;
+        _recheckRunner = recheckRunner;
     }
 
     /// <summary>
@@ -132,26 +135,116 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
-    /// Re-checks one owned series for missing episodes and replaces just that series' gaps in the report, so
-    /// a metadata fix can be verified without a full rescan. Runs the series-content sources for the one
-    /// series (the library reader plus the enabled cross-checks), then returns the gap count now standing.
+    /// Re-checks a batch of owning items in the background, for the dashboard's per-heading re-check ("every
+    /// studio", "every collection"). Runs in the background because a heading can cover hundreds of sets;
+    /// poll <see cref="GetRecheckStatus"/> and reload the report when it finishes. The ownership index is
+    /// built once for the whole batch, so this is cheaper than calling <see cref="RecheckSources"/> per item.
     /// </summary>
-    /// <param name="seriesId">The owned series' id (its Jellyfin GUID).</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The number of missing-episode gaps the series now has.</returns>
-    [HttpPost("RecheckSeries")]
+    /// <param name="ownerIds">The owning library items' ids (Jellyfin GUIDs). Ids no enabled source claims are skipped.</param>
+    /// <returns>The run status, with Started indicating whether this call kicked one off.</returns>
+    [HttpPost("RecheckSources")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<int>> RecheckSeries([FromQuery] string? seriesId, CancellationToken cancellationToken)
+    public ActionResult<RecheckStatus> RecheckSources([FromBody] IReadOnlyList<string>? ownerIds)
     {
-        if (!Guid.TryParse(seriesId, out var id))
+        if (ownerIds is null || ownerIds.Count == 0)
         {
-            return BadRequest("A seriesId is required.");
+            return BadRequest("At least one ownerId is required.");
         }
 
-        var recheck = await _engine.RecheckSeriesAsync(id, cancellationToken).ConfigureAwait(false);
-        _store.ReplaceSeriesGaps(id, recheck);
-        return recheck.Items.Count;
+        var ids = new List<Guid>(ownerIds.Count);
+        foreach (var raw in ownerIds)
+        {
+            if (Guid.TryParse(raw, out var id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        if (ids.Count == 0)
+        {
+            return BadRequest("No ownerId parsed as a library item id.");
+        }
+
+        var started = _recheckRunner.TryStart(ids);
+        return RecheckStatusNow(started);
+    }
+
+    /// <summary>
+    /// Gets whether a bulk re-check is running, and how far through it is.
+    /// </summary>
+    /// <returns>The bulk re-check status.</returns>
+    [HttpGet("RecheckStatus")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<RecheckStatus> GetRecheckStatus() => RecheckStatusNow(false);
+
+    private RecheckStatus RecheckStatusNow(bool started) => new()
+    {
+        Running = _recheckRunner.IsRunning,
+        Started = started,
+        Progress = _recheckRunner.Progress,
+        Total = _recheckRunner.Total,
+        Done = _recheckRunner.Done
+    };
+
+    /// <summary>
+    /// Verifies gaps against the library and drops the ones it now holds, so a filled gap can be cleared from
+    /// the report without a rescan. Purely local: it asks no provider, and so clears filled gaps but does not
+    /// discover new ones (see <see cref="RecheckSources"/> for that). Works for every domain, pattern, and kind.
+    /// </summary>
+    /// <param name="ids">The gap ids to check. Ids the report no longer holds are skipped.</param>
+    /// <returns>How many were checked, how many were owned, and the ids removed.</returns>
+    [HttpPost("Verify")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<VerifyResult> Verify([FromBody] IReadOnlyList<string>? ids)
+    {
+        if (ids is null || ids.Count == 0)
+        {
+            return BadRequest("At least one gap id is required.");
+        }
+
+        // Rehydrate every gap server-side by id, as every other endpoint does: the client sends ids, never
+        // gap bodies, so a stale or forged row cannot decide what gets dropped. One snapshot, indexed once
+        // and reused for the sweep below, because a per-id scan of the whole report would be quadratic on a
+        // large filtered tab before a single library query had run.
+        var snapshot = _store.LoadSnapshot().Items;
+        var byId = new Dictionary<string, GapItem>(snapshot.Count, StringComparer.Ordinal);
+        foreach (var item in snapshot)
+        {
+            byId[item.Id] = item;
+        }
+
+        var checkedCount = 0;
+        var owned = new List<GapItem>();
+        foreach (var id in ids)
+        {
+            if (!byId.TryGetValue(id, out var gap))
+            {
+                continue;
+            }
+
+            checkedCount++;
+            if (_verifier.Owns(gap))
+            {
+                owned.Add(gap);
+            }
+        }
+
+        // One acquired title is normally several gaps (its collection, a studio set, a filmography, a
+        // recommendation), each with its own id from its own source. Having confirmed the title is in the
+        // library, drop every gap about it, not just the row that was clicked, so it leaves all the tabs it
+        // was on at once rather than lingering until each is verified separately.
+        var removedIds = GapTargetKey.MatchingIds(snapshot, owned);
+        var removed = _store.RemoveGaps(removedIds);
+
+        return new VerifyResult
+        {
+            Checked = checkedCount,
+            Owned = owned.Count,
+            Removed = removed,
+            RemovedIds = removedIds
+        };
     }
 
     /// <summary>

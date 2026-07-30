@@ -26,19 +26,19 @@ public class TodoController : ControllerBase
 {
     private readonly GapStore _store;
     private readonly TodoStore _todo;
-    private readonly ILibraryManager _libraryManager;
+    private readonly LibraryVerifier _verifier;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TodoController"/> class.
     /// </summary>
     /// <param name="store">The gap store, to snapshot the report when adding entries.</param>
     /// <param name="todo">The personal todo-list store.</param>
-    /// <param name="libraryManager">The library manager, used to verify a todo entry against the library.</param>
-    public TodoController(GapStore store, TodoStore todo, ILibraryManager libraryManager)
+    /// <param name="verifier">The library verifier, so a todo entry is checked exactly as a report row is.</param>
+    public TodoController(GapStore store, TodoStore todo, LibraryVerifier verifier)
     {
         _store = store;
         _todo = todo;
-        _libraryManager = libraryManager;
+        _verifier = verifier;
     }
 
     /// <summary>
@@ -124,39 +124,48 @@ public class TodoController : ControllerBase
         return new TodoVerifyResult { Owned = owned, Entry = updated };
     }
 
-    // Whether the library owns a real (non-virtual) item of the entry's kind carrying any of its provider
-    // ids. A focused query (the kind, real items only, any of the ids) keeps the lookup cheap rather than
-    // building a whole ownership index for a single check.
-    private bool LibraryOwns(TodoEntry entry)
+    /// <summary>
+    /// Verifies the whole todo list against the library in one pass, marking each entry done or not to match.
+    /// The bulk form of <see cref="VerifyTodo"/>, for the popup's "check everything" action and for the
+    /// verify the Markdown export runs before writing, so an exported checklist is true when it is written.
+    /// </summary>
+    /// <returns>How many entries were checked and how many the library now holds, with the updated list.</returns>
+    [HttpPost("Todo/VerifyAll")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<TodoVerifyAllResult> VerifyAllTodo()
     {
-        if (entry.ProviderIds.Count == 0
-            || !Enum.TryParse<BaseItemKind>(entry.TargetKindName, ignoreCase: false, out var kind))
-        {
-            return false;
-        }
+        var entries = _todo.Load();
+        var owned = 0;
 
-        var hasAny = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pair in entry.ProviderIds)
+        // Stamp both ways: an entry marked done whose file has since left the library becomes outstanding
+        // again, so the list keeps telling the truth rather than only ever accumulating ticks. Collected
+        // first and applied in one write, since the store flushes the whole file per change.
+        var states = new Dictionary<string, bool>(entries.Count, StringComparer.Ordinal);
+        foreach (var entry in entries)
         {
-            if (!string.IsNullOrEmpty(pair.Value))
+            var has = LibraryOwns(entry);
+            if (has)
             {
-                hasAny[pair.Key] = pair.Value;
+                owned++;
             }
+
+            states[entry.Id] = has;
         }
 
-        if (hasAny.Count == 0)
-        {
-            return false;
-        }
+        _todo.ReconcileDone(states);
 
-        var matches = _libraryManager.GetItemList(new InternalItemsQuery
+        return new TodoVerifyAllResult
         {
-            IncludeItemTypes = new[] { kind },
-            IsVirtualItem = false,
-            HasAnyProviderId = hasAny,
-            Recursive = true
-        });
-
-        return matches.Count > 0;
+            Checked = entries.Count,
+            Owned = owned,
+            Items = _todo.Load()
+        };
     }
+
+    // Whether the library holds this entry, decided by the same rules the report's verify uses (a shared
+    // provider id, or for an album the artist-and-title name match). A todo entry is a gap the user copied
+    // aside, so the two must not be able to disagree about whether it has been filled.
+    private bool LibraryOwns(TodoEntry entry)
+        => Enum.TryParse<BaseItemKind>(entry.TargetKindName, ignoreCase: false, out var kind)
+            && _verifier.Owns(kind, entry.ProviderIds, entry.Creator, entry.Name);
 }
