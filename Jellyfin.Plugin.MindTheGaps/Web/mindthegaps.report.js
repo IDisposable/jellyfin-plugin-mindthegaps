@@ -189,12 +189,35 @@ function batchDismissBtns(label) {
         + ' ' + cgAnchor('cgBatchNotInterested', { 'data-label': label, title: 'Mark all listed items here as not interested', 'aria-label': 'Mark all listed items here as not interested' }, icon('close'));
 }
 
-// The refresh control on a series or season header: re-checks just that series now (the server
-// swaps its gaps), so a metadata fix can be verified without a full rescan. Carries the series
-// id; a season's control re-checks its whole series.
-function recheckBtn(seriesId) {
-    if (!seriesId) { return ''; }
-    return ' ' + cgAnchor('cgRecheck', { 'data-series': seriesId, title: 'Re-check this series now', 'aria-label': 'Re-check this series now' }, icon('refresh'));
+// Whether the server can re-run the source behind this owning item on its own, which is what the
+// clear-down offers once a verify leaves something still missing. Every Set completion owner that is
+// a library item qualifies (a BoxSet, a Series, a MusicArtist, a Book), as does a music or book
+// creator. A studio, keyword, label, or curated list carries a synthetic owner id, not a library
+// one; a film filmography and a recommendation seed have no per-item re-check at all. Offering one
+// for those would prompt for a pass the server would then skip.
+function ownerRecheckable(it) {
+    if (!it || !isGuidId(it.SourceItemId)) { return false; }
+    if (it.PatternName === 'SetCompletion') { return true; }
+    return it.PatternName === 'CreatorWorks' && (it.DomainName === 'Music' || it.DomainName === 'Books');
+}
+
+// An N-format Jellyfin guid, which is what a library-backed source carries in SourceItemId. The
+// rest (a curated list, a studio, a Discogs label) carries a synthetic key like "mdblist-123",
+// which no per-item re-check can resolve back to a library item.
+function isGuidId(id) { return /^[0-9a-f]{32}$/i.test(id || ''); }
+
+// The one clear-down control, on every level of the tree and on every row. Stage one always checks
+// the rows in scope against the library and drops the ones you now hold; if any survive and their
+// sources can be re-run, stage two offers to ask the providers again. scope/season narrow what the
+// click covers: a domain, a set kind, one group, one season, or a single row.
+function clearBtn(scope, key, label) {
+    var title = 'Check ' + label + ' against your library and clear what you now have, then offer a provider re-check for the rest';
+    return ' ' + cgAnchor('cgClear', {
+        'data-scope': scope,
+        'data-key': key == null ? '' : String(key),
+        title: title,
+        'aria-label': title
+    }, icon('refresh'));
 }
 
 // The greyed status line for a dismissed gap.
@@ -431,7 +454,8 @@ function renderRow(item) {
         : h('span', { style: 'display:inline-block;width:1.4em;flex:none;' }).outerHTML;
 
     var titleLine = wrap('div', { 'class': 'listItemBodyText cgRowTitle' },
-        esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId));
+        esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId)
+            + clearBtn('row', item.Id, 'this title'));
     var secondaryLine = wrap('div', { 'class': 'listItemBodyText secondary' }, meta.join(' &middot; '));
     var body = wrap('div', { style: 'flex:1;min-width:0;' },
         titleLine + secondaryLine + details + avail + resolvedLine + linksRow);
@@ -864,7 +888,9 @@ function sourceBody(items) {
         var seasonDiag = (key !== 'na' && n > 0)
             ? seasonDiagnoseBtn(seasonItems[0].Id, (seriesName ? seriesName + ' ' : '') + label)
             : '';
-        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId) + recheckBtn(seasonItems[0].SourceItemId) + seasonDiag + batchDismissBtns(label);
+        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId)
+            + clearBtn('season', (seriesName || '') + '|' + key, 'this season')
+            + seasonDiag + batchDismissBtns(label);
         return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra);
     }).join('');
 }
@@ -999,7 +1025,7 @@ function setSourceCell(src, srcItems) {
         + coverageBadge(covItem)
         + searchIcon(src, searchScope)
         + openIcon(srcItems[0].SourceItemId)
-        + (isEpisodic ? recheckBtn(srcItems[0].SourceItemId) : '')
+        + clearBtn('group', src, 'everything listed under ' + src)
         + (isEpisodic ? batchDismissBtns(src) : '')
         + sourceLinks(srcItems[0]);
     // For a series, put the show's year in the header so same-named reboots are distinguishable
@@ -1027,7 +1053,7 @@ function buildTree(items) {
             var sItems = bySource.map[src];
             var token = 'lz' + (++cgGroupSeq);
             lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
-            return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
+            return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
         }).join('');
     }
 
@@ -1040,7 +1066,7 @@ function buildTree(items) {
             // tab with tens of thousands of rows renders just the headers up front.
             var token = 'lz' + (++cgGroupSeq);
             lazyBodies[token] = function () { return sortRows(cItems).map(renderRow).join(''); };
-            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + creatorDismissBtn(cItems[0].SourceItemId, src) + sourceLinks(cItems[0]), token);
+            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + creatorDismissBtn(cItems[0].SourceItemId, src) + sourceLinks(cItems[0]), token);
         }).join('');
     }
 
@@ -1062,7 +1088,8 @@ function buildTree(items) {
         // group machinery so its caret, keyboard toggle, and persisted state all come for free.
         if (!multiKind) { return grid; }
         var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
-            h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML);
+            h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML
+                + clearBtn('kind', kind, 'everything under ' + kind));
         return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
             hdr + wrap('div', { 'class': 'cgBody' }, grid));
     }).join('');
@@ -1238,10 +1265,17 @@ function gapDetail(it) {
 // domain folded into the title "Mind the Gaps: Movies Set completion"), an H2 per source group
 // (the set's kind, the creator, or the recommending title), and each gap as an H3 with a detail
 // line. A table of contents jumps to each group. The summary line links to a shareable view.
-function buildMarkdown(page) {
+// Everything the export writes: the current tab under the current filters, across every letter. Note
+// this is deliberately wider than page._shown, which the A-Z bar narrows to one letter on a big tab.
+// The verify that runs before an export uses this too, so it cannot check less than it writes.
+function exportItems(page) {
     var report = page._report || { Items: [] };
     var pass = buildFilter(page);
-    var items = (report.Items || []).filter(function (it) { return it.PatternName === page._pattern && pass(it); });
+    return (report.Items || []).filter(function (it) { return it.PatternName === page._pattern && pass(it); });
+}
+
+function buildMarkdown(page) {
+    var items = exportItems(page);
     // Angle brackets around the URL so encoded filter values cannot break the markdown link.
     var out = ['_[' + items.length + ' gaps, exported ' + new Date().toLocaleString() + '](<' + shareUrl(page) + '>)_', ''];
 
@@ -1523,7 +1557,8 @@ function rollupHtml(items) {
         });
         var nGroups = Object.keys(groups).length;
         var cov = totalSum ? ' ' + h('span', { 'class': 'cgRollupCov' }, '(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)').outerHTML : '';
-        return h('b', null, cat).outerHTML + ': ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov;
+        var clear = clearBtn('domain', cat, 'everything shown for ' + cat);
+        return h('b', null, cat).outerHTML + ': ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov + clear;
     });
     return parts.join(' &nbsp;&middot;&nbsp; ');
 }
@@ -1569,6 +1604,171 @@ function refreshAcqConfig(page) {
         }, function () { acqConfig = null; });
 }
 
+// The rows one clear-down click covers, taken from what the last render actually showed rather than
+// from the DOM: a collapsed Creator works or Discover group has no rows rendered yet, so reading the
+// DOM would silently verify nothing.
+function rowsInScope(page, scope, key) {
+    var shown = page._shown || [];
+    if (scope === 'row') { return shown.filter(function (it) { return it.Id === key; }); }
+    if (scope === 'domain') { return shown.filter(function (it) { return categoryOf(it) === key; }); }
+    if (scope === 'kind') { return shown.filter(function (it) { return setKindLabel(it.SourceItemType) === key; }); }
+    // Groups are rendered by SourceItemName, so the scope keys on that too. Keying on one member's
+    // SourceItemId would cover only one of two same-named creators or collections whose rows share a
+    // heading, silently leaving the other's rows behind.
+    if (scope === 'group') { return shown.filter(function (it) { return groupKeyOf(it) === key; }); }
+    if (scope === 'season') {
+        // "<group name>|<season groupBy key>", where an episode with no season files under 'na',
+        // matching how sourceBody groups them. Split on the last separator, since a name may contain one.
+        var cut = key.lastIndexOf('|');
+        var owner = key.slice(0, cut);
+        var season = key.slice(cut + 1);
+        return shown.filter(function (it) {
+            return groupKeyOf(it) === owner && (it.Season == null ? 'na' : String(it.Season)) === season;
+        });
+    }
+
+    return [];
+}
+
+// The heading a row is rendered under, matching what buildTree and setSourceCell group by.
+function groupKeyOf(it) { return it.SourceItemName || '(no source)'; }
+
+// How a clear-down names its scope in the messages it shows.
+function scopeLabel(scope, key, items) {
+    if (scope === 'row') { return ' (' + ((items[0] && items[0].Name) || 'this title') + ')'; }
+    if (scope === 'domain' || scope === 'kind') { return ' under ' + key; }
+    if (scope === 'season') { return ' in this season'; }
+    return ' in this group';
+}
+
+// Ask the server which of these gaps the library now holds; it drops those from the report and
+// returns their ids, which are pruned from every cached tab so a tab switch does not resurrect them.
+function verifyGaps(page, ids) {
+    return ApiClient.ajax({
+        type: 'POST',
+        url: ApiClient.getUrl('MindTheGaps/Verify'),
+        contentType: 'application/json',
+        data: JSON.stringify(ids)
+    }).then(function (res) {
+        var removed = {};
+        ((res && res.RemovedIds) || []).forEach(function (id) { removed[id] = true; });
+        if (!Object.keys(removed).length) { return res; }
+
+        pruneSlices(page, removed);
+
+        // Pruning can only adjust the counts for gaps we hold locally, and the whole point of the sweep is
+        // that it also clears rows on tabs never loaded. Re-read the summary so the totals and tab badges
+        // are the server's rather than a local approximation; failing that, keep the pruned estimate.
+        return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Summary'), dataType: 'json' })
+            .then(function (summary) {
+                if (summary) { page._summary = summary; }
+                return res;
+            }, function () { return res; });
+    });
+}
+
+// Drop removed gaps from the loaded tab and every cached slice, so the list reflects the change without
+// re-fetching the report. The counts are not adjusted here: verifyGaps re-reads the summary, which is the
+// only thing that knows about rows removed from tabs this browser never loaded. The loaded tab is the
+// same object as its cached slice, so pruned reports are tracked to avoid filtering one twice.
+function pruneSlices(page, removed) {
+    var seen = [];
+    var prune = function (report) {
+        if (!report || !report.Items || seen.indexOf(report) !== -1) { return; }
+        seen.push(report);
+        report.Items = report.Items.filter(function (it) { return !removed[it.Id]; });
+    };
+
+    prune(page._report);
+    Object.keys(page._slices || {}).forEach(function (p) { prune(page._slices[p]); });
+}
+
+// The distinct owning items behind a set of rows that the server can actually re-run, in the order
+// they appear. A row whose owner has no per-item re-check contributes nothing, so the clear-down
+// never prompts for a pass the server would skip.
+function recheckableOwners(items) {
+    var seen = {};
+    var owners = [];
+    items.forEach(function (it) {
+        var src = it.SourceItemId || '';
+        if (!ownerRecheckable(it) || seen[src]) { return; }
+        seen[src] = true;
+        owners.push(src);
+    });
+    return owners;
+}
+
+// The clear-down every scope runs, from a single row up to a whole tab: verify the rows in scope,
+// drop what the library now holds, then offer to re-check the sources behind whatever survived. One
+// routine, so every level behaves identically at a different width.
+function clearDownScope(page, items, label) {
+    if (!items.length) { Dashboard.alert('Nothing shown to check.'); return Promise.resolve(); }
+    return verifyGaps(page, items.map(function (it) { return it.Id; })).then(function (res) {
+        var cleared = (res && res.Owned) || 0;
+        var left = items.length - cleared;
+        // The server drops every gap about a title it confirms you own, so acquiring one film can clear
+        // rows on tabs that are not even loaded (its collection, a studio set, a filmography). Say so,
+        // rather than have the totals move by more than the rows that visibly went.
+        var elsewhere = Math.max(0, ((res && res.Removed) || cleared) - cleared);
+        var also = elsewhere ? ' (and ' + elsewhere + ' more elsewhere in the report)' : '';
+        if (cleared) { applyAndRender(page); }
+        if (!left) {
+            Dashboard.alert('Cleared all ' + cleared + ' item(s)' + label + also + '; you have them all now.');
+            return;
+        }
+        // Re-check only the sources that still have something missing, not every source in scope, so a
+        // mostly-clear heading costs a handful of provider calls instead of one per set.
+        var removed = (res && res.RemovedIds) || [];
+        var owners = recheckableOwners(items.filter(function (it) { return removed.indexOf(it.Id) === -1; }));
+        var msg = cleared
+            ? 'Cleared ' + cleared + ' item(s)' + label + also + '. ' + left + ' still missing.'
+            : left + ' item(s)' + label + ' still missing.';
+        if (!owners.length) { Dashboard.alert(msg); return; }
+        if (!window.confirm(msg + '\n\nRe-check the ' + owners.length + ' source(s) they belong to with their providers? That runs in the background and also picks up anything added since the last scan.')) { return; }
+        return startBulkRecheck(page, owners);
+    });
+}
+
+// Stage two of a kind-level clear-down: hand the whole batch to the background runner and poll it,
+// since a heading can cover hundreds of sets and each one is a live provider call. The server builds
+// the ownership index once for the batch and swaps each set in as it finishes, so a run that is
+// interrupted still leaves the sets it got through up to date.
+function startBulkRecheck(page, ownerIds) {
+    return ApiClient.ajax({
+        type: 'POST',
+        url: ApiClient.getUrl('MindTheGaps/RecheckSources'),
+        contentType: 'application/json',
+        data: JSON.stringify(ownerIds)
+    }).then(function (st) {
+        if (st && !st.Started && st.Running) {
+            Dashboard.alert('A re-check is already running; wait for it to finish and try again.');
+            return;
+        }
+        Dashboard.showLoadingMsg();
+        return pollBulkRecheck(page);
+    }).catch(function () {
+        Dashboard.alert('Could not start the re-check. Check the server logs.');
+    });
+}
+
+function pollBulkRecheck(page) {
+    return ApiClient.getJSON(ApiClient.getUrl('MindTheGaps/RecheckStatus')).then(function (st) {
+        if (st && st.Running) {
+            return new Promise(function (resolve) { setTimeout(resolve, 1000); }).then(function () { return pollBulkRecheck(page); });
+        }
+        // Finished: the report changed underneath us, so drop the cached tabs and re-fetch this one.
+        if (page._slices) { page._slices[page._pattern] = null; }
+        return ensureSlice(page, page._pattern).then(function () {
+            Dashboard.hideLoadingMsg();
+            applyAndRender(page);
+            Dashboard.alert('Re-check finished' + (st && st.Total ? ' (' + st.Done + ' of ' + st.Total + ' set(s))' : '') + '.');
+        });
+    }).catch(function () {
+        Dashboard.hideLoadingMsg();
+        Dashboard.alert('Lost contact with the re-check. Check the server logs.');
+    });
+}
+
 function applyAndRender(page) {
     var report = page._report || { Items: [] };
     currentSort = page.querySelector('#cgSort').value || 'title';
@@ -1589,6 +1789,10 @@ function applyAndRender(page) {
     page._letter = letter;
     var displayItems = letter === '*' ? items
         : items.filter(function (it) { return itemLetters(it, page._pattern).indexOf(letter) !== -1; });
+
+    // What the list is about to show, so a group's clear-down verifies exactly the rows on screen
+    // (including in a collapsed group, whose rows are not in the DOM until it is expanded).
+    page._shown = displayItems;
 
     var streamable = page.querySelector('#cgStreamable').checked;
     var empty;
@@ -2464,6 +2668,20 @@ function todoAmazonUrl(entry) {
     return 'https://www.amazon.com/s?k=' + encodeURIComponent(todoSearchTerm(entry));
 }
 
+// Check every todo entry against the library in one pass, tick the ones you now hold, and re-render
+// the popup from what comes back. Both the "Verify all" button and the export run this, so a list you
+// are about to read (on screen or in a file) has just been reconciled with the library.
+function verifyAllTodo(modal) {
+    return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Todo/VerifyAll'), dataType: 'json' })
+        .then(function (res) {
+            if (res && res.Items) {
+                modal._data = { Items: res.Items, SearchUrlTemplate: (modal._data || {}).SearchUrlTemplate };
+                renderTodo(modal);
+            }
+            return res;
+        });
+}
+
 // POST helper for the single-id Todo endpoints (Remove / SetDone / Verify), all query-string args.
 function todoPost(path, args) {
     return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/' + path, args), dataType: 'json' });
@@ -2762,8 +2980,29 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     document.getElementById('cgTodoModal').addEventListener('click', function (e) {
         if (e.target === this) { closeTodo(); }
     });
+    document.getElementById('cgTodoVerifyAll').addEventListener('click', function () {
+        var modal = document.getElementById('cgTodoModal');
+        Dashboard.showLoadingMsg();
+        verifyAllTodo(modal).then(function (res) {
+            Dashboard.hideLoadingMsg();
+            Dashboard.alert('Checked ' + ((res && res.Checked) || 0) + ' entry(s); you have ' + ((res && res.Owned) || 0) + ' of them.');
+        }).catch(function () {
+            Dashboard.hideLoadingMsg();
+            Dashboard.alert('Could not check your library. Check the server logs.');
+        });
+    });
+    // Verify before writing the file, so the exported checklist's ticks are true as of the download
+    // rather than as of whenever each entry was last checked by hand.
     document.getElementById('cgTodoExport').addEventListener('click', function () {
-        downloadText('mind-the-gaps-todo.md', buildTodoMarkdown(document.getElementById('cgTodoModal')));
+        var modal = document.getElementById('cgTodoModal');
+        Dashboard.showLoadingMsg();
+        verifyAllTodo(modal).catch(function () {
+            // A failed check must not cost you the export; fall back to writing what is on screen.
+            Dashboard.alert('Could not check your library first, so the export reflects the list as it stands.');
+        }).then(function () {
+            Dashboard.hideLoadingMsg();
+            downloadText('mind-the-gaps-todo.md', buildTodoMarkdown(modal));
+        });
     });
     document.getElementById('cgTodoBody').addEventListener('change', function (e) {
         var box = e.target.closest ? e.target.closest('.cgTodoDoneBox') : null;
@@ -2957,22 +3196,77 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             .then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
             .catch(function () { Dashboard.alert('Could not restore the creator. Check the server logs.'); });
     });
+    // Export verifies what it is about to write first, so the file is a list of things you actually
+    // still need rather than a snapshot of whatever the last scan believed. That drops the rows you now
+    // hold from the report as well, which is the same clear-down the refresh controls run, so it says
+    // what it cleared rather than doing it silently.
     page.querySelector('#cgExport').addEventListener('click', function () {
         if (!page._report) { return; }
-        // Name the file by the active domain and the domain-aware pattern label (the same words
-        // shown on screen), each lowercased with all whitespace turned to hyphens, so it reads
-        // consistently and each domain's export of a pattern keeps its own filename.
-        var typeSel = page.querySelector('#cgTypeFilter');
-        var domainValue = (typeSel && typeSel.value) || '';
-        var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
-        var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
-        downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
+        var write = function () {
+            // Name the file by the active domain and the domain-aware pattern label (the same words
+            // shown on screen), each lowercased with all whitespace turned to hyphens, so it reads
+            // consistently and each domain's export of a pattern keeps its own filename.
+            var typeSel = page.querySelector('#cgTypeFilter');
+            var domainValue = (typeSel && typeSel.value) || '';
+            var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
+            var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
+            downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
+        };
+
+        // Verify exactly what is about to be written, not just the letter on screen.
+        var toWrite = exportItems(page);
+        if (!toWrite.length) { write(); return; }
+
+        Dashboard.showLoadingMsg();
+        verifyGaps(page, toWrite.map(function (it) { return it.Id; })).then(function (res) {
+            Dashboard.hideLoadingMsg();
+            var cleared = (res && res.Removed) || 0;
+            if (cleared) {
+                applyAndRender(page);
+                Dashboard.alert('Cleared ' + cleared + ' item(s) you already have; the export leaves them out.');
+            }
+
+            // Write after the re-render, so the file matches what the screen now shows.
+            write();
+        }).catch(function () {
+            // A failed check must not cost you the export; fall back to writing what is on screen.
+            Dashboard.hideLoadingMsg();
+            Dashboard.alert('Could not check your library first, so the export reflects the list as it stands.');
+            write();
+        });
     });
     page.querySelector('#cgExploreBtn').addEventListener('click', function () {
         openExplore(page);
     });
     page.querySelector('#cgTodoBtn').addEventListener('click', function () {
         openTodo();
+    });
+    // The rollup line sits outside the list, so its clear-down control needs its own delegation. It
+    // scopes to one media domain, which on a tab with no kind headings (Creator works, Discover, or a
+    // Set completion whose domain has a single kind) is the only level between a group and the tab.
+    page.querySelector('#cgRollup').addEventListener('click', function (e) {
+        var rEl = e.target.closest ? e.target.closest('.cgClear') : null;
+        if (!rEl) { return; }
+        var rKey = rEl.getAttribute('data-key') || '';
+        var rRows = rowsInScope(page, 'domain', rKey);
+        if (!rRows.length) { return; }
+        if (!window.confirm('Check all ' + rRows.length + ' item(s) under ' + rKey + ' against your library and clear the ones you have?')) { return; }
+        rEl.classList.add('cgBusy');
+        clearDownScope(page, rRows, ' under ' + rKey)
+            .catch(function () { Dashboard.alert('Could not check your library. Check the server logs.'); })
+            .then(function () { rEl.classList.remove('cgBusy'); });
+    });
+    // The whole filtered tab at once, the widest scope of the same routine. The count is confirmed
+    // first because it is not undoable in place (a cleared row comes back on the next scan only if it
+    // is genuinely still missing).
+    page.querySelector('#cgVerifyShown').addEventListener('click', function () {
+        var shown = page._shown || [];
+        if (!shown.length) { Dashboard.alert('Nothing shown to check.'); return; }
+        if (!window.confirm('Check all ' + shown.length + ' shown item(s) against your library and clear the ones you have?')) { return; }
+        Dashboard.showLoadingMsg();
+        clearDownScope(page, shown, '')
+            .catch(function () { Dashboard.alert('Could not check your library. Check the server logs.'); })
+            .then(function () { Dashboard.hideLoadingMsg(); });
     });
     page.querySelector('#cgJump').addEventListener('click', function (e) {
         var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
@@ -3123,24 +3417,24 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        // Re-check one series now (the refresh icon on a series or season header): the server
-        // swaps just this series' gaps, so a metadata fix can be verified without a full rescan.
-        // Invalidate the cached slice for the current tab, then re-fetch and re-render.
-        var rkBtn = e.target.closest('.cgRecheck');
-        if (rkBtn) {
-            var rkSeries = rkBtn.getAttribute('data-series');
-            if (!rkSeries) { return; }
-            rkBtn.classList.add('cgBusy');
-            ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/RecheckSeries', { seriesId: rkSeries }), dataType: 'json' })
-                .then(function () {
-                    if (page._slices) { page._slices[page._pattern] = null; }
-                    return ensureSlice(page, page._pattern);
-                })
-                .then(function () { applyAndRender(page); })
-                .catch(function () {
-                    rkBtn.classList.remove('cgBusy');
-                    Dashboard.alert('Could not re-check the series. Check the server logs.');
-                });
+        // The one clear-down control, wherever it was clicked. The scope decides which of the rows on
+        // screen it covers; the behaviour past that is identical at every level.
+        var clearEl = e.target.closest('.cgClear');
+        if (clearEl) {
+            var scope = clearEl.getAttribute('data-scope') || '';
+            var key = clearEl.getAttribute('data-key') || '';
+            var picked = rowsInScope(page, scope, key);
+            if (!picked.length) { return; }
+            // Only the wide scopes confirm first: a row or a season is small enough to just do.
+            if ((scope === 'domain' || scope === 'kind')
+                && !window.confirm('Check all ' + picked.length + ' item(s) here against your library and clear the ones you have?')) {
+                return;
+            }
+
+            clearEl.classList.add('cgBusy');
+            clearDownScope(page, picked, scopeLabel(scope, key, picked))
+                .catch(function () { Dashboard.alert('Could not check your library. Check the server logs.'); })
+                .then(function () { clearEl.classList.remove('cgBusy'); });
             return;
         }
 

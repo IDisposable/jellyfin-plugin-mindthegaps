@@ -40,10 +40,12 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TodoStore>();
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
+        serviceCollection.AddSingleton<LibraryVerifier>();
         serviceCollection.AddSingleton<ExploreRegistry>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<ExploreRunner>();
+        serviceCollection.AddSingleton<RecheckRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
         serviceCollection.AddSingleton<WebhookNotifier>();
         serviceCollection.AddSingleton<CachedApiClient>();

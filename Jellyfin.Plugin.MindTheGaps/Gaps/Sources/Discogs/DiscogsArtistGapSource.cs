@@ -53,11 +53,14 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
     protected override string ServiceName => ServiceNames.Discogs;
 
     /// <inheritdoc />
+    public override string GapIdPrefix => "discogsartist:";
+
+    /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config)
         => config.ScanDiscogs && !string.IsNullOrEmpty(config.DiscogsToken);
 
     /// <inheritdoc />
-    protected override async Task<(IReadOnlyList<GapItem> Gaps, bool CallSpent)> ProcessArtistAsync(
+    protected override async Task<(IReadOnlyList<GapItem>? Gaps, bool CallSpent)> ProcessArtistAsync(
         BaseItem artist,
         GapScanContext context,
         CancellationToken cancellationToken)
@@ -66,12 +69,12 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         // artists they cannot scan, so the two never report the same album twice.
         if (artist.TryGetProviderId(ProviderIds.MusicBrainzArtist, out var mbid) && !string.IsNullOrEmpty(mbid))
         {
-            return ([], false);
+            return (null, false);
         }
 
         if (string.IsNullOrEmpty(artist.Name))
         {
-            return ([], false);
+            return (null, false);
         }
 
         // Only scan an artist the library has already identified on Discogs. The id resolves from the item with
@@ -79,7 +82,7 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         var artistId = DiscogsArtistDiscography.ResolveId(artist);
         if (artistId is null)
         {
-            return ([], false);
+            return (null, false);
         }
 
         IReadOnlyList<DiscogsRelease> releases;
@@ -90,7 +93,7 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Logger.LogWarning(ex, "Discogs artists: failed to fetch releases for {Name} (Discogs {ArtistId})", artist.Name, artistId.Value);
-            return ([], true);
+            return (null, true);
         }
 
         var pattern = OwnsAlbumByArtist(artist) ? GapPattern.SetCompletion : GapPattern.CreatorWorks;

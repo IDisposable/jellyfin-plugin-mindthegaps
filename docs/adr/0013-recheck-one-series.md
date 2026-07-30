@@ -29,3 +29,9 @@ served from the read-through cache.
 - It runs in the request rather than the background (unlike a full scan or an explore), which is fine for
   one series but would not be for the whole library; a wholly cold cross-check cache makes the first
   re-check of a show a few live calls, then cached.
+
+Superseded in part by [ADR-0016](0016-verify-first-clear-down.md), which generalized this to any owning item.
+`CheckSeriesAsync` and the per-series behaviour are unchanged, but the entry points folded together: the
+`RecheckSeries` endpoint and `GapStore.ReplaceSeriesGaps` are now the general `RecheckSources` and
+`ReplaceSourceGaps`, which dispatch on what the owning item is, and the refresh icon this ADR put on a series
+header is now the one clear-down control the whole report uses.

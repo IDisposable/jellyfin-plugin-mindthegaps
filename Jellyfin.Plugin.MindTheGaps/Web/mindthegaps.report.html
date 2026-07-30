@@ -88,10 +88,11 @@
                                 <span class="material-icons" aria-hidden="true">close</span>
                             </button>
                         </div>
-                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for it, and Delete removes it. The list survives rescans.</p>
+                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for that one, Verify all checks the lot, and Delete removes it. The list survives rescans.</p>
                         <div id="cgTodoBody"></div>
                         <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.9em;">
-                            <button is="emby-button" type="button" id="cgTodoExport" class="raised"><span>Export Markdown</span></button>
+                            <button is="emby-button" type="button" id="cgTodoVerifyAll" class="raised" title="Check every entry against your library now and tick the ones you have."><span>Verify all</span></button>
+                            <button is="emby-button" type="button" id="cgTodoExport" class="raised" title="Check every entry against your library, then download the list as a Markdown checklist."><span>Export Markdown</span></button>
                         </div>
                     </div>
                 </div>

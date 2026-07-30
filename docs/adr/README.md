@@ -20,3 +20,4 @@ context, the decision, and what it costs, so the reasoning survives the code.
 | [0013](0013-recheck-one-series.md) | Re-check one series in place, without a full rescan |
 | [0014](0014-tmdb-episode-source-and-provider-priority.md) | A TheMovieDb episode source, and honor the library's provider priority |
 | [0015](0015-merge-episodes-per-season-library-driven.md) | Merge every provider's episodes per season; the library drives which run |
+| [0016](0016-verify-first-clear-down.md) | Clear down a filled gap anywhere: verify first, re-check on request |

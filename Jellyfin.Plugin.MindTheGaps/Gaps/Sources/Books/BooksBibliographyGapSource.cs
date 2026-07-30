@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -20,7 +22,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// person/tag), so this is a deliberately modest slice: it resolves the author by name, lists that
 /// author's works, and diffs them against owned books by OpenLibrary work key.
 /// </summary>
-internal sealed class BooksBibliographyGapSource : IGapSource
+internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
 {
     // OpenLibrary is keyless but still rate-limited; each author is two calls, so cap distinct authors.
     private const int MaxAuthors = 100;
@@ -52,7 +54,14 @@ internal sealed class BooksBibliographyGapSource : IGapSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Book };
 
     /// <inheritdoc />
+    public string GapIdPrefix => "bibliography:";
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanBooks;
+
+    /// <inheritdoc />
+    public bool Claims(BaseItem owner)
+        => owner is not null && owner.GetBaseItemKind() == BaseItemKind.Book;
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
@@ -95,49 +104,72 @@ internal sealed class BooksBibliographyGapSource : IGapSource
 
             processed++;
 
-            string? authorKey;
-            IReadOnlyList<OpenLibraryWork> works;
-            try
+            var gaps = await CheckOneAsync(book, context, cancellationToken).ConfigureAwait(false);
+            if (gaps is null)
             {
-                // Prefer resolving the author from the owned book's own OpenLibrary work id: that reads the
-                // work's author directly and skips the name search (where a common name resolves the wrong
-                // namesake). Fall back to the name search only when the book carries no work id.
-                var ownedWorkId = OwnedWorkId(book);
-                authorKey = string.IsNullOrEmpty(ownedWorkId)
-                    ? null
-                    : await _openLibrary.GetWorkAuthorKeyAsync(ownedWorkId, cancellationToken).ConfigureAwait(false);
-                authorKey ??= await _openLibrary.ResolveAuthorKeyAsync(authorName, cancellationToken).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(authorKey))
-                {
-                    continue;
-                }
-
-                works = await _openLibrary.GetAuthorWorksBySearchAsync(authorKey, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Bibliography: OpenLibrary lookup failed for author {Author}", authorName);
+                // Nothing determined for this author (unresolvable, or OpenLibrary failed). Skip to the
+                // next book rather than ending the source's whole pass.
                 continue;
             }
-
-            if (works.Count == 0)
-            {
-                continue;
-            }
-
-            var gaps = OpenLibraryMapper.Build(
-                authorKey,
-                authorName,
-                works,
-                book.Id.ToString("N", CultureInfo.InvariantCulture),
-                context.Ownership,
-                context.Config.MaxRelatedPerItem);
 
             foreach (var gap in gaps)
             {
                 yield return gap;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GapItem>?> CheckOneAsync(BaseItem owner, GapScanContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(context);
+
+        var authorName = ResolveAuthorName(owner);
+        if (string.IsNullOrEmpty(authorName))
+        {
+            // Nothing to resolve by, so nothing was determined about this author's bibliography.
+            return null;
+        }
+
+        string? authorKey;
+        IReadOnlyList<OpenLibraryWork> works;
+        try
+        {
+            // Prefer resolving the author from the owned book's own OpenLibrary work id: that reads the
+            // work's author directly and skips the name search (where a common name resolves the wrong
+            // namesake). Fall back to the name search only when the book carries no work id.
+            var ownedWorkId = OwnedWorkId(owner);
+            authorKey = string.IsNullOrEmpty(ownedWorkId)
+                ? null
+                : await _openLibrary.GetWorkAuthorKeyAsync(ownedWorkId, cancellationToken).ConfigureAwait(false);
+            authorKey ??= await _openLibrary.ResolveAuthorKeyAsync(authorName, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(authorKey))
+            {
+                return null;
+            }
+
+            works = await _openLibrary.GetAuthorWorksBySearchAsync(authorKey, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Bibliography: OpenLibrary lookup failed for author {Author}", authorName);
+            return null;
+        }
+
+        if (works.Count == 0)
+        {
+            // OpenLibrary answered and listed nothing, which is a real answer.
+            return [];
+        }
+
+        return OpenLibraryMapper.Build(
+            authorKey,
+            authorName,
+            works,
+            owner.Id.ToString("N", CultureInfo.InvariantCulture),
+            context.Ownership,
+            context.Config.MaxRelatedPerItem).ToList();
     }
 
     // The owned book's OpenLibrary work id, if its metadata carries one (the OpenLibrary metadata plugin

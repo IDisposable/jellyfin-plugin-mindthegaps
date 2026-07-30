@@ -173,7 +173,7 @@ public class GapStoreTests
     }
 
     [Fact]
-    public void ReplaceSeriesGaps_SwapsOnlyThatSeriesContentGapsAndKeepsTheRest()
+    public void ReplaceSourceGaps_ForASeries_SwapsOnlyThatSeriesContentGapsAndKeepsTheRest()
     {
         var dir = TempDir();
         try
@@ -196,13 +196,137 @@ public class GapStoreTests
 
             // The re-check now finds only E01 for this series (E02 was fixed).
             var fresh = new GapReport { Items = new[] { SeriesGap("seriescontent:" + key + ":s01e01", key) } };
-            var updated = store.ReplaceSeriesGaps(seriesId, fresh);
+            var updated = store.ReplaceSourceGaps(key, new[] { "seriescontent:" }, fresh);
 
             Assert.Contains(updated.Items, i => i.Id == "seriescontent:" + key + ":s01e01");
             Assert.DoesNotContain(updated.Items, i => i.Id == "seriescontent:" + key + ":s01e02");
             Assert.Contains(updated.Items, i => i.Id == "seriescontent:" + otherKey + ":s01e01");
             Assert.Contains(updated.Items, i => i.Id == "movie:1");
             Assert.Equal(3, updated.TotalGaps);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ReplaceSourceGaps_SwapsOnlyTheClaimedPrefixesForThatOwner()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var boxSet = Guid.NewGuid().ToString("N");
+
+            store.Save(new GapReport
+            {
+                Items = new[]
+                {
+                    SeriesGap("collection:10:1", boxSet),      // re-checked away
+                    SeriesGap("collection:10:2", boxSet),      // re-checked, still missing
+                    SeriesGap("recommendation:10:9", boxSet),  // same owner, another source: untouched
+                    SeriesGap("collection:11:1", Guid.NewGuid().ToString("N")) // another owner: untouched
+                }
+            });
+
+            var fresh = new GapReport { Items = new[] { SeriesGap("collection:10:2", boxSet) } };
+            var updated = store.ReplaceSourceGaps(boxSet, new[] { "collection:" }, fresh);
+
+            Assert.DoesNotContain(updated.Items, i => i.Id == "collection:10:1");
+            Assert.Contains(updated.Items, i => i.Id == "collection:10:2");
+            Assert.Contains(updated.Items, i => i.Id == "recommendation:10:9");
+            Assert.Contains(updated.Items, i => i.Id == "collection:11:1");
+            Assert.Equal(3, updated.TotalGaps);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ReplaceSourceGaps_WithSeveralPrefixes_SwapsEachClaimingSourcesGaps()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var artist = Guid.NewGuid().ToString("N");
+
+            // An artist is claimed by both music sources at once, so a re-check swaps both prefixes.
+            store.Save(new GapReport
+            {
+                Items = new[]
+                {
+                    SeriesGap("discography:mb:1", artist),
+                    SeriesGap("discogsartist:99:1", artist),
+                    SeriesGap("artistworks:mb:1", artist)
+                }
+            });
+
+            var fresh = new GapReport { Items = new[] { SeriesGap("discography:mb:2", artist) } };
+            var updated = store.ReplaceSourceGaps(artist, new[] { "discography:", "discogsartist:" }, fresh);
+
+            Assert.DoesNotContain(updated.Items, i => i.Id == "discography:mb:1");
+            Assert.DoesNotContain(updated.Items, i => i.Id == "discogsartist:99:1");
+            Assert.Contains(updated.Items, i => i.Id == "discography:mb:2");
+            Assert.Contains(updated.Items, i => i.Id == "artistworks:mb:1");
+            Assert.Equal(2, updated.TotalGaps);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void RemoveGaps_DropsOnlyTheNamedIdsAndPreservesTheScanStamp()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var generated = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            store.Save(new GapReport
+            {
+                GeneratedUtc = generated,
+                GeneratedVersion = "1.2.3.4",
+                Items = new[] { Gap("a"), Gap("b"), Gap("c") }
+            });
+
+            var removed = store.RemoveGaps(new[] { "a", "c", "never-there" });
+
+            var loaded = store.Load();
+            Assert.Equal(2, removed);
+            Assert.Single(loaded.Items);
+            Assert.Equal("b", loaded.Items[0].Id);
+            Assert.Equal(1, loaded.TotalGaps);
+
+            // A verify is a partial update, so it must not look like a fresh scan (which would clear
+            // the post-upgrade rescan nudge).
+            Assert.Equal(generated, loaded.GeneratedUtc);
+            Assert.Equal("1.2.3.4", loaded.GeneratedVersion);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void RemoveGaps_WithNoMatchingIds_LeavesTheReportAlone()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var report = new GapReport { TotalGaps = 1, Items = new[] { Gap("a") } };
+            store.Save(report);
+
+            Assert.Equal(0, store.RemoveGaps(new[] { "nope" }));
+            Assert.Equal(0, store.RemoveGaps(Array.Empty<string>()));
+            Assert.Same(report, store.Load());
         }
         finally
         {

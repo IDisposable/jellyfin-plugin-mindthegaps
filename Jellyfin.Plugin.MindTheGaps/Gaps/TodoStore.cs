@@ -174,6 +174,43 @@ public sealed class TodoStore
         }
     }
 
+    /// <summary>
+    /// Applies a done state to many entries at once, under one lock and with a single flush. The per-entry
+    /// <see cref="SetDone"/> serializes the whole file each call, so a bulk verify that touched N entries
+    /// would otherwise write the file N times.
+    /// </summary>
+    /// <param name="states">The wanted done state per entry id. Ids the list does not hold are ignored.</param>
+    /// <returns>The number of entries whose state actually changed.</returns>
+    public int ReconcileDone(IReadOnlyDictionary<string, bool> states)
+    {
+        ArgumentNullException.ThrowIfNull(states);
+
+        lock (_lock)
+        {
+            var map = LoadMap();
+            var changed = 0;
+            foreach (var pair in states)
+            {
+                if (!map.TryGetValue(pair.Key, out var entry) || entry.Done == pair.Value)
+                {
+                    continue;
+                }
+
+                entry.Done = pair.Value;
+                entry.DoneUtc = pair.Value ? NowUtc() : null;
+                changed++;
+            }
+
+            // Only write when something moved, so a verify that confirms the status quo costs no disk at all.
+            if (changed > 0)
+            {
+                Flush(map);
+            }
+
+            return changed;
+        }
+    }
+
     // A round-trippable UTC instant for the added/done timestamps.
     private static string NowUtc()
         => DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);

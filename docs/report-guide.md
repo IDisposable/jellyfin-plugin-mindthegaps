@@ -110,11 +110,13 @@ The toolbar applies to the current tab. Filters combine (a row must pass all of 
 | **Hide items with no sources** | Hide gaps with no "where to watch" match for your provider filter. Needs availability data first (see below). |
 | **Look up where to watch** | Kicks off the background availability pass: fetches streaming providers for the gaps that do not have them yet, in batches, filling in as it goes. Grouped by watch target, so every episode of a series shares one lookup. The button shows how many titles still need a lookup ("Look up where to watch (N)"), reports live progress while running ("Looking up... 45/320"), and reads "Where to watch: all checked" (disabled) once the backlog is cleared. Requires **Availability** enabled in settings. |
 | **Provider filter** | When availability data is present, filter to specific streaming providers. |
-| **Export Markdown** | Download the current tab, as filtered, as a Markdown file with links. |
+| **Export Markdown** | Check the rows it is about to write against your library, drop the ones you now hold, then download the current tab as filtered as a Markdown file with links. Exporting therefore clears what you already have, and says how many; the file is a list of what you still need rather than a snapshot of what the last scan believed. If the check fails, it exports the list as it stands and tells you so. |
 | **Search** | Free-text filter on the title. |
 | **Saved views** | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser. |
 | **Copy link** | Copy a URL that re-opens this exact view (active tab plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser. |
+| **My TODO list** | Open your personal pick-list of gaps to go find, built with the per-row **TODO** button or the multi-select bar. It survives rescans, groups by domain, and each entry has a done tick, links, a **Verify** that checks your library for that one title, and **Delete**. **Verify all** checks every entry at once and ticks what you now hold (and un-ticks anything that has left the library). **Export Markdown** runs that same check first, then downloads the list as a checklist, so the ticks in the file are true as of the download. |
 | **Explore a source** | Open a modal that pulls the unowned titles from one source right now and merges them into the report, without a full rescan and without changing your saved settings. See [Explore a source on demand](#explore-a-source-on-demand). |
+| **Clear what I have** | The widest scope of the clear-down described under [Per-row actions](#per-row-actions): checks every row currently shown against your library, drops the ones you now hold, then offers a provider re-check for what is left. Confirms the count first. |
 
 ![Where to watch](screenshots/report-streaming-providers.png)
 
@@ -151,9 +153,36 @@ Each gap row carries links and actions. Which appear depends on the gap's kind a
 - **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group
   header carries **Resolve all** / **Not interested in all**, which dismiss every listed episode under that
   group in one step (after a confirm). They act on the episodes currently shown, so any filter applies.
-- **Re-check a series or season**: the same headers carry a **refresh** icon that re-checks just that one
-  series on the spot (the library reader plus the enabled TVmaze/TheTVDB cross-checks), replacing its gaps
-  in place, so you can confirm a metadata fix without a full rescan.
+- **Clear down (the refresh icon)**: one control, on every level and every row, doing the same thing at
+  different widths. It first checks everything in scope against your library and drops what you now hold,
+  which is local, instant, and contacts no provider. Confirming a title clears it from **every** tab it
+  appeared on, not just the one you are looking at: acquiring Mad Max 2 drops it from the Mad Max collection,
+  from the studio set that wanted it, from its director's filmography, and from any recommendation or list
+  that suggested it, in one go. If anything is still missing and its source can be
+  re-run for one item, it then offers to ask the providers again, which also picks up whatever has been
+  added since the last scan. That second step is always a prompt, so the everyday case (I filled these,
+  clear them) stays one click and never spends a provider call.
+
+  The scopes, widest first:
+
+  | Where | Covers |
+  |---|---|
+  | The rollup line ("Shows: 679 gaps across 17 sets") | every row shown for that domain |
+  | A Set completion kind heading (Collections and franchises, Studios, Keywords, Discography, Record labels) | every row under that kind |
+  | Any group header (a collection, studio, keyword, series, artist, author, creator, curated list, recommendation seed) | every row listed under it |
+  | A season header | that season's episodes |
+  | Any row | that one title |
+  | **Clear what I have** in the toolbar | the whole filtered tab |
+
+  Kind headings only render when a domain's Set completion holds more than one kind, so **Shows** has none;
+  its rollup line is the level above the series groups. **Creator works** and **Discover** group straight by
+  source and have no kind level at all, so the same applies there.
+
+  The re-check half is offered only for sources the server can re-run per item: a movie collection, a music
+  artist, a book author, and a series. A studio, keyword, Discogs label, or curated list is keyed to a
+  synthetic id rather than a library item, and a film filmography or recommendation seed would need a
+  library-wide ownership pass, so those get the library check alone. A re-check covering more than one
+  source runs in the background with progress and saves each one as it finishes.
 
 Resolving a gap can carry an optional note (for example why it is not really missing):
 
