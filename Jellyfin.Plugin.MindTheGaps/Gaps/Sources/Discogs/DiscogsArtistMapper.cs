@@ -85,7 +85,7 @@ internal static class DiscogsArtistMapper
                 providerIds: providerIds,
                 sourceItemId: sourceItemId,
                 sourceItemName: artistName,
-                sourceItemType: "MusicArtist",
+                sourceItemType: SourceItemTypes.MusicArtist,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Discogs] = artistId.ToString(CultureInfo.InvariantCulture) },
                 releaseDate: release.Year > 0 ? new DateTime(release.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) : null);
         }

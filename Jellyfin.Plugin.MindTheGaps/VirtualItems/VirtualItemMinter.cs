@@ -94,6 +94,17 @@ public sealed class VirtualItemMinter : IDisposable
     }
 
     /// <summary>
+    /// Gets the kinds that can be minted, each mapped to the provider id a gap must carry to be mintable as
+    /// that kind. Served to the dashboard so a row's Mint button appears exactly when this would accept it,
+    /// rather than the page keeping its own transcription of the kind switch this class keeps.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> MintableKinds { get; } =
+        Enum.GetValues<BaseItemKind>()
+            .Select(kind => (Kind: kind, Provider: PrimaryProvider(kind)))
+            .Where(pair => pair.Provider is not null)
+            .ToDictionary(pair => pair.Kind.ToString(), pair => pair.Provider!, StringComparer.Ordinal);
+
+    /// <summary>
     /// Queues a metadata + image refresh for a freshly minted item so providers fill in whatever we
     /// could not write at insert time (overview, artwork, etc.). Fire-and-forget; runs in the host's
     /// refresh queue. Merge mode, so the minted marker and our seeded fields are preserved.

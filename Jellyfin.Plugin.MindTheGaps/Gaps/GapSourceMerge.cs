@@ -16,14 +16,11 @@ internal static class GapSourceMerge
     // Cap how many secondary sources ride along on one gap, so a very popular title does not grow unbounded.
     private const int MaxSourcesPerGap = 12;
 
-    // The source types of the deliberately-curated discovery lists: a TMDB list (CuratedSetGapSource emits
-    // "List") and an MDBList list ("MdbList"). These outrank a per-title recommendation (source type "Movie"
-    // or "Series") for the primary source.
-    private static readonly HashSet<string> CuratedListSourceTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "List",
-        "MdbList"
-    };
+    // The deliberately-curated discovery lists, which outrank a per-title recommendation (source type Movie
+    // or Series) for the primary source. Drawn from the shared vocabulary rather than spelled again here,
+    // which is what left Trakt lists out of this set while TMDB and MDBList lists were in it.
+    private static readonly HashSet<string> CuratedListSourceTypes =
+        new(SourceItemTypes.CuratedListKinds, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Folds a duplicate gap's source into the surviving gap. Only recommendation gaps accumulate sources
