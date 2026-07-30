@@ -3441,7 +3441,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         }
 
         // The one clear-down control, wherever it was clicked. The scope decides which of the rows on
-        // screen it covers; the behaviour past that is identical at every level.
+        // screen it covers; the behavior past that is identical at every level.
         var clearEl = e.target.closest('.cgClear');
         if (clearEl) {
             var scope = clearEl.getAttribute('data-scope') || '';

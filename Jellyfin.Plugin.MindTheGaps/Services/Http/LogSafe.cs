@@ -9,6 +9,11 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 /// fetch's <c>api_key</c>), so a warning or a detailed-logging line would otherwise print the key verbatim.
 /// The request and the cache key keep the real URL; only what is logged passes through here.
 /// </summary>
+/// <remarks>
+/// Two places hide a secret in a URL. The query string is the obvious one. The other is the userinfo of a
+/// base URL the user typed: an acquisition target entered as <c>http://user:pass@radarr:7878</c> carries
+/// credentials that <see cref="Uri.ToString"/> prints in full, so those are stripped as well.
+/// </remarks>
 internal static class LogSafe
 {
     // Query-parameter names whose value is a secret. Matched case-insensitively; the value is replaced, the
@@ -29,6 +34,8 @@ internal static class LogSafe
         {
             return url ?? string.Empty;
         }
+
+        url = RedactUserInfo(url);
 
         var queryStart = url.IndexOf('?', StringComparison.Ordinal);
         if (queryStart < 0)
@@ -61,6 +68,30 @@ internal static class LogSafe
         }
 
         return builder.ToString();
+    }
+
+    // Replaces "scheme://user:pass@host" with "scheme://***@host". The userinfo is whatever sits between the
+    // scheme separator and the first "@", and only before the first "/" of the path, so an "@" inside a path
+    // or query (a plus-addressed email, say) is left alone.
+    private static string RedactUserInfo(string url)
+    {
+        var schemeEnd = url.IndexOf("//", StringComparison.Ordinal);
+        if (schemeEnd < 0)
+        {
+            return url;
+        }
+
+        var authorityStart = schemeEnd + 2;
+        var authorityEnd = url.IndexOf('/', authorityStart);
+        if (authorityEnd < 0)
+        {
+            authorityEnd = url.Length;
+        }
+
+        var at = url.LastIndexOf('@', authorityEnd - 1, authorityEnd - authorityStart);
+        return at < 0
+            ? url
+            : string.Concat(url.AsSpan(0, authorityStart), "***", url.AsSpan(at));
     }
 
     private static bool IsSecret(ReadOnlySpan<char> name)

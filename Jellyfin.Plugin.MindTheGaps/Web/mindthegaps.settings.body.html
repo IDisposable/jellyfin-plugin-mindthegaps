@@ -145,6 +145,20 @@
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
+                    <input id="ScanTmdbWatchlist" name="ScanTmdbWatchlist" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned titles from your TMDB watchlist</span>
+                </label>
+                <div class="fieldDescription">Needs your own TMDB API key and a connected TMDB account, both under Data sources.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanTmdbFavorites" name="ScanTmdbFavorites" type="checkbox" is="emby-checkbox" />
+                    <span>Also read your TMDB favorites</span>
+                </label>
+                <div class="fieldDescription">Off by default: a favorite is usually something you already have.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
                     <input id="ScanTraktWatchlist" name="ScanTraktWatchlist" type="checkbox" is="emby-checkbox" />
                     <span>Discover unowned titles from a Trakt watchlist</span>
                 </label>
@@ -254,7 +268,18 @@
                 <input id="TmdbApiKey" name="TmdbApiKey" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                 <button id="RevealTmdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TmdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                 <div class="fieldDescription">Leave blank to use the built-in default key. Get your own v3 key from <a is="emby-linkbutton" class="button-link" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> to use your own request
-                    budget.</div>
+                    budget. Your own key is also required to connect a TMDB account below.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused">TMDB account</label>
+                <div class="fieldDescription" id="cgTmdbAccountStatus">Checking...</div>
+                <div style="margin:.5em 0;">
+                    <button id="cgTmdbConnect" is="emby-button" type="button" class="raised"><span>Connect a TMDB account</span></button>
+                    <button id="cgTmdbFinish" is="emby-button" type="button" class="raised" style="display:none;"><span>I approved it, finish</span></button>
+                    <button id="cgTmdbDisconnect" is="emby-button" type="button" class="raised" style="display:none;"><span>Disconnect</span></button>
+                </div>
+                <div class="fieldDescription">Connecting reads your TMDB watchlist and favorites. Step one opens themoviedb.org in a new tab to approve; step two finishes here. Nothing calls back into this server, so it does not need to be reachable from the internet. TMDB
+                    sessions do not expire, so this is a one-time setup. The session can change your TMDB account, so it is stored as a secret and never shown.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
@@ -282,15 +307,15 @@
                 <label class="inputLabel inputLabelUnfocused" for="TvdbPin">TheTVDB subscriber PIN (optional)</label>
                 <input id="TvdbPin" name="TvdbPin" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
                 <button id="RevealTvdbPin" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbPin" style="margin:.25em 0;"><span>Show</span></button>
-                <div class="fieldDescription">Leave blank for the episode cross-check, which only reads the catalog. It is needed to read your account, which today means your favourites: a key-only token is not tied to an account. Find it on thetvdb.com under your account,
+                <div class="fieldDescription">Leave blank for the episode cross-check, which only reads the catalog. It is needed to read your account, which today means your favorites: a key-only token is not tied to an account. Find it on thetvdb.com under your account,
                     Subscription.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="ScanTvdbFavorites" name="ScanTvdbFavorites" type="checkbox" is="emby-checkbox" />
-                    <span>Discover unowned series from your TheTVDB favourites</span>
+                    <span>Discover unowned series from your TheTVDB favorites</span>
                 </label>
-                <div class="fieldDescription">Needs the key and the PIN above. Expect few results: a favourite is usually a show you already have, so this only surfaces the ones you follow but never acquired.</div>
+                <div class="fieldDescription">Needs the key and the PIN above. Expect few results: a favorite is usually a show you already have, so this only surfaces the ones you follow but never acquired.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">

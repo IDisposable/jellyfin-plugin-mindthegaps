@@ -54,7 +54,7 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Book };
 
     /// <inheritdoc />
-    public string GapIdPrefix => GapIdPrefixes.Bibliography;
+    public string GapIdPrefix => GapSourceKeys.Bibliography.GapPrefix;
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanBooks;

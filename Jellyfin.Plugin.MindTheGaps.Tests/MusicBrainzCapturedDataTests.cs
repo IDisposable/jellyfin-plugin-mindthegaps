@@ -70,7 +70,7 @@ public class MusicBrainzCapturedDataTests
     public void Build_EmitsDiscographyGapsForUnownedStudioAlbums()
     {
         var groups = Load();
-        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", IndexWith(), GapPattern.SetCompletion, GapIdPrefixes.Discography).ToList();
+        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", IndexWith(), GapPattern.SetCompletion, GapSourceKeys.Discography.GapPrefix).ToList();
 
         Assert.Equal(18, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.SetCompletion, g.Pattern));
@@ -87,7 +87,7 @@ public class MusicBrainzCapturedDataTests
     public void Build_TagsArtistWorksAsCreatorWorksWithItsOwnIdPrefix()
     {
         var groups = Load();
-        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", IndexWith(), GapPattern.CreatorWorks, GapIdPrefixes.ArtistWorks).ToList();
+        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", IndexWith(), GapPattern.CreatorWorks, GapSourceKeys.ArtistWorks.GapPrefix).ToList();
 
         Assert.Equal(18, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.CreatorWorks, g.Pattern));
@@ -105,7 +105,7 @@ public class MusicBrainzCapturedDataTests
             ProviderIds.MusicBrainzReleaseGroup,
             AbbeyRoadMbid));
 
-        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", owned, GapPattern.SetCompletion, GapIdPrefixes.Discography).ToList();
+        var gaps = MusicBrainzMapper.Build(BeatlesMbid, groups, "owner-guid", "The Beatles", owned, GapPattern.SetCompletion, GapSourceKeys.Discography.GapPrefix).ToList();
 
         Assert.DoesNotContain(gaps, g => g.Name == "Abbey Road");
         Assert.Equal(17, gaps.Count);

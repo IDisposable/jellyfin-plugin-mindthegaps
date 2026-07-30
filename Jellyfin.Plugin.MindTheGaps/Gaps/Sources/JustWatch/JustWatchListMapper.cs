@@ -83,13 +83,13 @@ internal static class JustWatchListMapper
             var titleUrl = JustWatchClient.TitleUrl(content?.FullPath);
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.JustWatch}{listType.ToLowerInvariant()}:{idKey}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.JustWatch.GapPrefix}{listType.ToLowerInvariant()}:{idKey}"),
                 pattern: GapPattern.Recommendation,
                 domain: domain,
                 targetKind: kind,
                 name: name,
                 providerIds: providerIds,
-                sourceItemId: SourceItemIds.JustWatchList(listType.ToLowerInvariant()),
+                sourceItemId: GapSourceKeys.JustWatch.Owner(listType.ToLowerInvariant()),
                 sourceItemName: listName,
                 sourceItemType: SourceItemTypes.JustWatchList,
                 releaseDate: content?.OriginalReleaseYear is > 0

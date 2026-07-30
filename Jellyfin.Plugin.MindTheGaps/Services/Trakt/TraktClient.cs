@@ -17,8 +17,12 @@ internal sealed class TraktClient
 {
     private const string BaseUrl = "https://api.trakt.tv";
 
-    // Trakt's page size for the watchlist walk. A large watchlist is a handful of pages.
+    // Trakt's page size for the watchlist and list walks. A large list is a handful of pages.
     private const int WatchlistPageSize = 100;
+
+    // Bounds the list walk. Well above any list the discovery source will emit from, so it is a runaway
+    // guard rather than a cap the user meets.
+    private const int MaxListItems = 5000;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -87,12 +91,31 @@ internal sealed class TraktClient
             return [];
         }
 
-        // A list is addressed by its numeric Trakt id or its slug, so escape it into the path.
-        var items = await GetAsync<List<TraktListItem>>(
-            clientId,
-            string.Create(CultureInfo.InvariantCulture, $"/lists/{Uri.EscapeDataString(listId)}/items/movie,show?extended=full"),
-            cancellationToken).ConfigureAwait(false);
-        return items ?? [];
+        // Trakt paginates this endpoint whether or not you ask: without a page parameter it answers 100
+        // items and says nothing about the rest, so a 498-item list read as one call silently became its
+        // first 100. The pages are followed to MaxListItems.
+        var items = new List<TraktListItem>();
+        var list = Uri.EscapeDataString(listId);
+
+        for (var page = 1; items.Count < MaxListItems; page++)
+        {
+            var pageItems = await GetAsync<List<TraktListItem>>(
+                clientId,
+                string.Create(CultureInfo.InvariantCulture, $"/lists/{list}/items/movie,show?extended=full&page={page}&limit={WatchlistPageSize}"),
+                cancellationToken).ConfigureAwait(false);
+            if (pageItems is null || pageItems.Count == 0)
+            {
+                break;
+            }
+
+            items.AddRange(pageItems);
+            if (pageItems.Count < WatchlistPageSize)
+            {
+                break;
+            }
+        }
+
+        return items;
     }
 
     /// <summary>

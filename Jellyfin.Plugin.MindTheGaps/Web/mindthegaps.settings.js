@@ -31,6 +31,8 @@ function loadConfig(page, config) {
     page.querySelector('#MdbListApiKey').value = config.MdbListApiKey || '';
     page.querySelector('#ScanTraktLists').checked = config.ScanTraktLists;
     page.querySelector('#CuratedTraktListIds').value = config.CuratedTraktListIds || '';
+    page.querySelector('#ScanTmdbWatchlist').checked = config.ScanTmdbWatchlist;
+    page.querySelector('#ScanTmdbFavorites').checked = config.ScanTmdbFavorites;
     page.querySelector('#ScanTraktWatchlist').checked = config.ScanTraktWatchlist;
     page.querySelector('#TraktUsername').value = config.TraktUsername || '';
     page.querySelector('#ScanMdbListWatchlist').checked = config.ScanMdbListWatchlist;
@@ -114,6 +116,8 @@ function saveConfig(page, e) {
         config.MdbListListIds = chips.mdblist ? chips.mdblist.ids() : (config.MdbListListIds || '');
         config.ScanTraktLists = form.querySelector('#ScanTraktLists').checked;
         config.CuratedTraktListIds = form.querySelector('#CuratedTraktListIds').value.trim();
+        config.ScanTmdbWatchlist = form.querySelector('#ScanTmdbWatchlist').checked;
+        config.ScanTmdbFavorites = form.querySelector('#ScanTmdbFavorites').checked;
         config.ScanTraktWatchlist = form.querySelector('#ScanTraktWatchlist').checked;
         config.TraktUsername = form.querySelector('#TraktUsername').value.trim();
         config.ScanMdbListWatchlist = form.querySelector('#ScanMdbListWatchlist').checked;
@@ -277,6 +281,61 @@ function loadChips(page, config) {
     resolve('mdblist', config.MdbListListIds || '');
 }
 
+// The TMDB account connect flow. Two steps, because TMDB has the user approve a request token in their own
+// browser; the approval URL carries no redirect, so nothing calls back into this server.
+function setupTmdbAccount(page) {
+    var status = page.querySelector('#cgTmdbAccountStatus');
+    var connect = page.querySelector('#cgTmdbConnect');
+    var finish = page.querySelector('#cgTmdbFinish');
+    var disconnect = page.querySelector('#cgTmdbDisconnect');
+    var pendingToken = null;
+
+    function show(s) {
+        var connected = s && s.Connected;
+        status.textContent = connected
+            ? 'Connected as ' + s.Username + '.'
+            : (s && s.Message ? s.Message : 'Not connected.');
+        connect.style.display = connected ? 'none' : '';
+        connect.disabled = !(s && s.CanConnect);
+        disconnect.style.display = connected ? '' : 'none';
+        finish.style.display = pendingToken && !connected ? '' : 'none';
+    }
+    function refresh() {
+        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Tmdb/AccountStatus'), dataType: 'json' })
+            .then(show, function () { status.textContent = 'Could not read the TMDB account status.'; });
+    }
+    function post(path, body) {
+        return ApiClient.ajax({
+            type: 'POST', url: ApiClient.getUrl(path), dataType: 'json',
+            contentType: 'application/json', data: body ? JSON.stringify(body) : null
+        });
+    }
+
+    connect.addEventListener('click', function () {
+        // The key is read server-side from the saved config, so an unsaved edit would connect with the old
+        // one. Saving first is less surprising than a confusing failure.
+        if (page._settingsDirty) { Dashboard.alert('Save your settings first, so TMDB sees the API key you just entered.'); return; }
+        post('MindTheGaps/Tmdb/AccountConnect').then(function (start) {
+            pendingToken = start.RequestToken;
+            window.open(start.ApprovalUrl, '_blank', 'noopener');
+            status.textContent = 'Approve the plugin in the tab that just opened, then click "I approved it, finish".';
+            finish.style.display = '';
+        }, function () { status.textContent = 'TMDB refused to start the connection. Check your API key.'; });
+    });
+    finish.addEventListener('click', function () {
+        if (!pendingToken) { return; }
+        post('MindTheGaps/Tmdb/AccountFinish', { RequestToken: pendingToken }).then(function (s) {
+            pendingToken = null;
+            show(s);
+        }, function () { status.textContent = 'TMDB has not seen the approval yet. Approve it, then click finish again.'; });
+    });
+    disconnect.addEventListener('click', function () {
+        post('MindTheGaps/Tmdb/AccountDisconnect').then(function (s) { pendingToken = null; show(s); }, function () { });
+    });
+
+    page._refreshTmdbAccount = refresh;
+}
+
 function bindSettings(page) {
     // Any edit to a settings field marks the form dirty, so closing it can warn about unsaved
     // changes. loadConfig/save reset the flag; programmatic value assignment fires no events.
@@ -288,6 +347,7 @@ function bindSettings(page) {
     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
     setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest');
+    setupTmdbAccount(page);
     // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
     // type=password, so the browser never treats the settings form as a login and never offers to
     // save the keys. Reveal toggles the mask rather than the input type.
@@ -324,6 +384,7 @@ document.querySelector('#MindTheGapsSettingsPage').addEventListener('pageshow', 
     Dashboard.showLoadingMsg();
     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
         loadConfig(page, config);
+        if (page._refreshTmdbAccount) { page._refreshTmdbAccount(); }
         Dashboard.hideLoadingMsg();
     });
 });

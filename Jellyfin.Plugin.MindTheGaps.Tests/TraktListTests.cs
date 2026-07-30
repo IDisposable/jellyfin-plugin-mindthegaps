@@ -106,11 +106,11 @@ public class TraktListTests
         Assert.Equal(1, gaps.Count(g => g.Domain == MediaDomain.Shows));
         Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
         Assert.All(gaps, g => Assert.Equal("TraktWatchlist", g.SourceItemType));
-        Assert.All(gaps, g => Assert.Equal("trakt-watchlist-lish408", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("traktwatchlist-lish408", g.SourceItemId));
         Assert.All(gaps, g => Assert.Equal("Trakt watchlist", g.SourceItemName));
 
         var movie = gaps.Single(g => g.Name == "Cave of Forgotten Dreams");
-        Assert.Equal("traktwatch:lish408:59490", movie.Id);
+        Assert.Equal("traktwatchlist:lish408:59490", movie.Id);
         Assert.Equal("59490", movie.ProviderIds["Tmdb"]);
         Assert.Equal("tt1664894", movie.ProviderIds["Imdb"]);
         Assert.Equal(2010, movie.Year);

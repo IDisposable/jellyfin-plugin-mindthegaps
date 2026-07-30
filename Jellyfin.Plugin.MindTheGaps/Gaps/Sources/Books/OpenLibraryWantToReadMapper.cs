@@ -35,7 +35,7 @@ internal static class OpenLibraryWantToReadMapper
 
         var emitted = 0;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var ownerId = SourceItemIds.OpenLibraryWantToRead(username);
+        var ownerId = GapSourceKeys.OpenLibraryWantToRead.Owner(username);
 
         foreach (var work in works)
         {
@@ -66,7 +66,7 @@ internal static class OpenLibraryWantToReadMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.OpenLibraryWantToRead}{username}:{workId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.OpenLibraryWantToRead.GapPrefix}{username}:{workId}"),
                 pattern: GapPattern.Recommendation,
                 domain: MediaDomain.Books,
                 targetKind: BaseItemKind.Book,

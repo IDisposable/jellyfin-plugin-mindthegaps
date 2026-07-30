@@ -21,6 +21,13 @@ internal sealed class MdbListClient
     private const string BaseUrl = "https://api.mdblist.com";
     private const int MaxSuggestions = 10;
 
+    // MDBList's own default page size. Asking for it explicitly keeps the offset walk honest.
+    private const int PageSize = 1000;
+
+    // Bounds the walk. Well above any list the discovery source will emit from, so it is a runaway guard
+    // rather than a cap the user meets.
+    private const int MaxItems = 20000;
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -154,17 +161,10 @@ internal sealed class MdbListClient
             return [];
         }
 
-        var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/{listId}/items?apikey={key}");
-        var response = await _api.GetJsonAsync<MdbListItemsResponse>(ServiceNames.MdbList, url, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken).ConfigureAwait(false);
-        if (response is null)
-        {
-            return [];
-        }
-
-        var items = new List<MdbListItem>();
-        AddItems(items, response.Movies, "movie");
-        AddItems(items, response.Shows, "show");
-        return items;
+        return await PageAsync(
+            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/{listId}/items?apikey={key}&offset={offset}&limit={PageSize}"),
+            CachedApiClient.DefaultCacheDuration,
+            cancellationToken).ConfigureAwait(false) ?? [];
     }
 
     /// <summary>
@@ -182,24 +182,46 @@ internal sealed class MdbListClient
             return null;
         }
 
-        var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/watchlist/items?apikey={key}");
-
         // A watchlist is edited between scans, so it is not held for the half-day a community list is.
-        var response = await _api.GetJsonAsync<MdbListItemsResponse>(
-            ServiceNames.MdbList,
-            url,
+        return await PageAsync(
+            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/watchlist/items?apikey={key}&offset={offset}&limit={PageSize}"),
             TimeSpan.FromMinutes(10),
-            _jsonOptions,
-            null,
             cancellationToken).ConfigureAwait(false);
-        if (response is null)
+    }
+
+    // Walks the offset pages until MDBList says there are no more. Its default page is large (1000), so most
+    // lists are one call, but the response carries has_more and ignoring it silently truncated a longer one.
+    // Returns null when the first page could not be read, so a caller can tell empty from unreachable.
+    private async Task<IReadOnlyList<MdbListItem>?> PageAsync(
+        Func<int, string> url,
+        TimeSpan cacheDuration,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<MdbListItem>();
+
+        for (var offset = 0; items.Count < MaxItems; offset += PageSize)
         {
-            return null;
+            var response = await _api.GetJsonAsync<MdbListItemsResponse>(
+                ServiceNames.MdbList,
+                url(offset),
+                cacheDuration,
+                _jsonOptions,
+                null,
+                cancellationToken).ConfigureAwait(false);
+            if (response is null)
+            {
+                return items.Count > 0 ? items : null;
+            }
+
+            AddItems(items, response.Movies, "movie");
+            AddItems(items, response.Shows, "show");
+
+            if (response.Pagination?.HasMore != true)
+            {
+                break;
+            }
         }
 
-        var items = new List<MdbListItem>();
-        AddItems(items, response.Movies, "movie");
-        AddItems(items, response.Shows, "show");
         return items;
     }
 

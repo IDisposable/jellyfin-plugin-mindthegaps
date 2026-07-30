@@ -66,13 +66,13 @@ internal static class ImdbListMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.ImdbList}{listId}:{imdbId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.ImdbList.GapPrefix}{listId}:{imdbId}"),
                 pattern: GapPattern.Recommendation,
                 domain: isSeries ? MediaDomain.Shows : MediaDomain.Movies,
                 targetKind: kind,
                 name: name,
                 providerIds: providerIds,
-                sourceItemId: SourceItemIds.ImdbList(listId),
+                sourceItemId: GapSourceKeys.ImdbList.Owner(listId),
                 sourceItemName: listName,
                 sourceItemType: SourceItemTypes.ImdbList,
                 releaseDate: title.ReleaseYear?.Year is > 0

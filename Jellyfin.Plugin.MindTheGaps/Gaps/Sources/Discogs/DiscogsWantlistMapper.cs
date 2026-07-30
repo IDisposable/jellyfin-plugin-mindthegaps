@@ -35,7 +35,7 @@ internal static class DiscogsWantlistMapper
 
         var emitted = 0;
         var seen = new HashSet<long>();
-        var ownerId = SourceItemIds.DiscogsWantlist(username);
+        var ownerId = GapSourceKeys.DiscogsWantlist.Owner(username);
 
         foreach (var want in wants)
         {
@@ -64,7 +64,7 @@ internal static class DiscogsWantlistMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.DiscogsWantlist}{username}:{releaseId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.DiscogsWantlist.GapPrefix}{username}:{releaseId}"),
                 pattern: GapPattern.Recommendation,
                 domain: MediaDomain.Music,
                 targetKind: BaseItemKind.MusicAlbum,

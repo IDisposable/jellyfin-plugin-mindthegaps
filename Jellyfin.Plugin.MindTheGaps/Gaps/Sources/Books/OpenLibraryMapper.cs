@@ -62,7 +62,7 @@ internal static class OpenLibraryMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.Bibliography}{authorKey}:{workId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.Bibliography.GapPrefix}{authorKey}:{workId}"),
                 pattern: GapPattern.CreatorWorks,
                 domain: MediaDomain.Books,
                 targetKind: BaseItemKind.Book,

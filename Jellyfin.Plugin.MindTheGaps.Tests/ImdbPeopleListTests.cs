@@ -52,7 +52,7 @@ public class ImdbPeopleListTests
     {
         // The same person named on two lists has to group once, and the id has to be stable across scans
         // because a whole-creator dismissal is stored against it.
-        Assert.Equal("imdbperson-nm0000229", SourceItemIds.ImdbPerson("nm0000229"));
+        Assert.Equal("imdbperson-nm0000229", GapSourceKeys.ImdbPerson.Owner("nm0000229"));
     }
 
     private static ImdbListContents Load()

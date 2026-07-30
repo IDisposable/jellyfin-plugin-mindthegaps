@@ -1,7 +1,7 @@
 namespace Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 
 /// <summary>
-/// A series record, as much of it as a favourite needs to become a report row.
+/// A series record, as much of it as a favorite needs to become a report row.
 /// </summary>
 internal sealed class TvdbSeriesRecord
 {

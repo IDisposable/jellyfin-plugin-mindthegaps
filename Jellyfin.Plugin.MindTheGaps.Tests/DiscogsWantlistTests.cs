@@ -37,8 +37,8 @@ public class DiscogsWantlistTests
         Assert.Equal(MediaDomain.Music, want.Domain);
         Assert.Equal(BaseItemKind.MusicAlbum, want.TargetKind);
         Assert.Equal("DiscogsWantlist", want.SourceItemType);
-        Assert.Equal("discogs-wantlist-soundsgood", want.SourceItemId);
-        Assert.Equal("discogswant:soundsgood:1542479", want.Id);
+        Assert.Equal("discogswantlist-soundsgood", want.SourceItemId);
+        Assert.Equal("discogswantlist:soundsgood:1542479", want.Id);
         Assert.Equal("Bye Bye Baby Goodbye", want.Name);
         Assert.Equal("1542479", want.ProviderIds["Discogs"]);
         Assert.Equal(1992, want.Year);

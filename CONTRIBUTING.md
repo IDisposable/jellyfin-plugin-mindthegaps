@@ -24,7 +24,7 @@ Both projects build clean with StyleCop and the .NET analyzers running as **erro
   the host does not provide, so they are listed in `build.yaml`'s `artifacts` and jprm bundles them into the
   zip alongside `Jellyfin.Plugin.MindTheGaps.dll`. If you add a runtime NuGet dependency, add its DLL to
   `artifacts` too, or the plugin fails to load with a `ReflectionTypeLoadException`.
-- **Versions are centralised.** `Directory.Packages.props` pins every package version from a single
+- **Versions are centralized.** `Directory.Packages.props` pins every package version from a single
   `$(JellyfinVersion)` property, so the CI matrix can build each ABI by passing `-p:JellyfinVersion=`.
 - **One ABI today.** The plugin targets `net9.0` / Jellyfin ABI `10.11.0.0` (the only published Jellyfin
   NuGet ABI). The [CI matrix](.github/workflows/build.yaml) has a `12.x` row ready to uncomment once a 12.x

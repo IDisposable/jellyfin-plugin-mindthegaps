@@ -282,7 +282,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
             _tmdb.GetPosterUrl,
             MaxGapsPerSet,
             GapPattern.Recommendation,
-            SourceItemIds.TmdbList(listId)))
+            GapSourceKeys.TmdbList.Owner(listId)))
         {
             yield return gap;
         }

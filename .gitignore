@@ -10,6 +10,7 @@ temp/
 .claude/worktrees/
 .claude/projects/
 .claude/settings.local.json
+transcripts/
 CLAUDE.md
 
 # Node tooling (oxlint)

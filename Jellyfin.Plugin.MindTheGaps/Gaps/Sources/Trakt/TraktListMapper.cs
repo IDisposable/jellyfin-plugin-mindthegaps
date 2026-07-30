@@ -30,8 +30,8 @@ internal static class TraktListMapper
             items,
             ownership,
             maxResults,
-            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.TraktList}{listId}:{idKey}"),
-            SourceItemIds.TraktList(listId),
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.TraktList.GapPrefix}{listId}:{idKey}"),
+            GapSourceKeys.TraktList.Owner(listId),
             listName,
             SourceItemTypes.TraktList);
 
@@ -49,8 +49,8 @@ internal static class TraktListMapper
             items,
             ownership,
             maxResults,
-            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.TraktWatchlist}{username}:{idKey}"),
-            SourceItemIds.TraktWatchlist(username),
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.TraktWatchlist.GapPrefix}{username}:{idKey}"),
+            GapSourceKeys.TraktWatchlist.Owner(username),
             "Trakt watchlist",
             SourceItemTypes.TraktWatchlist);
 

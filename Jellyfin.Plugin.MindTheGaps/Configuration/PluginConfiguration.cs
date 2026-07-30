@@ -37,6 +37,9 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanImdbLists = false;
         ScanImdbPeopleLists = false;
         ImdbListIds = string.Empty;
+        TmdbSessionId = string.Empty;
+        ScanTmdbWatchlist = false;
+        ScanTmdbFavorites = false;
         ScanTraktWatchlist = false;
         TraktUsername = string.Empty;
         ScanTvdbFavorites = false;
@@ -237,6 +240,31 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanImdbPeopleLists { get; set; }
 
     /// <summary>
+    /// Gets or sets the TheMovieDb session id, minted by the connect flow on the settings page and used to
+    /// read the account's watchlist and favorites. TMDB session ids do not expire, so this is a one-time
+    /// setup, but the session can modify the account, so it is treated as a secret.
+    /// </summary>
+    /// <remarks>
+    /// A session belongs to the application whose api key created it. The catalog reader falls back to the
+    /// api key Jellyfin ships, which is registered to the Jellyfin project and shared by every install, so
+    /// the connect flow refuses to run unless <see cref="TmdbApiKey"/> is set to the user's own key.
+    /// </remarks>
+    public string TmdbSessionId { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned titles on the connected TheMovieDb
+    /// account's watchlist as discovery (Recommendation) gaps. Needs <see cref="TmdbApiKey"/> and
+    /// <see cref="TmdbSessionId"/>. Off by default.
+    /// </summary>
+    public bool ScanTmdbWatchlist { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the TheMovieDb pass also reads the account's favorites, not
+    /// only its watchlist. Off by default, since a favorite is usually something already owned.
+    /// </summary>
+    public bool ScanTmdbFavorites { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether to surface the unowned titles on a Trakt user's watchlist as
     /// discovery (Recommendation) gaps. Needs <see cref="TraktClientId"/> and <see cref="TraktUsername"/>;
     /// Trakt serves a public profile's watchlist without OAuth. Off by default.
@@ -251,15 +279,15 @@ public class PluginConfiguration : BasePluginConfiguration
     public string TraktUsername { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether to surface the unowned series favourited on TheTVDB as
+    /// Gets or sets a value indicating whether to surface the unowned series favorited on TheTVDB as
     /// discovery (Recommendation) gaps. Needs <see cref="TvdbApiKey"/> and <see cref="TvdbPin"/>. Yields far
-    /// less than the other want-lists, since a favourite is usually something already owned. Off by default.
+    /// less than the other want-lists, since a favorite is usually something already owned. Off by default.
     /// </summary>
     public bool ScanTvdbFavorites { get; set; }
 
     /// <summary>
     /// Gets or sets the TheTVDB subscriber PIN. Optional for the episode cross-check, which reads the
-    /// catalog, but required to read account data (the favourites), because a key-only token is not scoped to
+    /// catalog, but required to read account data (the favorites), because a key-only token is not scoped to
     /// an account. When set it is sent on every login, and a PIN-scoped token serves the catalog reads too,
     /// so there is one login path either way.
     /// </summary>

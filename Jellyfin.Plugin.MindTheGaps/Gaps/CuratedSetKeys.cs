@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Builds the set key that identifies which curated set a <see cref="GapIdPrefixes.Curated"/> gap came from,
+/// Builds the set key that identifies which curated set a <see cref="GapSourceKeys.Curated"/> gap came from,
 /// so the id reads "curated:company:41077:12345". Part of the gap id, so part of the persistence contract
 /// (ADR-0008); pinned by <c>GapIdPrefixTests</c>.
 /// </summary>

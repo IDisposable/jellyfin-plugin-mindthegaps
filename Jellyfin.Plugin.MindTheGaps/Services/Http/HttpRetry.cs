@@ -60,7 +60,7 @@ internal static class HttpRetry
             return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { ReasonPhrase = "Mind the Gaps: service circuit open" };
         }
 
-        // Proactively space requests to a rate-limited service (MusicBrainz) so its steady-state limit is not
+        // Proactively space requests to a rate-limited service (like MusicBrainz) so its steady-state limit is not
         // tripped in the first place; a no-op for services without a configured interval.
         await ServicePacer.WaitAsync(service, cancellationToken).ConfigureAwait(false);
 
@@ -70,16 +70,18 @@ internal static class HttpRetry
             try
             {
                 using var request = requestFactory();
+                var method = request.Method.Method;
+
                 EnsureUserAgent(request);
                 if (Plugin.DetailedApiLogging)
                 {
-                    logger.LogDebug("{Service}: GET {Path}", service, path);
+                    logger.LogDebug("{Service}: {Method} {Path}", service, method, path);
                 }
 
                 response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 if (Plugin.DetailedApiLogging)
                 {
-                    logger.LogDebug("{Service}: GET {Path} returned {Status}", service, path, (int)response.StatusCode);
+                    logger.LogDebug("{Service}: {Method} {Path} returned {Status}", service, method, path, (int)response.StatusCode);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -16,4 +16,8 @@ internal sealed class MdbListItemsResponse
     /// <summary>Gets or sets the show members.</summary>
     [JsonPropertyName("shows")]
     public IReadOnlyList<MdbListItem>? Shows { get; set; }
+
+    /// <summary>Gets or sets the paging block, which says whether more items follow.</summary>
+    [JsonPropertyName("pagination")]
+    public MdbListPagination? Pagination { get; set; }
 }

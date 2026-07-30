@@ -102,7 +102,7 @@ internal sealed class ImdbPeopleListGapSource : IGapSource
         var dismissed = DismissedCreatorIds();
         var lastScanned = _cursors.GetLastScanned(Name);
         var ordered = candidates
-            .Where(c => !dismissed.Contains(SourceItemIds.ImdbPerson(c.ImdbNameId)))
+            .Where(c => !dismissed.Contains(GapSourceKeys.ImdbPerson.Owner(c.ImdbNameId)))
             .OrderByStalest(lastScanned, c => c.ImdbNameId)
             .ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -136,7 +136,7 @@ internal sealed class ImdbPeopleListGapSource : IGapSource
 
             var gaps = FilmographyGapMapper.Build(
                 person,
-                SourceItemIds.ImdbPerson(candidate.ImdbNameId),
+                GapSourceKeys.ImdbPerson.Owner(candidate.ImdbNameId),
                 candidate.Name,
                 context.Ownership,
                 _tmdb.GetPosterUrl,

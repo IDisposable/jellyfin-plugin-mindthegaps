@@ -46,7 +46,7 @@ The dashboard exposes one control for both, the refresh icon, at every level of 
 the domain rollup, a set-kind heading, a group header, a season header, and a row. A labelled "Clear what I
 have" button in the toolbar is the same routine over the whole filtered tab, spelled as a button because the
 toolbar has no row to hang an icon on. All of them run one routine at a different width, so there is one
-behaviour to learn and nothing to choose between; a level is a `data-scope`, not a code path. ADR-0013's
+behavior to learn and nothing to choose between; a level is a `data-scope`, not a code path. ADR-0013's
 per-series refresh icon is that same control now, not a second one beside it.
 
 The multi-owner half is a batch: `GapEngine.RecheckManyAsync` builds the ownership index once rather than per
@@ -64,7 +64,7 @@ item is, so a series routes to the series-content sources and the Shows tab work
   loaded, which is why the sweep is server-side: the client cannot prune what it has not fetched. The verify
   response therefore reports a removal count higher than the number of rows in scope, and the dashboard says
   how many went elsewhere rather than letting the totals move unexplained.
-- The scopes are one behaviour at six widths, so there is nothing new to learn moving up the tree, and the
+- The scopes are one behavior at six widths, so there is nothing new to learn moving up the tree, and the
   batch stage never runs without a count in the prompt first.
 - The clear-down is offered in places its second stage cannot serve (a studio, a curated list, a film
   filmography), where it degrades to the verify half. That is deliberate: a control that appears and

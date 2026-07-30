@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
-// Real response captured from TheTVDB v4. A favourite is account data, so the capture needs a token minted
+// Real response captured from TheTVDB v4. A favorite is account data, so the capture needs a token minted
 // from the API key AND a subscriber PIN; a key-only token is not tied to an account and is refused. The
 // series record itself is plain catalog data. Re-capture with:
 //   TOKEN=$(curl -s -X POST https://api4.thetvdb.com/v4/login -H 'Content-Type: application/json' \
@@ -20,9 +20,9 @@ public class TvdbFavoritesTests
     };
 
     [Fact]
-    public void SeriesRecord_CarriesWhatAFavouriteRowNeeds()
+    public void SeriesRecord_CarriesWhatAFavoriteRowNeeds()
     {
-        // A favourite arrives as a bare id, so the record is the only source of a name, a date, and a poster.
+        // A favorite arrives as a bare id, so the record is the only source of a name, a date, and a poster.
         var response = JsonSerializer.Deserialize<TvdbSeriesResponse>(TestData.Read("tvdb_series.json"), _jsonOptions);
 
         Assert.NotNull(response?.Data);
@@ -35,8 +35,8 @@ public class TvdbFavoritesTests
     [Fact]
     public void TheGapIdIsKeyedOnTheSeriesIdAlone()
     {
-        // There is one favourites set per account, so the id needs no owner segment.
-        Assert.Equal("tvdbfavorite:", GapIdPrefixes.TvdbFavorite);
-        Assert.Equal("tvdb-favorites", SourceItemIds.TvdbFavorites);
+        // There is one favorites set per account, so the id needs no owner segment.
+        Assert.Equal("tvdbfavorites:", GapSourceKeys.TvdbFavorites.GapPrefix);
+        Assert.Equal("tvdbfavorites", GapSourceKeys.TvdbFavorites.Owner());
     }
 }

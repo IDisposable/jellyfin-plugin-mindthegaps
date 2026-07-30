@@ -65,11 +65,14 @@ public static class SourceItemTypes
     /// <summary>An OpenLibrary reading-log shelf ("Want to Read").</summary>
     public const string OpenLibraryShelf = "OpenLibraryShelf";
 
-    /// <summary>TheTVDB account's favourite series.</summary>
+    /// <summary>TheTVDB account's favorite series.</summary>
     public const string TvdbFavorites = "TvdbFavorites";
 
     /// <summary>A Trakt user's watchlist.</summary>
     public const string TraktWatchlist = "TraktWatchlist";
+
+    /// <summary>The connected TheMovieDb account's watchlist or favorites.</summary>
+    public const string TmdbAccountList = "TmdbAccountList";
 
     /// <summary>
     /// Gets the source types that are deliberately curated lists, as opposed to a per-title recommendation.
@@ -86,7 +89,8 @@ public static class SourceItemTypes
         DiscogsWantlist,
         OpenLibraryShelf,
         TvdbFavorites,
-        TraktWatchlist
+        TraktWatchlist,
+        TmdbAccountList
     ];
 
     /// <summary>

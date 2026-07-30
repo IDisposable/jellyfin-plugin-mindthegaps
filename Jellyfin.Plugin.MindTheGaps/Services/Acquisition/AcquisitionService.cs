@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -218,6 +219,9 @@ public sealed class AcquisitionService
             return AcquisitionResult.Fail(string.Create(CultureInfo.InvariantCulture, $"{service} URL is not a valid http(s) address."));
         }
 
+        // The base URL is the user's, so it can carry basic-auth credentials; only the redacted form is logged.
+        var logUrl = LogSafe.Redact(uri.ToString());
+
         try
         {
             var client = _httpClientFactory.CreateClient(NamedClient.Default);
@@ -228,7 +232,7 @@ public sealed class AcquisitionService
 
             if (Plugin.DetailedApiLogging)
             {
-                _logger.LogDebug("{Service}: POST {Url} body {Body}", service, uri, json);
+                _logger.LogDebug("{Service}: POST {Url} body {Body}", service, logUrl, json);
             }
 
             using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -236,14 +240,14 @@ public sealed class AcquisitionService
             {
                 if (Plugin.DetailedApiLogging)
                 {
-                    _logger.LogDebug("{Service}: {Status} accepted POST {Url}", service, (int)response.StatusCode, uri);
+                    _logger.LogDebug("{Service}: {Status} accepted POST {Url}", service, (int)response.StatusCode, logUrl);
                 }
 
                 return AcquisitionResult.Ok(successMessage);
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogWarning("{Service}: {Status} from POST {Url} body {Body}", service, (int)response.StatusCode, uri, body);
+            _logger.LogWarning("{Service}: {Status} from POST {Url} body {Body}", service, (int)response.StatusCode, logUrl, body);
 
             // A 4xx is common and expected (already requested, already owned, no matching item); report the
             // service's own message so the user sees why.
@@ -258,7 +262,7 @@ public sealed class AcquisitionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Service} send failed for POST {Url}", service, url);
+            _logger.LogWarning(ex, "{Service} send failed for POST {Url}", service, logUrl);
             return AcquisitionResult.Fail(string.Create(CultureInfo.InvariantCulture, $"Could not reach {service}. Check the URL and that it is running."));
         }
     }

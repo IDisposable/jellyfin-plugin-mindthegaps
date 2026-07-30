@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:apis.justwatch.com)",
       "WebFetch(domain:developer.imdb.com)",
-      "WebFetch(domain:trakt.docs.apiary.io)"
+      "WebFetch(domain:trakt.docs.apiary.io)",
+      "Bash(dotnet --version)"
     ]
   }
 }

@@ -70,7 +70,8 @@ flowchart LR
     jwl["JustWatch watchlist"] --> DIS
     mwl["MDBList watchlist"] --> DIS
     twl["Trakt watchlist"] --> DIS
-    tvf["TheTVDB favourites"]:::shows --> DIS
+    tmw["TMDB watchlist and favorites"] --> DIS
+    tvf["TheTVDB favorites"]:::shows --> DIS
     dwl["Discogs wantlist"]:::music --> DIS
     owl["OpenLibrary want to read"]:::books --> DIS
 
@@ -152,9 +153,10 @@ flowchart TD
   title that is both on a curated list and recommended groups under the list, with the recommendation kept as
   a secondary source, so the list stays its own group. Opt-in, and MDBList needs a free API key.
 - **Your own want-lists**: the strongest signal of what to acquire is the list you already keep, so the
-  plugin reads them where the service allows it: an **IMDb** watchlist or list, a **Trakt** watchlist, your
+  plugin reads them where the service allows it: your **TMDB** watchlist and favorites (connected with a
+  two-step button that needs no callback, so your server stays private), an **IMDb** watchlist or list, a **Trakt** watchlist, your
   **JustWatch** watchlist, your **MDBList** watchlist, a **Discogs** wantlist (Music), an **OpenLibrary**
-  "Want to Read" shelf (Books), and your **TheTVDB** favourites (Shows). Each is opt-in and its own group on
+  "Want to Read" shelf (Books), and your **TheTVDB** favorites (Shows). Each is opt-in and its own group on
   the Discover tab. IMDb and OpenLibrary need no key at all, just a public list; the rest reuse the credential
   their service already has.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
@@ -276,12 +278,13 @@ For every setting, what it does, and what changes when you set or clear it, see 
 | MDBList API key | Optional (free); enables MDBList community lists as a discovery source. |
 | Scan IMDb lists | Gates the IMDb discovery lists (the ur... watchlist and ls... list ids beside it feed it). Needs no key, but IMDb serves only what the account has made public. |
 | Follow IMDb people lists | Reads an IMDb **people** list from the same ids as a filmography seed, so a director or actor you own nothing by still lands on Creator works. Resolves 50 people per run, stalest first, so a long list is covered over several scans. |
+| Scan TMDB watchlist | Your TMDB watchlist, and optionally your favorites. Needs your own TMDB API key plus a connected account (a two-step button; no callback, so the server needs no public address). |
 | Scan Trakt watchlist | A Trakt user's watchlist. Needs the Trakt client id and a username; the profile has to be public. |
 | Scan MDBList watchlist | Your own MDBList watchlist (not a community list). The API key identifies the account, so there is nothing else to enter. |
 | Scan Discogs wantlist | A Discogs wantlist as Music gaps. Needs the Discogs token and a username. |
 | Scan OpenLibrary want to read | An OpenLibrary "Want to Read" shelf as Books gaps. Needs a username and nothing else; the shelf has to be public. |
-| Scan TheTVDB favourites | Your favourited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favourite is usually a show you already hold. |
-| TheTVDB subscriber PIN | Optional. Only needed to read your TheTVDB account (the favourites); the episode cross-check works without it. |
+| Scan TheTVDB favorites | Your favorited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favorite is usually a show you already hold. |
+| TheTVDB subscriber PIN | Optional. Only needed to read your TheTVDB account (the favorites); the episode cross-check works without it. |
 | JustWatch token | Enables your own JustWatch watchlist (and, optionally, your likes) as a discovery source. JustWatch issues no api keys, so this is the bearer token from a signed-in browser session, and it expires. |
 
 ## Virtual placeholders (opt-in)

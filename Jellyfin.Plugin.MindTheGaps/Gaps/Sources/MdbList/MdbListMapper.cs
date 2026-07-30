@@ -30,8 +30,8 @@ internal static class MdbListMapper
             items,
             ownership,
             maxResults,
-            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.MdbList}{listId}:{idKey}"),
-            SourceItemIds.MdbList(listId),
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.MdbList.GapPrefix}{listId}:{idKey}"),
+            GapSourceKeys.MdbList.Owner(listId),
             listName,
             SourceItemTypes.MdbList);
 
@@ -49,8 +49,8 @@ internal static class MdbListMapper
             items,
             ownership,
             maxResults,
-            idKey => string.Concat(GapIdPrefixes.MdbListWatchlist, idKey),
-            SourceItemIds.MdbListWatchlist,
+            idKey => string.Concat(GapSourceKeys.MdbListWatchlist.GapPrefix, idKey),
+            GapSourceKeys.MdbListWatchlist.Owner(),
             "MDBList watchlist",
             SourceItemTypes.MdbListWatchlist);
 

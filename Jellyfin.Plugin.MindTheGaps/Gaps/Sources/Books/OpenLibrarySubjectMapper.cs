@@ -62,13 +62,13 @@ internal static class OpenLibrarySubjectMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.OpenLibrarySubject}{subject}:{workId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.OpenLibrarySubject.GapPrefix}{subject}:{workId}"),
                 pattern: GapPattern.SetCompletion,
                 domain: MediaDomain.Books,
                 targetKind: BaseItemKind.Book,
                 name: work.Title!,
                 providerIds: providerIds,
-                sourceItemId: SourceItemIds.OpenLibrarySubject(subject),
+                sourceItemId: GapSourceKeys.OpenLibrarySubject.Owner(subject),
                 sourceItemName: string.IsNullOrEmpty(subjectName) ? subject : subjectName,
                 sourceItemType: SourceItemTypes.Subject,
                 releaseDate: work.FirstPublishYear is > 0 and <= 9999

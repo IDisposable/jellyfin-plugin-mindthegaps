@@ -53,7 +53,7 @@ internal sealed class DiscogsArtistGapSource : MusicArtistGapSourceBase
     protected override string ServiceName => ServiceNames.Discogs;
 
     /// <inheritdoc />
-    public override string GapIdPrefix => GapIdPrefixes.DiscogsArtist;
+    public override string GapIdPrefix => GapSourceKeys.DiscogsArtist.GapPrefix;
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config)

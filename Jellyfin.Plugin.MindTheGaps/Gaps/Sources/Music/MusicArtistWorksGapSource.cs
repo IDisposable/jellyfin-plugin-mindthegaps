@@ -39,7 +39,7 @@ internal sealed class MusicArtistWorksGapSource : MusicBrainzArtistGapSourceBase
     protected override GapPattern Pattern => GapPattern.CreatorWorks;
 
     /// <inheritdoc />
-    protected override string IdPrefix => GapIdPrefixes.ArtistWorks;
+    protected override string IdPrefix => GapSourceKeys.ArtistWorks.GapPrefix;
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config) => config.ScanMusic;

@@ -92,11 +92,11 @@ public class MdbListMapperTests
         Assert.Equal(3, gaps.Count);
         Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
         Assert.All(gaps, g => Assert.Equal("MdbListWatchlist", g.SourceItemType));
-        Assert.All(gaps, g => Assert.Equal("mdblist-watchlist", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("mdblistwatchlist", g.SourceItemId));
         Assert.All(gaps, g => Assert.Equal("MDBList watchlist", g.SourceItemName));
 
         var matrix = gaps.Single(g => g.Name == "The Matrix");
-        Assert.Equal("mdblistwatch:603", matrix.Id);
+        Assert.Equal("mdblistwatchlist:603", matrix.Id);
         Assert.Equal("603", matrix.ProviderIds["Tmdb"]);
     }
 

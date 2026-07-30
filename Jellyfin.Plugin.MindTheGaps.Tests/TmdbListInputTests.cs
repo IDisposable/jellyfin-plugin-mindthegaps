@@ -9,7 +9,7 @@ public class TmdbListInputTests
     [InlineData("12345", 12345)]
     [InlineData("  12345  ", 12345)]
     [InlineData("https://www.themoviedb.org/list/12345", 12345)]
-    [InlineData("https://www.themoviedb.org/list/12345-my-favourite-films", 12345)]
+    [InlineData("https://www.themoviedb.org/list/12345-my-favorite-films", 12345)]
     [InlineData("themoviedb.org/list/8175", 8175)]
     [InlineData("https://www.themoviedb.org/list/8175?page=1", 8175)]
     [InlineData("www.themoviedb.org/list/777", 777)]

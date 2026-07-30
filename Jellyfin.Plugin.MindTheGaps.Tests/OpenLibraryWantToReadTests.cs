@@ -34,10 +34,10 @@ public class OpenLibraryWantToReadTests
         Assert.All(gaps, g => Assert.Equal(MediaDomain.Books, g.Domain));
         Assert.All(gaps, g => Assert.Equal(BaseItemKind.Book, g.TargetKind));
         Assert.All(gaps, g => Assert.Equal("OpenLibraryShelf", g.SourceItemType));
-        Assert.All(gaps, g => Assert.Equal("openlibrary-wanttoread-mekBot", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("openlibrarywanttoread-mekBot", g.SourceItemId));
 
         var fifth = gaps.Single(g => g.Name == "The Fifth Season");
-        Assert.Equal("openlibrarywant:mekBot:OL17363125W", fifth.Id);
+        Assert.Equal("openlibrarywanttoread:mekBot:OL17363125W", fifth.Id);
 
         // The work key is stored bare, matching what a metadata plugin records, so ownership can be diffed.
         Assert.Equal("OL17363125W", fifth.ProviderIds["OpenLibrary"]);

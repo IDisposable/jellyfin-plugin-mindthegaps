@@ -77,7 +77,7 @@ internal static class DiscogsArtistMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.DiscogsArtist}{artistId}:{release.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.DiscogsArtist.GapPrefix}{artistId}:{release.Id}"),
                 pattern: pattern,
                 domain: MediaDomain.Music,
                 targetKind: BaseItemKind.MusicAlbum,

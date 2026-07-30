@@ -72,16 +72,16 @@ internal sealed class TvdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets the ids of the account's favourite series. Needs a PIN-scoped token (see the plugin's TheTVDB
+    /// Gets the ids of the account's favorite series. Needs a PIN-scoped token (see the plugin's TheTVDB
     /// PIN setting); without one TheTVDB answers unauthorized and this returns null, which is what lets a
-    /// caller tell "no favourites" from "cannot read them".
+    /// caller tell "no favorites" from "cannot read them".
     /// </summary>
     /// <param name="apiKey">The user's TheTVDB API key.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The favourite series ids, or <see langword="null"/>.</returns>
+    /// <returns>The favorite series ids, or <see langword="null"/>.</returns>
     public async Task<IReadOnlyList<long>?> GetFavoriteSeriesIdsAsync(string apiKey, CancellationToken cancellationToken)
     {
-        // Not cached for the usual half-day: a favourite is added and expected to show up on the next scan.
+        // Not cached for the usual half-day: a favorite is added and expected to show up on the next scan.
         var response = await _api.GetOrAddAsync(
             ServiceNames.Tvdb,
             "user-favorites",
@@ -92,7 +92,7 @@ internal sealed class TvdbClient : IDisposable
     }
 
     /// <summary>
-    /// Reads a series record by id, for a favourite that is only an id.
+    /// Reads a series record by id, for a favorite that is only an id.
     /// </summary>
     /// <param name="apiKey">TheTVDB v4 API key.</param>
     /// <param name="seriesId">TheTVDB series id.</param>
@@ -233,7 +233,7 @@ internal sealed class TvdbClient : IDisposable
     }
 
     // The login body. A subscriber PIN, when configured, scopes the token to the account, which is what makes
-    // the user endpoints (favourites) readable; the catalog endpoints answer the same either way, so one
+    // the user endpoints (favorites) readable; the catalog endpoints answer the same either way, so one
     // token serves both and there is no second login path.
     private static Dictionary<string, string> LoginBody(string apiKey)
     {

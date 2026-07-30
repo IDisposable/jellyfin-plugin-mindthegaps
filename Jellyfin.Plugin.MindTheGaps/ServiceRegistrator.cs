@@ -51,6 +51,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ExploreRunner>();
         serviceCollection.AddSingleton<RecheckRunner>();
         serviceCollection.AddSingleton<TmdbClient>();
+        serviceCollection.AddSingleton<TmdbAccountClient>();
         serviceCollection.AddSingleton<WebhookNotifier>();
         serviceCollection.AddSingleton<CachedApiClient>();
         serviceCollection.AddSingleton<TraktClient>();
@@ -94,6 +95,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, OpenLibraryWantToReadGapSource>();
         serviceCollection.AddSingleton<IGapSource, TvdbFavoritesGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktWatchlistGapSource>();
+        serviceCollection.AddSingleton<IGapSource, TmdbAccountListGapSource>();
         serviceCollection.AddSingleton<IGapSource, JustWatchListGapSource>();
 
         // The episode providers the series-content source merges per series (not gap sources themselves).

@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -126,7 +127,7 @@ internal sealed class CachedApiClient
     /// <typeparam name="T">The response type to deserialize.</typeparam>
     /// <param name="service">The service name (for pacing, the circuit, logs, and the cache namespace).</param>
     /// <param name="url">The absolute request URL.</param>
-    /// <param name="body">The JSON request body (part of the cache key).</param>
+    /// <param name="body">The JSON request body; its digest is part of the cache key.</param>
     /// <param name="cacheDuration">How long to cache a successful result.</param>
     /// <param name="options">The JSON options to deserialize with.</param>
     /// <param name="configureRequest">Configures the request (for example auth headers), or null.</param>
@@ -143,10 +144,24 @@ internal sealed class CachedApiClient
         where T : class
         => GetOrAddAsync(
             service,
-            string.Concat(url, "|", body),
+            string.Concat(url, "|", Digest(body)),
             cacheDuration,
             ct => FetchJsonAsync<T>(service, url, options, configureRequest, ct, body),
             cancellationToken);
+
+    /// <summary>
+    /// Digests a request body into a fixed-length cache-key segment. A GraphQL body is mostly the query
+    /// document, the same few hundred characters on every call, so keying on it verbatim would hold a copy of
+    /// each query per cached page in the host's shared cache and compare it in full on every lookup. Hashing
+    /// bounds the key at 64 characters however the body grows, and keeps a body that ever carried something
+    /// sensitive out of the key. SHA256 rather than a faster non-cryptographic hash only because it is in the
+    /// BCL: the plugin ships its own runtime dependencies, so an extra package would be an extra DLL in the
+    /// release zip for no real gain at this call volume.
+    /// </summary>
+    /// <param name="body">The request body.</param>
+    /// <returns>The hex digest.</returns>
+    private static string Digest(string body)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
 
     private async Task<T?> FetchJsonAsync<T>(
         string service,

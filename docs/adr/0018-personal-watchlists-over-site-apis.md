@@ -53,9 +53,9 @@ to. Probing each with a real credential settled it:
 | OpenLibrary | "Want to Read" shelf | none, public shelf | yes |
 | Discogs | wantlist | the existing token, plus a username | yes |
 | MDBList | account watchlist | the existing API key | yes |
-| TheTVDB | favourite series | the existing key, plus a subscriber PIN | yes |
+| TheTVDB | favorite series | the existing key, plus a subscriber PIN | yes |
 | Trakt | watchlist | the existing client id, plus a username | yes |
-| TMDB | watchlist | needs an account session, not a v3 key | no |
+| TMDB | watchlist and favorites | the user's **own** api key, plus a session | yes |
 
 TheTVDB was the surprise: `/user/favorites` is account data and a key-only token is refused, but a token minted
 with a subscriber PIN reads it, and the same token still serves the catalog, so one login path covers both.
@@ -67,6 +67,27 @@ profile, no OAuth: the watchlist is as readable as the lists the plugin already 
 shape a list's are, so `TraktListMapper` serves both. One rough edge is Trakt's, not ours: an empty watchlist, a
 private profile, and a username that does not exist all answer 200 with an empty array, and the documented
 `X-Private-User` header is not sent, so the source can only report the count it read, never why it read nothing.
+
+### TMDB, and why it needs the user's own key
+
+TMDB is the one service here with a documented, supported account API, and the only reason it looked hard is
+the word OAuth. It needs no public address: the approval URL takes an optional `redirect_to`, and omitting it
+means there is no callback at all. The user approves in their own browser, comes back to the dashboard, and
+the plugin exchanges the token server to server. Every call is outbound. TMDbLib already ships every method
+required, and a TMDB session id does not expire, so it is a one-time setup rather than a token to re-paste.
+
+The constraint that does matter is not technical. A TMDB session belongs to the **application** whose api key
+minted it, and the key `TmdbClient` falls back to is Jellyfin's own: `4219e299c89411838049ab0dab19ebd5`, a
+copy of the constant in the server's `MediaBrowser.Providers/Plugins/Tmdb/TmdbUtils.cs`, registered to the
+Jellyfin project and shared by every install (it replaced an inherited Emby key in jellyfin/jellyfin#540, so
+it has been rotated once already). Reading the public catalog through it is what it is published for. Minting
+account sessions through it would put write-capable credentials for our users under a third party's
+application, and would break every user at once if that key were rotated again.
+
+So `TmdbAccountClient` never falls back: no own key, no account features, enforced in the client rather than
+only in the toggle. It also builds its own `TMDbClient` instead of sharing `TmdbClient`'s, which is created
+once at startup and would otherwise still hold the default key for a user who entered theirs afterwards, and
+mint the session against the wrong application without saying so.
 
 ## Consequences
 

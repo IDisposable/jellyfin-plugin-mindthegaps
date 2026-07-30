@@ -13,17 +13,17 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 
 /// <summary>
-/// Discovery source over the TheTVDB account's favourite series: the shows marked as favourites that the
+/// Discovery source over the TheTVDB account's favorite series: the shows marked as favorites that the
 /// library does not hold. Opt-in, and it needs the TheTVDB API key the episode cross-check already uses plus
-/// a subscriber PIN, because favourites are account data and a key-only token cannot read them.
+/// a subscriber PIN, because favorites are account data and a key-only token cannot read them.
 /// </summary>
 /// <remarks>
-/// A favourite is usually something already owned, so this yields far less than the other want-lists. It is
+/// A favorite is usually something already owned, so this yields far less than the other want-lists. It is
 /// worth having for the few that are not: a show followed on TheTVDB but never acquired.
 /// </remarks>
 internal sealed class TvdbFavoritesGapSource : IGapSource
 {
-    // Favourites are a hand-curated set, rarely more than a few dozen.
+    // Favorites are a hand-curated set, rarely more than a few dozen.
     private const int MaxGaps = 500;
 
     private readonly TvdbClient _tvdb;
@@ -41,7 +41,7 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
     }
 
     /// <inheritdoc />
-    public string Name => "TheTVDB favourites";
+    public string Name => "TheTVDB favorites";
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Series };
@@ -61,7 +61,7 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
 
         if (ServiceCircuit.IsOpen(ServiceNames.Tvdb))
         {
-            _logger.LogWarning("TheTVDB favourites: service unavailable this run");
+            _logger.LogWarning("TheTVDB favorites: service unavailable this run");
             yield break;
         }
 
@@ -73,18 +73,18 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "TheTVDB favourites: failed to read the favourites");
+            _logger.LogWarning(ex, "TheTVDB favorites: failed to read the favorites");
             yield break;
         }
 
         if (favorites is null)
         {
             _logger.LogWarning(
-                "TheTVDB favourites: could not be read; check the API key and the subscriber PIN, which is what scopes the token to the account");
+                "TheTVDB favorites: could not be read; check the API key and the subscriber PIN, which is what scopes the token to the account");
             yield break;
         }
 
-        _logger.LogInformation("TheTVDB favourites: {Count} favourite series", favorites.Count);
+        _logger.LogInformation("TheTVDB favorites: {Count} favorite series", favorites.Count);
 
         var emitted = 0;
         for (var index = 0; index < favorites.Count && emitted < MaxGaps; index++)
@@ -98,7 +98,7 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
                 [ProviderIds.Tvdb] = seriesId.ToString(CultureInfo.InvariantCulture)
             };
 
-            // Check ownership before the lookup: a favourite is usually something already held, and the
+            // Check ownership before the lookup: a favorite is usually something already held, and the
             // record fetch is a network call per series.
             if (context.Ownership.OwnsAny(BaseItemKind.Series, providerIds))
             {
@@ -112,7 +112,7 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "TheTVDB favourites: failed to read series {SeriesId}", seriesId);
+                _logger.LogWarning(ex, "TheTVDB favorites: failed to read series {SeriesId}", seriesId);
                 continue;
             }
 
@@ -123,14 +123,14 @@ internal sealed class TvdbFavoritesGapSource : IGapSource
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.TvdbFavorite}{seriesId}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.TvdbFavorites.GapPrefix}{seriesId}"),
                 pattern: GapPattern.Recommendation,
                 domain: MediaDomain.Shows,
                 targetKind: BaseItemKind.Series,
                 name: name,
                 providerIds: providerIds,
-                sourceItemId: SourceItemIds.TvdbFavorites,
-                sourceItemName: "TheTVDB favourites",
+                sourceItemId: GapSourceKeys.TvdbFavorites.Owner(),
+                sourceItemName: "TheTVDB favorites",
                 sourceItemType: SourceItemTypes.TvdbFavorites,
                 releaseDate: ParseDate(series.FirstAired),
                 imageUrl: series.Image);
