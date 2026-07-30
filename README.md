@@ -36,10 +36,11 @@ Every gap is one of three kinds, surfaced as the report's three tabs:
 |---|---|---|
 | **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
 | **Creator works** | other work by a person or artist you own | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books |
-| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB or MDBList list, each list shown as its own group |
+| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB, MDBList, Trakt, or IMDb list and on your JustWatch watchlist, each list shown as its own group |
 
 Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
-and MDBList are opt-in cross-checks and sources that need their own credentials.
+MDBList, and JustWatch are opt-in cross-checks and sources that need their own credentials. IMDb lists are
+opt-in but need no credential.
 
 How the pieces connect: the providers and lists you enable feed three gap patterns, and each pattern
 surfaces as one report tab, labelled for the media type you are viewing.
@@ -58,12 +59,20 @@ flowchart LR
 
     ppl["TMDB people"]:::movies --> CRE
     trk["Trakt filmography"]:::movies --> CRE
+    ipl["IMDb people lists"]:::movies --> CRE
     art["MusicBrainz and Discogs artists"]:::music --> CRE
     aut["OpenLibrary authors"]:::books --> CRE
 
     sim["TMDB similar titles"] --> DIS
     tli["TMDB lists"] --> DIS
     mli["MDBList lists"] --> DIS
+    ili["IMDb watchlists and lists"] --> DIS
+    jwl["JustWatch watchlist"] --> DIS
+    mwl["MDBList watchlist"] --> DIS
+    twl["Trakt watchlist"] --> DIS
+    tvf["TheTVDB favourites"]:::shows --> DIS
+    dwl["Discogs wantlist"]:::music --> DIS
+    owl["OpenLibrary want to read"]:::books --> DIS
 
     SET["Set completion<br/>Movies: Set completion<br/>Shows: Series completion<br/>Music: Discography"]
     CRE["Creator works<br/>Movies and Shows: Creator works<br/>Music: Artist works<br/>Books: Author works"]
@@ -106,6 +115,9 @@ flowchart TD
   at once. A relevance filter (a minimum-votes threshold, plus an optional cast-billing limit) drops obscure
   and bit-part credits so the list stays useful on a large library.
 - **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
+- **Filmography gaps (an IMDb people list)**: the one creator source not seeded from your library. IMDb types
+  its lists, so a list of people is read as a seed: every unowned film and series each named person made lands
+  on Creator works, which is how you follow a director you own nothing by. Opt-in, keyless, capped per scan.
 - **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
   cross-checks each owned series against **TheMovieDb**, **TVmaze**, and **TheTVDB** to catch episodes the
   series' configured metadata provider doesn't list. TheMovieDb and TVmaze are keyless; TheTVDB needs your
@@ -128,14 +140,23 @@ flowchart TD
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
   that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
   groups each suggestion under the owned title that surfaced it.
-- **Discovery lists (TMDB, MDBList, and Trakt)**: point the report at a curated list and complete it the way
-  you complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list ids or
-  themoviedb.org/list URLs pasted in), an **MDBList community list** (a type-ahead chip picker: search, pick a
-  match, it becomes a removable chip), or a **Trakt list** (its **Scan Trakt lists** toggle, with each list's
-  numeric id or slug entered; needs a Trakt client id); the titles on it you do not own surface in the
-  Discover tab, grouped under the list's name (MDBList and Trakt lists can include shows as well as movies). A
+- **Discovery lists (TMDB, MDBList, Trakt, IMDb, and JustWatch)**: point the report at a list and complete it
+  the way you complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list
+  ids or themoviedb.org/list URLs pasted in), an **MDBList community list** (a type-ahead chip picker: search,
+  pick a match, it becomes a removable chip), a **Trakt list** (its **Scan Trakt lists** toggle, with each
+  list's numeric id or slug entered; needs a Trakt client id), an **IMDb watchlist or list** (its **Scan IMDb
+  lists** toggle, with each ur... user id or ls... list id entered; needs no key, but the list has to be
+  public), or **your JustWatch watchlist** (its **Scan JustWatch** toggle plus your session token, since
+  JustWatch publishes no account API); the titles on it you do not own surface in the Discover tab, grouped
+  under the list's name (every one of these but TMDB can include shows as well as movies). A
   title that is both on a curated list and recommended groups under the list, with the recommendation kept as
   a secondary source, so the list stays its own group. Opt-in, and MDBList needs a free API key.
+- **Your own want-lists**: the strongest signal of what to acquire is the list you already keep, so the
+  plugin reads them where the service allows it: an **IMDb** watchlist or list, a **Trakt** watchlist, your
+  **JustWatch** watchlist, your **MDBList** watchlist, a **Discogs** wantlist (Music), an **OpenLibrary**
+  "Want to Read" shelf (Books), and your **TheTVDB** favourites (Shows). Each is opt-in and its own group on
+  the Discover tab. IMDb and OpenLibrary need no key at all, just a public list; the rest reuse the credential
+  their service already has.
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
@@ -230,7 +251,8 @@ Recommendations), the filters and saved views, and the per-row actions (where to
 
 In the dashboard, go to **Plugins > Mind the Gaps**. The source toggles are grouped into **Complete what
 you own** (collections, studios, keywords, Discogs labels, series, music discography, books, and an owned
-actor or director's filmography) and **Discover new titles** (recommendations, TMDB lists, MDBList lists).
+actor or director's filmography) and **Discover new titles** (recommendations, TMDB lists, MDBList lists,
+Trakt lists, IMDb watchlists, and your JustWatch watchlist).
 For every setting, what it does, and what changes when you set or clear it, see the
 [configuration reference](docs/configuration.md). In brief, alongside those toggles:
 
@@ -252,6 +274,15 @@ For every setting, what it does, and what changes when you set or clear it, see 
 | Discogs token | Enables the opt-in Discogs label and artist source. |
 | TMDB API key | Optional; falls back to the built-in public key. |
 | MDBList API key | Optional (free); enables MDBList community lists as a discovery source. |
+| Scan IMDb lists | Gates the IMDb discovery lists (the ur... watchlist and ls... list ids beside it feed it). Needs no key, but IMDb serves only what the account has made public. |
+| Follow IMDb people lists | Reads an IMDb **people** list from the same ids as a filmography seed, so a director or actor you own nothing by still lands on Creator works. Resolves 50 people per run, stalest first, so a long list is covered over several scans. |
+| Scan Trakt watchlist | A Trakt user's watchlist. Needs the Trakt client id and a username; the profile has to be public. |
+| Scan MDBList watchlist | Your own MDBList watchlist (not a community list). The API key identifies the account, so there is nothing else to enter. |
+| Scan Discogs wantlist | A Discogs wantlist as Music gaps. Needs the Discogs token and a username. |
+| Scan OpenLibrary want to read | An OpenLibrary "Want to Read" shelf as Books gaps. Needs a username and nothing else; the shelf has to be public. |
+| Scan TheTVDB favourites | Your favourited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favourite is usually a show you already hold. |
+| TheTVDB subscriber PIN | Optional. Only needed to read your TheTVDB account (the favourites); the episode cross-check works without it. |
+| JustWatch token | Enables your own JustWatch watchlist (and, optionally, your likes) as a discovery source. JustWatch issues no api keys, so this is the bearer token from a signed-in browser session, and it expires. |
 
 ## Virtual placeholders (opt-in)
 

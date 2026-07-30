@@ -1,6 +1,8 @@
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Imdb;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.JustWatch;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
@@ -11,6 +13,8 @@ using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.Imdb;
+using Jellyfin.Plugin.MindTheGaps.Services.JustWatch;
 using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
@@ -56,6 +60,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<OpenLibraryClient>();
         serviceCollection.AddSingleton<DiscogsClient>();
         serviceCollection.AddSingleton<MdbListClient>();
+        serviceCollection.AddSingleton<ImdbClient>();
+        serviceCollection.AddSingleton<JustWatchClient>();
         serviceCollection.AddSingleton<VirtualItemMinter>();
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
@@ -81,6 +87,14 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, DiscogsArtistGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, ImdbListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, ImdbPeopleListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, MdbListWatchlistGapSource>();
+        serviceCollection.AddSingleton<IGapSource, DiscogsWantlistGapSource>();
+        serviceCollection.AddSingleton<IGapSource, OpenLibraryWantToReadGapSource>();
+        serviceCollection.AddSingleton<IGapSource, TvdbFavoritesGapSource>();
+        serviceCollection.AddSingleton<IGapSource, TraktWatchlistGapSource>();
+        serviceCollection.AddSingleton<IGapSource, JustWatchListGapSource>();
 
         // The episode providers the series-content source merges per series (not gap sources themselves).
         serviceCollection.AddSingleton<ISeriesEpisodeProvider, TmdbEpisodeProvider>();

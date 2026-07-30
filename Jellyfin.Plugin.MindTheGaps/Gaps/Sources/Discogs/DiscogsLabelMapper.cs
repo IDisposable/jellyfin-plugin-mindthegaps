@@ -60,13 +60,13 @@ internal static class DiscogsLabelMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"discogslabel:{labelId}:{release.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.DiscogsLabel}{labelId}:{release.Id}"),
                 pattern: GapPattern.SetCompletion,
                 domain: MediaDomain.Music,
                 targetKind: BaseItemKind.MusicAlbum,
                 name: DisplayName(release),
                 providerIds: providerIds,
-                sourceItemId: string.Create(CultureInfo.InvariantCulture, $"discogs-label-{labelId}"),
+                sourceItemId: SourceItemIds.DiscogsLabel(labelId),
                 sourceItemName: labelName,
                 sourceItemType: SourceItemTypes.MusicLabel,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Discogs] = labelId.ToString(CultureInfo.InvariantCulture) },

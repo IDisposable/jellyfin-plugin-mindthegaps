@@ -58,7 +58,7 @@ internal static class MusicBrainzMapper
             }
 
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{idPrefix}:{artistMbid}:{group.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{idPrefix}{artistMbid}:{group.Id}"),
                 pattern: pattern,
                 domain: MediaDomain.Music,
                 targetKind: BaseItemKind.MusicAlbum,

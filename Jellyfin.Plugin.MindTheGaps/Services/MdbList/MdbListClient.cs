@@ -167,6 +167,42 @@ internal sealed class MdbListClient
         return items;
     }
 
+    /// <summary>
+    /// Reads the account's own watchlist, which MDBList serves in the same envelope as a list's items.
+    /// Returns null when there is no key or the call failed, so a caller can tell an empty watchlist from an
+    /// unreachable one.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The watchlist items, or null.</returns>
+    public async Task<IReadOnlyList<MdbListItem>?> GetWatchlistAsync(CancellationToken cancellationToken)
+    {
+        var key = ApiKey;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return null;
+        }
+
+        var url = string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/watchlist/items?apikey={key}");
+
+        // A watchlist is edited between scans, so it is not held for the half-day a community list is.
+        var response = await _api.GetJsonAsync<MdbListItemsResponse>(
+            ServiceNames.MdbList,
+            url,
+            TimeSpan.FromMinutes(10),
+            _jsonOptions,
+            null,
+            cancellationToken).ConfigureAwait(false);
+        if (response is null)
+        {
+            return null;
+        }
+
+        var items = new List<MdbListItem>();
+        AddItems(items, response.Movies, "movie");
+        AddItems(items, response.Shows, "show");
+        return items;
+    }
+
     private static void AddItems(List<MdbListItem> into, IReadOnlyList<MdbListItem>? from, string mediaType)
     {
         if (from is null)

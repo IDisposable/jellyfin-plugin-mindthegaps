@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
+using TMDbLib.Objects.Find;
 using TMDbLib.Objects.People;
 using TMDbLib.Objects.Search;
 
@@ -133,6 +134,43 @@ public sealed class TmdbClient : IDisposable
         }
 
         return person;
+    }
+
+    /// <summary>
+    /// Resolves an IMDb name id ("nm0000229") to a TMDB person id, so a person named on an IMDb list can be
+    /// handed to the same filmography pass an owned person goes through. An IMDb id never changes, so the
+    /// answer is cached far longer than a catalog read.
+    /// </summary>
+    /// <param name="imdbNameId">The IMDb name id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The TMDB person id, or <see langword="null"/> when TMDB does not know the person.</returns>
+    public async Task<int?> FindPersonByImdbIdAsync(string imdbNameId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(imdbNameId))
+        {
+            return null;
+        }
+
+        var key = string.Create(CultureInfo.InvariantCulture, $"findperson-{imdbNameId}");
+        if (_cache.TryGetValue(key, out int? cached))
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: FindPerson {ImdbId}", imdbNameId);
+        var found = await _client.FindAsync(FindExternalSource.Imdb, imdbNameId, cancellationToken).ConfigureAwait(false);
+        var personId = found?.PersonResults?.Count > 0 ? found.PersonResults[0].Id : (int?)null;
+
+        if (personId is not null)
+        {
+            _cache.Set(key, personId, TimeSpan.FromDays(30));
+        }
+        else
+        {
+            _logger?.LogWarning("TMDB: FindPerson {ImdbId} matched no person", imdbNameId);
+        }
+
+        return personId;
     }
 
     /// <summary>

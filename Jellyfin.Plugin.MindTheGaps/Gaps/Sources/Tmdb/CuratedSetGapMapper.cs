@@ -62,7 +62,7 @@ internal static class CuratedSetGapMapper
             var year = movie.ReleaseDate?.Year;
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"curated:{setKey}:{movie.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.Curated}{setKey}:{movie.Id}"),
                 pattern: pattern,
                 domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,

@@ -50,11 +50,44 @@ public static class SourceItemTypes
     /// <summary>A Trakt list.</summary>
     public const string TraktList = "TraktList";
 
+    /// <summary>An IMDb watchlist or list.</summary>
+    public const string ImdbList = "ImdbList";
+
+    /// <summary>A JustWatch account list (the watchlist or the likes).</summary>
+    public const string JustWatchList = "JustWatchList";
+
+    /// <summary>The MDBList account's own watchlist.</summary>
+    public const string MdbListWatchlist = "MdbListWatchlist";
+
+    /// <summary>A Discogs wantlist.</summary>
+    public const string DiscogsWantlist = "DiscogsWantlist";
+
+    /// <summary>An OpenLibrary reading-log shelf ("Want to Read").</summary>
+    public const string OpenLibraryShelf = "OpenLibraryShelf";
+
+    /// <summary>TheTVDB account's favourite series.</summary>
+    public const string TvdbFavorites = "TvdbFavorites";
+
+    /// <summary>A Trakt user's watchlist.</summary>
+    public const string TraktWatchlist = "TraktWatchlist";
+
     /// <summary>
     /// Gets the source types that are deliberately curated lists, as opposed to a per-title recommendation.
     /// A gap surfaced by both files under the list, which is the more meaningful reason to be shown it.
     /// </summary>
-    public static IReadOnlyList<string> CuratedListKinds { get; } = [TmdbList, MdbList, TraktList];
+    public static IReadOnlyList<string> CuratedListKinds { get; } =
+    [
+        TmdbList,
+        MdbList,
+        TraktList,
+        ImdbList,
+        JustWatchList,
+        MdbListWatchlist,
+        DiscogsWantlist,
+        OpenLibraryShelf,
+        TvdbFavorites,
+        TraktWatchlist
+    ];
 
     /// <summary>
     /// Gets the set kinds in the order the dashboard groups them under Set completion, most concrete first:

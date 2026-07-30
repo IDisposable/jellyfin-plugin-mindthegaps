@@ -22,3 +22,4 @@ context, the decision, and what it costs, so the reasoning survives the code.
 | [0015](0015-merge-episodes-per-season-library-driven.md) | Merge every provider's episodes per season; the library drives which run |
 | [0016](0016-verify-first-clear-down.md) | Clear down a filled gap anywhere: verify first, re-check on request |
 | [0017](0017-serve-the-dashboard-vocabulary.md) | Serve the dashboard's vocabulary and policy instead of restating them |
+| [0018](0018-personal-watchlists-over-site-apis.md) | Read personal watchlists over the sites' own APIs (IMDb, JustWatch) |

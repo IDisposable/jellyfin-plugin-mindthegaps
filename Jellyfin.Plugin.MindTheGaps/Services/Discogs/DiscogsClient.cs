@@ -176,6 +176,53 @@ internal sealed class DiscogsClient
         return masters;
     }
 
+    /// <summary>
+    /// Reads a user's wantlist, following the pages until it ends or <paramref name="maxItems"/> is reached.
+    /// Discogs serves a public wantlist to any authenticated caller and answers "authenticate as the owner"
+    /// for a private one, so the configured token is what reads the owner's own. Returns null when it cannot
+    /// be read, so a caller can tell an empty wantlist from an unreachable one.
+    /// </summary>
+    /// <param name="username">The Discogs username.</param>
+    /// <param name="maxItems">The most entries to read.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The wanted releases, or null.</returns>
+    public async Task<IReadOnlyList<DiscogsWant>?> GetWantlistAsync(
+        string username,
+        int maxItems,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return null;
+        }
+
+        var wants = new List<DiscogsWant>();
+        var user = Uri.EscapeDataString(username.Trim());
+
+        for (var page = 1; wants.Count < maxItems; page++)
+        {
+            var response = await GetAsync<DiscogsWantlistResponse>(
+                string.Create(CultureInfo.InvariantCulture, $"/users/{user}/wants?page={page}&per_page={PageSize}"),
+                // A wantlist is edited between scans, so it is not held for the half-day a catalog read is.
+                TimeSpan.FromMinutes(10),
+                cancellationToken).ConfigureAwait(false);
+            if (response is null)
+            {
+                return wants.Count > 0 ? wants : null;
+            }
+
+            wants.AddRange(response.Wants ?? []);
+
+            var totalPages = response.Pagination?.Pages ?? page;
+            if (page >= totalPages)
+            {
+                break;
+            }
+        }
+
+        return wants;
+    }
+
     private Task<T?> GetAsync<T>(string path, TimeSpan cacheDuration, CancellationToken cancellationToken)
         where T : class
     {

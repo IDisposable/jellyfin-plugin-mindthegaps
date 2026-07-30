@@ -34,6 +34,21 @@ public class PluginConfiguration : BasePluginConfiguration
         MdbListListIds = string.Empty;
         ScanTraktLists = false;
         CuratedTraktListIds = string.Empty;
+        ScanImdbLists = false;
+        ScanImdbPeopleLists = false;
+        ImdbListIds = string.Empty;
+        ScanTraktWatchlist = false;
+        TraktUsername = string.Empty;
+        ScanTvdbFavorites = false;
+        TvdbPin = string.Empty;
+        ScanMdbListWatchlist = false;
+        ScanDiscogsWantlist = false;
+        DiscogsUsername = string.Empty;
+        ScanOpenLibraryWantToRead = false;
+        OpenLibraryUsername = string.Empty;
+        ScanJustWatchLists = false;
+        ScanJustWatchLikes = false;
+        JustWatchToken = string.Empty;
         IncludeAvailability = true;
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
@@ -196,6 +211,113 @@ public class PluginConfiguration : BasePluginConfiguration
     /// entry is a list's numeric id or its slug (Trakt accepts either on the lists endpoint).
     /// </summary>
     public string CuratedTraktListIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned titles on the IMDb watchlists and lists
+    /// in <see cref="ImdbListIds"/> as discovery (Recommendation) gaps. Needs at least one id; IMDb's API
+    /// needs no key. Off by default.
+    /// </summary>
+    public bool ScanImdbLists { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated list of IMDb ids to read. Each entry is a list id ("ls055576446"), a
+    /// user id ("ur1000000", meaning that user's watchlist), or a pasted imdb.com URL holding either, parsed
+    /// by <see cref="Gaps.Sources.Imdb.ImdbListInput"/>. The list has to be public: IMDb serves nothing
+    /// private without the owner's session.
+    /// </summary>
+    public string ImdbListIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether an IMDb <b>people</b> list in <see cref="ImdbListIds"/> is
+    /// followed as a filmography seed, surfacing each named person's unowned credits as CreatorWorks gaps.
+    /// This is the only creator source not seeded from the library, so it is what tracks a director you own
+    /// nothing by. Separate from <see cref="ScanImdbLists"/> because one people list is many filmographies,
+    /// which is a much larger result than a titles list of the same length. Off by default.
+    /// </summary>
+    public bool ScanImdbPeopleLists { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned titles on a Trakt user's watchlist as
+    /// discovery (Recommendation) gaps. Needs <see cref="TraktClientId"/> and <see cref="TraktUsername"/>;
+    /// Trakt serves a public profile's watchlist without OAuth. Off by default.
+    /// </summary>
+    public bool ScanTraktWatchlist { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Trakt username (or profile slug) whose watchlist is read. The profile has to be
+    /// public: Trakt answers a private profile, an unknown username, and an empty watchlist identically, so a
+    /// wrong value reads as "nothing on the list" rather than as an error.
+    /// </summary>
+    public string TraktUsername { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned series favourited on TheTVDB as
+    /// discovery (Recommendation) gaps. Needs <see cref="TvdbApiKey"/> and <see cref="TvdbPin"/>. Yields far
+    /// less than the other want-lists, since a favourite is usually something already owned. Off by default.
+    /// </summary>
+    public bool ScanTvdbFavorites { get; set; }
+
+    /// <summary>
+    /// Gets or sets the TheTVDB subscriber PIN. Optional for the episode cross-check, which reads the
+    /// catalog, but required to read account data (the favourites), because a key-only token is not scoped to
+    /// an account. When set it is sent on every login, and a PIN-scoped token serves the catalog reads too,
+    /// so there is one login path either way.
+    /// </summary>
+    public string TvdbPin { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned titles on the MDBList account's own
+    /// watchlist as discovery (Recommendation) gaps. Uses <see cref="MdbListApiKey"/>, which identifies the
+    /// account, so it needs no username. Off by default.
+    /// </summary>
+    public bool ScanMdbListWatchlist { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned releases on a Discogs wantlist as
+    /// discovery (Recommendation) gaps. Needs <see cref="DiscogsToken"/> and <see cref="DiscogsUsername"/>.
+    /// Off by default.
+    /// </summary>
+    public bool ScanDiscogsWantlist { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Discogs username whose wantlist is read. Discogs addresses a wantlist by username
+    /// rather than by token, so the token authenticates and this says whose list to read; another user's is
+    /// readable only if they have made it public.
+    /// </summary>
+    public string DiscogsUsername { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned works on an OpenLibrary "Want to Read"
+    /// shelf as discovery (Recommendation) gaps. Needs only <see cref="OpenLibraryUsername"/>; OpenLibrary
+    /// serves a public reading log without a key. Off by default.
+    /// </summary>
+    public bool ScanOpenLibraryWantToRead { get; set; }
+
+    /// <summary>
+    /// Gets or sets the OpenLibrary username whose "Want to Read" shelf is read (the part after /people/ in a
+    /// profile URL). The reading log has to be public.
+    /// </summary>
+    public string OpenLibraryUsername { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface the unowned titles on the signed-in JustWatch
+    /// account's watchlist as discovery (Recommendation) gaps. Needs <see cref="JustWatchToken"/>. Off by
+    /// default.
+    /// </summary>
+    public bool ScanJustWatchLists { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the JustWatch pass also reads the account's liked titles, not
+    /// only its watchlist. Off by default, since a like is weaker than a deliberate watchlist entry.
+    /// </summary>
+    public bool ScanJustWatchLikes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the JustWatch account bearer token. JustWatch publishes no account API and issues no
+    /// api keys, so the token is copied out of a signed-in browser session; it expires, and the JustWatch
+    /// pass logs and skips rather than failing the scan when it does.
+    /// </summary>
+    public string JustWatchToken { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to enrich gaps with streaming-availability data ("where

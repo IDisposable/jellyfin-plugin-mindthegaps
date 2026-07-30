@@ -26,6 +26,42 @@ internal static class MdbListMapper
     /// <param name="maxResults">The most gaps to emit for this list.</param>
     /// <returns>The discovery gaps for unowned items.</returns>
     public static IEnumerable<GapItem> Build(int listId, string? listName, IEnumerable<MdbListItem> items, OwnershipIndex ownership, int maxResults)
+        => Build(
+            items,
+            ownership,
+            maxResults,
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.MdbList}{listId}:{idKey}"),
+            SourceItemIds.MdbList(listId),
+            listName,
+            SourceItemTypes.MdbList);
+
+    /// <summary>
+    /// Builds gaps for the account's own watchlist. The watchlist arrives in the same envelope a list does,
+    /// so only the id and the owner differ: it is one watchlist rather than one of many lists, so it needs no
+    /// list id in its key.
+    /// </summary>
+    /// <param name="items">The watchlist items.</param>
+    /// <param name="ownership">The library ownership index.</param>
+    /// <param name="maxResults">The most gaps to emit.</param>
+    /// <returns>The discovery gaps for unowned items.</returns>
+    public static IEnumerable<GapItem> BuildWatchlist(IEnumerable<MdbListItem> items, OwnershipIndex ownership, int maxResults)
+        => Build(
+            items,
+            ownership,
+            maxResults,
+            idKey => string.Concat(GapIdPrefixes.MdbListWatchlist, idKey),
+            SourceItemIds.MdbListWatchlist,
+            "MDBList watchlist",
+            SourceItemTypes.MdbListWatchlist);
+
+    private static IEnumerable<GapItem> Build(
+        IEnumerable<MdbListItem> items,
+        OwnershipIndex ownership,
+        int maxResults,
+        Func<string, string> gapId,
+        string ownerId,
+        string? ownerName,
+        string sourceItemType)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(ownership);
@@ -86,15 +122,15 @@ internal static class MdbListMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"mdblist:{listId}:{idKey}"),
+                id: gapId(idKey),
                 pattern: GapPattern.Recommendation,
                 domain: domain,
                 targetKind: kind,
                 name: item.Title,
                 providerIds: providerIds,
-                sourceItemId: string.Create(CultureInfo.InvariantCulture, $"mdblist-{listId}"),
-                sourceItemName: listName,
-                sourceItemType: SourceItemTypes.MdbList,
+                sourceItemId: ownerId,
+                sourceItemName: ownerName,
+                sourceItemType: sourceItemType,
                 releaseDate: item.ReleaseYear is > 0
                     ? new DateTime(item.ReleaseYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null);

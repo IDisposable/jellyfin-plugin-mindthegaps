@@ -217,7 +217,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
 
         foreach (var gap in CuratedSetGapMapper.BuildMovies(
             results,
-            string.Create(CultureInfo.InvariantCulture, $"company:{companyId}"),
+            CuratedSetKeys.Company(companyId),
             label,
             SourceItemTypes.Studio,
             context.Ownership,
@@ -250,7 +250,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
 
         foreach (var gap in CuratedSetGapMapper.BuildMovies(
             results,
-            string.Create(CultureInfo.InvariantCulture, $"keyword:{keywordId}"),
+            CuratedSetKeys.Keyword(keywordId),
             label,
             SourceItemTypes.Keyword,
             context.Ownership,
@@ -275,14 +275,14 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
 
         foreach (var gap in CuratedSetGapMapper.BuildMovies(
             list.Movies,
-            string.Create(CultureInfo.InvariantCulture, $"list:{listId}"),
+            CuratedSetKeys.List(listId),
             label,
             SourceItemTypes.TmdbList,
             context.Ownership,
             _tmdb.GetPosterUrl,
             MaxGapsPerSet,
             GapPattern.Recommendation,
-            string.Create(CultureInfo.InvariantCulture, $"tmdblist-{listId}")))
+            SourceItemIds.TmdbList(listId)))
         {
             yield return gap;
         }

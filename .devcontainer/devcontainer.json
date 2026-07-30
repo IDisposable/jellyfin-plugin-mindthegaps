@@ -16,7 +16,8 @@
                 "ms-dotnettools.csharp",
                 "editorconfig.editorconfig",
                 "github.vscode-github-actions",
-                "ms-dotnettools.csdevkit"
+                "ms-dotnettools.csdevkit",
+                "yzhang.markdown-all-in-one"
             ]
         }
     }

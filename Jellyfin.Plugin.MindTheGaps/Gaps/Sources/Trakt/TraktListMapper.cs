@@ -26,6 +26,42 @@ internal static class TraktListMapper
     /// <param name="maxResults">The most gaps to emit for this list.</param>
     /// <returns>The discovery gaps for unowned entries.</returns>
     public static IEnumerable<GapItem> Build(string listId, string? listName, IEnumerable<TraktListItem> items, OwnershipIndex ownership, int maxResults)
+        => Build(
+            items,
+            ownership,
+            maxResults,
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.TraktList}{listId}:{idKey}"),
+            SourceItemIds.TraktList(listId),
+            listName,
+            SourceItemTypes.TraktList);
+
+    /// <summary>
+    /// Builds gaps for a user's watchlist. The watchlist entries are the same shape a list's are, so only the
+    /// id and the owner differ: it is one watchlist per user rather than one of many lists.
+    /// </summary>
+    /// <param name="username">The Trakt username the watchlist belongs to.</param>
+    /// <param name="items">The watchlist entries.</param>
+    /// <param name="ownership">The library ownership index.</param>
+    /// <param name="maxResults">The most gaps to emit.</param>
+    /// <returns>The discovery gaps for unowned entries.</returns>
+    public static IEnumerable<GapItem> BuildWatchlist(string username, IEnumerable<TraktListItem> items, OwnershipIndex ownership, int maxResults)
+        => Build(
+            items,
+            ownership,
+            maxResults,
+            idKey => string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.TraktWatchlist}{username}:{idKey}"),
+            SourceItemIds.TraktWatchlist(username),
+            "Trakt watchlist",
+            SourceItemTypes.TraktWatchlist);
+
+    private static IEnumerable<GapItem> Build(
+        IEnumerable<TraktListItem> items,
+        OwnershipIndex ownership,
+        int maxResults,
+        Func<string, string> gapId,
+        string ownerId,
+        string? ownerName,
+        string sourceItemType)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(ownership);
@@ -83,15 +119,15 @@ internal static class TraktListMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"traktlist:{listId}:{idKey}"),
+                id: gapId(idKey),
                 pattern: GapPattern.Recommendation,
                 domain: domain,
                 targetKind: kind,
                 name: title,
                 providerIds: providerIds,
-                sourceItemId: string.Create(CultureInfo.InvariantCulture, $"traktlist-{listId}"),
-                sourceItemName: listName,
-                sourceItemType: SourceItemTypes.TraktList,
+                sourceItemId: ownerId,
+                sourceItemName: ownerName,
+                sourceItemType: sourceItemType,
                 releaseDate: year is > 0
                     ? new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null);

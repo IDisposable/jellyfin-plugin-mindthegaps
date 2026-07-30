@@ -19,6 +19,9 @@ internal sealed class OpenLibraryClient
     // OpenLibrary caps a single works page; one page of an author's works is plenty for a spike.
     private const int WorksLimit = 100;
 
+    // The reading log pages the same way. A shelf is usually one or two pages.
+    private const int ReadingLogLimit = 100;
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -135,6 +138,69 @@ internal sealed class OpenLibraryClient
         var slash = key.LastIndexOf('/');
         return slash >= 0 && slash < key.Length - 1 ? key[(slash + 1)..] : key;
     }
+
+    /// <summary>
+    /// Reads a reader's public "Want to Read" shelf, following the pages until the shelf ends or
+    /// <paramref name="maxItems"/> is reached. Needs no credential: OpenLibrary serves a reading log as JSON
+    /// when the reader has made it public. Returns null when it cannot be read, so a caller can tell an empty
+    /// shelf from an unreachable one.
+    /// </summary>
+    /// <param name="username">The OpenLibrary username (the part after /people/ in a profile URL).</param>
+    /// <param name="maxItems">The most entries to read.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The wanted works, or null.</returns>
+    public async Task<IReadOnlyList<OpenLibraryReadingLogWork>?> GetWantToReadAsync(
+        string username,
+        int maxItems,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return null;
+        }
+
+        var works = new List<OpenLibraryReadingLogWork>();
+        var user = Uri.EscapeDataString(username.Trim());
+
+        for (var page = 1; works.Count < maxItems; page++)
+        {
+            var response = await GetAsync<OpenLibraryReadingLogResponse>(
+                string.Create(CultureInfo.InvariantCulture, $"/people/{user}/books/want-to-read.json?page={page}&limit={ReadingLogLimit}"),
+                cancellationToken).ConfigureAwait(false);
+            if (response is null)
+            {
+                return works.Count > 0 ? works : null;
+            }
+
+            var entries = response.ReadingLogEntries ?? [];
+            foreach (var entry in entries)
+            {
+                if (entry.Work is { Title.Length: > 0 })
+                {
+                    works.Add(entry.Work);
+                }
+            }
+
+            // A short page is the last one. NumFound also bounds it, so a shelf that keeps serving full pages
+            // cannot spin forever.
+            if (entries.Count < ReadingLogLimit || works.Count >= response.NumFound)
+            {
+                break;
+            }
+        }
+
+        return works;
+    }
+
+    /// <summary>
+    /// Builds the cover URL for a reading-log work, which carries a cover id rather than a URL.
+    /// </summary>
+    /// <param name="coverId">The cover id, or null.</param>
+    /// <returns>The cover URL, or null.</returns>
+    public static string? CoverUrl(long? coverId)
+        => coverId is > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"https://covers.openlibrary.org/b/id/{coverId}-M.jpg")
+            : null;
 
     // CachedApiClient caches the result and adds the plugin's versioned User-Agent via the shared HttpRetry path.
     private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)

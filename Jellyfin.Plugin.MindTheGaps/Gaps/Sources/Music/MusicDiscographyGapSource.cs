@@ -38,7 +38,7 @@ internal sealed class MusicDiscographyGapSource : MusicBrainzArtistGapSourceBase
     protected override GapPattern Pattern => GapPattern.SetCompletion;
 
     /// <inheritdoc />
-    protected override string IdPrefix => "discography";
+    protected override string IdPrefix => GapIdPrefixes.Discography;
 
     /// <inheritdoc />
     public override bool IsEnabled(PluginConfiguration config) => config.ScanMusic;

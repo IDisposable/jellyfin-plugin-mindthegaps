@@ -82,6 +82,33 @@ public class MdbListMapperTests
         Assert.Contains(gaps, g => g.Name == "Breaking Bad");
     }
 
+    [Fact]
+    public void BuildWatchlist_KeysOnTheTitleAloneAndOwnsItsOwnSource()
+    {
+        // The account's watchlist arrives in the same envelope a list does, so the same walk serves it; only
+        // the id and the owner differ, because there is one watchlist rather than one of many lists.
+        var gaps = MdbListMapper.BuildWatchlist(LoadItems(), OwnsTmdb(BaseItemKind.Movie), 100).ToList();
+
+        Assert.Equal(3, gaps.Count);
+        Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
+        Assert.All(gaps, g => Assert.Equal("MdbListWatchlist", g.SourceItemType));
+        Assert.All(gaps, g => Assert.Equal("mdblist-watchlist", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("MDBList watchlist", g.SourceItemName));
+
+        var matrix = gaps.Single(g => g.Name == "The Matrix");
+        Assert.Equal("mdblistwatch:603", matrix.Id);
+        Assert.Equal("603", matrix.ProviderIds["Tmdb"]);
+    }
+
+    [Fact]
+    public void BuildWatchlist_SkipsOwnedByTmdbId()
+    {
+        var gaps = MdbListMapper.BuildWatchlist(LoadItems(), OwnsTmdb(BaseItemKind.Movie, 603), 100).ToList();
+
+        Assert.DoesNotContain(gaps, g => g.Name == "The Matrix");
+        Assert.Equal(2, gaps.Count);
+    }
+
     [Theory]
     [InlineData("top sci fi", "top sci fi")]      // A clean query passes through unchanged.
     [InlineData("topl;i", "topli")]               // The semicolon is dropped; no space is inserted in its place.

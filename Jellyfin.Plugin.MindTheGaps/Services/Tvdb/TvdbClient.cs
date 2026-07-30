@@ -72,6 +72,42 @@ internal sealed class TvdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets the ids of the account's favourite series. Needs a PIN-scoped token (see the plugin's TheTVDB
+    /// PIN setting); without one TheTVDB answers unauthorized and this returns null, which is what lets a
+    /// caller tell "no favourites" from "cannot read them".
+    /// </summary>
+    /// <param name="apiKey">The user's TheTVDB API key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The favourite series ids, or <see langword="null"/>.</returns>
+    public async Task<IReadOnlyList<long>?> GetFavoriteSeriesIdsAsync(string apiKey, CancellationToken cancellationToken)
+    {
+        // Not cached for the usual half-day: a favourite is added and expected to show up on the next scan.
+        var response = await _api.GetOrAddAsync(
+            ServiceNames.Tvdb,
+            "user-favorites",
+            TimeSpan.FromMinutes(10),
+            ct => FetchAsync<TvdbFavoritesResponse>(apiKey, "/user/favorites", ct),
+            cancellationToken).ConfigureAwait(false);
+        return response?.Data?.Series;
+    }
+
+    /// <summary>
+    /// Reads a series record by id, for a favourite that is only an id.
+    /// </summary>
+    /// <param name="apiKey">TheTVDB v4 API key.</param>
+    /// <param name="seriesId">TheTVDB series id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The series record, or <see langword="null"/>.</returns>
+    public async Task<TvdbSeriesRecord?> GetSeriesAsync(string apiKey, long seriesId, CancellationToken cancellationToken)
+    {
+        var response = await GetAsync<TvdbSeriesResponse>(
+            apiKey,
+            string.Create(CultureInfo.InvariantCulture, $"/series/{seriesId}"),
+            cancellationToken).ConfigureAwait(false);
+        return response?.Data;
+    }
+
+    /// <summary>
     /// Gets the full aired-order episode list for a series, across all pages.
     /// </summary>
     /// <param name="apiKey">The user's TheTVDB API key.</param>
@@ -196,9 +232,30 @@ internal sealed class TvdbClient : IDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    // The login body. A subscriber PIN, when configured, scopes the token to the account, which is what makes
+    // the user endpoints (favourites) readable; the catalog endpoints answer the same either way, so one
+    // token serves both and there is no second login path.
+    private static Dictionary<string, string> LoginBody(string apiKey)
+    {
+        var body = new Dictionary<string, string>(StringComparer.Ordinal) { ["apikey"] = apiKey };
+        var pin = Plugin.Instance?.Configuration.TvdbPin;
+        if (!string.IsNullOrWhiteSpace(pin))
+        {
+            body["pin"] = pin.Trim();
+        }
+
+        return body;
+    }
+
+    // The token is cached against the credentials that minted it, the PIN included: adding or clearing a PIN
+    // changes what the token can read, so a stale one has to be discarded.
+    private static string CredentialKey(string apiKey)
+        => string.Concat(apiKey, "|", Plugin.Instance?.Configuration.TvdbPin?.Trim() ?? string.Empty);
+
     private async Task<string?> EnsureTokenAsync(string apiKey, CancellationToken cancellationToken, bool forceRefresh = false)
     {
-        if (!forceRefresh && _token is not null && string.Equals(_tokenApiKey, apiKey, StringComparison.Ordinal))
+        var credentials = CredentialKey(apiKey);
+        if (!forceRefresh && _token is not null && string.Equals(_tokenApiKey, credentials, StringComparison.Ordinal))
         {
             return _token;
         }
@@ -206,7 +263,7 @@ internal sealed class TvdbClient : IDisposable
         await _loginLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!forceRefresh && _token is not null && string.Equals(_tokenApiKey, apiKey, StringComparison.Ordinal))
+            if (!forceRefresh && _token is not null && string.Equals(_tokenApiKey, credentials, StringComparison.Ordinal))
             {
                 return _token;
             }
@@ -216,7 +273,7 @@ internal sealed class TvdbClient : IDisposable
                 client,
                 () => new HttpRequestMessage(HttpMethod.Post, BaseUrl + "/login")
                 {
-                    Content = JsonContent.Create(new Dictionary<string, string> { ["apikey"] = apiKey })
+                    Content = JsonContent.Create(LoginBody(apiKey))
                 },
                 _logger,
                 ServiceNames.Tvdb,
@@ -232,7 +289,7 @@ internal sealed class TvdbClient : IDisposable
 
             var login = await response.Content.ReadFromJsonAsync<TvdbLoginResponse>(_jsonOptions, cancellationToken).ConfigureAwait(false);
             _token = login?.Data?.Token;
-            _tokenApiKey = _token is null ? null : apiKey;
+            _tokenApiKey = _token is null ? null : credentials;
             return _token;
         }
         finally

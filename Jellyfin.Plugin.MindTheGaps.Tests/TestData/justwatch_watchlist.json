@@ -1,0 +1,64 @@
+{
+  "data": {
+    "titleListV2": {
+      "totalCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MTAw"
+      },
+      "edges": [
+        {
+          "node": {
+            "__typename": "Movie",
+            "id": "tm10",
+            "objectType": "MOVIE",
+            "content": {
+              "title": "The Matrix",
+              "originalReleaseYear": 1999,
+              "fullPath": "/us/movie/the-matrix",
+              "posterUrl": "/poster/126401284/{profile}/the-matrix.{format}",
+              "externalIds": {
+                "imdbId": "tt0133093",
+                "tmdbId": "603"
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "__typename": "Show",
+            "id": "ts4",
+            "objectType": "SHOW",
+            "content": {
+              "title": "Breaking Bad",
+              "originalReleaseYear": 2008,
+              "fullPath": "/us/tv-show/breaking-bad",
+              "posterUrl": "/poster/110511366/{profile}/breaking-bad.{format}",
+              "externalIds": {
+                "imdbId": "tt0903747",
+                "tmdbId": "1396"
+              }
+            }
+          }
+        },
+        {
+          "node": {
+            "__typename": "Movie",
+            "id": "tm11",
+            "objectType": "MOVIE",
+            "content": {
+              "title": "A Title JustWatch Has No Ids For",
+              "originalReleaseYear": 2021,
+              "fullPath": "/us/movie/no-ids",
+              "posterUrl": null,
+              "externalIds": {
+                "imdbId": null,
+                "tmdbId": null
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -33,4 +33,10 @@ internal static class ServiceNames
 
     /// <summary>MDBList.</summary>
     public const string MdbList = "MDBList";
+
+    /// <summary>IMDb (its GraphQL endpoint, for watchlists and lists).</summary>
+    public const string Imdb = "IMDb";
+
+    /// <summary>JustWatch (its GraphQL endpoint, for the account's own lists).</summary>
+    public const string JustWatch = "JustWatch";
 }

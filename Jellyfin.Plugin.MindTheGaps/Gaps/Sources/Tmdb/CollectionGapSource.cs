@@ -57,7 +57,7 @@ internal sealed class CollectionGapSource : IGapSource, ISetContentSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie };
 
     /// <inheritdoc />
-    public string GapIdPrefix => "collection:";
+    public string GapIdPrefix => GapIdPrefixes.Collection;
 
     /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config) => config.ScanCollections;

@@ -54,7 +54,7 @@ internal static class CollectionGapMapper
         foreach (var (part, providerIds) in missing)
         {
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"collection:{collectionId}:{part.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.Collection}{collectionId}:{part.Id}"),
                 pattern: GapPattern.SetCompletion,
                 domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,

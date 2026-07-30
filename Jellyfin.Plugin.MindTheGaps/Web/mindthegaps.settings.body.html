@@ -97,7 +97,7 @@
         </div>
         <div class="verticalSection">
             <h2 class="sectionTitle">Discover new titles</h2>
-            <div class="fieldDescription">Sources that surface titles not tied to a specific owned set: recommendations from similar titles, curated TMDB lists, MDBList community lists, and Trakt lists.</div>
+            <div class="fieldDescription">Sources that surface titles not tied to a specific owned set: recommendations from similar titles, curated TMDB lists, MDBList community lists, Trakt lists, IMDb watchlists, and your JustWatch watchlist.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="ScanRecommendations" name="ScanRecommendations" type="checkbox" is="emby-checkbox" />
@@ -142,6 +142,87 @@
                 <label class="inputLabel inputLabelUnfocused" for="CuratedTraktListIds">Trakt lists</label>
                 <input id="CuratedTraktListIds" name="CuratedTraktListIds" type="text" is="emby-input" placeholder="e.g. 11416887, trending" />
                 <div class="fieldDescription">Comma-separated Trakt lists, each a numeric id or a slug (the part after /lists/ in a trakt.tv list URL); the movies and shows on each that you do not own become discovery gaps. Needs the Trakt client id, set under Data sources.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanTraktWatchlist" name="ScanTraktWatchlist" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned titles from a Trakt watchlist</span>
+                </label>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="TraktUsername">Trakt username</label>
+                <input id="TraktUsername" name="TraktUsername" type="text" is="emby-input" placeholder="e.g. lish408" />
+                <div class="fieldDescription">Whose watchlist to read, as the username or profile slug. The profile has to be public. Trakt answers a private profile, an unknown username, and an empty watchlist the same way, so if nothing appears, check the spelling and the
+                    profile's privacy. Needs the Trakt client id, set under Data sources.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanMdbListWatchlist" name="ScanMdbListWatchlist" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned titles from your MDBList watchlist</span>
+                </label>
+                <div class="fieldDescription">Your own watchlist, not a community list. The MDBList API key identifies the account, so there is nothing else to enter. Set the key under Data sources.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanDiscogsWantlist" name="ScanDiscogsWantlist" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned releases from a Discogs wantlist</span>
+                </label>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="DiscogsUsername">Discogs username</label>
+                <input id="DiscogsUsername" name="DiscogsUsername" type="text" is="emby-input" placeholder="e.g. idisposable" />
+                <div class="fieldDescription">Discogs addresses a wantlist by username, so the token says who is asking and this says whose list to read. Your own always works; someone else's only if they have made it public. Set the token under Data sources.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanOpenLibraryWantToRead" name="ScanOpenLibraryWantToRead" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned books from an OpenLibrary "Want to Read" shelf</span>
+                </label>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="OpenLibraryUsername">OpenLibrary username</label>
+                <input id="OpenLibraryUsername" name="OpenLibraryUsername" type="text" is="emby-input" placeholder="e.g. mekBot" />
+                <div class="fieldDescription">The part after /people/ in an openlibrary.org profile address. Needs no key, but the reading log has to be public (OpenLibrary, Settings, Privacy).</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanImdbLists" name="ScanImdbLists" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned titles from IMDb watchlists and lists</span>
+                </label>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="ImdbListIds">IMDb watchlists and lists</label>
+                <input id="ImdbListIds" name="ImdbListIds" type="text" is="emby-input" placeholder="e.g. ur1000000, ls055576446" />
+                <div class="fieldDescription">Comma-separated IMDb ids, each a user id (ur..., meaning that user's watchlist) or a list id (ls...). A full imdb.com address can be pasted instead. Needs no key, but the watchlist or list has to be public
+                    (IMDb, Your Account, Privacy). The newer profile addresses that read imdb.com/user/p.&lt;random&gt;/ carry no usable id: open the watchlist from Your Lists and take the ls... id out of its address.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanImdbPeopleLists" name="ScanImdbPeopleLists" type="checkbox" is="emby-checkbox" />
+                    <span>Follow the filmographies of people on IMDb people lists</span>
+                </label>
+                <div class="fieldDescription">IMDb lists hold either titles or people. A people list is read as a filmography seed instead: every unowned film and series each named person made becomes a Creator works gap, which is how you track a director you own nothing by. Same
+                    ids as above; a titles list is unaffected. One people list is many filmographies, so at most 50 people per list are followed per scan, and the Creator works relevance floors still apply.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanJustWatchLists" name="ScanJustWatchLists" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned titles from your JustWatch watchlist</span>
+                </label>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanJustWatchLikes" name="ScanJustWatchLikes" type="checkbox" is="emby-checkbox" />
+                    <span>Also read the titles you liked on JustWatch</span>
+                </label>
+                <div class="fieldDescription">Off by default: a like is a weaker signal than a watchlist entry.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="JustWatchToken">JustWatch token</label>
+                <input id="JustWatchToken" name="JustWatchToken" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
+                <button id="RevealJustWatchToken" is="emby-button" type="button" class="raised cgReveal" data-target="JustWatchToken" style="margin:.25em 0;"><span>Show</span></button>
+                <div class="fieldDescription">JustWatch issues no api keys and its published API covers streaming availability only, so a personal list needs your own session token. Sign in at justwatch.com, open the browser developer tools, Network tab, reload My Lists, pick any
+                    request to apis.justwatch.com, and copy the Authorization header value after "Bearer ". The token expires, so it has to be replaced now and then; the scan logs a warning and carries on when it does.</div>
             </div>
         </div>
         <div class="verticalSection">
@@ -196,6 +277,20 @@
                 <button id="RevealTvdbApiKey" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbApiKey" style="margin:.25em 0;"><span>Show</span></button>
                 <div class="fieldDescription">Your v4 API key from <a is="emby-linkbutton" class="button-link" href="https://thetvdb.com/dashboard/account/apikey" target="_blank" rel="noopener">thetvdb.com/dashboard/account/apikey</a>. The TheTVDB cross-check runs when your Shows library lists
                     TheTVDB as a metadata fetcher and this key is set.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="TvdbPin">TheTVDB subscriber PIN (optional)</label>
+                <input id="TvdbPin" name="TvdbPin" type="text" autocomplete="off" is="emby-input" class="cgSecret" />
+                <button id="RevealTvdbPin" is="emby-button" type="button" class="raised cgReveal" data-target="TvdbPin" style="margin:.25em 0;"><span>Show</span></button>
+                <div class="fieldDescription">Leave blank for the episode cross-check, which only reads the catalog. It is needed to read your account, which today means your favourites: a key-only token is not tied to an account. Find it on thetvdb.com under your account,
+                    Subscription.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ScanTvdbFavorites" name="ScanTvdbFavorites" type="checkbox" is="emby-checkbox" />
+                    <span>Discover unowned series from your TheTVDB favourites</span>
+                </label>
+                <div class="fieldDescription">Needs the key and the PIN above. Expect few results: a favourite is usually a show you already have, so this only surfaces the ones you follow but never acquired.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">

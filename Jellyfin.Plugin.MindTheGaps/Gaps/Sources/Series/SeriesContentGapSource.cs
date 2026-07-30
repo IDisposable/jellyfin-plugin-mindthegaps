@@ -490,7 +490,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
         var id = season.HasValue && number.HasValue
             ? SeriesGapKey.Episode(episode.SeriesId, season.Value, number.Value)
-            : string.Create(CultureInfo.InvariantCulture, $"seriescontent:{episode.Id:N}");
+            : string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.SeriesContent}{episode.Id:N}");
 
         var gap = GapItemFactory.Create(
             id: id,

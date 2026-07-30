@@ -56,7 +56,7 @@ internal abstract class MusicBrainzArtistGapSourceBase : MusicArtistGapSourceBas
     protected override string ServiceName => ServiceNames.MusicBrainz;
 
     /// <inheritdoc />
-    public override string GapIdPrefix => IdPrefix + ":";
+    public override string GapIdPrefix => IdPrefix;
 
     /// <summary>
     /// Gets the pattern this source tags its gaps with.

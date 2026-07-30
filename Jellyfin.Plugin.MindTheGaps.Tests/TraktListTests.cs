@@ -91,4 +91,46 @@ public class TraktListTests
 
         Assert.Single(gaps);
     }
+
+    // Real response captured from a public Trakt watchlist. Trakt serves a public profile's watchlist with
+    // only a client id, no OAuth, which is what makes this source possible. Re-capture with:
+    //   curl -s -H "trakt-api-key: <YOUR_CLIENT_ID>" -H "trakt-api-version: 2" \
+    //     "https://api.trakt.tv/users/lish408/watchlist/movies,shows?limit=12" -o trakt_watchlist.json
+    [Fact]
+    public void BuildWatchlist_KeysOnTheUserAndOwnsItsOwnSource()
+    {
+        var gaps = TraktListMapper.BuildWatchlist("lish408", LoadWatchlist(), OwnsTmdb(BaseItemKind.Movie), 100).ToList();
+
+        Assert.Equal(12, gaps.Count);
+        Assert.Equal(11, gaps.Count(g => g.Domain == MediaDomain.Movies));
+        Assert.Equal(1, gaps.Count(g => g.Domain == MediaDomain.Shows));
+        Assert.All(gaps, g => Assert.Equal(GapPattern.Recommendation, g.Pattern));
+        Assert.All(gaps, g => Assert.Equal("TraktWatchlist", g.SourceItemType));
+        Assert.All(gaps, g => Assert.Equal("trakt-watchlist-lish408", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("Trakt watchlist", g.SourceItemName));
+
+        var movie = gaps.Single(g => g.Name == "Cave of Forgotten Dreams");
+        Assert.Equal("traktwatch:lish408:59490", movie.Id);
+        Assert.Equal("59490", movie.ProviderIds["Tmdb"]);
+        Assert.Equal("tt1664894", movie.ProviderIds["Imdb"]);
+        Assert.Equal(2010, movie.Year);
+    }
+
+    [Fact]
+    public void BuildWatchlist_SkipsOwnedByTmdbId()
+    {
+        var gaps = TraktListMapper.BuildWatchlist("lish408", LoadWatchlist(), OwnsTmdb(BaseItemKind.Movie, 59490), 100).ToList();
+
+        Assert.DoesNotContain(gaps, g => g.Name == "Cave of Forgotten Dreams");
+        Assert.Equal(11, gaps.Count);
+    }
+
+    private static IReadOnlyList<TraktListItem> LoadWatchlist()
+    {
+        var items = JsonSerializer.Deserialize<List<TraktListItem>>(
+            TestData.Read("trakt_watchlist.json"),
+            _jsonOptions);
+        Assert.NotNull(items);
+        return items!;
+    }
 }

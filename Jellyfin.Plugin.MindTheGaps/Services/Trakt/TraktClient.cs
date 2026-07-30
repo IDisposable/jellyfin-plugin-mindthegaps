@@ -17,6 +17,9 @@ internal sealed class TraktClient
 {
     private const string BaseUrl = "https://api.trakt.tv";
 
+    // Trakt's page size for the watchlist walk. A large watchlist is a handful of pages.
+    private const int WatchlistPageSize = 100;
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -90,6 +93,55 @@ internal sealed class TraktClient
             string.Create(CultureInfo.InvariantCulture, $"/lists/{Uri.EscapeDataString(listId)}/items/movie,show?extended=full"),
             cancellationToken).ConfigureAwait(false);
         return items ?? [];
+    }
+
+    /// <summary>
+    /// Reads a user's watchlist (movies and shows merged), following the pages until it ends or
+    /// <paramref name="maxItems"/> is reached. Needs only the client id: Trakt serves a public profile's
+    /// watchlist without OAuth. Returns null when no client id is set.
+    /// </summary>
+    /// <remarks>
+    /// Trakt gives no way to tell an empty watchlist from a private profile or a misspelled username: all
+    /// three answer 200 with an empty array, and the documented X-Private-User header is not sent. A caller
+    /// can therefore only report what it read, not why it read nothing.
+    /// </remarks>
+    /// <param name="username">The Trakt username or slug.</param>
+    /// <param name="maxItems">The most entries to read.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The watchlist entries, or null when unconfigured.</returns>
+    public async Task<IReadOnlyList<TraktListItem>?> GetWatchlistAsync(
+        string username,
+        int maxItems,
+        CancellationToken cancellationToken)
+    {
+        var clientId = ClientId;
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(username))
+        {
+            return null;
+        }
+
+        var user = Uri.EscapeDataString(username.Trim());
+        var items = new List<TraktListItem>();
+
+        for (var page = 1; items.Count < maxItems; page++)
+        {
+            var pageItems = await GetAsync<List<TraktListItem>>(
+                clientId,
+                string.Create(CultureInfo.InvariantCulture, $"/users/{user}/watchlist/movies,shows?page={page}&limit={WatchlistPageSize}"),
+                cancellationToken).ConfigureAwait(false);
+            if (pageItems is null)
+            {
+                return items.Count > 0 ? items : null;
+            }
+
+            items.AddRange(pageItems);
+            if (pageItems.Count < WatchlistPageSize)
+            {
+                break;
+            }
+        }
+
+        return items;
     }
 
     /// <summary>

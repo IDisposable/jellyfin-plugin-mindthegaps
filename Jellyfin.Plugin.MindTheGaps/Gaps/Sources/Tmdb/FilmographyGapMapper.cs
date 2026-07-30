@@ -211,7 +211,7 @@ internal static class FilmographyGapMapper
         }
 
         return GapItemFactory.Create(
-            id: string.Create(CultureInfo.InvariantCulture, $"filmography:movie:{tmdbId}"),
+            id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.FilmographyMovie}{tmdbId}"),
             pattern: GapPattern.CreatorWorks,
             domain: MediaDomain.Movies,
             targetKind: BaseItemKind.Movie,
@@ -257,7 +257,7 @@ internal static class FilmographyGapMapper
         }
 
         return GapItemFactory.Create(
-            id: string.Create(CultureInfo.InvariantCulture, $"filmography:series:{tmdbId}"),
+            id: string.Create(CultureInfo.InvariantCulture, $"{GapIdPrefixes.FilmographySeries}{tmdbId}"),
             pattern: GapPattern.CreatorWorks,
             domain: MediaDomain.Shows,
             targetKind: BaseItemKind.Series,

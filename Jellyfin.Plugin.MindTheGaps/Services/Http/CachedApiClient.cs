@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,8 +12,9 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Services.Http;
 
 /// <summary>
-/// The shared, cached GET path for the plugin's hand-rolled API clients (Trakt, TVmaze, TheTVDB, MusicBrainz,
-/// OpenLibrary, Discogs). It puts a read-through memory cache in front of every external call, so a repeated
+/// The shared, cached read path for the plugin's hand-rolled API clients (Trakt, TVmaze, TheTVDB, MusicBrainz,
+/// OpenLibrary, Discogs, and the GraphQL ones, IMDb and JustWatch, which read over POST). It puts a
+/// read-through memory cache in front of every external call, so a repeated
 /// lookup (within a scan or across back-to-back scans) does not hit the network again: the plugin stays a
 /// good API citizen and well clear of rate-limit bans. A miss flows through <see cref="HttpRetry"/> (its
 /// per-service pacing, retry/backoff, and circuit breaker), then the JSON is deserialized and the result
@@ -116,12 +118,43 @@ internal sealed class CachedApiClient
             ct => FetchJsonAsync<T>(service, url, options, configureRequest, ct),
             cancellationToken);
 
+    /// <summary>
+    /// POSTs a JSON body and deserializes the JSON response, behind the same read-through cache. This is the
+    /// GraphQL path (IMDb, JustWatch): the request is a POST but the call is a read, so the body is part of
+    /// the cache key. Returns null on a non-success status or a transient failure (neither is cached).
+    /// </summary>
+    /// <typeparam name="T">The response type to deserialize.</typeparam>
+    /// <param name="service">The service name (for pacing, the circuit, logs, and the cache namespace).</param>
+    /// <param name="url">The absolute request URL.</param>
+    /// <param name="body">The JSON request body (part of the cache key).</param>
+    /// <param name="cacheDuration">How long to cache a successful result.</param>
+    /// <param name="options">The JSON options to deserialize with.</param>
+    /// <param name="configureRequest">Configures the request (for example auth headers), or null.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The deserialized response, or null.</returns>
+    public Task<T?> PostJsonAsync<T>(
+        string service,
+        string url,
+        string body,
+        TimeSpan cacheDuration,
+        JsonSerializerOptions options,
+        Action<HttpRequestMessage>? configureRequest,
+        CancellationToken cancellationToken)
+        where T : class
+        => GetOrAddAsync(
+            service,
+            string.Concat(url, "|", body),
+            cacheDuration,
+            ct => FetchJsonAsync<T>(service, url, options, configureRequest, ct, body),
+            cancellationToken);
+
     private async Task<T?> FetchJsonAsync<T>(
         string service,
         string url,
         JsonSerializerOptions options,
         Action<HttpRequestMessage>? configureRequest,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? postBody = null)
         where T : class
     {
         // The URL is the real request and cache key; what gets logged is the redacted form (a key in the
@@ -134,7 +167,12 @@ internal sealed class CachedApiClient
                 client,
                 () =>
                 {
-                    var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    var request = postBody is null
+                        ? new HttpRequestMessage(HttpMethod.Get, url)
+                        : new HttpRequestMessage(HttpMethod.Post, url)
+                        {
+                            Content = new StringContent(postBody, Encoding.UTF8, "application/json")
+                        };
                     configureRequest?.Invoke(request);
                     return request;
                 },
