@@ -275,6 +275,12 @@ public sealed class GapEngine
         // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
         _externalLinks.Enrich(gaps);
 
+        // "Upcoming" is relative to today, not a property of the gap, and the accumulate passes above append
+        // prior GapItem objects untouched. Re-derive it across the whole report so a carried-forward gap
+        // does not keep an answer from the scan that first found it: a title whose release date has since
+        // passed stops being upcoming, and one carried from before this was derived gets it at last.
+        GapItemFactory.RefreshUpcoming(gaps);
+
         var report = new GapReport
         {
             GeneratedUtc = DateTime.UtcNow,

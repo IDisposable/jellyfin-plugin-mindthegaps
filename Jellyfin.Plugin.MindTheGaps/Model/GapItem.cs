@@ -68,7 +68,9 @@ public class GapItem
     public DateTime? ReleaseDate { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the title is announced but not yet released.
+    /// Gets or sets a value indicating whether the title is announced but not yet released. True for a
+    /// future <see cref="ReleaseDate"/>, and for a movie/series/episode carrying no date at all, which
+    /// its provider means as announced-but-unscheduled rather than released-and-undocumented.
     /// </summary>
     public bool IsUpcoming { get; set; }
 
