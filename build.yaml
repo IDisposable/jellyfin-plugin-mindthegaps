@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.5.1"
+version: "10.11.5.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -10,9 +10,9 @@ description: >
   Scans your library for gaps (missing movies in partially-owned collections and franchises, missing
   series content, unowned titles from actor and director filmographies, and related recommendations)
   using TMDB, Trakt, TheTVDB, and TVmaze, with music and book sources (MusicBrainz, OpenLibrary,
-  Discogs). Presents an easy todo list for filling out your collection, diagnoses why a
-  title is reported missing, surfaces where to watch each item, and can optionally mint native virtual
-  placeholders for missing items.
+  Discogs), and reads the watchlists and want-lists you already keep on those sites. Presents an easy todo
+  list for filling out your collection, diagnoses why a title is reported missing, surfaces where to watch
+  each item, and can optionally mint native virtual placeholders for missing items.
 category: "General"
 owner: "idisposable"
 artifacts:
@@ -20,22 +20,22 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.5.1 - Anything you have filled in can be cleared off the report without a rescan. A refresh
-  control on every row and every heading (a domain, a set kind, a group, a season) checks your library right
-  now and drops what you already hold, and a "Clear what I have" button does the whole filtered tab at once.
-  This is local and immediate: no provider is contacted, and it works in every domain. Anything still missing
-  then offers to re-check the sources it belongs to with their providers, which also picks up whatever has
-  been added to a collection, discography, or bibliography since the last scan; that pass runs in the
-  background with progress and saves each set as it finishes. A title you have acquired leaves every tab it
-  appeared on at once, so one film clears out of its collection, the studio set that wanted it, its
-  director's filmography, and any list that suggested it. The TODO list checks the same way, with a Verify
-  all that ticks everything you now hold and un-ticks anything that has left the library, and both Markdown
-  exports check before writing, so an exported list is what you still need rather than what the last scan
-  believed. Titles with no release date at all are treated as not yet out: TheMovieDb and the episode
-  providers date anything that has actually been released, so an undated movie, series, or episode from them
-  is announced but unscheduled, is badged Announced, and hides under "Hide upcoming" along with announced
-  seasons that were never produced. Music and books are exempt, since a sparse Discogs, MusicBrainz, or
-  OpenLibrary entry for a decades-old release often carries no date and is a genuine gap. Whether something
-  counts as upcoming is now worked out afresh on every scan, so a title stops being upcoming once its release
-  date passes. Record label sets sort into their proper place instead of last, and book subject sets group
-  under Subjects rather than a heading reading Other.
+  10.11.5.2 - The lists you already keep elsewhere become gaps. Turn on any of them in the settings and
+  each arrives as its own group on the Discover tab: your IMDb watchlist or any public IMDb list, your Trakt
+  watchlist, your JustWatch watchlist and likes, your MDBList watchlist, your Discogs wantlist, your
+  OpenLibrary "Want to Read", and your favorite series on TheTVDB. An IMDb list of people is read differently,
+  as a filmography to fill in, which is what lets you follow a director or an actor you own nothing by yet.
+  Most of these need nothing new beyond what you have already configured; the IMDb and OpenLibrary reads are
+  keyless and only need the list to be public, TheTVDB favorites need a subscriber PIN, and JustWatch needs a
+  session token pasted in because it publishes no account API. Personal lists are re-read every ten minutes
+  rather than held for the twelve hours a catalog lookup gets, since a watchlist is edited between scans, and
+  they are capped far above any real list rather than truncated, so nothing you curated goes unseen. Your
+  TMDB watchlist, and your favorites if you want them, are read the same way once you connect your TMDB
+  account: two clicks on the settings page, with nothing calling back, so your server needs no public address,
+  and the session does not expire, so it is a one-time setup. It is stored as a secret and never shown back.
+  This is the one source that needs your own TMDB API key, because a TMDB session belongs to the application
+  whose key created it and the key the plugin falls back to is Jellyfin's own, shared by every install. Two
+  lists were being read short and now read to the end: a Trakt list stopped at its first 100 items, and an
+  MDBList list stopped at 1000. An acquisition URL that carries a username and password is redacted before it
+  reaches the log, and every other configured secret travels in a header that is never logged. Spelling is US
+  English throughout.
