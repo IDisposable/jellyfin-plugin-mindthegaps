@@ -76,6 +76,9 @@ public sealed class GapDiagnostics
                 TargetKind = gap.TargetKind,
                 Name = gap.Name,
                 Year = gap.Year,
+                ReleaseDate = gap.ReleaseDate,
+                IsUpcoming = gap.IsUpcoming,
+                Domain = gap.Domain,
                 ProviderIds = enriched
             };
         }
@@ -499,10 +502,12 @@ public sealed class GapDiagnostics
             Links = ProviderLinks.Build(kind, gap.ProviderIds)
         };
 
+        var noun = Noun(kind);
         var candidates = new List<DiagnosisItem>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var titleMismatch = false;
         var titleStale = false;
+        var unreleasedLookalike = false;
 
         if (index.ByTitle.TryGetValue((kind, wantName), out var titleHits))
         {
@@ -514,6 +519,23 @@ public sealed class GapDiagnostics
             var hasExactYear = gap.Year.HasValue && titleHits.Any(o => o.Year == gap.Year);
             foreach (var owned in titleHits)
             {
+                // An owned item is on disk, so it came out; an upcoming gap has not come out yet. They cannot
+                // be the same work however exactly the titles line up, and the year test alone does not catch
+                // it because an announced title usually carries no date at all (the announced "Highlander"
+                // against the 1986 one you own). Listed rather than skipped: the reader can see the same title
+                // in their library and is owed the reason it is not the match. A shared external id outranks
+                // this, since that is evidence of identity rather than of a coincidental title.
+                if (gap.IsUpcoming && owned.Year.HasValue && !SharesAnyId(owned, gap.ProviderIds, PrimaryProvider(kind)))
+                {
+                    if (seen.Add(owned.JellyfinId))
+                    {
+                        unreleasedLookalike = true;
+                        candidates.Add(ToItem(owned, "otherRelease", string.Create(CultureInfo.InvariantCulture, $"same title, but this gap is not out yet, so the {owned.Year} {noun} you own is a different release")));
+                    }
+
+                    continue;
+                }
+
                 // A same-title owned item more than a year off is always a different release (a remake), so
                 // skip it. A year missing on either side cannot rule it out, so it still matches on name (this
                 // stops owning "Ocean's Eleven" 2001 from flagging the missing 1960 original as a mismatch).
@@ -595,7 +617,6 @@ public sealed class GapDiagnostics
         // C1: a wrong-class id on the gap itself (a typed-provider check) means the match never had a chance.
         var wrongClass = WrongClassId(gap.ProviderIds);
 
-        var noun = Noun(kind);
         string summary;
         DiagnosisReason reason;
         if (titleMismatch)
@@ -617,6 +638,11 @@ public sealed class GapDiagnostics
         {
             reason = DiagnosisReason.WrongIdClass;
             summary = string.Create(CultureInfo.InvariantCulture, $"This gap cannot match because {wrongClass}. Fix that id and rescan.");
+        }
+        else if (unreleasedLookalike)
+        {
+            reason = DiagnosisReason.NotOwned;
+            summary = string.Create(CultureInfo.InvariantCulture, $"This {noun} is not out yet, so the same-titled {noun} you own is an earlier, different release. Nothing is misidentified: leave the owned item alone.");
         }
         else
         {
@@ -967,6 +993,25 @@ public sealed class GapDiagnostics
         }
 
         return null;
+    }
+
+    // Whether an owned item carries any of the gap's external ids: its kind's primary id, or one of the
+    // secondary ones the diagnosis corroborates with. That is evidence of identity, as against a title two
+    // unrelated releases happen to share.
+    private static bool SharesAnyId(OwnedItem owned, IReadOnlyDictionary<string, string> gapIds, string primaryProvider)
+    {
+        foreach (var provider in SecondaryIdProviders.Append(primaryProvider))
+        {
+            if (gapIds.TryGetValue(provider, out var gapId)
+                && !string.IsNullOrEmpty(gapId)
+                && owned.ProviderIds.TryGetValue(provider, out var ownedId)
+                && string.Equals(ownedId, gapId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Two known years more than a year apart mean a different release sharing the title (a remake), not the

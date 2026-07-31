@@ -107,6 +107,40 @@ public class GapDiagnosticsTests
     }
 
     [Fact]
+    public void DiagnoseAgainst_UnreleasedRemakeSharesTitleWithOwnedOriginal_IsGenuineGap()
+    {
+        // The announced "Highlander" has no release date at all, so there is no year to tell it from the 1986
+        // one owned. Owning a file means it came out, so the two cannot be the same movie: the owned original
+        // must not read as the remake under the wrong id.
+        var gap = Gap(BaseItemKind.Movie, "Highlander", null, ("Tmdb", "339727"), ("Imdb", "tt1235529"));
+        gap.IsUpcoming = true;
+        var owned = new BaseItem[] { OwnedMovie("Highlander", 1986, ("Tmdb", "8009"), ("Imdb", "tt0091203")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
+        var c = Assert.Single(d.Candidates);
+        Assert.Equal("otherRelease", c.Relation);
+        Assert.Contains("not out yet", c.Note!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not out yet", d.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DiagnoseAgainst_UnreleasedGapSharingAnOwnedImdbId_StillFlagsMismatch()
+    {
+        // "Not out yet" only outranks a title that two releases happen to share. An owned item carrying the
+        // gap's own IMDb id is evidence of identity, so that still reads as owned under the wrong TheMovieDb id.
+        var gap = Gap(BaseItemKind.Movie, "Nosferatu", null, ("Tmdb", "426063"), ("Imdb", "tt5040012"));
+        gap.IsUpcoming = true;
+        var owned = new BaseItem[] { OwnedMovie("Nosferatu", 2024, ("Tmdb", "999999"), ("Imdb", "tt5040012")) };
+
+        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+
+        Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
+        Assert.Single(d.Candidates);
+    }
+
+    [Fact]
     public void DiagnoseAgainst_SameTitleYearJitter_StillFlagsMismatch()
     {
         // A one-year gap between the catalog's year and the library's production year is release-date
@@ -383,6 +417,22 @@ public class GapDiagnosticsTests
         Assert.Equal(1, audit.OwnedShows);
         var m = Assert.Single(audit.Mismatches);
         Assert.Equal("The Thing", m.Target!.Name);
+    }
+
+    [Fact]
+    public void AuditAgainst_UnreleasedTitleSharedWithAnOwnedRelease_IsNotAMismatch()
+    {
+        // The audit must not tell the reader to re-point their 1986 file at an announced remake, which is what
+        // listing this as a mismatch amounts to.
+        var upcoming = Gap(BaseItemKind.Movie, "Highlander", null, ("Tmdb", "339727"), ("Imdb", "tt1235529"));
+        upcoming.IsUpcoming = true;
+        var report = new GapReport { Items = new[] { upcoming } };
+        var owned = new BaseItem[] { OwnedMovie("Highlander", 1986, ("Tmdb", "8009"), ("Imdb", "tt0091203")) };
+
+        var audit = GapDiagnostics.AuditAgainst(report, owned);
+
+        Assert.Equal(1, audit.GapsChecked);
+        Assert.Empty(audit.Mismatches);
     }
 
     [Fact]
