@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.5.2"
+version: "10.11.5.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,22 +20,17 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.5.2 - The lists you already keep elsewhere become gaps. Turn on any of them in the settings and
-  each arrives as its own group on the Discover tab: your IMDb watchlist or any public IMDb list, your Trakt
-  watchlist, your JustWatch watchlist and likes, your MDBList watchlist, your Discogs wantlist, your
-  OpenLibrary "Want to Read", and your favorite series on TheTVDB. An IMDb list of people is read differently,
-  as a filmography to fill in, which is what lets you follow a director or an actor you own nothing by yet.
-  Most of these need nothing new beyond what you have already configured; the IMDb and OpenLibrary reads are
-  keyless and only need the list to be public, TheTVDB favorites need a subscriber PIN, and JustWatch needs a
-  session token pasted in because it publishes no account API. Personal lists are re-read every ten minutes
-  rather than held for the twelve hours a catalog lookup gets, since a watchlist is edited between scans, and
-  they are capped far above any real list rather than truncated, so nothing you curated goes unseen. Your
-  TMDB watchlist, and your favorites if you want them, are read the same way once you connect your TMDB
-  account: two clicks on the settings page, with nothing calling back, so your server needs no public address,
-  and the session does not expire, so it is a one-time setup. It is stored as a secret and never shown back.
-  This is the one source that needs your own TMDB API key, because a TMDB session belongs to the application
-  whose key created it and the key the plugin falls back to is Jellyfin's own, shared by every install. Two
-  lists were being read short and now read to the end: a Trakt list stopped at its first 100 items, and an
-  MDBList list stopped at 1000. An acquisition URL that carries a username and password is redacted before it
-  reaches the log, and every other configured secret travels in a header that is never logged. Spelling is US
-  English throughout.
+  10.11.5.3 - Diagnose no longer reports a mix-up over a title that is not out yet. An announced movie that
+  shares its name with one you own (the announced "Highlander" against the 1986 one on your shelf) was read
+  as a misidentified item, because an announced title usually carries no date at all, so the year test that
+  tells a remake from the original had nothing to compare. It now says what is actually true: the one you own
+  is an earlier, different release and nothing needs fixing. The owned item stays listed so you can see for
+  yourself why it was not the match, and a shared external id still outranks the title, since that is
+  evidence of identity rather than a coincidence of names. A scan, and clearing off what you have filled in,
+  now read less of your library. Every query the plugin makes asks the server for only the parts it uses, so
+  an item no longer arrives carrying its images and every user's playstate alongside it. The snapshot of what
+  you own that a scan holds for its whole run keeps only what it compares against rather than the library
+  items themselves, so a long scan no longer holds your library in memory while it waits on the providers.
+  Clearing a whole heading, or verifying a long TODO list, now checks your library once for the batch instead
+  of once per row, which is the difference between a moment and a wait on a large library. Nothing changes
+  about what is found or what is cleared.
