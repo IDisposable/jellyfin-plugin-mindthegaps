@@ -94,6 +94,30 @@ public static class SourceItemTypes
     ];
 
     /// <summary>
+    /// Gets the discovery kinds in the order the dashboard sections them under Discover, most personal first:
+    /// the lists you keep, then the lists you pointed it at, then what the recommender made of what you own.
+    /// The two recommendation types share one section, so the order is by section and a kind may repeat a
+    /// section's wording. Same contract as <see cref="SetKindsInOrder"/>: order is a presentation decision
+    /// that belongs with the vocabulary rather than in the dashboard.
+    /// </summary>
+    public static IReadOnlyList<string> DiscoverKindsInOrder { get; } =
+    [
+        TmdbAccountList,
+        TraktWatchlist,
+        MdbListWatchlist,
+        JustWatchList,
+        ImdbList,
+        DiscogsWantlist,
+        OpenLibraryShelf,
+        TvdbFavorites,
+        TmdbList,
+        MdbList,
+        TraktList,
+        Movie,
+        Series
+    ];
+
+    /// <summary>
     /// Gets the set kinds in the order the dashboard groups them under Set completion, most concrete first:
     /// a franchise or series you are visibly part-way through, then a discography, then the broader curated
     /// sets. The order is a presentation decision, but it belongs with the vocabulary rather than duplicated

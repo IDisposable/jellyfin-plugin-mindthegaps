@@ -47,6 +47,46 @@ public class VocabularyTests
     }
 
     [Fact]
+    public void DiscoverKindsInOrder_HoldsOnlyKnownSourceItemTypes()
+    {
+        var known = SourceTypeConstants();
+
+        foreach (var kind in SourceItemTypes.DiscoverKindsInOrder)
+        {
+            Assert.Contains(kind, known, StringComparer.Ordinal);
+        }
+
+        Assert.Equal(SourceItemTypes.DiscoverKindsInOrder.Count, SourceItemTypes.DiscoverKindsInOrder.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void DiscoverKindsInOrder_CoversEveryCuratedListKind()
+    {
+        // Every list kind that can outrank a per-title recommendation is a list the Discover tab has to be
+        // able to section, or its gaps land in a heading the page never ordered.
+        foreach (var kind in SourceItemTypes.CuratedListKinds)
+        {
+            Assert.Contains(kind, SourceItemTypes.DiscoverKindsInOrder, StringComparer.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void EveryDiscoverKind_HasWordingInTheDashboard()
+    {
+        var js = DashboardScript();
+        var labels = Regex.Matches(js, @"var DISCOVER_KIND_LABELS = \{(?<body>[^}]*)\}", RegexOptions.Singleline)
+            .Select(m => m.Groups["body"].Value)
+            .FirstOrDefault();
+
+        Assert.False(string.IsNullOrEmpty(labels), "DISCOVER_KIND_LABELS not found in the built dashboard.");
+
+        foreach (var kind in SourceItemTypes.DiscoverKindsInOrder)
+        {
+            Assert.Contains(kind + ":", labels, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void CuratedListKinds_HoldsOnlyKnownSourceItemTypes()
     {
         var known = SourceTypeConstants();

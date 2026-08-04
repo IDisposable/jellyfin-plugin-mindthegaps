@@ -28,4 +28,10 @@ public class GapReport
     /// Gets or sets the gap items.
     /// </summary>
     public IReadOnlyList<GapItem> Items { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets what each discovery source did on the scan that produced this report, so a list that
+    /// was read and holds nothing missing can be told from one that was never read.
+    /// </summary>
+    public IReadOnlyList<SourceRun> SourceRuns { get; set; } = [];
 }

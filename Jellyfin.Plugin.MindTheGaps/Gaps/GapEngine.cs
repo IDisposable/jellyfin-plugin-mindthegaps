@@ -124,7 +124,11 @@ public sealed class GapEngine
                 GeneratedUtc = priorReport.GeneratedUtc,
                 GeneratedVersion = priorReport.GeneratedVersion,
                 TotalGaps = merged.Count,
-                Items = merged.Values.ToList()
+                Items = merged.Values.ToList(),
+
+                // The run in progress has not finished telling us what it read, so a checkpoint keeps the
+                // last completed scan's account rather than blanking the Discover sections mid-scan.
+                SourceRuns = priorReport.SourceRuns
             });
         }
 
@@ -147,6 +151,9 @@ public sealed class GapEngine
         // read-only. De-dup is order-tolerant (MergeDuplicateSource only unions recommendation source-refs,
         // which come from a single source), so the streamed, completion-order merge is fine.
         var fractions = new double[Math.Max(1, total)];
+
+        // Per slot, so each producer writes its own and no lock is needed.
+        var runs = new SourceRun?[Math.Max(1, total)];
         void ReportAggregate()
         {
             double sum = 0;
@@ -172,12 +179,23 @@ public sealed class GapEngine
             });
 
             var produced = 0;
+
+            // A discovery source's own kind is counted separately: one source can straddle both patterns
+            // (curated sets emit studios and keywords as well as TMDB lists), and what the Discover tab
+            // needs to know is how many gaps arrived for the section, not how many the source produced.
+            var discovered = 0;
+            var discoverKind = (source as IDiscoverSource)?.DiscoverKind;
+            var failed = false;
             try
             {
                 await foreach (var gap in source.FindGapsAsync(sourceContext, cancellationToken).ConfigureAwait(false))
                 {
                     await channel.Writer.WriteAsync(gap, cancellationToken).ConfigureAwait(false);
                     produced++;
+                    if (discoverKind is not null && string.Equals(gap.SourceItemType, discoverKind, StringComparison.Ordinal))
+                    {
+                        discovered++;
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -186,12 +204,18 @@ public sealed class GapEngine
             }
             catch (Exception ex)
             {
+                failed = true;
                 _logger.LogError(ex, "Gap source {Source} failed", source.Name);
             }
             finally
             {
                 fractions[slot] = 1.0;
                 ReportAggregate();
+                if (discoverKind is not null)
+                {
+                    runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
+                }
+
                 _logger.LogInformation("Gap source {Source} produced {Count} gaps", source.Name, produced);
             }
         }
@@ -291,7 +315,8 @@ public sealed class GapEngine
             GeneratedUtc = DateTime.UtcNow,
             GeneratedVersion = Plugin.Instance?.Version?.ToString() ?? string.Empty,
             TotalGaps = gaps.Count,
-            Items = gaps
+            Items = gaps,
+            SourceRuns = runs.Where(r => r is not null).Select(r => r!).ToList()
         };
 
         _store.Save(report);

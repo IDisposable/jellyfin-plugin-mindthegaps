@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// by the TMDB/IMDb ids the list already carries. Opt-in: needs a Discover toggle, an MDBList API key, and
 /// at least one chosen list.
 /// </summary>
-internal sealed class MdbListGapSource : IGapSource, IExploreSource
+internal sealed class MdbListGapSource : IGapSource, IDiscoverSource, IExploreSource
 {
     // Cap a single list so a huge community list does not flood the discovery feed.
     private const int MaxGapsPerList = 200;
@@ -54,6 +54,9 @@ internal sealed class MdbListGapSource : IGapSource, IExploreSource
 
     /// <inheritdoc />
     public string Name => "MDBList lists";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.MdbList;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };

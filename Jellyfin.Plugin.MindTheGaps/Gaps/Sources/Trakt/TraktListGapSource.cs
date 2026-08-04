@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 /// the TMDB/IMDb ids the list already carries. Opt-in: needs a Discover toggle, a Trakt client id, and at
 /// least one chosen list. A Trakt list can hold both movies and shows.
 /// </summary>
-internal sealed class TraktListGapSource : IGapSource, IExploreSource
+internal sealed class TraktListGapSource : IGapSource, IDiscoverSource, IExploreSource
 {
     // Cap a single list so a huge list does not flood the discovery feed.
     private const int MaxGapsPerList = 200;
@@ -59,6 +59,9 @@ internal sealed class TraktListGapSource : IGapSource, IExploreSource
 
     /// <inheritdoc />
     public string Name => "Trakt lists";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.TraktList;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };

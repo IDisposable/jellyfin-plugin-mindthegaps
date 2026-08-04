@@ -22,7 +22,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.JustWatch;
 /// <remarks>
 /// There is no explore chip for this source: the lists are the account's fixed two, not something picked by id.
 /// </remarks>
-internal sealed class JustWatchListGapSource : IGapSource
+internal sealed class JustWatchListGapSource : IGapSource, IDiscoverSource
 {
     // A watchlist is a want-list rather than a feed, so it is capped well above the 200 a community list gets.
     private const int MaxGapsPerList = 1000;
@@ -43,6 +43,9 @@ internal sealed class JustWatchListGapSource : IGapSource
 
     /// <inheritdoc />
     public string Name => "JustWatch watchlist";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.JustWatchList;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };

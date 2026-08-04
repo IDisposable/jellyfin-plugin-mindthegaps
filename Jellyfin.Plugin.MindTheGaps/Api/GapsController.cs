@@ -80,7 +80,11 @@ public class GapsController : ControllerBase
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
-            Items = items
+            Items = items,
+
+            // Carried through the pattern filter: the Discover tab renders a section for a list that was
+            // read and holds nothing missing, which is exactly the case with no items to filter.
+            SourceRuns = report.SourceRuns
         };
     }
 
@@ -123,6 +127,7 @@ public class GapsController : ControllerBase
             Patterns = Enum.GetValues<GapPattern>().Select(p => p.ToString()).ToArray(),
             Domains = MediaDomains.Implemented.Select(d => d.ToString()).ToArray(),
             SetKinds = SourceItemTypes.SetKindsInOrder,
+            DiscoverKinds = SourceItemTypes.DiscoverKindsInOrder,
             RecheckPrefixes = _engine.RecheckablePrefixes(),
             MintableKinds = VirtualItemMinter.MintableKinds,
             Providers = providers.ToArray(),

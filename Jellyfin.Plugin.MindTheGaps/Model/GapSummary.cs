@@ -52,6 +52,14 @@ public class GapSummary
     public IReadOnlyList<string> SetKinds { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the Discover section kinds in display order (see
+    /// <see cref="SourceItemTypes.DiscoverKindsInOrder"/>), matching <see cref="GapItem.SourceItemType"/>.
+    /// Same contract as <see cref="SetKinds"/>: the dashboard supplies the wording, the set and its order
+    /// come from here.
+    /// </summary>
+    public IReadOnlyList<string> DiscoverKinds { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the gap-id prefixes whose owning item can be re-checked against its provider on its own.
     /// A row qualifies when its id starts with one of these, which is exact where inferring it from the
     /// pattern and domain was not, and follows the enabled sources so a switched-off source stops offering.

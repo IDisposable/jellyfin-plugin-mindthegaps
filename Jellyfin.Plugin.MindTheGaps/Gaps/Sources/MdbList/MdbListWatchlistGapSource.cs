@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// library does not hold. Opt-in, and it needs only the MDBList API key the community-list source already
 /// uses, because MDBList serves the key's own watchlist.
 /// </summary>
-internal sealed class MdbListWatchlistGapSource : IGapSource
+internal sealed class MdbListWatchlistGapSource : IGapSource, IDiscoverSource
 {
     // A watchlist is a deliberate list, so it is capped far above the 200 a community list gets.
     private const int MaxGaps = 1000;
@@ -37,6 +37,9 @@ internal sealed class MdbListWatchlistGapSource : IGapSource
 
     /// <inheritdoc />
     public string Name => "MDBList watchlist";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.MdbListWatchlist;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };

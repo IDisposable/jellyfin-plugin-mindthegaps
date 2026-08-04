@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// Discovery source over a Discogs wantlist: the releases marked as wanted that the library does not hold.
 /// Opt-in, needing the username and the Discogs token already configured for the label and artist sources.
 /// </summary>
-internal sealed class DiscogsWantlistGapSource : IGapSource
+internal sealed class DiscogsWantlistGapSource : IGapSource, IDiscoverSource
 {
     // A wantlist is a deliberate list, so it is capped generously.
     private const int MaxGaps = 1000;
@@ -36,6 +36,9 @@ internal sealed class DiscogsWantlistGapSource : IGapSource
 
     /// <inheritdoc />
     public string Name => "Discogs wantlist";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.DiscogsWantlist;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.MusicAlbum };

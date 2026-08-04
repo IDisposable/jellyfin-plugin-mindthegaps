@@ -97,6 +97,11 @@
     margin-top: .2em;
 }
 
+.cgEmptyRun {
+    margin: .4em 0 .6em .8em;
+    opacity: .7;
+}
+
 .cgRowTitle {
     font-size: 1.15em;
 }

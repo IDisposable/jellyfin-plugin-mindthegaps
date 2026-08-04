@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// never be minted through it. <see cref="TmdbAccountClient"/> enforces that; this source only runs when both
 /// halves are present.
 /// </remarks>
-internal sealed class TmdbAccountListGapSource : IGapSource
+internal sealed class TmdbAccountListGapSource : IGapSource, IDiscoverSource
 {
     // A want-list is deliberate, so it is capped far above the 200 a community list gets.
     private const int MaxGapsPerList = 1000;
@@ -44,6 +44,9 @@ internal sealed class TmdbAccountListGapSource : IGapSource
 
     /// <inheritdoc />
     public string Name => "TMDB watchlist";
+
+    /// <inheritdoc />
+    public string DiscoverKind => SourceItemTypes.TmdbAccountList;
 
     /// <inheritdoc />
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };

@@ -12,6 +12,7 @@ function vocab() {
         patterns: s.Patterns || [],
         domains: s.Domains || [],
         setKinds: s.SetKinds || [],
+        discoverKinds: s.DiscoverKinds || [],
         recheckPrefixes: s.RecheckPrefixes || [],
         mintableKinds: s.MintableKinds || {}
     };
@@ -990,6 +991,43 @@ function setKindLabel(sourceItemType) {
     return SET_KIND_LABELS[sourceItemType] || sourceItemType || 'Other';
 }
 
+// The wording for each Discover section kind, the same contract as SET_KIND_LABELS: the kinds and their
+// order come from the server (summary.DiscoverKinds), this only says how each is spelled. The two
+// recommendation kinds share one label on purpose, so per-title suggestions read as one section however
+// many owned titles are behind them.
+var DISCOVER_KIND_LABELS = {
+    TmdbAccountList: 'TMDB account lists',
+    TraktWatchlist: 'Trakt watchlist',
+    MdbListWatchlist: 'MDBList watchlist',
+    JustWatchList: 'JustWatch watchlist',
+    ImdbList: 'IMDb lists',
+    DiscogsWantlist: 'Discogs wantlist',
+    OpenLibraryShelf: 'OpenLibrary shelves',
+    TvdbFavorites: 'TheTVDB favorites',
+    List: 'TMDB lists',
+    MdbList: 'MDBList community lists',
+    TraktList: 'Trakt lists',
+    Movie: 'Recommended by what you own',
+    Series: 'Recommended by what you own'
+};
+function discoverKindLabel(sourceItemType) {
+    return DISCOVER_KIND_LABELS[sourceItemType] || sourceItemType || 'Other';
+}
+
+// A row's section heading, which table depends on the tab it is on.
+function kindLabelOf(it) {
+    return it.PatternName === 'Recommendation' ? discoverKindLabel(it.SourceItemType) : setKindLabel(it.SourceItemType);
+}
+
+// Comparator for Discover section headings, ordered as the server lists their kinds.
+function discoverKindCompare() {
+    var order = [];
+    vocab().discoverKinds.map(discoverKindLabel).forEach(function (l) {
+        if (order.indexOf(l) === -1) { order.push(l); }
+    });
+    return function (a, b) { return rankIn(order, a) - rankIn(order, b); };
+}
+
 // Comparator for Set completion group headings, ordered as the server lists their kinds. Groups are
 // keyed by label, so the served kinds are mapped through the wording once per sort rather than per
 // comparison.
@@ -1008,14 +1046,20 @@ function domainCompare() {
 // Set completion (Collections & franchises, Studios, Keywords, Series, Discography), otherwise
 // the owning source (the creator, or the title a recommendation came from).
 function exportGroupLabel(it) {
-    return it.PatternName === 'SetCompletion' ? setKindLabel(it.SourceItemType) : (it.SourceItemName || '(no source)');
+    return it.PatternName === 'CreatorWorks' ? (it.SourceItemName || '(no source)') : kindLabelOf(it);
 }
 
-// Order the export's source groups: set kinds in their canonical order, sources alphabetically.
+// Order the export's source groups: set and discover kinds in their canonical order, creators
+// alphabetically.
 function exportGroupSort(pattern) {
     if (pattern === 'SetCompletion') {
         return setKindCompare();
     }
+
+    if (pattern === 'Recommendation') {
+        return discoverKindCompare();
+    }
+
     return ci;
 }
 
@@ -1071,18 +1115,24 @@ function buildTree(items) {
     lazyBodies = {}; // tokens are per-render; drop the previous render's builders
 
     if (pattern === 'Recommendation') {
-        // Group discovery gaps under their source (a recommending owned title, or a curated
-        // list) the way Creator works groups by creator and the Markdown export already does, so
-        // a list's missing movies collapse under the list's name. A multi-source gap files under
-        // its primary source; its other sources stay on the row ("Also recommended by").
-        var bySource = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
-        bySource.order.sort(ci);
-        return bySource.order.map(function (src) {
-            var sItems = bySource.map[src];
-            var token = 'lz' + (++cgGroupSeq);
-            lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
-            return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
-        }).join('');
+        // Two levels, as Set completion has: a section per kind of discovery source (your watchlists, the
+        // lists you pointed it at, the recommender), then a group per list or recommending title inside it.
+        // Flat, the list you keep and the title that happened to suggest something were peers with nothing
+        // to tell them apart. A multi-source gap files under its primary source; its other sources stay on
+        // the row ("Also recommended by").
+        var byKind = groupBy(items, kindLabelOf);
+        byKind.order.sort(discoverKindCompare());
+        return byKind.order.map(function (kind) {
+            var bySource = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
+            bySource.order.sort(ci);
+            var groups = bySource.order.map(function (src) {
+                var sItems = bySource.map[src];
+                var token = 'lz' + (++cgGroupSeq);
+                lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
+                return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
+            }).join('');
+            return kindSection(kind, groups);
+        }).join('') + emptyRunSections(byKind.map);
     }
 
     if (pattern === 'CreatorWorks') {
@@ -1113,11 +1163,44 @@ function buildTree(items) {
         // collections, studios, and keywords) each kind gets a collapsible header, reusing the
         // group machinery so its caret, keyboard toggle, and persisted state all come for free.
         if (!multiKind) { return grid; }
-        var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
-            h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML
-            + clearBtn('kind', kind, 'everything under ' + kind));
-        return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
-            hdr + wrap('div', { 'class': 'cgBody' }, grid));
+        return kindSection(kind, grid);
+    }).join('');
+}
+
+// A collapsible section heading over a kind's groups, reusing the group machinery so its caret, keyboard
+// toggle, and persisted collapse state all come for free. Shared by Set completion and Discover.
+function kindSection(kind, body, noClear) {
+    var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
+        h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML
+        + (noClear ? '' : clearBtn('kind', kind, 'everything under ' + kind)));
+    return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
+        hdr + wrap('div', { 'class': 'cgBody' }, body));
+}
+
+// Sections for the discovery lists that were read on the last scan and left nothing to show, so "you
+// already own everything on it" and "it could not be read" stop looking exactly like "it never ran".
+// Suppressed in a filtered view: a run carries no domain or letter, so it cannot honestly be placed in one.
+function emptyRunSections(present) {
+    var page = reportPage();
+    if (!page || page._letter !== '*') { return ''; }
+    var typeFilter = page.querySelector('#cgTypeFilter');
+    if (typeFilter && typeFilter.value) { return ''; }
+
+    var byLabel = {};
+    ((page._report && page._report.SourceRuns) || []).forEach(function (r) {
+        var label = discoverKindLabel(r.Kind);
+        if (present[label]) { return; }
+        var e = byLabel[label] || (byLabel[label] = { failed: false, names: [] });
+        if (r.Failed) { e.failed = true; }
+        if (r.Name && e.names.indexOf(r.Name) === -1) { e.names.push(r.Name); }
+    });
+
+    return Object.keys(byLabel).sort(discoverKindCompare()).map(function (label) {
+        var e = byLabel[label];
+        var msg = e.failed
+            ? e.names.join(', ') + ' could not be read on the last scan, so nothing from it is listed here.'
+            : 'Read on the last scan, and you own everything on it.';
+        return kindSection(label, h('p', { 'class': 'fieldDescription cgEmptyRun' }, msg).outerHTML, true);
     }).join('');
 }
 
@@ -1285,7 +1368,7 @@ function gapDetail(it) {
 
 // Build a markdown document for the current tab as filtered. One H1 per domain (the axis, the
 // domain folded into the title "Mind the Gaps: Movies Set completion"), an H2 per source group
-// (the set's kind, the creator, or the recommending title), and each gap as an H3 with a detail
+// (the set's kind, the discovery kind, or the creator), and each gap as an H3 with a detail
 // line. A table of contents jumps to each group. The summary line links to a shareable view.
 // Everything the export writes: the current tab under the current filters, across every letter. Note
 // this is deliberately wider than page._shown, which the A-Z bar narrows to one letter on a big tab.
@@ -1356,13 +1439,15 @@ function buildMarkdown(page) {
     // The domain and group stay real headings so the contents links still resolve.
     var openDetails = function (summary) { out.push('<details>', '<summary>' + summary + '</summary>', ''); };
     var closeDetails = function () { out.push('</details>', ''); };
-    var isSet = page._pattern === 'SetCompletion';
+    // Set completion and Discover are both two-axis on screen (a kind heading over the individual sets or
+    // lists), so the document is too; Creator works is one creator per H2 and needs no inner axis.
+    var twoAxis = page._pattern === 'SetCompletion' || page._pattern === 'Recommendation';
     sections.forEach(function (s) {
         out.push('# ' + mdHeading(s.heading), '');
         s.groups.forEach(function (g) {
             out.push('## ' + mdHeading(g.label), '');
-            if (isSet) {
-                // Two axes: the kind (the H2) and the individual set; each set collapses on its own.
+            if (twoAxis) {
+                // Two axes: the kind (the H2) and the individual set or list; each collapses on its own.
                 var bySource = groupBy(g.items, function (it) { return it.SourceItemName || '(no source)'; });
                 bySource.order.sort(ci);
                 bySource.order.forEach(function (src) {
@@ -1633,7 +1718,7 @@ function rowsInScope(page, scope, key) {
     var shown = page._shown || [];
     if (scope === 'row') { return shown.filter(function (it) { return it.Id === key; }); }
     if (scope === 'domain') { return shown.filter(function (it) { return categoryOf(it) === key; }); }
-    if (scope === 'kind') { return shown.filter(function (it) { return setKindLabel(it.SourceItemType) === key; }); }
+    if (scope === 'kind') { return shown.filter(function (it) { return kindLabelOf(it) === key; }); }
     // Groups are rendered by SourceItemName, so the scope keys on that too. Keying on one member's
     // SourceItemId would cover only one of two same-named creators or collections whose rows share a
     // heading, silently leaving the other's rows behind.
@@ -1867,7 +1952,10 @@ function applyAndRender(page) {
     var scroller = scrollerFor(page);
     var scrollY = scroller.scrollTop;
 
-    listEl.innerHTML = displayItems.length ? buildTree(displayItems) : empty;
+    // With nothing to list, Discover still says what its lists did, so a tab that is empty because every
+    // list was read and holds nothing reads that way rather than as a tab that never ran.
+    var noneHtml = (page._pattern === 'Recommendation' && emptyRunSections({})) || empty;
+    listEl.innerHTML = displayItems.length ? buildTree(displayItems) : noneHtml;
 
     // Restore the snapshot onto whichever groups/rows still exist after the rebuild.
     var ng = listEl.querySelectorAll('.cgGroup');
