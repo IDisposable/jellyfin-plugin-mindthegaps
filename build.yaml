@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.5.3"
+version: "10.11.5.4"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,17 +20,12 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.5.3 - Diagnose no longer reports a mix-up over a title that is not out yet. An announced movie that
-  shares its name with one you own (the announced "Highlander" against the 1986 one on your shelf) was read
-  as a misidentified item, because an announced title usually carries no date at all, so the year test that
-  tells a remake from the original had nothing to compare. It now says what is actually true: the one you own
-  is an earlier, different release and nothing needs fixing. The owned item stays listed so you can see for
-  yourself why it was not the match, and a shared external id still outranks the title, since that is
-  evidence of identity rather than a coincidence of names. A scan, and clearing off what you have filled in,
-  now read less of your library. Every query the plugin makes asks the server for only the parts it uses, so
-  an item no longer arrives carrying its images and every user's playstate alongside it. The snapshot of what
-  you own that a scan holds for its whole run keeps only what it compares against rather than the library
-  items themselves, so a long scan no longer holds your library in memory while it waits on the providers.
-  Clearing a whole heading, or verifying a long TODO list, now checks your library once for the batch instead
-  of once per row, which is the difference between a moment and a wait on a large library. Nothing changes
-  about what is found or what is cleared.
+  10.11.5.4 - The Discover tab is laid out the way the rest of the report already was. The lists you keep come
+  first (your TMDB, Trakt, MDBList and JustWatch watchlists, your IMDb lists, your Discogs wantlist, your
+  OpenLibrary shelf, your TheTVDB favorites), then the lists you pointed the plugin at, then everything your
+  own library suggested, each under its own heading with the individual lists inside it. Until now they were
+  all one flat run of headings, so a list you deliberately keep sat next to a film that happened to recommend
+  something, with nothing to tell the two apart. A list that was read and holds nothing you are missing now
+  says so under its own heading instead of not appearing at all, and one that could not be read this scan says
+  that instead, so neither reads as a list you never switched on. The Markdown export is grouped the same way,
+  so an exported Discover list and the tab on screen agree.
