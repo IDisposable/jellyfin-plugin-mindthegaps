@@ -8,7 +8,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.JustWatch;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.JustWatch;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -117,12 +116,12 @@ public class JustWatchListTests
 
     private static OwnershipIndex Owns(BaseItemKind kind = BaseItemKind.Movie, params string[] tmdbIds)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in tmdbIds)
         {
-            dict[OwnershipIndex.MakeKey(kind, "Tmdb", id.ToString(CultureInfo.InvariantCulture))] = null!;
+            set.Add(OwnershipIndex.MakeKey(kind, "Tmdb", id.ToString(CultureInfo.InvariantCulture)));
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 }

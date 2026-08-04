@@ -750,6 +750,7 @@ public sealed class GapDiagnostics
         var years = new List<int>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsVirtualItem = false,
@@ -773,6 +774,7 @@ public sealed class GapDiagnostics
         var years = new List<int>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsMissing = true,
@@ -797,6 +799,7 @@ public sealed class GapDiagnostics
         var owned = new List<(int Season, int Number, string? Title, int Versions)>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsVirtualItem = false,
@@ -833,6 +836,7 @@ public sealed class GapDiagnostics
             var seriesId = series.Id.ToString("N", CultureInfo.InvariantCulture);
             foreach (var child in _libraryManager.GetItemList(new InternalItemsQuery
             {
+                DtoOptions = LibraryQueryOptions.Minimal(),
                 IncludeItemTypes = new[] { BaseItemKind.Season },
                 AncestorIds = new[] { series.Id },
                 IsVirtualItem = false,
@@ -846,6 +850,7 @@ public sealed class GapDiagnostics
 
                 var episodes = _libraryManager.GetItemList(new InternalItemsQuery
                 {
+                    DtoOptions = LibraryQueryOptions.Minimal(),
                     IncludeItemTypes = new[] { BaseItemKind.Episode },
                     AncestorIds = new[] { season.Id },
                     IsVirtualItem = false,
@@ -876,6 +881,7 @@ public sealed class GapDiagnostics
 
         return _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = kinds,
             Recursive = true,
 

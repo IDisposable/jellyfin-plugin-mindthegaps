@@ -1,10 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using Newtonsoft.Json;
 using TMDbLib.Objects.Collections;
@@ -24,7 +24,7 @@ public class TmdbCollectionCapturedDataTests
     public void Build_NothingOwned_EveryPartIsAGap()
     {
         var collection = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         var gaps = CollectionGapMapper
             .Build(collection.Id, collection.Parts!, "boxset-id", "The Matrix Collection", ownership, Poster)
@@ -45,9 +45,9 @@ public class TmdbCollectionCapturedDataTests
     public void Build_OwnedPartExcluded()
     {
         var collection = Load();
-        var owned = new Dictionary<string, BaseItem>
+        var owned = new HashSet<string>(StringComparer.Ordinal)
         {
-            [OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", "603")] = new Movie()
+            OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", "603")
         };
         var ownership = new OwnershipIndex(owned);
 

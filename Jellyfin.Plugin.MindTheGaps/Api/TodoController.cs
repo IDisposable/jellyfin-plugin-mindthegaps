@@ -140,16 +140,13 @@ public class TodoController : ControllerBase
         // Stamp both ways: an entry marked done whose file has since left the library becomes outstanding
         // again, so the list keeps telling the truth rather than only ever accumulating ticks. Collected
         // first and applied in one write, since the store flushes the whole file per change.
-        var states = new Dictionary<string, bool>(entries.Count, StringComparer.Ordinal);
-        foreach (var entry in entries)
+        var states = _verifier.OwnedAmong(entries);
+        foreach (var state in states)
         {
-            var has = LibraryOwns(entry);
-            if (has)
+            if (state.Value)
             {
                 owned++;
             }
-
-            states[entry.Id] = has;
         }
 
         _todo.ReconcileDone(states);

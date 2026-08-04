@@ -1,9 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using MediaBrowser.Controller.Entities;
 using Newtonsoft.Json;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Search;
@@ -23,7 +23,7 @@ public class TmdbRecommendationsCapturedDataTests
     public void BuildMovies_RespectsPerItemCap()
     {
         var similar = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 5, 0).ToList();
 
@@ -36,7 +36,7 @@ public class TmdbRecommendationsCapturedDataTests
     public void BuildMovies_EmitsAllUnownedResults()
     {
         var similar = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100, 0).ToList();
 
@@ -48,7 +48,7 @@ public class TmdbRecommendationsCapturedDataTests
     public void BuildMovies_VoteGate_DropsObscureSuggestions()
     {
         var similar = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         // 7 of the 20 captured results have at least 1000 TMDB votes (the obscure long tail falls away).
         var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 100, 1000).ToList();

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -354,6 +355,7 @@ internal sealed class CuratedSetGapSource : IGapSource, IExploreSource
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var owned = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Movie, BaseItemKind.Series },
             Recursive = true
         });

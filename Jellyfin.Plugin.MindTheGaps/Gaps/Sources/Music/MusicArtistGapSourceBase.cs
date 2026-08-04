@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -72,6 +73,7 @@ internal abstract class MusicArtistGapSourceBase : IGapSource, ISetContentSource
     {
         var artists = LibraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.MusicArtist },
             Recursive = true
         });
@@ -161,6 +163,7 @@ internal abstract class MusicArtistGapSourceBase : IGapSource, ISetContentSource
     protected bool OwnsAlbumByArtist(BaseItem artist)
         => LibraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.MusicAlbum },
             AlbumArtistIds = new[] { artist.Id },
             Limit = 1,

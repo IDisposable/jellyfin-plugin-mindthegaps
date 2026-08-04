@@ -1,7 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -11,13 +11,13 @@ public class OwnershipIndexTests
     // Owns/OwnsAny only test key membership, so null item values are sufficient here.
     private static OwnershipIndex IndexWith(params string[] keys)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var key in keys)
         {
-            dict[key] = null!;
+            set.Add(key);
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 
     [Fact]

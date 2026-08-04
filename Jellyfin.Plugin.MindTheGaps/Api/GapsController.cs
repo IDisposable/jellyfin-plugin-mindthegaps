@@ -226,21 +226,17 @@ public class GapsController : ControllerBase
             byId[item.Id] = item;
         }
 
-        var checkedCount = 0;
-        var owned = new List<GapItem>();
+        var candidates = new List<GapItem>(ids.Count);
         foreach (var id in ids)
         {
-            if (!byId.TryGetValue(id, out var gap))
+            if (byId.TryGetValue(id, out var gap))
             {
-                continue;
-            }
-
-            checkedCount++;
-            if (_verifier.Owns(gap))
-            {
-                owned.Add(gap);
+                candidates.Add(gap);
             }
         }
+
+        var checkedCount = candidates.Count;
+        var owned = _verifier.OwnedAmong(candidates);
 
         // One acquired title is normally several gaps (its collection, a studio set, a filmography, a
         // recommendation), each with its own id from its own source. Having confirmed the title is in the

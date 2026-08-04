@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -6,7 +7,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Imdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Imdb;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -123,12 +123,12 @@ public class ImdbListTests
 
     private static OwnershipIndex Owns(BaseItemKind kind = BaseItemKind.Movie, params string[] imdbIds)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in imdbIds)
         {
-            dict[OwnershipIndex.MakeKey(kind, "Imdb", id)] = null!;
+            set.Add(OwnershipIndex.MakeKey(kind, "Imdb", id));
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 }

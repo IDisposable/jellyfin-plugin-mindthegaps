@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -7,7 +8,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -39,13 +39,13 @@ public class MdbListMapperTests
 
     private static OwnershipIndex OwnsTmdb(BaseItemKind kind, params int[] tmdbIds)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in tmdbIds)
         {
-            dict[OwnershipIndex.MakeKey(kind, "Tmdb", id.ToString(CultureInfo.InvariantCulture))] = null!;
+            set.Add(OwnershipIndex.MakeKey(kind, "Tmdb", id.ToString(CultureInfo.InvariantCulture)));
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 
     [Fact]

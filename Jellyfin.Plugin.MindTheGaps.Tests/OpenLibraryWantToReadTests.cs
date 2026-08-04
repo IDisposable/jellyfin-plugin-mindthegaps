@@ -7,7 +7,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -86,12 +85,12 @@ public class OpenLibraryWantToReadTests
 
     private static OwnershipIndex Owns(params string[] workIds)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in workIds)
         {
-            dict[OwnershipIndex.MakeKey(BaseItemKind.Book, "OpenLibrary", id)] = null!;
+            set.Add(OwnershipIndex.MakeKey(BaseItemKind.Book, "OpenLibrary", id));
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 }

@@ -80,6 +80,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
     {
         var allSeries = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Series },
             Recursive = true
         });
@@ -264,6 +265,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         (int Min, int Max)? ownedRange = null;
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsVirtualItem = false,
@@ -301,6 +303,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
         var virtuals = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsMissing = true,
@@ -348,6 +351,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
         var missing = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             IsMissing = true,
             Recursive = true
@@ -358,6 +362,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         var ownedYearRange = new Dictionary<Guid, (int Min, int Max)>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             IsVirtualItem = false,
             Recursive = true

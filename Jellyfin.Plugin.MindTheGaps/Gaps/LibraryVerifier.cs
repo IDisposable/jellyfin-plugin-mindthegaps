@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Library;
@@ -11,10 +13,15 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// <summary>
 /// Answers "does the library hold this one gap now?" without building a whole <see cref="OwnershipIndex"/>.
 /// Backs the report's verify actions, which run inside the request and so must stay cheap: each check is a
-/// focused, provider-id-indexed query rather than the library-wide read a scan does.
+/// focused query rather than the library-wide read a scan does, up to the batch size where the read wins
+/// (see <see cref="OwnedAmong(IReadOnlyList{GapItem})"/>).
 /// </summary>
 public sealed class LibraryVerifier
 {
+    // A focused check cannot use the provider-id index (the server matches on a computed
+    // ProviderId + ":" + ProviderValue), so it walks the items of its kind. Past this many, read them once.
+    private const int BatchIndexThreshold = 25;
+
     private readonly ILibraryManager _libraryManager;
 
     /// <summary>
@@ -56,6 +63,123 @@ public sealed class LibraryVerifier
         return OwnsByProviderId(kind, providerIds) || OwnsByName(kind, artist, title);
     }
 
+    /// <summary>
+    /// Determines which of these gaps the library now holds, in one pass. Same answer as calling
+    /// <see cref="Owns(GapItem)"/> on each, but a batch past <see cref="BatchIndexThreshold"/> is decided
+    /// against a single read of the owned items instead of a query per gap.
+    /// </summary>
+    /// <param name="gaps">The gaps to check.</param>
+    /// <returns>The subset the library holds, in the order given.</returns>
+    public IReadOnlyList<GapItem> OwnedAmong(IReadOnlyList<GapItem> gaps)
+    {
+        ArgumentNullException.ThrowIfNull(gaps);
+
+        var kinds = new HashSet<BaseItemKind>();
+        foreach (var gap in gaps)
+        {
+            kinds.Add(gap.TargetKind);
+        }
+
+        var index = BuildBatchIndex(gaps.Count, kinds);
+        var owned = new List<GapItem>();
+        foreach (var gap in gaps)
+        {
+            var has = index is null
+                ? Owns(gap)
+                : OwnsIn(index, gap.TargetKind, gap.ProviderIds, gap.SourceItemName, gap.Name);
+            if (has)
+            {
+                owned.Add(gap);
+            }
+        }
+
+        return owned;
+    }
+
+    /// <summary>
+    /// Determines which of these todo entries the library now holds, in one pass. The bulk form of
+    /// <see cref="Owns(BaseItemKind, IReadOnlyDictionary{string, string}, string?, string?)"/>.
+    /// </summary>
+    /// <param name="entries">The todo entries to check.</param>
+    /// <returns>Whether the library holds each, keyed by entry id. An entry whose kind does not parse is
+    /// reported as not held, which is what a single check answers for it too.</returns>
+    public IReadOnlyDictionary<string, bool> OwnedAmong(IReadOnlyList<TodoEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        var kinds = new HashSet<BaseItemKind>();
+        foreach (var entry in entries)
+        {
+            if (Enum.TryParse<BaseItemKind>(entry.TargetKindName, ignoreCase: false, out var kind))
+            {
+                kinds.Add(kind);
+            }
+        }
+
+        var index = BuildBatchIndex(entries.Count, kinds);
+        var states = new Dictionary<string, bool>(entries.Count, StringComparer.Ordinal);
+        foreach (var entry in entries)
+        {
+            if (!Enum.TryParse<BaseItemKind>(entry.TargetKindName, ignoreCase: false, out var kind))
+            {
+                states[entry.Id] = false;
+                continue;
+            }
+
+            states[entry.Id] = index is null
+                ? Owns(kind, entry.ProviderIds, entry.Creator, entry.Name)
+                : OwnsIn(index, kind, entry.ProviderIds, entry.Creator, entry.Name);
+        }
+
+        return states;
+    }
+
+    // Null when the batch is small enough that a query per check is cheaper. The album name fallback here
+    // folds the title as the scan's index does rather than matching it exactly, so it can only clear rows
+    // the next scan would not re-report.
+    private OwnershipIndex? BuildBatchIndex(int checks, IReadOnlyCollection<BaseItemKind> kinds)
+    {
+        if (checks < BatchIndexThreshold || kinds.Count == 0)
+        {
+            return null;
+        }
+
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
+            IncludeItemTypes = kinds.ToArray(),
+            IsVirtualItem = false,
+            Recursive = true
+        }))
+        {
+            var kind = item.GetBaseItemKind();
+            foreach (var pair in item.ProviderIds)
+            {
+                if (!string.IsNullOrEmpty(pair.Value))
+                {
+                    keys.Add(OwnershipIndex.MakeKey(kind, pair.Key, pair.Value));
+                }
+            }
+
+            if (item is MusicAlbum album && !string.IsNullOrEmpty(album.Name))
+            {
+                keys.Add(OwnershipIndex.MakeKey(kind, OwnershipIndex.NameKeyProvider, OwnershipIndex.NameKey(album.AlbumArtist, album.Name)));
+            }
+        }
+
+        return new OwnershipIndex(keys);
+    }
+
+    private static bool OwnsIn(
+        OwnershipIndex index,
+        BaseItemKind kind,
+        IReadOnlyDictionary<string, string> providerIds,
+        string? artist,
+        string? title)
+        => index.OwnsAny(kind, providerIds)
+            || (kind == BaseItemKind.MusicAlbum && index.OwnsByName(kind, artist, title));
+
     private bool OwnsByProviderId(BaseItemKind kind, IReadOnlyDictionary<string, string> providerIds)
     {
         var hasAny = new Dictionary<string, string>(providerIds.Count, StringComparer.OrdinalIgnoreCase);
@@ -74,6 +198,7 @@ public sealed class LibraryVerifier
 
         return _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
             HasAnyProviderId = hasAny,
@@ -97,6 +222,7 @@ public sealed class LibraryVerifier
         var wanted = OwnershipIndex.NameKey(artist, title);
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.MusicAlbum },
             IsVirtualItem = false,
             Name = title,

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Globalization;
 using Jellyfin.Data.Enums;
@@ -24,10 +25,8 @@ internal static class FilmographyGapMapper
     // get from person filmography, so it isn't directly callable here. This set is narrower than
     // WantedCrewKinds (which also adds "Production"/Producer); add "Production" here to include
     // producer credits in filmography.
-    private static readonly HashSet<string> _crewDepartments = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Directing", "Writing"
-    };
+    private static readonly FrozenSet<string> _crewDepartments =
+        new[] { "Directing", "Writing" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Builds filmography gaps for a person's unowned movie and TV credits, capped per person.

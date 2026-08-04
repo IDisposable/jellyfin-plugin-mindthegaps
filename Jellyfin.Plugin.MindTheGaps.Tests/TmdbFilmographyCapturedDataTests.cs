@@ -1,10 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using Newtonsoft.Json;
@@ -28,7 +28,7 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_KeepsCastAndDirectingWriting_DropsProductionAndOtherCrew()
     {
         var person = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         var gaps = FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", ownership, Poster, 0, 0).ToList();
 
@@ -50,9 +50,9 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_OwnedCreditExcluded()
     {
         var person = Load();
-        var owned = new Dictionary<string, BaseItem>
+        var owned = new HashSet<string>(StringComparer.Ordinal)
         {
-            [OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", "13")] = new Movie()
+            OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", "13")
         };
         var ownership = new OwnershipIndex(owned);
 
@@ -67,7 +67,7 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_VoteGate_DropsObscureCredits_KeepsNotableOnes()
     {
         var person = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         // With a 100-vote floor the obscure cast credits fall away (Zemeckis is a director, so his cast
         // roles are mostly cameos with few votes): cast 26 falls to 4. The 52 directing/writing crew credits
@@ -86,7 +86,7 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_CastBillingGate_DropsDeeplyBilledRoles()
     {
         var person = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         var noLimit = FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", ownership, Poster, 0, 0).ToList();
         var topBilled = FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", ownership, Poster, 0, 5).ToList();
@@ -99,7 +99,7 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_UnownedTvCredit_BecomesShowsSeriesCreatorWorksGap()
     {
         var person = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         // No vote floor, so the TV cast roles surface alongside the directing/writing crew credits.
         var gaps = FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", ownership, Poster, 0, 0).ToList();
@@ -122,9 +122,9 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_OwnedTvCredit_Excluded()
     {
         var person = Load();
-        var owned = new Dictionary<string, BaseItem>
+        var owned = new HashSet<string>(StringComparer.Ordinal)
         {
-            [OwnershipIndex.MakeKey(BaseItemKind.Series, "Tmdb", "1026")] = new Series()
+            OwnershipIndex.MakeKey(BaseItemKind.Series, "Tmdb", "1026")
         };
         var ownership = new OwnershipIndex(owned);
 
@@ -138,7 +138,7 @@ public class TmdbFilmographyCapturedDataTests
     public void Build_VoteFloor_DropsTvCastButKeepsTvCrew()
     {
         var person = Load();
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
 
         // TV filmography roles carry no vote count, so a positive vote floor drops every TV cast role while
         // the directing/writing crew is not vote-gated, exactly as on the movie path.

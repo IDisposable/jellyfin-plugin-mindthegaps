@@ -11,6 +11,7 @@ schedule. The plugin does not depend on any of them; they are progressive enhanc
 | A | jellyfin-web | No | Relax the "Missing" indicator so virtual items render in more contexts than just episodes. Filed as [jellyfin-web #8049](https://github.com/jellyfin/jellyfin-web/pull/8049). |
 | B | jellyfin (server) | Yes | Mint virtual items for any type, not just show seasons/episodes, with reconciliation. See [discussion-mint-virtual-items.md](discussion-mint-virtual-items.md). |
 | C | jellyfin (server) | Yes | Expose the TMDB client and key from the published NuGet so plugins reuse the shared cache and key. See [discussion-tmdb-nuget-surface.md](discussion-tmdb-nuget-surface.md). |
+| D | jellyfin (server) | No | Give `Episode.IndexNumberEnd` a database column so it survives `SkipDeserialization` and can be queried. See [pr-indexnumberend-column.md](pr-indexnumberend-column.md). |
 | Plugin | new repo | No | The gap-finder plugin itself, standalone. Build/release like jellyfin-plugin-justwatch. Path to standalone: [../standard-plugin.md](../standard-plugin.md). |
 
 ## Dependency order
@@ -22,5 +23,7 @@ schedule. The plugin does not depend on any of them; they are progressive enhanc
   half; the two ship together for the movie case but are separate PRs.
 - C is pure plumbing cleanup: it lets the standalone plugin drop its own TMDB client and reuse the
   host's. The plugin ships fine without it (it carries its own client), so C is optional.
+- D is unrelated to A/B/C and stands alone: a small schema and mapping fix in the server. The plugin
+  needs nothing from it beyond being able to stop paying for a JSON parse per episode read.
 
 Background analysis for B (and the SPI note) lives in [../virtual-movies-analysis.md](../virtual-movies-analysis.md).

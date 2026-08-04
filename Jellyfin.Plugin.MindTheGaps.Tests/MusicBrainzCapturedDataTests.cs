@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -6,7 +7,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -26,13 +26,13 @@ public class MusicBrainzCapturedDataTests
     // Owns/OwnsAny only test key membership, so null item values are sufficient here.
     private static OwnershipIndex IndexWith(params string[] keys)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var key in keys)
         {
-            dict[key] = null!;
+            set.Add(key);
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 
     private static IReadOnlyList<MusicBrainzReleaseGroup> Load()

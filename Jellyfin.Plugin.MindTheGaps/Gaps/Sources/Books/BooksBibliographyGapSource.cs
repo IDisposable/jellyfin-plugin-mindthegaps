@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using MediaBrowser.Controller.Entities;
@@ -70,6 +71,7 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
     {
         var books = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Book },
             Recursive = true
         });

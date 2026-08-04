@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using Jellyfin.Plugin.MindTheGaps.Model;
 
@@ -19,8 +20,8 @@ internal static class GapSourceMerge
     // The deliberately-curated discovery lists, which outrank a per-title recommendation (source type Movie
     // or Series) for the primary source. Drawn from the shared vocabulary rather than spelled again here,
     // which is what left Trakt lists out of this set while TMDB and MDBList lists were in it.
-    private static readonly HashSet<string> CuratedListSourceTypes =
-        new(SourceItemTypes.CuratedListKinds, StringComparer.OrdinalIgnoreCase);
+    private static readonly FrozenSet<string> CuratedListSourceTypes =
+        SourceItemTypes.CuratedListKinds.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Folds a duplicate gap's source into the surviving gap. Only recommendation gaps accumulate sources

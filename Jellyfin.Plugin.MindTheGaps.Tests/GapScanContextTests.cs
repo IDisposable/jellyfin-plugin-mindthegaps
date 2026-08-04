@@ -1,8 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -11,11 +11,11 @@ public class GapScanContextTests
 {
     private static GapScanContext ContextOwning(string provider, string id)
     {
-        var dict = new Dictionary<string, BaseItem>
+        var set = new HashSet<string>(StringComparer.Ordinal)
         {
-            [OwnershipIndex.MakeKey(BaseItemKind.Movie, provider, id)] = null!
+            OwnershipIndex.MakeKey(BaseItemKind.Movie, provider, id)
         };
-        return new GapScanContext(new PluginConfiguration(), new OwnershipIndex(dict));
+        return new GapScanContext(new PluginConfiguration(), new OwnershipIndex(set));
     }
 
     [Fact]

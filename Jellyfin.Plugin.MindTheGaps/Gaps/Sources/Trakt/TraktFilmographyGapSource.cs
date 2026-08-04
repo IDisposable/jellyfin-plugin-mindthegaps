@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Trakt;
 using MediaBrowser.Controller.Entities;
@@ -65,6 +66,7 @@ internal sealed class TraktFilmographyGapSource : IGapSource
 
         var people = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Person },
             Recursive = true
         });

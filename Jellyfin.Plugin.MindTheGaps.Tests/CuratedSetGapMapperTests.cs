@@ -1,10 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using MediaBrowser.Controller.Entities;
 using TMDbLib.Objects.Search;
 using Xunit;
 
@@ -14,13 +14,13 @@ public class CuratedSetGapMapperTests
 {
     private static OwnershipIndex OwnsMovie(params int[] tmdbIds)
     {
-        var dict = new Dictionary<string, BaseItem>();
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in tmdbIds)
         {
-            dict[OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", id.ToString(System.Globalization.CultureInfo.InvariantCulture))] = null!;
+            set.Add(OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", id.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
-        return new OwnershipIndex(dict);
+        return new OwnershipIndex(set);
     }
 
     private static SearchMovie Movie(int id, string title) => new() { Id = id, Title = title };

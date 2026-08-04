@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -6,7 +7,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Trakt;
-using MediaBrowser.Controller.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -33,7 +33,7 @@ public class TraktFilmographyCapturedDataTests
         var credits = JsonSerializer.Deserialize<TraktPersonMovieCredits>(TestData.Read("trakt_person_movies.json"), Options);
         Assert.NotNull(credits);
 
-        var ownership = new OwnershipIndex(new Dictionary<string, BaseItem>());
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
         var gaps = TraktFilmographyMapper.Build(credits!, "person-id", "Robert Zemeckis", ownership).ToList();
 
         Assert.NotEmpty(gaps);

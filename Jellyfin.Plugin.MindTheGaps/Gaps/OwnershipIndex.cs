@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Services;
-using MediaBrowser.Controller.Entities;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
@@ -9,6 +8,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// A domain-agnostic snapshot of what the library owns, keyed by (item kind, provider, id).
 /// Any gap source asks "do I own this?" the same way regardless of media domain.
 /// </summary>
+/// <remarks>
+/// Keys, not items: this lives for the whole scan, so holding the owned <c>BaseItem</c>s would pin the owned
+/// library in memory for hours.
+/// </remarks>
 public sealed class OwnershipIndex
 {
     /// <summary>
@@ -17,21 +20,21 @@ public sealed class OwnershipIndex
     /// </summary>
     public const string NameKeyProvider = "MtgNameKey";
 
-    private readonly IReadOnlyDictionary<string, BaseItem> _byKey;
+    private readonly IReadOnlySet<string> _keys;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OwnershipIndex"/> class.
     /// </summary>
-    /// <param name="byKey">Owned items keyed via <see cref="MakeKey"/>.</param>
-    public OwnershipIndex(IReadOnlyDictionary<string, BaseItem> byKey)
+    /// <param name="keys">The owned keys, each built via <see cref="MakeKey"/>.</param>
+    public OwnershipIndex(IReadOnlySet<string> keys)
     {
-        _byKey = byKey;
+        _keys = keys;
     }
 
     /// <summary>
     /// Gets the number of indexed provider-id keys.
     /// </summary>
-    public int Count => _byKey.Count;
+    public int Count => _keys.Count;
 
     /// <summary>
     /// Builds the composite key for a (kind, provider, id) triple.
@@ -61,7 +64,7 @@ public sealed class OwnershipIndex
     /// <param name="id">The provider id value.</param>
     /// <returns><see langword="true"/> if owned.</returns>
     public bool Owns(BaseItemKind kind, string provider, string id)
-        => _byKey.ContainsKey(MakeKey(kind, provider, id));
+        => _keys.Contains(MakeKey(kind, provider, id));
 
     /// <summary>
     /// Determines whether an item of the given kind is owned under ANY of the supplied provider ids.
@@ -94,15 +97,5 @@ public sealed class OwnershipIndex
     /// <returns><see langword="true"/> if a name-matched item is owned.</returns>
     public bool OwnsByName(BaseItemKind kind, string? artist, string? title)
         => TextKey.Normalize(title).Length > 0
-            && _byKey.ContainsKey(MakeKey(kind, NameKeyProvider, NameKey(artist, title)));
-
-    /// <summary>
-    /// Finds the owned item matching a (kind, provider, id), if any.
-    /// </summary>
-    /// <param name="kind">The item kind.</param>
-    /// <param name="provider">The provider name.</param>
-    /// <param name="id">The provider id value.</param>
-    /// <returns>The owned item, or <see langword="null"/>.</returns>
-    public BaseItem? Find(BaseItemKind kind, string provider, string id)
-        => _byKey.TryGetValue(MakeKey(kind, provider, id), out var item) ? item : null;
+            && _keys.Contains(MakeKey(kind, NameKeyProvider, NameKey(artist, title)));
 }

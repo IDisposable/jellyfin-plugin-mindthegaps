@@ -7,6 +7,7 @@ using System.Threading;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -68,11 +69,13 @@ internal sealed class RecommendationsGapSource : IGapSource
 
         var ownedMovies = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Movie },
             Recursive = true
         });
         var ownedSeries = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { BaseItemKind.Series },
             Recursive = true
         });

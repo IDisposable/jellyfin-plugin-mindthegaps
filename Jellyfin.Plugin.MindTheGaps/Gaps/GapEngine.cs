@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
@@ -814,6 +815,7 @@ public sealed class GapEngine
         var owned = new HashSet<(int Season, int Number)>();
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { BaseItemKind.Episode },
             AncestorIds = new[] { seriesId },
             IsVirtualItem = false,
@@ -912,13 +914,14 @@ public sealed class GapEngine
 
     private OwnershipIndex BuildOwnershipIndex(BaseItemKind[] kinds)
     {
-        var byKey = new Dictionary<string, BaseItem>();
+        var keys = new HashSet<string>(StringComparer.Ordinal);
         var itemCount = 0;
 
         if (kinds.Length > 0)
         {
             var owned = _libraryManager.GetItemList(new InternalItemsQuery
             {
+                DtoOptions = LibraryQueryOptions.WithProviderIds(),
                 IncludeItemTypes = kinds,
                 Recursive = true
             });
@@ -930,7 +933,7 @@ public sealed class GapEngine
                 {
                     if (!string.IsNullOrEmpty(providerId.Value))
                     {
-                        byKey[OwnershipIndex.MakeKey(kind, providerId.Key, providerId.Value)] = item;
+                        keys.Add(OwnershipIndex.MakeKey(kind, providerId.Key, providerId.Value));
                     }
                 }
 
@@ -938,12 +941,12 @@ public sealed class GapEngine
                 // the library's (a Discogs release against a MusicBrainz-tagged album) can still match by name.
                 if (item is MusicAlbum album && !string.IsNullOrEmpty(album.Name))
                 {
-                    byKey[OwnershipIndex.MakeKey(kind, OwnershipIndex.NameKeyProvider, OwnershipIndex.NameKey(album.AlbumArtist, album.Name))] = item;
+                    keys.Add(OwnershipIndex.MakeKey(kind, OwnershipIndex.NameKeyProvider, OwnershipIndex.NameKey(album.AlbumArtist, album.Name)));
                 }
             }
         }
 
-        var ownership = new OwnershipIndex(byKey);
+        var ownership = new OwnershipIndex(keys);
         _logger.LogInformation(
             "Ownership index: {Items} owned items, {Keys} provider-id keys, across kinds [{Kinds}].",
             itemCount,

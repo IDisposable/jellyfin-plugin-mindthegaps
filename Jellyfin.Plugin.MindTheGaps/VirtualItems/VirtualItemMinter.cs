@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Collections;
 using MediaBrowser.Controller.Entities;
@@ -197,6 +198,7 @@ public sealed class VirtualItemMinter : IDisposable
         var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             IncludeItemTypes = new[] { kind },
             IsVirtualItem = false,
             Recursive = true
@@ -521,6 +523,7 @@ public sealed class VirtualItemMinter : IDisposable
             var catchAll = _libraryManager
                 .GetItemList(new InternalItemsQuery
                 {
+                    DtoOptions = LibraryQueryOptions.Minimal(),
                     IncludeItemTypes = new[] { BaseItemKind.BoxSet },
                     Recursive = true
                 })
@@ -565,6 +568,7 @@ public sealed class VirtualItemMinter : IDisposable
     {
         var minted = _libraryManager.GetItemList(new InternalItemsQuery
         {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
             HasAnyProviderId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [MintedMarker] = "1" },
             Recursive = true
         });
