@@ -213,33 +213,169 @@
             .then(function (r) { return r.Items || []; });
     }
 
+    // The playlist's membership, item id -> entry id, kept briefly so hovering a row of cards is one call.
+    var membershipPromise = null;
+    var membershipAt = 0;
+
+    function ownedMembership() {
+        if (!membershipPromise || Date.now() - membershipAt > 20000) {
+            membershipAt = Date.now();
+            membershipPromise = findPlaylistId(false).then(function (pid) {
+                if (!pid) { return { playlistId: null, entries: {} }; }
+                return playlistEntries(pid).then(function (items) {
+                    var entries = {};
+                    items.forEach(function (i) { entries[i.Id] = i.PlaylistItemId; });
+                    return { playlistId: pid, entries: entries };
+                });
+            }).catch(function () { membershipPromise = null; return { playlistId: null, entries: {} }; });
+        }
+        return membershipPromise;
+    }
+
+    function forgetMembership() {
+        membershipPromise = null;
+    }
+
     function ownedWanted(itemId) {
-        return findPlaylistId(false).then(function (pid) {
-            if (!pid) { return null; }
-            return playlistEntries(pid).then(function (items) {
-                var hit = items.filter(function (i) { return i.Id === itemId; })[0];
-                return hit ? { playlistId: pid, entryId: hit.PlaylistItemId } : null;
-            });
+        return ownedMembership().then(function (m) {
+            return m.entries[itemId] ? { playlistId: m.playlistId, entryId: m.entries[itemId] } : null;
         });
     }
 
     function setOwnedWanted(itemId, wanted) {
+        var done = function (r) { forgetMembership(); return r; };
         if (wanted) {
             return findPlaylistId(true).then(function (pid) {
                 return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('Playlists/' + pid + '/Items', { Ids: itemId, UserId: ApiClient.getCurrentUserId() }) });
-            });
+            }).then(done);
         }
         return ownedWanted(itemId).then(function (state) {
             if (!state) { return; }
             return ApiClient.ajax({ type: 'DELETE', url: ApiClient.getUrl('Playlists/' + state.playlistId + '/Items', { EntryIds: state.entryId }) });
+        }).then(done);
+    }
+
+    // Reflects a change on every element showing this owned title: the detail header button, hover
+    // bookmarks on cards, and the home row on its next show.
+    function syncOwnedWanted(itemId, wanted) {
+        Array.prototype.forEach.call(document.querySelectorAll('.mtgWantDetail[data-itemid="' + itemId + '"], .mtgHoverWant[data-itemid="' + itemId + '"]'), function (b) {
+            if (b.classList.contains('mtgWantDetail')) { setDetailButtonState(b, wanted); } else { setHoverButtonState(b, wanted); }
         });
     }
+
+    var WATCHLIST_ADD = 'Add to watchlist';
+    var WATCHLIST_REMOVE = 'Remove from watchlist';
+
+    // ---- Hover bookmark on library cards (desktop) ----
+    //
+    // jellyfin-web's cards carry a hover overlay with play, played, favourite and more buttons as plain
+    // markup. On the first hover of a movie or series card a bookmark is added beside the favourite, in
+    // the overlay's own button markup, toggling the title in the want-to-watch playlist.
+
+    function setHoverButtonState(btn, wanted) {
+        btn.setAttribute('title', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
+        btn.setAttribute('aria-label', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
+        btn.mtgWanted = wanted;
+        btn.querySelector('.material-icons').className = 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover ' + (wanted ? 'bookmark' : 'bookmark_border');
+    }
+
+    function onCardHover(e) {
+        if (!surfaceFlags.WantToWatch || !e.target || !e.target.closest) { return; }
+        var card = e.target.closest('.card[data-id][data-type]');
+        if (!card || card.mtgHoverDone) { return; }
+        var type = card.getAttribute('data-type');
+        if (type !== 'Movie' && type !== 'Series') { return; }
+        var bar = card.querySelector('.cardOverlayContainer .cardOverlayButton-br');
+        if (!bar) { return; }
+        card.mtgHoverDone = true;
+        var itemId = card.getAttribute('data-id');
+        var btn = h('button', { 'is': 'paper-icon-button-light', 'type': 'button', 'data-action': 'none', 'data-itemid': itemId, 'class': 'cardOverlayButton cardOverlayButton-hover itemAction paper-icon-button-light mtgHoverWant' });
+        btn.appendChild(h('span', { 'class': 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover bookmark_border', 'aria-hidden': 'true' }));
+        setHoverButtonState(btn, false);
+        btn.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            var next = !btn.mtgWanted;
+            btn.disabled = true;
+            setOwnedWanted(itemId, next).then(function () { btn.disabled = false; syncOwnedWanted(itemId, next); }, function () { btn.disabled = false; alertUser('Could not update your watchlist.'); });
+        });
+        var more = bar.querySelector('[data-action="menu"]');
+        bar.insertBefore(btn, more || null);
+        ownedWanted(itemId).then(function (state) { setHoverButtonState(btn, !!state); }, function () { /* leave unmarked */ });
+    }
+
+    document.addEventListener('mouseover', onCardHover, true);
+
+    // ---- "Add to watchlist" in the more menu ----
+    //
+    // The kebab opens an action sheet that is appended to the page after the click. The click records
+    // which movie or series it was for (the card, or the page's own item), and when a sheet appears
+    // shortly after, an entry is added at its end in the sheet's own item markup. The sheet closes itself
+    // on any item click, so the entry only has to do the toggle.
+
+    var pendingMenu = null;
+    var currentPageItem = null;
+
+    function onMenuClick(e) {
+        if (!surfaceFlags.WantToWatch || !e.target || !e.target.closest) { return; }
+        var btn = e.target.closest('[data-action="menu"], .btnMoreCommands, .btnCardOptions');
+        if (!btn) { return; }
+        var card = btn.closest('.card[data-id][data-type]');
+        var id = null;
+        var type = null;
+        if (card) {
+            id = card.getAttribute('data-id');
+            type = card.getAttribute('data-type');
+        } else if (btn.classList.contains('btnMoreCommands') && currentPageItem) {
+            id = currentPageItem.Id;
+            type = currentPageItem.Type;
+        }
+        pendingMenu = id && (type === 'Movie' || type === 'Series') ? { id: id, at: Date.now() } : null;
+    }
+
+    function addWatchlistMenuItem(sheet) {
+        if (!pendingMenu || Date.now() - pendingMenu.at > 3000) { return; }
+        var scroller = sheet.querySelector('.actionSheetScroller');
+        if (!scroller || scroller.querySelector('.mtgMenuWant')) { return; }
+        var itemId = pendingMenu.id;
+        pendingMenu = null;
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'listItem listItem-button actionSheetMenuItem mtgMenuWant', 'data-id': 'mtgwatchlist' });
+        var icon = h('span', { 'class': 'actionsheetMenuItemIcon listItemIcon listItemIcon-transparent material-icons bookmark_border', 'aria-hidden': 'true' });
+        btn.appendChild(icon);
+        var body = h('div', { 'class': 'listItemBody actionsheetListItemBody' });
+        var text = h('div', { 'class': 'listItemBodyText actionSheetItemText' }, WATCHLIST_ADD);
+        body.appendChild(text);
+        btn.appendChild(body);
+        btn.mtgWanted = false;
+        btn.addEventListener('click', function () {
+            var next = !btn.mtgWanted;
+            setOwnedWanted(itemId, next).then(function () { syncOwnedWanted(itemId, next); }, function () { alertUser('Could not update your watchlist.'); });
+        });
+        // Beside the sheet's own list actions when it has them, else at the end.
+        var after = scroller.querySelector('.actionSheetMenuItem[data-id="playlist"]') || scroller.querySelector('.actionSheetMenuItem[data-id="addtocollection"]');
+        if (after && after.nextSibling) { scroller.insertBefore(btn, after.nextSibling); } else { scroller.appendChild(btn); }
+        ownedWanted(itemId).then(function (state) {
+            btn.mtgWanted = !!state;
+            text.textContent = state ? WATCHLIST_REMOVE : WATCHLIST_ADD;
+            icon.className = 'actionsheetMenuItemIcon listItemIcon listItemIcon-transparent material-icons ' + (state ? 'bookmark' : 'bookmark_border');
+        }, function () { /* leave as add */ });
+    }
+
+    document.addEventListener('click', onMenuClick, true);
+    new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+            for (var j = 0; j < records[i].addedNodes.length; j++) {
+                var n = records[i].addedNodes[j];
+                if (n.nodeType === 1 && n.querySelector && n.querySelector('.actionSheetScroller')) { addWatchlistMenuItem(n); }
+            }
+        }
+    }).observe(document.body, { childList: true });
 
     var DETAIL_WANT_CLASS = 'mtgWantDetail';
 
     function setDetailButtonState(btn, wanted) {
-        btn.setAttribute('title', wanted ? 'On your want-to-watch list' : 'Want to watch');
-        btn.setAttribute('aria-label', wanted ? 'On your want-to-watch list' : 'Want to watch');
+        btn.setAttribute('title', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
+        btn.setAttribute('aria-label', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
         btn.setAttribute('aria-pressed', wanted ? 'true' : 'false');
         btn.mtgWanted = wanted;
         var icon = btn.querySelector('.material-icons');
@@ -254,15 +390,16 @@
         var more = page.querySelector('.mainDetailButtons .btnMoreCommands');
         var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
         if (!host) { return; }
-        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'button-flat detailButton ' + DETAIL_WANT_CLASS });
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'button-flat detailButton ' + DETAIL_WANT_CLASS, 'data-itemid': itemId });
         var content = h('div', { 'class': 'detailButton-content' });
         content.appendChild(h('span', { 'class': 'material-icons detailButton-icon bookmark_border', 'aria-hidden': 'true' }));
         btn.appendChild(content);
         setDetailButtonState(btn, false);
         btn.addEventListener('click', function () {
             btn.disabled = true;
-            setOwnedWanted(itemId, !btn.mtgWanted).then(function () {
-                setDetailButtonState(btn, !btn.mtgWanted);
+            var next = !btn.mtgWanted;
+            setOwnedWanted(itemId, next).then(function () {
+                syncOwnedWanted(itemId, next);
                 btn.disabled = false;
             }, function () {
                 btn.disabled = false;
@@ -278,7 +415,13 @@
     // The dialog is a history entry, as jellyfin-web's own dialogs are: opening pushes one on the same URL,
     // and Back, however the client delivers it (a key, the Android app calling the router's back natively,
     // the browser button), pops it, which closes the dialog. Closing by any other means pops it ourselves.
-    var DIALOG_STATE = { mtgDialog: true };
+    // The router keeps its position in history.state.idx; the pushed state carries idx + 1, as the router's
+    // own push would, so its back arithmetic is unaffected.
+    function dialogState() {
+        var current = window.history.state || {};
+        var idx = typeof current.idx === 'number' ? current.idx + 1 : 1;
+        return { idx: idx, mtgDialog: true };
+    }
 
     function closeDialog(fromHistory) {
         var dlg = document.getElementById(DIALOG_ID);
@@ -379,7 +522,9 @@
     function renderDialog(ctx, item, detail, profiles) {
         closeDialog();
         var canSend = ctx.canSend(item.Kind);
-        var overlay = h('div', { 'id': DIALOG_ID, 'class': 'mtgOverlay', 'role': 'dialog', 'aria-modal': 'true', 'aria-label': detail.Title });
+        // "dialogContainer" is the class jellyfin-web's router checks before it will go back on a start page
+        // (the home screen): without it, Back on a TV does nothing there, or exits the app.
+        var overlay = h('div', { 'id': DIALOG_ID, 'class': 'dialogContainer mtgOverlay', 'role': 'dialog', 'aria-modal': 'true', 'aria-label': detail.Title });
         overlay.mtgRestoreFocus = document.activeElement;
         overlay.addEventListener('click', function (e) { if (e.target === overlay) { closeDialog(); } });
 
@@ -454,7 +599,7 @@
         document.body.appendChild(overlay);
         document.addEventListener('keydown', onDialogKey, true);
         document.addEventListener('focusin', keepFocusInDialog, true);
-        try { window.history.pushState(DIALOG_STATE, '', window.location.href); } catch (err) { /* history unavailable: Escape and X still close */ }
+        try { window.history.pushState(dialogState(), '', window.location.href); } catch (err) { /* history unavailable: Escape and X still close */ }
         firstFocus.focus();
     }
 
@@ -800,6 +945,7 @@
             var s = results[1];
             remove(page, PERSON_ID);
             remove(page, RELATED_ID);
+            currentPageItem = item || null;
             if (!item) { return; }
             if (item.Type === 'Person' && s.PersonPage) {
                 return api('GET', 'MindTheGaps/Person/' + item.Id + '/Missing').then(function (data) {
