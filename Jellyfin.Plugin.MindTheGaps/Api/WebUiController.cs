@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -39,6 +40,7 @@ public class WebUiController : ControllerBase
     private readonly PersonMissingService _person;
     private readonly RelatedMissingService _related;
     private readonly HomeDiscoverService _home;
+    private readonly WantToWatchService _want;
     private readonly WebUiGapResolver _resolver;
     private readonly AcquisitionService _acquisition;
 
@@ -48,13 +50,15 @@ public class WebUiController : ControllerBase
     /// <param name="person">Computes a person's unowned filmography.</param>
     /// <param name="related">Computes a title's unowned similar titles.</param>
     /// <param name="home">Builds the home screen's discovery row.</param>
+    /// <param name="want">The want-to-watch list.</param>
     /// <param name="resolver">Rehydrates and describes a card's gap.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, WebUiGapResolver resolver, AcquisitionService acquisition)
+    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, WantToWatchService want, WebUiGapResolver resolver, AcquisitionService acquisition)
     {
         _person = person;
         _related = related;
         _home = home;
+        _want = want;
         _resolver = resolver;
         _acquisition = acquisition;
     }
@@ -103,7 +107,14 @@ public class WebUiController : ControllerBase
     public ActionResult<WebUiSurfaces> GetSurfaces()
     {
         var c = Plugin.RequireConfiguration();
-        return new WebUiSurfaces { PersonPage = c.PersonPageEnabled, ItemPage = c.ItemPageEnabled, HomeRow = c.HomeRowEnabled };
+        return new WebUiSurfaces
+        {
+            PersonPage = c.PersonPageEnabled,
+            ItemPage = c.ItemPageEnabled,
+            HomeRow = c.HomeRowEnabled,
+            WantToWatch = c.WantToWatchEnabled,
+            CanEditWantToWatch = c.WantToWatchEnabled && IsAdministrator
+        };
     }
 
     /// <summary>
@@ -125,7 +136,14 @@ public class WebUiController : ControllerBase
         }
 
         var result = await _person.GetAsync(personId, IsAdministrator, cancellationToken).ConfigureAwait(false);
-        return result is null ? NotFound() : result;
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        MarkWanted(result.Movies);
+        MarkWanted(result.Series);
+        return result;
     }
 
     /// <summary>
@@ -147,7 +165,13 @@ public class WebUiController : ControllerBase
         }
 
         var result = await _related.GetAsync(itemId, IsAdministrator, cancellationToken).ConfigureAwait(false);
-        return result is null ? NotFound() : result;
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        MarkWanted(result.Titles);
+        return result;
     }
 
     /// <summary>
@@ -168,7 +192,66 @@ public class WebUiController : ControllerBase
         }
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
-        return _home.Get(IsAdministrator, size);
+        var result = _home.Get(IsAdministrator, size);
+        MarkWanted(result.Titles);
+        return result;
+    }
+
+    /// <summary>
+    /// The home screen's want-to-watch row: the todo list's undone movies and series, newest added first.
+    /// </summary>
+    /// <returns>The row, or 404 while the list is off.</returns>
+    [HttpGet("Home/WantToWatch")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<HomeDiscoverResult> GetWantToWatch()
+    {
+        if (!Enabled(GapSource.Todo))
+        {
+            return NotFound();
+        }
+
+        return _want.Get(IsAdministrator);
+    }
+
+    /// <summary>
+    /// Adds a card's title to the want-to-watch list, or removes it. The gap is rehydrated server-side from
+    /// the surface it came from.
+    /// </summary>
+    /// <param name="source">The surface the card is on: person, item, home, or todo.</param>
+    /// <param name="sourceId">The person or item id the surface is for; omitted otherwise.</param>
+    /// <param name="gapId">The gap id the card showed.</param>
+    /// <param name="wanted">True to add, false to remove.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Whether the title is now on the list.</returns>
+    [HttpPost("WebUi/WantToWatch")]
+    [Authorize(Policy = "RequiresElevation")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<WantToWatchState>> SetWantToWatch([FromQuery] string? source, [FromQuery] Guid? sourceId, [FromQuery] string? gapId, [FromQuery] bool wanted, CancellationToken cancellationToken)
+    {
+        if (!Enabled(GapSource.Todo) || !WebUiGapResolver.TryParse(source, out var parsed) || !Enabled(parsed))
+        {
+            return NotFound();
+        }
+
+        if (!wanted)
+        {
+            _want.Remove(gapId ?? string.Empty);
+            return new WantToWatchState { GapId = gapId ?? string.Empty, Wanted = false };
+        }
+
+        var gap = await _resolver.ResolveAsync(parsed, sourceId ?? Guid.Empty, gapId ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        if (gap is null)
+        {
+            return NotFound();
+        }
+
+        _want.Add(gap);
+        return new WantToWatchState { GapId = gap.Id, Wanted = true };
     }
 
     /// <summary>
@@ -260,8 +343,17 @@ public class WebUiController : ControllerBase
         GapSource.Person => c.PersonPageEnabled,
         GapSource.Item => c.ItemPageEnabled,
         GapSource.Home => c.HomeRowEnabled,
+        GapSource.Todo => c.WantToWatchEnabled,
         _ => false
     };
+
+    private void MarkWanted(IReadOnlyList<MissingTitle> titles)
+    {
+        if (Enabled(GapSource.Todo))
+        {
+            _want.Mark(titles);
+        }
+    }
 
     private static (byte[] Bytes, EntityTagHeaderValue ETag)? LoadClientScript()
     {

@@ -17,6 +17,7 @@ public sealed class WebUiGapResolver
     private readonly PersonMissingService _person;
     private readonly RelatedMissingService _related;
     private readonly HomeDiscoverService _home;
+    private readonly WantToWatchService _want;
     private readonly TmdbClient _tmdb;
 
     /// <summary>
@@ -25,12 +26,14 @@ public sealed class WebUiGapResolver
     /// <param name="person">The person page's lookup.</param>
     /// <param name="related">The item page's lookup.</param>
     /// <param name="home">The home row's lookup.</param>
+    /// <param name="want">The want-to-watch list's lookup.</param>
     /// <param name="tmdb">The TMDB client, for the detail record.</param>
-    public WebUiGapResolver(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, TmdbClient tmdb)
+    public WebUiGapResolver(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, WantToWatchService want, TmdbClient tmdb)
     {
         _person = person;
         _related = related;
         _home = home;
+        _want = want;
         _tmdb = tmdb;
     }
 
@@ -54,6 +57,7 @@ public sealed class WebUiGapResolver
             GapSource.Person => await _person.FindGapAsync(sourceId, gapId, cancellationToken).ConfigureAwait(false),
             GapSource.Item => await _related.FindGapAsync(sourceId, gapId, cancellationToken).ConfigureAwait(false),
             GapSource.Home => _home.FindGap(gapId),
+            GapSource.Todo => _want.FindGap(gapId),
             _ => null
         };
     }
@@ -93,7 +97,7 @@ public sealed class WebUiGapResolver
     /// <summary>
     /// Parses a surface name from a query string.
     /// </summary>
-    /// <param name="value">The value ("person", "item", "home").</param>
+    /// <param name="value">The value ("person", "item", "home", "todo").</param>
     /// <param name="source">The parsed surface.</param>
     /// <returns><see langword="true"/> when recognised.</returns>
     public static bool TryParse(string? value, out GapSource source)

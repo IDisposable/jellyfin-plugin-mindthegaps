@@ -77,6 +77,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<PersonMissingService>();
         serviceCollection.AddSingleton<RelatedMissingService>();
         serviceCollection.AddSingleton<HomeDiscoverService>();
+        serviceCollection.AddSingleton<WantToWatchService>();
         serviceCollection.AddSingleton<WebUiGapResolver>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 

@@ -9,6 +9,7 @@ public class WebUiGapResolverTests
     [InlineData("person", true, GapSource.Person)]
     [InlineData("Item", true, GapSource.Item)]
     [InlineData("HOME", true, GapSource.Home)]
+    [InlineData("todo", true, GapSource.Todo)]
     [InlineData("report", false, GapSource.Person)]
     [InlineData("2", false, GapSource.Person)]
     [InlineData("", false, GapSource.Person)]

@@ -82,6 +82,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ItemPageEnabled = false;
         HomeRowEnabled = false;
         HomeRowSize = 24;
+        WantToWatchEnabled = false;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
@@ -524,11 +525,19 @@ public class PluginConfiguration : BasePluginConfiguration
     public int HomeRowSize { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the web UI offers a want-to-watch list: a bookmark on every
+    /// card and in the detail dialog (administrators add and remove), and a "Want to watch" row on the home
+    /// screen for everyone. Backed by the plugin's todo list, so it also appears on the report's TODO tab,
+    /// checks itself against the library, and exports with it. Off by default.
+    /// </summary>
+    public bool WantToWatchEnabled { get; set; }
+
+    /// <summary>
     /// Gets a value indicating whether any web UI surface is on, which is when the client script is added to
     /// the web client.
     /// </summary>
     [System.Xml.Serialization.XmlIgnore]
-    public bool WebUiEnabled => PersonPageEnabled || ItemPageEnabled || HomeRowEnabled;
+    public bool WebUiEnabled => PersonPageEnabled || ItemPageEnabled || HomeRowEnabled || WantToWatchEnabled;
 
     /// <summary>
     /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows

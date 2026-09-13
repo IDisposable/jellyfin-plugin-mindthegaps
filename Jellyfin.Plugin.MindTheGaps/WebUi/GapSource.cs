@@ -19,5 +19,10 @@ public enum GapSource
     /// <summary>
     /// The home screen: the gap is a recommendation in the scanned report.
     /// </summary>
-    Home
+    Home,
+
+    /// <summary>
+    /// The want-to-watch row: the gap is an entry on the todo list, rebuilt from its snapshot.
+    /// </summary>
+    Todo
 }

@@ -227,6 +227,8 @@ public sealed class TodoStore
             TargetKindName = gap.TargetKindName,
             PatternName = gap.PatternName,
             Creator = gap.SourceItemName,
+            ImageUrl = gap.ImageUrl,
+            ReleaseDate = gap.ReleaseDate,
             ProviderIds = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase),
             Links = new List<ExternalLink>(gap.Links),
             AddedUtc = NowUtc()

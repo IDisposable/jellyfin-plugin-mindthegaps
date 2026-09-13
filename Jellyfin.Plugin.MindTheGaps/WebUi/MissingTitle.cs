@@ -46,6 +46,11 @@ public sealed class MissingTitle
     public string Kind { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets a value indicating whether the title is on the want-to-watch list.
+    /// </summary>
+    public bool Wanted { get; set; }
+
+    /// <summary>
     /// Gets or sets the TMDB id of the title.
     /// </summary>
     public int TmdbId { get; set; }
