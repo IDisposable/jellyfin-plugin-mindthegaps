@@ -26,9 +26,13 @@ Both projects build clean with StyleCop and the .NET analyzers running as **erro
   `artifacts` too, or the plugin fails to load with a `ReflectionTypeLoadException`.
 - **Versions are centralized.** `Directory.Packages.props` pins every package version from a single
   `$(JellyfinVersion)` property, so the CI matrix can build each ABI by passing `-p:JellyfinVersion=`.
-- **One ABI today.** The plugin targets `net9.0` / Jellyfin ABI `10.11.0.0` (the only published Jellyfin
-  NuGet ABI). The [CI matrix](.github/workflows/build.yaml) has a `12.x` row ready to uncomment once a 12.x
-  NuGet ships. Keep the `.csproj` `TargetFramework` and `build.yaml`'s `targetAbi` in step.
+- **Two ABIs.** The [CI matrix](.github/workflows/build.yaml) builds `net9.0` / Jellyfin ABI `10.11.0.0`
+  and `net10.0` / ABI `12.0.0.0` from the same source. The target framework is not hard-coded in the
+  `.csproj` files: they read `$(PluginFramework)` (default `net9.0`, set in `Directory.Packages.props`),
+  and each matrix row passes `-p:PluginFramework=` alongside `-p:JellyfinVersion=`. Do not switch that back
+  to `-p:TargetFramework=`: MSBuild drops `TargetFramework` from the global properties it passes to the
+  implicit restore, so NuGet resolves for the literal TFM and fails with NU1202 on the other row. To build
+  the 12.x flavour locally: `dotnet build -p:PluginFramework=net10.0 -p:JellyfinVersion=12.0.0`.
 
 The full standalone build-and-package pattern is written up in
 [this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd), and the conventions this

@@ -2,6 +2,13 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">10.11.0</JellyfinVersion>
+    <!--
+      Target framework for the Jellyfin ABI above. Both .csproj files read $(PluginFramework) rather than
+      hard-coding a TFM. CI must pass this (not -p:TargetFramework=): MSBuild strips TargetFramework from
+      the global properties it hands to the implicit restore, so NuGet would resolve packages for the
+      .csproj's literal TFM and fail with NU1202 on any other ABI row.
+    -->
+    <PluginFramework Condition="'$(PluginFramework)' == ''">net9.0</PluginFramework>
   </PropertyGroup>
 
   <ItemGroup>
