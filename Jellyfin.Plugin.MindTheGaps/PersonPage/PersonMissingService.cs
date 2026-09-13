@@ -124,6 +124,50 @@ public sealed class PersonMissingService
         return gaps.Gaps.FirstOrDefault(g => string.Equals(g.Id, gapId, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Describes one of the person's unowned titles from TMDB's own record, for the page's detail view.
+    /// </summary>
+    /// <param name="personId">The Jellyfin person id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The detail, or <see langword="null"/> when the person, the gap, or TMDB's record is not there.</returns>
+    public async Task<PersonMissingDetail?> GetDetailAsync(Guid personId, string gapId, CancellationToken cancellationToken)
+    {
+        var person = _libraryManager.GetItemById<Person>(personId);
+        if (person is null || string.IsNullOrEmpty(gapId))
+        {
+            return null;
+        }
+
+        // The mapper emits one gap per credit; the card merged them, so the dialog's credit line must too.
+        var credits = (await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false)).Gaps
+            .Where(g => string.Equals(g.Id, gapId, StringComparison.Ordinal))
+            .ToList();
+        var gap = credits.FirstOrDefault();
+        if (gap is null || !gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var raw)
+            || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        {
+            return null;
+        }
+
+        string? role = null;
+        foreach (var credit in credits)
+        {
+            role = PersonMissingBuilder.MergeRoles(role, credit.Overview);
+        }
+
+        gap.Overview = role;
+        var config = Plugin.RequireConfiguration();
+        if (gap.TargetKind == BaseItemKind.Movie)
+        {
+            var movie = await _tmdb.GetMovieDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+            return movie is null ? null : PersonMissingDetailMapper.FromMovie(gap, movie, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+        }
+
+        var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+        return show is null ? null : PersonMissingDetailMapper.FromSeries(gap, show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+    }
+
     private async Task<(IReadOnlyList<GapItem> Gaps, int? TmdbId, string? Reason)> BuildGapsAsync(Person person, CancellationToken cancellationToken)
     {
         if (!person.TryGetProviderId(ProviderIds.Tmdb, out var raw)

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.PersonPage;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Common.Net;
@@ -98,8 +99,10 @@ public sealed class AcquisitionService
     /// <param name="gap">The gap to send.</param>
     /// <param name="config">The plugin configuration.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="qualityProfileId">A quality profile to use instead of the configured default, when the
+    /// caller offered a choice (the person page); <see langword="null"/> or non-positive keeps the default.</param>
     /// <returns>The outcome.</returns>
-    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, CancellationToken cancellationToken)
+    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, CancellationToken cancellationToken, int? qualityProfileId = null)
     {
         ArgumentNullException.ThrowIfNull(gap);
         ArgumentNullException.ThrowIfNull(config);
@@ -122,7 +125,7 @@ public sealed class AcquisitionService
             {
                 ["title"] = gap.Name,
                 ["tmdbId"] = tmdbId.Value,
-                ["qualityProfileId"] = config.RadarrQualityProfileId,
+                ["qualityProfileId"] = ChooseProfile(qualityProfileId, config.RadarrQualityProfileId),
                 ["rootFolderPath"] = config.RadarrRootFolderPath,
                 ["monitored"] = true,
                 ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["searchForMovie"] = true }
@@ -148,7 +151,7 @@ public sealed class AcquisitionService
         {
             ["title"] = seriesTitle,
             ["tvdbId"] = tvdbId.Value,
-            ["qualityProfileId"] = config.SonarrQualityProfileId,
+            ["qualityProfileId"] = ChooseProfile(qualityProfileId, config.SonarrQualityProfileId),
             ["rootFolderPath"] = config.SonarrRootFolderPath,
             ["monitored"] = true,
             ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -158,6 +161,32 @@ public sealed class AcquisitionService
             }
         };
         return await PostAsync(config.SonarrUrl, "/api/v3/series", config.SonarrApiKey, seriesPayload, "Sonarr", "Sent to Sonarr.", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lists the quality profiles each configured arr offers, so a caller can let the user choose one for a
+    /// send. A target that is not configured, or does not answer, contributes an empty list rather than an
+    /// error: the choice is a convenience over the configured default, not a requirement.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles per target and the configured defaults.</returns>
+    public async Task<AcquisitionProfiles> GetQualityProfilesAsync(PluginConfiguration config, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        var result = new AcquisitionProfiles { RadarrDefault = config.RadarrQualityProfileId, SonarrDefault = config.SonarrQualityProfileId };
+        if (RadarrConfigured(config))
+        {
+            result.Radarr = await GetProfilesAsync(config.RadarrUrl, config.RadarrApiKey, "Radarr", cancellationToken).ConfigureAwait(false);
+        }
+
+        if (SonarrConfigured(config))
+        {
+            result.Sonarr = await GetProfilesAsync(config.SonarrUrl, config.SonarrApiKey, "Sonarr", cancellationToken).ConfigureAwait(false);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -226,6 +255,85 @@ public sealed class AcquisitionService
         }
 
         return null;
+    }
+
+    private static int ChooseProfile(int? requested, int configured)
+        => requested is > 0 ? requested.Value : configured;
+
+    // Both arrs expose the same shape at the same path: [{ id, name, ... }].
+    private async Task<IReadOnlyList<QualityProfileChoice>> GetProfilesAsync(string baseUrl, string apiKey, string service, CancellationToken cancellationToken)
+    {
+        var url = baseUrl.TrimEnd('/') + "/api/v3/qualityprofile";
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return [];
+        }
+
+        var logUrl = LogSafe.Redact(uri.ToString());
+        try
+        {
+            var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("{Service}: {Status} from GET {Url}", service, (int)response.StatusCode, logUrl);
+                return [];
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return ParseProfiles(doc.RootElement);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Service}: could not list quality profiles from GET {Url}", service, logUrl);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Reads an arr's quality-profile list: every element with a positive integer <c>id</c> and a non-empty
+    /// <c>name</c>, in the order given. Anything else is skipped.
+    /// </summary>
+    /// <param name="root">The JSON array.</param>
+    /// <returns>The profiles.</returns>
+    public static IReadOnlyList<QualityProfileChoice> ParseProfiles(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var profiles = new List<QualityProfileChoice>();
+        foreach (var element in root.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.TryGetProperty("id", out var idProp)
+                || idProp.ValueKind != JsonValueKind.Number
+                || !idProp.TryGetInt32(out var id)
+                || id <= 0
+                || !element.TryGetProperty("name", out var nameProp)
+                || nameProp.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var name = nameProp.GetString();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            profiles.Add(new QualityProfileChoice { Id = id, Name = name });
+        }
+
+        return profiles;
     }
 
     private async Task<AcquisitionResult> PostAsync(string baseUrl, string path, string apiKey, IReadOnlyDictionary<string, object?> payload, string service, string successMessage, CancellationToken cancellationToken)

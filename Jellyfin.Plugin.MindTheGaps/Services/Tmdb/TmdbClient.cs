@@ -10,8 +10,10 @@ using Microsoft.Extensions.Logging;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.Find;
+using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.People;
 using TMDbLib.Objects.Search;
+using TMDbLib.Objects.TvShows;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
@@ -34,6 +36,7 @@ public sealed class TmdbClient : IDisposable
 
     private const string ImageBaseUrl = "https://image.tmdb.org/t/p/";
     private const string PosterSize = "w500";
+    private const string BackdropSize = "w1280";
 
     private readonly IMemoryCache _cache;
     private readonly ILogger<TmdbClient>? _logger;
@@ -134,6 +137,80 @@ public sealed class TmdbClient : IDisposable
         }
 
         return person;
+    }
+
+    /// <summary>
+    /// Gets a movie's details (overview, runtime, genres, rating, external ids, videos) by its TMDB id, for a
+    /// detail view of an unowned title.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB movie id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="country">The metadata country code.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The movie, or <see langword="null"/>.</returns>
+    public async Task<Movie?> GetMovieDetailsAsync(int tmdbId, string? language, string? country, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"moviedetails-{tmdbId}-{language}");
+        if (_cache.TryGetValue(key, out Movie? cached))
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: GetMovie {TmdbId} lang {Language}", tmdbId, language);
+        var movie = await _client.GetMovieAsync(
+            tmdbId,
+            NormalizeLanguage(language, country),
+            null,
+            MovieMethods.ExternalIds | MovieMethods.Videos,
+            cancellationToken).ConfigureAwait(false);
+
+        if (movie is not null)
+        {
+            _cache.Set(key, movie, TimeSpan.FromHours(CacheDurationHours));
+        }
+        else
+        {
+            _logger?.LogWarning("TMDB: GetMovie {TmdbId} returned nothing", tmdbId);
+        }
+
+        return movie;
+    }
+
+    /// <summary>
+    /// Gets a series' details (overview, seasons, genres, rating, network, external ids, videos) by its TMDB
+    /// id, for a detail view of an unowned title.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB series id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="country">The metadata country code.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The series, or <see langword="null"/>.</returns>
+    public async Task<TvShow?> GetSeriesDetailsAsync(int tmdbId, string? language, string? country, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"seriesdetails-{tmdbId}-{language}");
+        if (_cache.TryGetValue(key, out TvShow? cached))
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: GetTvShow {TmdbId} lang {Language}", tmdbId, language);
+        var show = await _client.GetTvShowAsync(
+            tmdbId,
+            TvShowMethods.ExternalIds | TvShowMethods.Videos,
+            NormalizeLanguage(language, country),
+            null,
+            cancellationToken).ConfigureAwait(false);
+
+        if (show is not null)
+        {
+            _cache.Set(key, show, TimeSpan.FromHours(CacheDurationHours));
+        }
+        else
+        {
+            _logger?.LogWarning("TMDB: GetTvShow {TmdbId} returned nothing", tmdbId);
+        }
+
+        return show;
     }
 
     /// <summary>
@@ -603,6 +680,14 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The absolute URL, or <see langword="null"/>.</returns>
     public string? GetPosterUrl(string? posterPath)
         => string.IsNullOrEmpty(posterPath) ? null : ImageBaseUrl + PosterSize + posterPath;
+
+    /// <summary>
+    /// Resolves a TMDB backdrop path to a URL.
+    /// </summary>
+    /// <param name="backdropPath">The backdrop path.</param>
+    /// <returns>The URL, or <see langword="null"/>.</returns>
+    public string? GetBackdropUrl(string? backdropPath)
+        => string.IsNullOrEmpty(backdropPath) ? null : ImageBaseUrl + BackdropSize + backdropPath;
 
     /// <inheritdoc />
     public void Dispose()

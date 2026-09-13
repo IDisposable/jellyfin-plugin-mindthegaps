@@ -103,11 +103,57 @@ public class PersonPageController : ControllerBase
     }
 
     /// <summary>
+    /// Describes one of the person's unowned titles (overview, rating, runtime, genres, links) so the viewer
+    /// can decide before sending it.
+    /// </summary>
+    /// <param name="personId">The Jellyfin person id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The detail, or 404 when it is not one of the person's missing titles or while the feature is off.</returns>
+    [HttpGet("Person/{personId}/Missing/Detail")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PersonMissingDetail>> GetDetail([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+    {
+        if (!Enabled)
+        {
+            return NotFound();
+        }
+
+        var detail = await _missing.GetDetailAsync(personId, gapId ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        return detail is null ? NotFound() : detail;
+    }
+
+    /// <summary>
+    /// Lists the quality profiles Radarr and Sonarr offer, with the configured defaults, so an administrator
+    /// can pick one per send.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles per target.</returns>
+    [HttpGet("PersonPage/Profiles")]
+    [Authorize(Policy = "RequiresElevation")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AcquisitionProfiles>> GetProfiles(CancellationToken cancellationToken)
+    {
+        if (!Enabled)
+        {
+            return NotFound();
+        }
+
+        return await _acquisition.GetQualityProfilesAsync(Plugin.RequireConfiguration(), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Sends one of the person's unowned titles to Radarr (a movie) or Sonarr (a series). The gap is
     /// recomputed server-side from the person's credits, never trusted from the client.
     /// </summary>
     /// <param name="personId">The Jellyfin person id.</param>
     /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="qualityProfileId">A quality profile chosen for this send; omitted keeps the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome.</returns>
     [HttpPost("Person/{personId}/Send")]
@@ -115,7 +161,7 @@ public class PersonPageController : ControllerBase
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AcquisitionSendResult>> Send([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+    public async Task<ActionResult<AcquisitionSendResult>> Send([FromRoute] Guid personId, [FromQuery] string? gapId, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
     {
         if (!Enabled)
         {
@@ -128,7 +174,7 @@ public class PersonPageController : ControllerBase
             return new AcquisitionSendResult { Success = false, Failed = 1, Message = "That title is no longer missing for this person; reload the page." };
         }
 
-        var result = await _acquisition.SendToArrAsync(gap, Plugin.RequireConfiguration(), cancellationToken).ConfigureAwait(false);
+        var result = await _acquisition.SendToArrAsync(gap, Plugin.RequireConfiguration(), cancellationToken, qualityProfileId).ConfigureAwait(false);
         return new AcquisitionSendResult
         {
             Success = result.Success,
