@@ -70,6 +70,8 @@ function loadConfig(page, config) {
     page.querySelector('#SonarrQualityProfileId').value = config.SonarrQualityProfileId || 0;
     page.querySelector('#SonarrRootFolderPath').value = config.SonarrRootFolderPath || '';
     page.querySelector('#SonarrMonitor').value = config.SonarrMonitor || 'all';
+    page.querySelector('#PersonPageEnabled').checked = config.PersonPageEnabled;
+    page.querySelector('#PersonPageMinVotes').value = config.PersonPageMinVotes || 0;
     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
     page.querySelector('#MinRecommendationVotes').value = config.MinRecommendationVotes;
     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
@@ -155,6 +157,8 @@ function saveConfig(page, e) {
         config.SonarrQualityProfileId = parseInt(form.querySelector('#SonarrQualityProfileId').value || '0', 10);
         config.SonarrRootFolderPath = form.querySelector('#SonarrRootFolderPath').value.trim();
         config.SonarrMonitor = form.querySelector('#SonarrMonitor').value.trim() || 'all';
+        config.PersonPageEnabled = form.querySelector('#PersonPageEnabled').checked;
+        config.PersonPageMinVotes = parseInt(form.querySelector('#PersonPageMinVotes').value || '0', 10);
         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
         config.MinRecommendationVotes = parseInt(form.querySelector('#MinRecommendationVotes').value || '0', 10);
         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);

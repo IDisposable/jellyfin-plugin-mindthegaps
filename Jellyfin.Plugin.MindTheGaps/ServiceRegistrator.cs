@@ -8,6 +8,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
+using Jellyfin.Plugin.MindTheGaps.PersonPage;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
@@ -26,6 +27,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Webhook;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.MindTheGaps;
@@ -46,6 +48,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<LibraryVerifier>();
         serviceCollection.AddSingleton<ExploreRegistry>();
+        serviceCollection.AddSingleton<OwnershipIndexBuilder>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<ExploreRunner>();
@@ -67,6 +70,11 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
         serviceCollection.AddSingleton<AcquisitionService>();
+
+        // The person page: its per-person lookup, and the request-time middleware that adds its client script
+        // to the web client's index.html (the toggle is read per request, so it is registered unconditionally).
+        serviceCollection.AddSingleton<PersonMissingService>();
+        serviceCollection.AddSingleton<IStartupFilter, PersonPageScriptInjection>();
 
         // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();

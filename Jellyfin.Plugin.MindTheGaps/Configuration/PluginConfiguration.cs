@@ -78,6 +78,8 @@ public class PluginConfiguration : BasePluginConfiguration
         SonarrQualityProfileId = 0;
         SonarrRootFolderPath = string.Empty;
         SonarrMonitor = "all";
+        PersonPageEnabled = false;
+        PersonPageMinVotes = 0;
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
         DetailedApiLogging = false;
     }
@@ -490,6 +492,23 @@ public class PluginConfiguration : BasePluginConfiguration
     /// the Sonarr handoff.
     /// </summary>
     public string SonarrRootFolderPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the person page section is on: a "Missing" section injected
+    /// into every actor/director page in Jellyfin Web listing the unowned movies and series they are credited
+    /// on, with a Send button for administrators when Radarr/Sonarr are configured. Needs the File
+    /// Transformation plugin to inject the client script; without it, the script tag must be added to
+    /// index.html by hand. Off by default.
+    /// </summary>
+    public bool PersonPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows
+    /// every credit). Separate from <see cref="MinFilmographyVotes"/> because the page answers "what of this
+    /// person's work don't I have?" for one person at a time, where the report's floor for a whole-library
+    /// scan is too aggressive: TV credits carry no vote count, so any positive floor hides every series.
+    /// </summary>
+    public int PersonPageMinVotes { get; set; }
 
     /// <summary>
     /// Gets or sets the Sonarr monitor option for a sent series (for example all, future, missing,

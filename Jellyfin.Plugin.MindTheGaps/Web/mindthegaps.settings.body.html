@@ -406,6 +406,21 @@
             </div>
         </div>
         <div class="verticalSection">
+            <h2 class="sectionTitle">Person pages (optional)</h2>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="PersonPageEnabled" name="PersonPageEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Show a "Missing from your library" section on every actor and director page</span>
+                </label>
+                <div class="fieldDescription">Lists the person's movies and shows you do not own, for every signed-in user; administrators also get a Send button for each when Radarr/Sonarr above are configured. The plugin adds its script to the web client as the page is served, so nothing on disk is changed and no other plugin is needed. Takes effect on the next full page load.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="PersonPageMinVotes">Person page: minimum TMDB votes</label>
+                <input id="PersonPageMinVotes" name="PersonPageMinVotes" type="number" is="emby-input" min="0" max="100000" />
+                <div class="fieldDescription">Hides a movie credit with fewer TMDB votes than this. 0 shows every credit. Kept separate from the filmography scan floor because that floor also hides every show (TV credits carry no vote count).</div>
+            </div>
+        </div>
+        <div class="verticalSection">
             <h2 class="sectionTitle">Links</h2>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="SearchUrlTemplate">Web search URL template</label>

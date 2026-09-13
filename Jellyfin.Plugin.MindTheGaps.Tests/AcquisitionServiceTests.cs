@@ -1,4 +1,6 @@
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Xunit;
 
@@ -66,5 +68,21 @@ public class AcquisitionServiceTests
         var summary = AcquisitionResult.Summarize(huge);
         Assert.Equal(203, summary.Length);
         Assert.EndsWith("...", summary, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SeriesTitle_IsTheSeriesForAWholeSeriesGap_AndTheOwningSeriesForAnEpisodeGap()
+    {
+        // A filmography (or recommendation, or favorites) gap is the series itself; its source is the person
+        // or the recommending title, whose name Sonarr must not be given.
+        var whole = new GapItem { TargetKind = BaseItemKind.Series, Name = "House", SourceItemName = "Bryan Cranston" };
+        Assert.Equal("House", AcquisitionService.SeriesTitle(whole));
+
+        // An episode gap belongs to the owned series named in its source.
+        var episode = new GapItem { TargetKind = BaseItemKind.Episode, Name = "S02E05 Breakage", SourceItemName = "Breaking Bad" };
+        Assert.Equal("Breaking Bad", AcquisitionService.SeriesTitle(episode));
+
+        var orphan = new GapItem { TargetKind = BaseItemKind.Episode, Name = "S01E01", SourceItemName = null };
+        Assert.Equal("S01E01", AcquisitionService.SeriesTitle(orphan));
     }
 }

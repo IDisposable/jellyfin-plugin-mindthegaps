@@ -10,6 +10,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -22,7 +23,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 /// Hands a gap off to a configured acquisition stack: a movie to Radarr, a series (or a series' missing
 /// episodes) to Sonarr, or any title to Jellyseerr/Overseerr as a request. Every send is opt-in (the
 /// dashboard only shows a button for a configured target), keyed purely on ids the gap already carries (a
-/// TMDB id for Radarr and Jellyseerr; the owning series' TheTVDB id, resolved from the library, for Sonarr),
+/// TMDB id for Radarr and Jellyseerr; a series' TheTVDB id for Sonarr, resolved from the owning library series
+/// for an episode gap or from TMDB's external ids for a whole-series gap),
 /// and best-effort: an unreachable service or a rejected request is reported as a failed
 /// <see cref="AcquisitionResult"/> rather than thrown, so one bad send never aborts a batch.
 /// </summary>
@@ -32,6 +34,7 @@ public sealed class AcquisitionService
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILibraryManager _libraryManager;
+    private readonly TmdbClient _tmdb;
     private readonly ILogger<AcquisitionService> _logger;
 
     /// <summary>
@@ -39,11 +42,13 @@ public sealed class AcquisitionService
     /// </summary>
     /// <param name="httpClientFactory">The HTTP client factory.</param>
     /// <param name="libraryManager">The library manager, for resolving an owned series' TheTVDB id.</param>
+    /// <param name="tmdb">The TMDB client, for resolving an unowned series' TheTVDB id from its TMDB id.</param>
     /// <param name="logger">The logger.</param>
-    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, ILogger<AcquisitionService> logger)
+    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, TmdbClient tmdb, ILogger<AcquisitionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _libraryManager = libraryManager;
+        _tmdb = tmdb;
         _logger = logger;
     }
 
@@ -130,17 +135,18 @@ public sealed class AcquisitionService
             return AcquisitionResult.Fail("Sonarr is not configured.");
         }
 
-        var tvdbId = ResolveSeriesTvdbId(gap);
+        var seriesTitle = SeriesTitle(gap);
+        var tvdbId = await ResolveSeriesTvdbIdAsync(gap, cancellationToken).ConfigureAwait(false);
         if (tvdbId is null)
         {
-            _logger.LogWarning("Sonarr send skipped: '{Series}' has no TheTVDB id", gap.SourceItemName ?? gap.Name);
+            _logger.LogWarning("Sonarr send skipped: '{Series}' has no TheTVDB id", seriesTitle);
             return AcquisitionResult.Fail("This series has no TheTVDB id, which Sonarr needs.");
         }
 
         var monitor = string.IsNullOrWhiteSpace(config.SonarrMonitor) ? "all" : config.SonarrMonitor;
         var seriesPayload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["title"] = gap.SourceItemName ?? gap.Name,
+            ["title"] = seriesTitle,
             ["tvdbId"] = tvdbId.Value,
             ["qualityProfileId"] = config.SonarrQualityProfileId,
             ["rootFolderPath"] = config.SonarrRootFolderPath,
@@ -186,6 +192,19 @@ public sealed class AcquisitionService
             ["mediaId"] = tmdbId.Value
         };
         return await PostAsync(config.SeerrUrl, "/api/v1/request", config.SeerrApiKey, payload, "Jellyseerr", "Requested in Jellyseerr.", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The series title Sonarr is given. A whole-series gap (a filmography, recommendation, or favorites
+    /// entry) is the series itself, so its own name; an episode or season gap belongs to the owned series
+    /// named in its source, so that name.
+    /// </summary>
+    /// <param name="gap">The gap.</param>
+    /// <returns>The title.</returns>
+    public static string SeriesTitle(GapItem gap)
+    {
+        ArgumentNullException.ThrowIfNull(gap);
+        return gap.TargetKind == BaseItemKind.Series ? gap.Name : gap.SourceItemName ?? gap.Name;
     }
 
     // The movie/series TMDB id: a movie gap carries it in ProviderIds; an episode/series gap carries the
@@ -267,12 +286,16 @@ public sealed class AcquisitionService
         }
     }
 
-    // Sonarr is keyed on the series' TheTVDB id. A series-content gap stores the owned series' guid in
-    // SourceItemId, so resolve the live library item and read its TheTVDB id; fall back to a Tvdb id on the
-    // gap itself (a whole-series gap from a cross-check).
-    private int? ResolveSeriesTvdbId(GapItem gap)
+    // Sonarr is keyed on the series' TheTVDB id. An episode gap stores the owned series' guid in SourceItemId,
+    // so resolve the live library item and read its TheTVDB id. A whole-series gap's source is not a series
+    // (a person, a recommending title), so fall back to a Tvdb id already on the gap (merged in by the
+    // availability pass), and past that ask TMDB for the series' external ids, which is the one call that
+    // turns the TMDB id every series gap carries into the id Sonarr needs.
+    private async Task<int?> ResolveSeriesTvdbIdAsync(GapItem gap, CancellationToken cancellationToken)
     {
-        if (Guid.TryParse(gap.SourceItemId, out var seriesId) && seriesId != Guid.Empty)
+        if (gap.TargetKind != BaseItemKind.Series
+            && Guid.TryParse(gap.SourceItemId, out var seriesId)
+            && seriesId != Guid.Empty)
         {
             var series = _libraryManager.GetItemById(seriesId);
             if (series is not null
@@ -283,6 +306,17 @@ public sealed class AcquisitionService
             }
         }
 
-        return ParseId(GetProviderId(gap, ProviderIds.Tvdb));
+        if (ParseId(GetProviderId(gap, ProviderIds.Tvdb)) is int onGap)
+        {
+            return onGap;
+        }
+
+        if (gap.TargetKind == BaseItemKind.Series && ResolveTmdbId(gap) is int tmdbId)
+        {
+            var (_, tvdbFromTmdb) = await _tmdb.GetExternalIdsAsync(tmdbId, isSeries: true, cancellationToken).ConfigureAwait(false);
+            return ParseId(tvdbFromTmdb);
+        }
+
+        return null;
     }
 }
