@@ -275,7 +275,12 @@
 
     // ---- Detail dialog ----
 
-    function closeDialog() {
+    // The dialog is a history entry, as jellyfin-web's own dialogs are: opening pushes one on the same URL,
+    // and Back, however the client delivers it (a key, the Android app calling the router's back natively,
+    // the browser button), pops it, which closes the dialog. Closing by any other means pops it ourselves.
+    var DIALOG_STATE = { mtgDialog: true };
+
+    function closeDialog(fromHistory) {
         var dlg = document.getElementById(DIALOG_ID);
         if (!dlg) { return; }
         var restore = dlg.mtgRestoreFocus;
@@ -283,7 +288,14 @@
         document.removeEventListener('focusin', keepFocusInDialog, true);
         dlg.parentNode.removeChild(dlg);
         if (restore && restore.focus) { restore.focus(); }
+        if (!fromHistory && window.history.state && window.history.state.mtgDialog) {
+            window.history.back();
+        }
     }
+
+    window.addEventListener('popstate', function () {
+        if (document.getElementById(DIALOG_ID)) { closeDialog(true); }
+    });
 
     // Anything that still manages to focus outside the dialog (a mouse, a scroller's own handling) is
     // pulled back to the dialog's first control.
@@ -323,18 +335,24 @@
         // A focused select changes its value with up and down; leave those to it.
         if (tag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown')) { e.stopPropagation(); return; }
 
-        var items = dialogFocusables(dlg);
-        if (!items.length) { return; }
-        var index = items.indexOf(document.activeElement);
-        var next;
-        if (key === 'ArrowRight' || key === 'ArrowDown') {
-            next = index < 0 ? 0 : Math.min(index + 1, items.length - 1);
-        } else {
-            next = index < 0 ? 0 : Math.max(index - 1, 0);
+        var close = dlg.querySelector('.mtgClose');
+        var items = dialogFocusables(dlg).filter(function (el) { return el !== close; });
+        var active = document.activeElement;
+        var index = items.indexOf(active);
+        var target = null;
+        if (key === 'ArrowUp') {
+            // Up is always the way to the X in the corner.
+            target = active === close ? null : close;
+        } else if (key === 'ArrowDown') {
+            target = active === close || index < 0 ? items[0] : items[Math.min(index + 1, items.length - 1)];
+        } else if (key === 'ArrowRight') {
+            target = index < 0 ? items[0] : items[Math.min(index + 1, items.length - 1)];
+        } else if (key === 'ArrowLeft') {
+            target = index < 0 ? items[items.length - 1] : items[Math.max(index - 1, 0)];
         }
         e.preventDefault();
         e.stopPropagation();
-        items[next].focus();
+        if (target) { target.focus(); }
     }
 
     function loadProfiles() {
@@ -403,7 +421,7 @@
         if (canEditWant()) {
             var want = wantButton(ctx, item, true);
             actions.appendChild(want);
-            firstFocus = want;
+            if (firstFocus === close) { firstFocus = want; }
         }
         if (canSend) {
             var list = profiles ? (item.Kind === 'Movie' ? profiles.Radarr : profiles.Sonarr) : null;
@@ -427,7 +445,7 @@
                 send(ctx, item, dl, profileId, function () { markSent(item); });
             });
             actions.appendChild(dl);
-            firstFocus = dl;
+            if (firstFocus === close) { firstFocus = dl; }
         }
         text.appendChild(actions);
         body.appendChild(text);
@@ -436,6 +454,7 @@
         document.body.appendChild(overlay);
         document.addEventListener('keydown', onDialogKey, true);
         document.addEventListener('focusin', keepFocusInDialog, true);
+        try { window.history.pushState(DIALOG_STATE, '', window.location.href); } catch (err) { /* history unavailable: Escape and X still close */ }
         firstFocus.focus();
     }
 
