@@ -157,6 +157,7 @@
         var btn = h('button', {
             'is': withText ? 'emby-button' : 'paper-icon-button-light',
             'type': 'button',
+            'tabindex': !withText && isTv() ? '-1' : null,
             'class': (withText ? 'raised mtgWantButton mtgWantButtonText' : 'mtgWantButton') + (item.Wanted ? ' mtgWanted' : ''),
             'title': wantLabel(item.Wanted),
             'aria-label': wantLabel(item.Wanted),
@@ -461,14 +462,14 @@
 
         var actions = h('div', { 'class': 'mtgCardActions' });
         if (ctx.canSend(item.Kind)) {
-            var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgSendButton' }, 'Download Now');
+            var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgSendButton', 'tabindex': tv ? '-1' : null }, 'Download Now');
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 send(ctx, item, btn, 0, function () { markSent(item); });
             });
             actions.appendChild(btn);
         }
-        if (canEditWant()) {
+        if (canEditWant() && ctx.wantOnCards !== false) {
             actions.appendChild(wantButton(ctx, item, false));
         }
         if (actions.childNodes.length) { box.appendChild(actions); }
@@ -556,6 +557,7 @@
         var ctx = {
             source: 'home',
             sourceId: null,
+            wantOnCards: false,
             canSend: function (kind) { return kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries; }
         };
         var section = scroller(ctx, "Discover: not in your library", data.Titles, 'padded-left');
@@ -632,7 +634,9 @@
             // Jellyfin has laid out its own sections (or found nothing to show) once the container has any
             // child; until then an appended row would be wiped by its innerHTML assignment.
             if (!sectionsEl.firstChild) { return; }
-            if (surfaceFlags.WantToWatch && !sectionsEl.querySelector('#' + WANT_ID)) { loadWantRow(sectionsEl); }
+            // The want-to-watch row reflects a list the viewer edits elsewhere (a title page, a card), so it
+            // is reloaded every time the home screen shows; Discover only when it is not there yet.
+            if (surfaceFlags.WantToWatch) { loadWantRow(sectionsEl); }
             if (surfaceFlags.HomeRow && !sectionsEl.querySelector('#' + HOME_ID)) {
                 api('GET', 'MindTheGaps/Home/Discover').then(function (data) { renderHome(sectionsEl, data); }, function () { /* off, or not signed in */ });
             }
@@ -641,15 +645,74 @@
             if (timer) { clearTimeout(timer); }
             timer = setTimeout(load, 250);
         };
+        var ours = function (node) { return node.nodeType === 1 && (node.id === WANT_ID || node.id === HOME_ID); };
         homeObserver = new MutationObserver(function (records) {
             for (var i = 0; i < records.length; i++) {
-                // Ignore mutations inside our own row.
-                if (records[i].target === sectionsEl) { schedule(); return; }
+                if (records[i].target !== sectionsEl) { continue; }
+                // Our own rows coming and going must not trigger another load.
+                var foreign = Array.prototype.some.call(records[i].addedNodes, function (n) { return !ours(n); })
+                    || Array.prototype.some.call(records[i].removedNodes, function (n) { return !ours(n); });
+                if (foreign) { schedule(); return; }
             }
         });
         homeObserver.observe(sectionsEl, { childList: true });
         schedule();
     }
+
+    // ---- TV navigation inside a row ----
+    //
+    // In the TV layout the buttons under a card are taken out of the focus order (tabindex -1), so a
+    // controller moves poster to poster along a row, as it does on jellyfin-web's own rows. Down from a
+    // poster steps onto its first button; left and right move between that card's buttons and then on to
+    // the neighbouring card's poster; up returns to the poster. Handled in the capture phase and marked as
+    // handled, which jellyfin-web's own key handler respects.
+
+    function keyName(e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') { return e.key; }
+        return { 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' }[e.keyCode] || null;
+    }
+
+    function cardActionButtons(card) {
+        return Array.prototype.slice.call(card.querySelectorAll('.mtgCardActions button'));
+    }
+
+    function siblingCard(card, direction) {
+        var el = direction > 0 ? card.nextElementSibling : card.previousElementSibling;
+        while (el && !el.classList.contains('mtgCard')) { el = direction > 0 ? el.nextElementSibling : el.previousElementSibling; }
+        return el;
+    }
+
+    function onRowKey(e) {
+        if (!isTv() || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) { return; }
+        var key = keyName(e);
+        if (!key) { return; }
+        var active = document.activeElement;
+        if (!active) { return; }
+
+        var target = null;
+        if (active.classList.contains('mtgCard')) {
+            if (key === 'ArrowDown') { target = cardActionButtons(active)[0] || null; }
+        } else if (active.closest && active.closest('.mtgCardActions')) {
+            var card = active.closest('.mtgCard');
+            var buttons = cardActionButtons(card);
+            var index = buttons.indexOf(active);
+            if (key === 'ArrowUp') {
+                target = card;
+            } else if (key === 'ArrowLeft') {
+                target = index > 0 ? buttons[index - 1] : siblingCard(card, -1);
+            } else if (key === 'ArrowRight') {
+                target = index < buttons.length - 1 ? buttons[index + 1] : siblingCard(card, 1);
+            }
+        }
+
+        if (target) {
+            e.preventDefault();
+            e.stopPropagation();
+            target.focus();
+        }
+    }
+
+    document.addEventListener('keydown', onRowKey, true);
 
     // ---- Routing ----
 
