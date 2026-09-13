@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.PersonPage;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
-public class PersonMissingDetailMapperTests
+public class MissingTitleDetailMapperTests
 {
     private static string? Poster(string? p) => p is null ? null : "https://image.tmdb.org/t/p/w500" + p;
 
@@ -50,7 +50,7 @@ public class PersonMissingDetailMapperTests
             Videos = new ResultContainer<Video> { Results = [new Video { Site = "YouTube", Type = "Trailer", Key = "bLvqoHBptjg", Official = true }] }
         };
 
-        var d = PersonMissingDetailMapper.FromMovie(Gap(BaseItemKind.Movie), movie, Poster, Backdrop);
+        var d = MissingTitleDetailMapper.FromMovie(Gap(BaseItemKind.Movie), movie, "as Someone", null, Poster, Backdrop);
 
         Assert.Equal("filmography:movie:13", d.GapId);
         Assert.Equal("Movie", d.Kind);
@@ -74,7 +74,7 @@ public class PersonMissingDetailMapperTests
     public void FromMovie_FallsBackToTheGap_WhenTmdbIsSparse()
     {
         var movie = new Movie { Id = 13, Title = string.Empty, VoteCount = 0, VoteAverage = 0, Runtime = 0, Tagline = "  " };
-        var d = PersonMissingDetailMapper.FromMovie(Gap(BaseItemKind.Movie), movie, Poster, Backdrop);
+        var d = MissingTitleDetailMapper.FromMovie(Gap(BaseItemKind.Movie), movie, "as Someone", null, Poster, Backdrop);
 
         Assert.Equal("Fallback name", d.Title);
         Assert.Equal(1990, d.Year);
@@ -106,7 +106,7 @@ public class PersonMissingDetailMapperTests
             ExternalIds = new ExternalIdsTvShow { ImdbId = "tt0412142" }
         };
 
-        var d = PersonMissingDetailMapper.FromSeries(Gap(BaseItemKind.Series), show, Poster, Backdrop);
+        var d = MissingTitleDetailMapper.FromSeries(Gap(BaseItemKind.Series), show, null, "Because you have Fargo", Poster, Backdrop);
 
         Assert.Equal("Series", d.Kind);
         Assert.Equal("House", d.Title);
@@ -118,14 +118,16 @@ public class PersonMissingDetailMapperTests
         Assert.Equal("Ended", d.Status);
         Assert.Equal("https://www.themoviedb.org/tv/1408", d.TmdbUrl);
         Assert.Equal("https://www.imdb.com/title/tt0412142/", d.ImdbUrl);
+        Assert.Null(d.Role);
+        Assert.Equal("Because you have Fargo", d.Because);
     }
 
     [Fact]
     public void TrailerUrl_PrefersOfficialTrailer_ThenTrailer_ThenTeaser_OnlyYouTube()
     {
-        Assert.Null(PersonMissingDetailMapper.TrailerUrl(null));
-        Assert.Null(PersonMissingDetailMapper.TrailerUrl([new Video { Site = "Vimeo", Type = "Trailer", Key = "v" }]));
-        Assert.Null(PersonMissingDetailMapper.TrailerUrl([new Video { Site = "YouTube", Type = "Featurette", Key = "f" }]));
+        Assert.Null(MissingTitleDetailMapper.TrailerUrl(null));
+        Assert.Null(MissingTitleDetailMapper.TrailerUrl([new Video { Site = "Vimeo", Type = "Trailer", Key = "v" }]));
+        Assert.Null(MissingTitleDetailMapper.TrailerUrl([new Video { Site = "YouTube", Type = "Featurette", Key = "f" }]));
 
         var videos = new[]
         {
@@ -133,9 +135,9 @@ public class PersonMissingDetailMapperTests
             new Video { Site = "YouTube", Type = "Trailer", Key = "fan", Official = false },
             new Video { Site = "YouTube", Type = "Trailer", Key = "official", Official = true }
         };
-        Assert.Equal("https://www.youtube.com/watch?v=official", PersonMissingDetailMapper.TrailerUrl(videos));
-        Assert.Equal("https://www.youtube.com/watch?v=fan", PersonMissingDetailMapper.TrailerUrl(videos[..2]));
-        Assert.Equal("https://www.youtube.com/watch?v=teaser", PersonMissingDetailMapper.TrailerUrl(videos[..1]));
+        Assert.Equal("https://www.youtube.com/watch?v=official", MissingTitleDetailMapper.TrailerUrl(videos));
+        Assert.Equal("https://www.youtube.com/watch?v=fan", MissingTitleDetailMapper.TrailerUrl(videos[..2]));
+        Assert.Equal("https://www.youtube.com/watch?v=teaser", MissingTitleDetailMapper.TrailerUrl(videos[..1]));
     }
 
     [Fact]

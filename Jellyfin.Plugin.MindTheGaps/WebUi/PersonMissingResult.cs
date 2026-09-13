@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// The unowned filmography of one library person, split by media type, as the person page renders it.
@@ -48,10 +48,10 @@ public sealed class PersonMissingResult
     /// <summary>
     /// Gets or sets the unowned movies, newest first.
     /// </summary>
-    public IReadOnlyList<PersonMissingItem> Movies { get; set; } = Array.Empty<PersonMissingItem>();
+    public IReadOnlyList<MissingTitle> Movies { get; set; } = Array.Empty<MissingTitle>();
 
     /// <summary>
     /// Gets or sets the unowned series, newest first.
     /// </summary>
-    public IReadOnlyList<PersonMissingItem> Series { get; set; } = Array.Empty<PersonMissingItem>();
+    public IReadOnlyList<MissingTitle> Series { get; set; } = Array.Empty<MissingTitle>();
 }

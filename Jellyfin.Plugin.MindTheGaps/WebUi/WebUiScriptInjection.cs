@@ -9,10 +9,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
-/// Adds the person page client script to jellyfin-web's index.html as it is served. Jellyfin has no hook for
+/// Adds the web UI client script to jellyfin-web's index.html as it is served. Jellyfin has no hook for
 /// a plugin to extend the web client, and index.html on disk is root-owned in a container and replaced on
 /// every upgrade, so the tag is added at request time instead: an <see cref="IStartupFilter"/> puts this
 /// middleware ahead of the static-file handler, buffers only the index.html response, and rewrites it.
@@ -20,16 +20,16 @@ namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
 /// feature toggle is read per request so switching it off needs no restart, and an error while rewriting
 /// serves the original page.
 /// </summary>
-public sealed class PersonPageScriptInjection : IStartupFilter
+public sealed class WebUiScriptInjection : IStartupFilter
 {
-    private readonly ILogger<PersonPageScriptInjection> _logger;
+    private readonly ILogger<WebUiScriptInjection> _logger;
     private int _announced;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PersonPageScriptInjection"/> class.
+    /// Initializes a new instance of the <see cref="WebUiScriptInjection"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    public PersonPageScriptInjection(ILogger<PersonPageScriptInjection> logger)
+    public WebUiScriptInjection(ILogger<WebUiScriptInjection> logger)
     {
         _logger = logger;
     }
@@ -71,7 +71,7 @@ public sealed class PersonPageScriptInjection : IStartupFilter
     {
         if (!HttpMethods.IsGet(context.Request.Method)
             || !IsIndexRequest(context.Request.Path.Value)
-            || Plugin.Instance?.Configuration.PersonPageEnabled != true)
+            || Plugin.Instance?.Configuration.WebUiEnabled != true)
         {
             await next().ConfigureAwait(false);
             return;
@@ -117,18 +117,18 @@ public sealed class PersonPageScriptInjection : IStartupFilter
 
         try
         {
-            var version = typeof(PersonPageScriptInjection).Assembly.GetName().Version?.ToString() ?? "0";
+            var version = typeof(WebUiScriptInjection).Assembly.GetName().Version?.ToString() ?? "0";
             var injected = IndexHtmlInjector.Inject(html, version);
             if (!ReferenceEquals(injected, html) && Interlocked.Exchange(ref _announced, 1) == 0)
             {
-                _logger.LogInformation("Person page: client script added to index.html at request time.");
+                _logger.LogInformation("Web UI: client script added to index.html at request time.");
             }
 
             html = injected;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Person page: could not add the client script to index.html; serving it unchanged.");
+            _logger.LogWarning(ex, "Web UI: could not add the client script to index.html; serving it unchanged.");
         }
 
         var bytes = Encoding.UTF8.GetBytes(html);

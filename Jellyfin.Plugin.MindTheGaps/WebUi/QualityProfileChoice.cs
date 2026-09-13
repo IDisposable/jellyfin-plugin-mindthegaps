@@ -1,4 +1,4 @@
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// One quality profile an acquisition target offers, as the person page lets an administrator pick it.

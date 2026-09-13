@@ -406,13 +406,32 @@
             </div>
         </div>
         <div class="verticalSection">
-            <h2 class="sectionTitle">Person pages (optional)</h2>
+            <h2 class="sectionTitle">In the Jellyfin web UI (optional)</h2>
+            <div class="fieldDescription" style="margin-bottom:1em">Each of these adds a section to Jellyfin Web for every signed-in user; administrators also get a Download button on each title when Radarr/Sonarr above are configured. The plugin adds its script to the web client as the page is served, so nothing on disk is changed and no other plugin is needed. Takes effect on the next full page load.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="PersonPageEnabled" name="PersonPageEnabled" type="checkbox" is="emby-checkbox" />
-                    <span>Show a "Missing from your library" section on every actor and director page</span>
+                    <span>Person pages: "Missing from your library"</span>
                 </label>
-                <div class="fieldDescription">Lists the person's movies and shows you do not own, for every signed-in user; administrators also get a Send button for each when Radarr/Sonarr above are configured. The plugin adds its script to the web client as the page is served, so nothing on disk is changed and no other plugin is needed. Takes effect on the next full page load.</div>
+                <div class="fieldDescription">The actor's or director's movies and shows you do not own, looked up from TMDB when the page opens.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ItemPageEnabled" name="ItemPageEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Movie and show pages: "More like this you don't have"</span>
+                </label>
+                <div class="fieldDescription">TMDB's similar titles for that movie or show that you do not own, looked up when the page opens. Uses the "Related per item" and "Recommendations: minimum TMDB votes" limits below.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="HomeRowEnabled" name="HomeRowEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Home screen: "Discover: not in your library" row</span>
+                </label>
+                <div class="fieldDescription">The recommendations the scan has accumulated, ranked by how many of your titles suggest them. Needs "Include recommendations" above and a scan.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home row: titles</label>
+                <input id="HomeRowSize" name="HomeRowSize" type="number" is="emby-input" min="1" max="100" />
             </div>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="PersonPageMinVotes">Person page: minimum TMDB votes</label>
@@ -449,7 +468,7 @@
         <div class="verticalSection">
             <h2 class="sectionTitle">Limits</h2>
             <div class="inputContainer">
-                <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
+                <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Related per item</label>
                 <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" max="100" />
                 <div class="fieldDescription">Caps how many similar titles each owned item contributes (recommended max 100).</div>
             </div>

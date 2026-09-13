@@ -1,13 +1,14 @@
 using System;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
-/// One unowned title on a person's page: a movie or series the person is credited on that the library does
-/// not hold. The <see cref="GapId"/> is the same stable id the gap report uses, so the Send action can
-/// rehydrate the gap server-side.
+/// One unowned title as the web UI shows it on a card: a movie or series the library does not hold, whether
+/// it came from a person's filmography, a title's "similar" list, or the scanned recommendations. The
+/// <see cref="GapId"/> is the same stable id the gap report uses, so the Send action can rehydrate the gap
+/// server-side from the same source the card came from.
 /// </summary>
-public sealed class PersonMissingItem
+public sealed class MissingTitle
 {
     /// <summary>
     /// Gets or sets the stable gap id (<c>filmography:movie:{tmdbId}</c> or <c>filmography:series:{tmdbId}</c>).
@@ -30,9 +31,19 @@ public sealed class PersonMissingItem
     public DateTime? ReleaseDate { get; set; }
 
     /// <summary>
-    /// Gets or sets the person's credit on the title: "as Marty McFly", "Director", "Screenplay".
+    /// Gets or sets the person's credit on the title ("as Marty McFly", "Director"), on a person page.
     /// </summary>
     public string? Role { get; set; }
+
+    /// <summary>
+    /// Gets or sets why the title is suggested, on a recommendation ("Because you have Fargo").
+    /// </summary>
+    public string? Because { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this is a movie (<c>Movie</c>) or a series (<c>Series</c>).
+    /// </summary>
+    public string Kind { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the TMDB id of the title.

@@ -16,7 +16,7 @@ using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// Answers "what of this person's work don't I have?" for one library person on demand: reads the person's
@@ -26,10 +26,6 @@ namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
 /// </summary>
 public sealed class PersonMissingService
 {
-    // The ownership index is one library read; cache it briefly so browsing several person pages in a row
-    // does not re-read the library each time, while a title added to the library still drops off within a minute.
-    private const string OwnershipCacheKey = "mtg-personpage-ownership";
-    private static readonly TimeSpan _ownershipTtl = TimeSpan.FromSeconds(60);
     private static readonly BaseItemKind[] _kinds = [BaseItemKind.Movie, BaseItemKind.Series];
 
     private readonly ILibraryManager _libraryManager;
@@ -120,52 +116,18 @@ public sealed class PersonMissingService
             return null;
         }
 
-        var gaps = await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false);
-        return gaps.Gaps.FirstOrDefault(g => string.Equals(g.Id, gapId, StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// Describes one of the person's unowned titles from TMDB's own record, for the page's detail view.
-    /// </summary>
-    /// <param name="personId">The Jellyfin person id.</param>
-    /// <param name="gapId">The gap id the page showed.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The detail, or <see langword="null"/> when the person, the gap, or TMDB's record is not there.</returns>
-    public async Task<PersonMissingDetail?> GetDetailAsync(Guid personId, string gapId, CancellationToken cancellationToken)
-    {
-        var person = _libraryManager.GetItemById<Person>(personId);
-        if (person is null || string.IsNullOrEmpty(gapId))
-        {
-            return null;
-        }
-
-        // The mapper emits one gap per credit; the card merged them, so the dialog's credit line must too.
+        // The mapper emits one gap per credit; the card merged them, so the gap handed on must carry the
+        // merged credit too.
         var credits = (await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false)).Gaps
             .Where(g => string.Equals(g.Id, gapId, StringComparison.Ordinal))
             .ToList();
         var gap = credits.FirstOrDefault();
-        if (gap is null || !gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var raw)
-            || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (gap is not null)
         {
-            return null;
+            gap.Overview = PersonMissingBuilder.MergedRole(credits);
         }
 
-        string? role = null;
-        foreach (var credit in credits)
-        {
-            role = PersonMissingBuilder.MergeRoles(role, credit.Overview);
-        }
-
-        gap.Overview = role;
-        var config = Plugin.RequireConfiguration();
-        if (gap.TargetKind == BaseItemKind.Movie)
-        {
-            var movie = await _tmdb.GetMovieDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-            return movie is null ? null : PersonMissingDetailMapper.FromMovie(gap, movie, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
-        }
-
-        var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-        return show is null ? null : PersonMissingDetailMapper.FromSeries(gap, show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+        return gap;
     }
 
     private async Task<(IReadOnlyList<GapItem> Gaps, int? TmdbId, string? Reason)> BuildGapsAsync(Person person, CancellationToken cancellationToken)
@@ -185,9 +147,9 @@ public sealed class PersonMissingService
             return ([], tmdbId, "TMDB has no record for this person right now.");
         }
 
-        var ownership = await _cache.GetOrCreateAsync(OwnershipCacheKey, entry =>
+        var ownership = await _cache.GetOrCreateAsync(OwnershipCache.Key, entry =>
         {
-            entry.AbsoluteExpirationRelativeToNow = _ownershipTtl;
+            entry.AbsoluteExpirationRelativeToNow = OwnershipCache.Ttl;
             return Task.FromResult(_ownershipIndexBuilder.Build(_kinds));
         }).ConfigureAwait(false);
 

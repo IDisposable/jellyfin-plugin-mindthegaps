@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// The quality profiles each configured acquisition target offers, with the plugin's configured default for

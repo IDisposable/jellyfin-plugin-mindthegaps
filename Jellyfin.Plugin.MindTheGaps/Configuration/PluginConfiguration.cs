@@ -79,6 +79,9 @@ public class PluginConfiguration : BasePluginConfiguration
         SonarrRootFolderPath = string.Empty;
         SonarrMonitor = "all";
         PersonPageEnabled = false;
+        ItemPageEnabled = false;
+        HomeRowEnabled = false;
+        HomeRowSize = 24;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
@@ -502,6 +505,30 @@ public class PluginConfiguration : BasePluginConfiguration
     /// index.html by hand. Off by default.
     /// </summary>
     public bool PersonPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether every movie and series page gets a "More like this you don't
+    /// have" row: TMDB's similar titles for that item that the library lacks, looked up on demand. Off by default.
+    /// </summary>
+    public bool ItemPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the home screen gets a "Discover" row of the recommendation
+    /// gaps the scan has accumulated (needs <see cref="ScanRecommendations"/> and a scan). Off by default.
+    /// </summary>
+    public bool HomeRowEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the home row shows.
+    /// </summary>
+    public int HomeRowSize { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether any web UI surface is on, which is when the client script is added to
+    /// the web client.
+    /// </summary>
+    [System.Xml.Serialization.XmlIgnore]
+    public bool WebUiEnabled => PersonPageEnabled || ItemPageEnabled || HomeRowEnabled;
 
     /// <summary>
     /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows

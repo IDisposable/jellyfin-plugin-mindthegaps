@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// What the person page shows about one unowned title before it is sent for download: TMDB's own summary
 /// of the movie or series, plus the links that let the viewer read more.
 /// </summary>
-public sealed class PersonMissingDetail
+public sealed class MissingTitleDetail
 {
     /// <summary>
     /// Gets or sets the gap id the page asked about.
@@ -85,9 +85,14 @@ public sealed class PersonMissingDetail
     public string? Network { get; set; }
 
     /// <summary>
-    /// Gets or sets the person's credit on the title, as the card showed it.
+    /// Gets or sets the person's credit on the title, as the card showed it (person page only).
     /// </summary>
     public string? Role { get; set; }
+
+    /// <summary>
+    /// Gets or sets why the title is suggested ("Because you have Fargo"), on a recommendation.
+    /// </summary>
+    public string? Because { get; set; }
 
     /// <summary>
     /// Gets or sets the poster URL.

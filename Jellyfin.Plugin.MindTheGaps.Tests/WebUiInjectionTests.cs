@@ -1,9 +1,9 @@
-using Jellyfin.Plugin.MindTheGaps.PersonPage;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
-public class PersonPageInjectionTests
+public class WebUiInjectionTests
 {
     private const string Index = "<!doctype html><html><head><title>Jellyfin</title></head><body><div id=\"reactRoot\"></div><script defer src=\"main.bundle.js\"></script></body></html>";
 
@@ -12,8 +12,8 @@ public class PersonPageInjectionTests
     {
         var once = IndexHtmlInjector.Inject(Index, "12.0.7.0");
 
-        Assert.Contains("MindTheGaps/PersonPage/client.js?v=12.0.7.0", once, System.StringComparison.Ordinal);
-        Assert.Contains("data-mtg-personpage", once, System.StringComparison.Ordinal);
+        Assert.Contains("MindTheGaps/WebUi/client.js?v=12.0.7.0", once, System.StringComparison.Ordinal);
+        Assert.Contains("data-mtg-webui", once, System.StringComparison.Ordinal);
         Assert.EndsWith("</script>\n</body></html>", once, System.StringComparison.Ordinal);
 
         // A second pass (or a tag pasted by hand) must not double up.
@@ -26,7 +26,7 @@ public class PersonPageInjectionTests
     public void Inject_SrcIsRelativeToTheWebFolder_SoABaseUrlPrefixResolves()
     {
         var tag = IndexHtmlInjector.ScriptTag("1.0");
-        Assert.Contains("src=\"../MindTheGaps/PersonPage/client.js?v=1.0\"", tag, System.StringComparison.Ordinal);
+        Assert.Contains("src=\"../MindTheGaps/WebUi/client.js?v=1.0\"", tag, System.StringComparison.Ordinal);
         Assert.Contains(" defer", tag, System.StringComparison.Ordinal);
     }
 
@@ -49,7 +49,7 @@ public class PersonPageInjectionTests
     [InlineData("", false)]
     [InlineData(null, false)]
     public void IsIndexRequest_MatchesOnlyTheShell(string? path, bool expected)
-        => Assert.Equal(expected, PersonPageScriptInjection.IsIndexRequest(path));
+        => Assert.Equal(expected, WebUiScriptInjection.IsIndexRequest(path));
 
     private static int Count(string haystack, string needle)
     {

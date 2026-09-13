@@ -8,7 +8,6 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
-using Jellyfin.Plugin.MindTheGaps.PersonPage;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
@@ -25,6 +24,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 using Jellyfin.Plugin.MindTheGaps.Services.Webhook;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.AspNetCore.Hosting;
@@ -71,10 +71,14 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GapDiagnostics>();
         serviceCollection.AddSingleton<AcquisitionService>();
 
-        // The person page: its per-person lookup, and the request-time middleware that adds its client script
-        // to the web client's index.html (the toggle is read per request, so it is registered unconditionally).
+        // The web UI surfaces (person page, item page, home row): their lookups, and the request-time middleware
+        // that adds their client script to the web client's index.html (the toggles are read per request, so it
+        // is registered unconditionally).
         serviceCollection.AddSingleton<PersonMissingService>();
-        serviceCollection.AddSingleton<IStartupFilter, PersonPageScriptInjection>();
+        serviceCollection.AddSingleton<RelatedMissingService>();
+        serviceCollection.AddSingleton<HomeDiscoverService>();
+        serviceCollection.AddSingleton<WebUiGapResolver>();
+        serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 
         // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();

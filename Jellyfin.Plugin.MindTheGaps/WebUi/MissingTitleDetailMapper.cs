@@ -7,27 +7,29 @@ using TMDbLib.Objects.General;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.TvShows;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// The pure half of the detail view: shapes TMDB's movie or series record into what the page shows.
 /// </summary>
-internal static class PersonMissingDetailMapper
+internal static class MissingTitleDetailMapper
 {
     /// <summary>
     /// Maps a movie.
     /// </summary>
-    /// <param name="gap">The gap the page asked about (its id and the person's credit).</param>
+    /// <param name="gap">The gap the page asked about.</param>
     /// <param name="movie">TMDB's movie, with external ids and videos.</param>
+    /// <param name="role">The person's credit, on a person page; otherwise null.</param>
+    /// <param name="because">Why it is suggested, on a recommendation; otherwise null.</param>
     /// <param name="posterUrl">Resolves a poster path to a URL.</param>
     /// <param name="backdropUrl">Resolves a backdrop path to a URL.</param>
     /// <returns>The detail.</returns>
-    public static PersonMissingDetail FromMovie(GapItem gap, Movie movie, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
+    public static MissingTitleDetail FromMovie(GapItem gap, Movie movie, string? role, string? because, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
     {
         ArgumentNullException.ThrowIfNull(gap);
         ArgumentNullException.ThrowIfNull(movie);
 
-        return new PersonMissingDetail
+        return new MissingTitleDetail
         {
             GapId = gap.Id,
             Kind = "Movie",
@@ -41,7 +43,8 @@ internal static class PersonMissingDetailMapper
             Rating = movie.VoteCount > 0 ? Math.Round(movie.VoteAverage, 1) : null,
             VoteCount = movie.VoteCount,
             Status = Blank(movie.Status),
-            Role = gap.Overview,
+            Role = role,
+            Because = because,
             PosterUrl = posterUrl(movie.PosterPath) ?? gap.ImageUrl,
             BackdropUrl = backdropUrl(movie.BackdropPath),
             TmdbUrl = string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/movie/{movie.Id}"),
@@ -53,17 +56,19 @@ internal static class PersonMissingDetailMapper
     /// <summary>
     /// Maps a series.
     /// </summary>
-    /// <param name="gap">The gap the page asked about (its id and the person's credit).</param>
+    /// <param name="gap">The gap the page asked about.</param>
     /// <param name="show">TMDB's series, with external ids and videos.</param>
+    /// <param name="role">The person's credit, on a person page; otherwise null.</param>
+    /// <param name="because">Why it is suggested, on a recommendation; otherwise null.</param>
     /// <param name="posterUrl">Resolves a poster path to a URL.</param>
     /// <param name="backdropUrl">Resolves a backdrop path to a URL.</param>
     /// <returns>The detail.</returns>
-    public static PersonMissingDetail FromSeries(GapItem gap, TvShow show, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
+    public static MissingTitleDetail FromSeries(GapItem gap, TvShow show, string? role, string? because, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
     {
         ArgumentNullException.ThrowIfNull(gap);
         ArgumentNullException.ThrowIfNull(show);
 
-        return new PersonMissingDetail
+        return new MissingTitleDetail
         {
             GapId = gap.Id,
             Kind = "Series",
@@ -80,7 +85,8 @@ internal static class PersonMissingDetailMapper
             Seasons = show.NumberOfSeasons > 0 ? show.NumberOfSeasons : null,
             Episodes = show.NumberOfEpisodes > 0 ? show.NumberOfEpisodes : null,
             Network = show.Networks?.Select(n => n.Name).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
-            Role = gap.Overview,
+            Role = role,
+            Because = because,
             PosterUrl = posterUrl(show.PosterPath) ?? gap.ImageUrl,
             BackdropUrl = backdropUrl(show.BackdropPath),
             TmdbUrl = string.Create(CultureInfo.InvariantCulture, $"https://www.themoviedb.org/tv/{show.Id}"),

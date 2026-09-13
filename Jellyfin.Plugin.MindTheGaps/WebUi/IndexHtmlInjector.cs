@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
+namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// The pure half of script injection: adds the person page client script tag to a jellyfin-web index.html.
@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
 internal static class IndexHtmlInjector
 {
     // Marks the tag so a second pass (or a tag someone pasted by hand from the settings page) is recognised.
-    private const string Marker = "data-mtg-personpage";
+    private const string Marker = "data-mtg-webui";
 
     /// <summary>
     /// Builds the script tag. The src is relative to index.html's own folder (<c>/web/</c>), so it resolves
@@ -21,7 +21,7 @@ internal static class IndexHtmlInjector
     public static string ScriptTag(string version)
         => string.Create(
             CultureInfo.InvariantCulture,
-            $"<script {Marker} src=\"../{Api.PersonPageController.ClientScriptPath}?v={Uri.EscapeDataString(version)}\" defer></script>");
+            $"<script {Marker} src=\"../{Api.WebUiController.ClientScriptPath}?v={Uri.EscapeDataString(version)}\" defer></script>");
 
     /// <summary>
     /// Inserts the script tag before the closing body tag, once.

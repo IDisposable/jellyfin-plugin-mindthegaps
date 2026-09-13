@@ -5,7 +5,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.PersonPage;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Newtonsoft.Json;
 using Xunit;
 using TmdbPerson = TMDbLib.Objects.People.Person;
@@ -135,7 +135,7 @@ public class PersonMissingBuilderTests
     [InlineData("as Hal \u00b7 Director", "director", "as Hal \u00b7 Director")]
     [InlineData("as Hal \u00b7 Director", "Story", "as Hal \u00b7 Director \u00b7 Story")]
     public void MergeRoles_AppendsNewCreditsOnly(string? first, string? second, string? expected)
-        => Assert.Equal(expected, PersonMissingBuilder.MergeRoles(first, second));
+        => Assert.Equal(expected, MissingTitleBuilder.MergeRoles(first, second));
 
     [Fact]
     public void MinTvEpisodes_DropsOneEpisodeCredits_KeepsUnknownCounts()

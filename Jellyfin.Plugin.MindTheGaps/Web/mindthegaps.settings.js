@@ -71,6 +71,9 @@ function loadConfig(page, config) {
     page.querySelector('#SonarrRootFolderPath').value = config.SonarrRootFolderPath || '';
     page.querySelector('#SonarrMonitor').value = config.SonarrMonitor || 'all';
     page.querySelector('#PersonPageEnabled').checked = config.PersonPageEnabled;
+    page.querySelector('#ItemPageEnabled').checked = config.ItemPageEnabled;
+    page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
+    page.querySelector('#HomeRowSize').value = config.HomeRowSize || 24;
     page.querySelector('#PersonPageMinVotes').value = config.PersonPageMinVotes || 0;
     page.querySelector('#PersonPageMinEpisodes').value = config.PersonPageMinEpisodes || 0;
     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
@@ -159,6 +162,9 @@ function saveConfig(page, e) {
         config.SonarrRootFolderPath = form.querySelector('#SonarrRootFolderPath').value.trim();
         config.SonarrMonitor = form.querySelector('#SonarrMonitor').value.trim() || 'all';
         config.PersonPageEnabled = form.querySelector('#PersonPageEnabled').checked;
+        config.ItemPageEnabled = form.querySelector('#ItemPageEnabled').checked;
+        config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
+        config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '24', 10);
         config.PersonPageMinVotes = parseInt(form.querySelector('#PersonPageMinVotes').value || '0', 10);
         config.PersonPageMinEpisodes = parseInt(form.querySelector('#PersonPageMinEpisodes').value || '0', 10);
         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);

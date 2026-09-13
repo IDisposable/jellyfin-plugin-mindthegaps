@@ -274,6 +274,62 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets TMDB's recommendations for a movie: the titles TMDB's users who liked this one also liked. Far
+    /// closer to "more like this" than the <c>similar</c> endpoint, which matches on keywords and genres and
+    /// returns obscure titles for well-known films. First page only, cached, since a page view asks for it.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB movie id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The recommended movies, most relevant first; empty when TMDB has none.</returns>
+    public async Task<IReadOnlyList<SearchMovie>> GetMovieRecommendationsAsync(int tmdbId, string? language, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"movierecs-{tmdbId}-{language}");
+        if (_cache.TryGetValue(key, out IReadOnlyList<SearchMovie>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: GetMovieRecommendations {TmdbId} lang {Language}", tmdbId, language);
+        var movie = await _client.GetMovieAsync(tmdbId, NormalizeLanguage(language, null), null, MovieMethods.Recommendations, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SearchMovie> results = movie?.Recommendations?.Results ?? [];
+        if (movie is null)
+        {
+            _logger?.LogWarning("TMDB: GetMovieRecommendations {TmdbId} returned nothing", tmdbId);
+        }
+
+        _cache.Set(key, results, TimeSpan.FromHours(CacheDurationHours));
+        return results;
+    }
+
+    /// <summary>
+    /// Gets TMDB's recommendations for a series; see <see cref="GetMovieRecommendationsAsync"/>.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB series id.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The recommended series, most relevant first; empty when TMDB has none.</returns>
+    public async Task<IReadOnlyList<SearchTv>> GetSeriesRecommendationsAsync(int tmdbId, string? language, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"seriesrecs-{tmdbId}-{language}");
+        if (_cache.TryGetValue(key, out IReadOnlyList<SearchTv>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: GetSeriesRecommendations {TmdbId} lang {Language}", tmdbId, language);
+        var page = await _client.GetTvShowRecommendationsAsync(tmdbId, NormalizeLanguage(language, null), 1, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SearchTv> results = page?.Results ?? [];
+        if (page is null)
+        {
+            _logger?.LogWarning("TMDB: GetSeriesRecommendations {TmdbId} returned nothing", tmdbId);
+        }
+
+        _cache.Set(key, results, TimeSpan.FromHours(CacheDurationHours));
+        return results;
+    }
+
+    /// <summary>
     /// Gets a single page of similar shows for a series.
     /// </summary>
     /// <param name="tmdbId">The TMDB series id.</param>
