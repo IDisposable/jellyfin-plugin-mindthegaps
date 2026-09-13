@@ -11,13 +11,16 @@ namespace Jellyfin.Plugin.MindTheGaps.PersonPage;
 /// The pure half of the person page: turns a person's filmography gaps into the two lists the page shows.
 /// Drops dismissed gaps (resolved, not interested, or snoozed, the same states the report hides) and
 /// self-appearances (talk shows, award shows, documentaries where the person plays themself, credited as
-/// "Self" or under their own name, which are not the person's work), then splits by kind and orders newest
-/// first with undated titles last.
+/// "Self" or under their own name, which are not the person's work), merges a title the person is credited
+/// on more than once (cast and crew, or two jobs) into one entry listing every credit, then splits by kind
+/// and orders newest first with undated titles last.
 /// </summary>
 internal static class PersonMissingBuilder
 {
     // TMDB records a self-appearance as a character of "Self", "Himself", "Herself", or "Self - Host" and
     // similar; the mapper renders a character as "as {character}".
+    private const string RoleSeparator = " \u00b7 ";
+
     private static readonly string[] _selfRoles = ["as self", "as himself", "as herself", "as themselves", "as themself"];
 
     /// <summary>
@@ -35,8 +38,10 @@ internal static class PersonMissingBuilder
         ArgumentNullException.ThrowIfNull(gaps);
         ArgumentNullException.ThrowIfNull(resolutions);
 
-        var movies = new List<PersonMissingItem>();
-        var series = new List<PersonMissingItem>();
+        // The mapper emits one gap per credit, so a title the person acted in and directed arrives twice
+        // under the same gap id; the page shows it once with both credits.
+        var movies = new Dictionary<string, PersonMissingItem>(StringComparer.Ordinal);
+        var series = new Dictionary<string, PersonMissingItem>(StringComparer.Ordinal);
         foreach (var gap in gaps)
         {
             if (resolutions.ContainsKey(gap.Id) || IsSelfAppearance(gap.Overview, personName))
@@ -44,23 +49,26 @@ internal static class PersonMissingBuilder
                 continue;
             }
 
-            var item = ToItem(gap);
-            if (item is null)
+            var into = gap.TargetKind == BaseItemKind.Movie ? movies : gap.TargetKind == BaseItemKind.Series ? series : null;
+            if (into is null)
             {
                 continue;
             }
 
-            if (gap.TargetKind == BaseItemKind.Movie)
+            if (into.TryGetValue(gap.Id, out var existing))
             {
-                movies.Add(item);
+                existing.Role = MergeRoles(existing.Role, gap.Overview);
+                continue;
             }
-            else if (gap.TargetKind == BaseItemKind.Series)
+
+            var item = ToItem(gap);
+            if (item is not null)
             {
-                series.Add(item);
+                into.Add(gap.Id, item);
             }
         }
 
-        return (Order(movies), Order(series));
+        return (Order(movies.Values), Order(series.Values));
     }
 
     /// <summary>
@@ -104,6 +112,35 @@ internal static class PersonMissingBuilder
         return false;
     }
 
+    /// <summary>
+    /// Joins two credits on one title into one label, skipping an empty or repeated credit.
+    /// </summary>
+    /// <param name="first">The credit already on the item.</param>
+    /// <param name="second">The credit to add.</param>
+    /// <returns>The combined label.</returns>
+    public static string? MergeRoles(string? first, string? second)
+    {
+        if (string.IsNullOrWhiteSpace(second))
+        {
+            return first;
+        }
+
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            return second;
+        }
+
+        foreach (var part in first.Split(RoleSeparator, StringSplitOptions.TrimEntries))
+        {
+            if (part.Equals(second.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return first;
+            }
+        }
+
+        return first + RoleSeparator + second.Trim();
+    }
+
     private static PersonMissingItem? ToItem(GapItem gap)
     {
         string? tmdbRaw = null;
@@ -134,7 +171,7 @@ internal static class PersonMissingBuilder
         };
     }
 
-    private static IReadOnlyList<PersonMissingItem> Order(List<PersonMissingItem> items)
+    private static IReadOnlyList<PersonMissingItem> Order(IEnumerable<PersonMissingItem> items)
         => items
             .OrderByDescending(i => i.ReleaseDate ?? DateTime.MinValue)
             .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)

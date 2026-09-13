@@ -419,6 +419,11 @@
                 <input id="PersonPageMinVotes" name="PersonPageMinVotes" type="number" is="emby-input" min="0" max="100000" />
                 <div class="fieldDescription">Hides a movie credit with fewer TMDB votes than this. 0 shows every credit. Kept separate from the filmography scan floor because that floor also hides every show (TV credits carry no vote count).</div>
             </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="PersonPageMinEpisodes">Person page: minimum episodes for a show</label>
+                <input id="PersonPageMinEpisodes" name="PersonPageMinEpisodes" type="number" is="emby-input" min="0" max="1000" />
+                <div class="fieldDescription">Hides a TV acting credit spanning fewer episodes than this. One-episode credits are guest spots and talk-show appearances; 2 keeps recurring roles. 0 shows every credit.</div>
+            </div>
         </div>
         <div class="verticalSection">
             <h2 class="sectionTitle">Links</h2>

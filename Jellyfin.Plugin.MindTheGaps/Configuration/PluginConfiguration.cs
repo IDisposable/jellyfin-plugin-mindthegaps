@@ -80,6 +80,7 @@ public class PluginConfiguration : BasePluginConfiguration
         SonarrMonitor = "all";
         PersonPageEnabled = false;
         PersonPageMinVotes = 0;
+        PersonPageMinEpisodes = 2;
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
         DetailedApiLogging = false;
     }
@@ -509,6 +510,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// scan is too aggressive: TV credits carry no vote count, so any positive floor hides every series.
     /// </summary>
     public int PersonPageMinVotes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest episodes a TV acting credit must span to appear on the person page (0 shows
+    /// every credit). One-episode credits are guest spots and talk-show appearances rather than the person's
+    /// work, so the default of 2 keeps recurring roles and drops those.
+    /// </summary>
+    public int PersonPageMinEpisodes { get; set; }
 
     /// <summary>
     /// Gets or sets the Sonarr monitor option for a sent series (for example all, future, missing,

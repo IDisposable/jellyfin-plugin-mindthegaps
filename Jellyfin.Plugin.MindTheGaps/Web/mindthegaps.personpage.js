@@ -51,9 +51,7 @@
             img.appendChild(h('div', { 'class': 'cardText cardDefaultText' }, item.Title));
         }
         if (item.Upcoming) {
-            var ind = h('div', { 'class': 'cardIndicators' });
-            ind.appendChild(h('div', { 'class': 'mtgUpcomingBadge' }, 'Upcoming'));
-            img.appendChild(ind);
+            img.appendChild(h('div', { 'class': 'mtgUpcomingBadge' }, 'Upcoming'));
         }
         scalable.appendChild(img);
         box.appendChild(scalable);
@@ -161,7 +159,7 @@
         '.mtgMissingCard .cardImageContainer{opacity:.85}' +
         '.mtgMissingCard .mtgSendButton{display:block;margin:.35em auto 0;font-size:80%}' +
         '.mtgMissingCard .mtgSendButton.mtgSent{opacity:.6}' +
-        '.mtgUpcomingBadge{position:absolute;top:.4em;left:.4em;padding:.15em .5em;border-radius:.3em;background:rgba(0,0,0,.7);font-size:75%}' +
+        '.mtgUpcomingBadge{position:absolute;top:.5em;left:.5em;z-index:1;padding:.2em .6em;border-radius:.3em;background:rgba(0,0,0,.75);color:#fff;font-size:75%;line-height:1.4}' +
         '.mtgMissingNote{opacity:.8}';
     document.head.appendChild(style);
     document.addEventListener('viewshow', onViewShow);

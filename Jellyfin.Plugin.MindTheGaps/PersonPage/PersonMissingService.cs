@@ -154,7 +154,9 @@ public sealed class PersonMissingService
             ownership!,
             _tmdb.GetPosterUrl,
             config.PersonPageMinVotes,
-            maxCastOrder: 0).ToList();
+            maxCastOrder: 0,
+            maxCredits: int.MaxValue,
+            minTvEpisodes: config.PersonPageMinEpisodes).ToList();
         return (gaps, tmdbId, null);
     }
 }

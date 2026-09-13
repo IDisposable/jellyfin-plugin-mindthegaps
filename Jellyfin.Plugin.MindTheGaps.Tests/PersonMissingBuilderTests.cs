@@ -22,7 +22,7 @@ public class PersonMissingBuilderTests
     {
         var person = JsonConvert.DeserializeObject<TmdbPerson>(TestData.Read("tmdb_person.json"))!;
         var keys = new HashSet<string>(ownedMovieTmdbIds.Select(id => OwnershipIndex.MakeKey(BaseItemKind.Movie, "Tmdb", id)), StringComparer.Ordinal);
-        return FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", new OwnershipIndex(keys), p => p, 0, 0).ToList();
+        return FilmographyGapMapper.Build(person, "person-id", "Robert Zemeckis", new OwnershipIndex(keys), p => p, 0, 0, maxCredits: int.MaxValue).ToList();
     }
 
     [Fact]
@@ -36,7 +36,8 @@ public class PersonMissingBuilderTests
         Assert.DoesNotContain(movies, m => m.Role is not null && m.Role.StartsWith("as Self", StringComparison.Ordinal));
         Assert.DoesNotContain(movies, m => m.Role is not null && m.Role.StartsWith("as Himself", StringComparison.Ordinal));
         Assert.Contains(movies, m => m.GapId == "filmography:movie:13" && m.Role == "Director"); // Forrest Gump
-        Assert.True(movies.Count >= 50, $"expected the crew credits to survive, got {movies.Count}");
+        // 52 directing/writing credits plus 2 real roles collapse to 36 distinct titles once merged.
+        Assert.Equal(36, movies.Count);
 
         // 6 of the 7 TV cast credits are "Self" (MADtv, The Oscars, ...); the seventh is a character named
         // "Robert Zemeckis" on Parker Lewis Can't Lose, which is the person as themself too.
@@ -88,6 +89,71 @@ public class PersonMissingBuilderTests
         Assert.Equal(1994, gump.Year);
         Assert.False(gump.Upcoming);
         Assert.NotNull(gump.ImageUrl);
+    }
+
+    [Fact]
+    public void Uncapped_ReachesTvCredits_ThatTheScanCapWouldNotFor_APersonWithManyMovieCredits()
+    {
+        // Zemeckis has 78 movie gaps and 7 TV credits; both fit under the scan cap, so the point is made
+        // with a cap smaller than the movie count: capped, no series survive; uncapped, the TV credits arrive.
+        var person = JsonConvert.DeserializeObject<TmdbPerson>(TestData.Read("tmdb_person.json"))!;
+        var none = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
+
+        var capped = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0, maxCredits: 20).ToList();
+        Assert.Equal(20, capped.Count);
+        Assert.DoesNotContain(capped, g => g.TargetKind == BaseItemKind.Series);
+
+        var all = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0, maxCredits: int.MaxValue).ToList();
+        Assert.Contains(all, g => g.TargetKind == BaseItemKind.Series);
+        Assert.True(all.Count > GapScanLimits.MaxCreditsPerPerson - 20, $"{all.Count}");
+
+        // The default is still the scan cap.
+        var scan = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0).ToList();
+        Assert.True(scan.Count <= GapScanLimits.MaxCreditsPerPerson);
+    }
+
+    [Fact]
+    public void Split_MergesCastAndCrewCreditsOnOneTitle()
+    {
+        // Zemeckis both directed and wrote many of his films: the mapper emits a gap per credit under the
+        // same id, and the page shows the title once with both credits.
+        var gaps = Gaps();
+        var dupIds = gaps.Where(g => g.TargetKind == BaseItemKind.Movie).GroupBy(g => g.Id).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        Assert.NotEmpty(dupIds);
+
+        var (movies, _) = PersonMissingBuilder.Split(gaps, "Robert Zemeckis", _noResolutions);
+        Assert.Equal(movies.Count, movies.Select(m => m.GapId).Distinct().Count());
+        var merged = movies.Single(m => m.GapId == dupIds[0]);
+        Assert.Contains(" \u00b7 ", merged.Role, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, "Director", "Director")]
+    [InlineData("Director", null, "Director")]
+    [InlineData("Director", "Director", "Director")]
+    [InlineData("as Hal", "Director", "as Hal \u00b7 Director")]
+    [InlineData("as Hal \u00b7 Director", "director", "as Hal \u00b7 Director")]
+    [InlineData("as Hal \u00b7 Director", "Story", "as Hal \u00b7 Director \u00b7 Story")]
+    public void MergeRoles_AppendsNewCreditsOnly(string? first, string? second, string? expected)
+        => Assert.Equal(expected, PersonMissingBuilder.MergeRoles(first, second));
+
+    [Fact]
+    public void MinTvEpisodes_DropsOneEpisodeCredits_KeepsUnknownCounts()
+    {
+        var person = JsonConvert.DeserializeObject<TmdbPerson>(TestData.Read("tmdb_person.json"))!;
+        var none = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
+
+        // Every TV cast credit in the capture spans 1 or 2 episodes.
+        var all = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0, int.MaxValue, minTvEpisodes: 0)
+            .Count(g => g.TargetKind == BaseItemKind.Series && g.Overview is not null && g.Overview.StartsWith("as ", StringComparison.Ordinal));
+        var atLeastTwo = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0, int.MaxValue, minTvEpisodes: 2)
+            .Count(g => g.TargetKind == BaseItemKind.Series && g.Overview is not null && g.Overview.StartsWith("as ", StringComparison.Ordinal));
+        var atLeastThree = FilmographyGapMapper.Build(person, "p", "Robert Zemeckis", none, p => p, 0, 0, int.MaxValue, minTvEpisodes: 3)
+            .Count(g => g.TargetKind == BaseItemKind.Series && g.Overview is not null && g.Overview.StartsWith("as ", StringComparison.Ordinal));
+
+        Assert.Equal(7, all);
+        Assert.Equal(1, atLeastTwo);   // The Oscars, 2 episodes
+        Assert.Equal(0, atLeastThree);
     }
 
     [Theory]

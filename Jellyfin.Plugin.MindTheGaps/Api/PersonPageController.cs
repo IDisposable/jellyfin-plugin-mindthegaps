@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -30,6 +30,10 @@ public class PersonPageController : ControllerBase
 
     private const string ClientScriptResource = "Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.personpage.js";
     private const string AdministratorRole = "Administrator";
+
+    // The script's ETag is its content hash, not the plugin version: two builds of the same version (a dev
+    // loop, a hotfix) must not leave a browser holding the older script on a 304.
+    private static readonly Lazy<(byte[] Bytes, EntityTagHeaderValue ETag)?> _clientScript = new(LoadClientScript);
 
     private readonly PersonMissingService _missing;
     private readonly AcquisitionService _acquisition;
@@ -65,18 +69,15 @@ public class PersonPageController : ControllerBase
             return NotFound();
         }
 
-        var assembly = typeof(PersonPageController).Assembly;
-        var stream = assembly.GetManifestResourceStream(ClientScriptResource);
-        if (stream is null)
+        var script = _clientScript.Value;
+        if (script is null)
         {
             return NotFound();
         }
 
         // Revalidate on every load (a plugin update must not be masked by a cached copy) but answer 304 cheaply.
-        var version = assembly.GetName().Version?.ToString() ?? "0";
-        var etag = new EntityTagHeaderValue(string.Create(CultureInfo.InvariantCulture, $"\"mtg-personpage-{version}\""));
         Response.Headers[HeaderNames.CacheControl] = "no-cache";
-        return File(stream, "application/javascript", lastModified: null, entityTag: etag);
+        return File(script.Value.Bytes, "application/javascript", lastModified: null, entityTag: script.Value.ETag);
     }
 
     /// <summary>
@@ -86,7 +87,7 @@ public class PersonPageController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The lists, or 404 for an id that is not a library person or while the feature is off.</returns>
     [HttpGet("Person/{personId}/Missing")]
-    [Authorize(Policy = "DefaultAuthorization")]
+    [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -135,5 +136,20 @@ public class PersonPageController : ControllerBase
             Failed = result.Success ? 0 : 1,
             Message = result.Message
         };
+    }
+
+    private static (byte[] Bytes, EntityTagHeaderValue ETag)? LoadClientScript()
+    {
+        using var stream = typeof(PersonPageController).Assembly.GetManifestResourceStream(ClientScriptResource);
+        if (stream is null)
+        {
+            return null;
+        }
+
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        var bytes = buffer.ToArray();
+        var hash = Convert.ToHexString(SHA256.HashData(bytes).AsSpan(0, 16));
+        return (bytes, new EntityTagHeaderValue(string.Create(CultureInfo.InvariantCulture, $"\"mtg-personpage-{hash}\"")));
     }
 }
