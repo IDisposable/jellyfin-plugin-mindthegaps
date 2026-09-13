@@ -75,10 +75,6 @@
         if (old) { old.parentNode.removeChild(old); }
     }
 
-    function serviceName(kind) {
-        return kind === 'Movie' ? 'Radarr' : 'Sonarr';
-    }
-
     // ---- Send ----
 
     // ctx: { source: 'person'|'item'|'home', sourceId: guid|null, canSend: function(kind) }
@@ -91,7 +87,7 @@
         if (profileId) { params.qualityProfileId = profileId; }
         api('POST', 'MindTheGaps/WebUi/Send', params).then(function (result) {
             if (result && result.Success) {
-                btn.textContent = 'Sent to ' + serviceName(item.Kind);
+                btn.textContent = 'Sent';
                 btn.classList.add('mtgSent');
                 if (onDone) { onDone(); }
             } else {
@@ -109,7 +105,7 @@
     function markSent(item) {
         var buttons = document.querySelectorAll('[data-gapid="' + item.GapId + '"] .mtgSendButton');
         Array.prototype.forEach.call(buttons, function (b) {
-            b.textContent = 'Sent to ' + serviceName(item.Kind);
+            b.textContent = 'Sent';
             b.disabled = true;
             b.classList.add('mtgSent');
         });
@@ -174,6 +170,106 @@
             toggleWant(ctx, item, btn);
         });
         return btn;
+    }
+
+    // ---- Want to watch for owned titles: the user's own "Want to watch" playlist ----
+    //
+    // An owned title cannot go on the plugin's todo list (that list is of titles to acquire, and the
+    // library check would mark it done at once), so the bookmark on a movie or series page toggles the
+    // item in a Jellyfin playlist named "Want to watch" belonging to the signed-in user. Being a real
+    // playlist, it shows under Playlists on every client, TV apps included. Created on first use.
+
+    var PLAYLIST_NAME = 'Want to watch';
+    var playlistIdPromise = null;
+
+    function findPlaylistId(create) {
+        if (!playlistIdPromise) {
+            var userId = ApiClient.getCurrentUserId();
+            playlistIdPromise = ApiClient.getItems(userId, { IncludeItemTypes: 'Playlist', Recursive: true, SearchTerm: PLAYLIST_NAME, Fields: 'Name' })
+                .then(function (result) {
+                    var hit = (result.Items || []).filter(function (p) { return (p.Name || '').toLowerCase() === PLAYLIST_NAME.toLowerCase(); })[0];
+                    if (hit) { return hit.Id; }
+                    if (!create) { return null; }
+                    return ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Playlists'),
+                        data: JSON.stringify({ Name: PLAYLIST_NAME, UserId: userId, MediaType: 'Video', Ids: [] }),
+                        contentType: 'application/json',
+                        dataType: 'json'
+                    }).then(function (created) { return created.Id; });
+                })
+                .then(function (id) {
+                    if (!id) { playlistIdPromise = null; }
+                    return id;
+                }, function () { playlistIdPromise = null; return null; });
+        }
+        return playlistIdPromise;
+    }
+
+    // The playlist's entries: each carries the library item id and the entry id a removal needs.
+    function playlistEntries(playlistId) {
+        return api('GET', 'Playlists/' + playlistId + '/Items', { UserId: ApiClient.getCurrentUserId(), Fields: 'ProductionYear' })
+            .then(function (r) { return r.Items || []; });
+    }
+
+    function ownedWanted(itemId) {
+        return findPlaylistId(false).then(function (pid) {
+            if (!pid) { return null; }
+            return playlistEntries(pid).then(function (items) {
+                var hit = items.filter(function (i) { return i.Id === itemId; })[0];
+                return hit ? { playlistId: pid, entryId: hit.PlaylistItemId } : null;
+            });
+        });
+    }
+
+    function setOwnedWanted(itemId, wanted) {
+        if (wanted) {
+            return findPlaylistId(true).then(function (pid) {
+                return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('Playlists/' + pid + '/Items', { Ids: itemId, UserId: ApiClient.getCurrentUserId() }) });
+            });
+        }
+        return ownedWanted(itemId).then(function (state) {
+            if (!state) { return; }
+            return ApiClient.ajax({ type: 'DELETE', url: ApiClient.getUrl('Playlists/' + state.playlistId + '/Items', { EntryIds: state.entryId }) });
+        });
+    }
+
+    var DETAIL_WANT_CLASS = 'mtgWantDetail';
+
+    function setDetailButtonState(btn, wanted) {
+        btn.setAttribute('title', wanted ? 'On your want-to-watch list' : 'Want to watch');
+        btn.setAttribute('aria-label', wanted ? 'On your want-to-watch list' : 'Want to watch');
+        btn.setAttribute('aria-pressed', wanted ? 'true' : 'false');
+        btn.mtgWanted = wanted;
+        var icon = btn.querySelector('.material-icons');
+        icon.className = 'material-icons detailButton-icon ' + (wanted ? 'bookmark' : 'bookmark_border');
+    }
+
+    // The bookmark in the detail header, to the left of the "more" button, in the same markup as its
+    // neighbours so it takes the same size and TV focus style.
+    function renderDetailWant(page, itemId) {
+        var old = page.querySelector('.' + DETAIL_WANT_CLASS);
+        if (old) { old.parentNode.removeChild(old); }
+        var more = page.querySelector('.mainDetailButtons .btnMoreCommands');
+        var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
+        if (!host) { return; }
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'button-flat detailButton ' + DETAIL_WANT_CLASS });
+        var content = h('div', { 'class': 'detailButton-content' });
+        content.appendChild(h('span', { 'class': 'material-icons detailButton-icon bookmark_border', 'aria-hidden': 'true' }));
+        btn.appendChild(content);
+        setDetailButtonState(btn, false);
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            setOwnedWanted(itemId, !btn.mtgWanted).then(function () {
+                setDetailButtonState(btn, !btn.mtgWanted);
+                btn.disabled = false;
+            }, function () {
+                btn.disabled = false;
+                alertUser('Could not update your want-to-watch playlist.');
+            });
+        });
+        host.insertBefore(btn, more || null);
+        ownedWanted(itemId).then(function (state) { setDetailButtonState(btn, !!state); }, function () { /* leave unmarked */ });
     }
 
     // ---- Detail dialog ----
@@ -280,7 +376,7 @@
                 wrap.appendChild(select);
                 actions.appendChild(wrap);
             }
-            var dl = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised button-submit mtgDialogDownload' }, 'Download (' + serviceName(item.Kind) + ')');
+            var dl = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised button-submit mtgDialogDownload' }, 'Download Now');
             dl.addEventListener('click', function () {
                 var profileId = select ? parseInt(select.value, 10) : 0;
                 send(ctx, item, dl, profileId, function () { markSent(item); });
@@ -319,7 +415,7 @@
         var tv = isTv();
         var shape = overflow ? 'overflowPortrait' : 'portrait';
         var el = h(tv ? 'button' : 'div', {
-            'class': 'card ' + shape + 'Card mtgCard' + (tv ? ' show-focus' : ' card-hoverable'),
+            'class': 'card ' + shape + 'Card mtgCard' + (tv ? ' show-focus show-animation' : ' card-hoverable'),
             'data-gapid': item.GapId,
             'type': tv ? 'button' : null,
             'aria-label': tv ? item.Title : null
@@ -365,7 +461,7 @@
 
         var actions = h('div', { 'class': 'mtgCardActions' });
         if (ctx.canSend(item.Kind)) {
-            var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgSendButton' }, 'Download (' + serviceName(item.Kind) + ')');
+            var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgSendButton' }, 'Download Now');
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 send(ctx, item, btn, 0, function () { markSent(item); });
@@ -467,16 +563,50 @@
         sectionsEl.appendChild(section);
     }
 
-    function renderWant(sectionsEl, data) {
+    // A card for an owned title on the want-to-watch playlist: a link to its page, in the same markup.
+    function ownedCard(item) {
+        var tv = isTv();
+        var el = h('a', {
+            'class': 'card overflowPortraitCard mtgCard mtgOwnedCard' + (tv ? ' show-focus show-animation' : ' card-hoverable'),
+            'href': '#/details?id=' + encodeURIComponent(item.Id) + '&serverId=' + encodeURIComponent(ApiClient.serverId()),
+            'aria-label': item.Name
+        });
+        var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
+        var scalable = h('div', { 'class': 'cardScalable' });
+        scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-overflowPortrait' }));
+        var img = h('div', { 'class': 'cardImageContainer coveredImage cardContent' });
+        if (item.ImageTags && item.ImageTags.Primary) {
+            img.style.backgroundImage = 'url("' + ApiClient.getImageUrl(item.Id, { type: 'Primary', maxHeight: 450, tag: item.ImageTags.Primary }) + '")';
+        } else {
+            img.classList.add('defaultCardBackground', 'defaultCardBackground1');
+            img.appendChild(h('div', { 'class': 'cardText cardDefaultText' }, item.Name));
+        }
+        scalable.appendChild(img);
+        box.appendChild(scalable);
+        var title = h('div', { 'class': 'cardText cardTextCentered cardText-first' });
+        title.appendChild(h('bdi', null, item.Name));
+        box.appendChild(title);
+        var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary' });
+        secondary.appendChild(h('bdi', null, (item.ProductionYear ? item.ProductionYear + ' \u00b7 ' : '') + 'In your library'));
+        box.appendChild(secondary);
+        el.appendChild(box);
+        return el;
+    }
+
+    function renderWant(sectionsEl, data, owned) {
         var old = sectionsEl.querySelector('#' + WANT_ID);
         if (old) { old.parentNode.removeChild(old); }
-        if (!data || !data.Titles.length) { return; }
+        var titles = (data && data.Titles) || [];
+        if (!titles.length && !owned.length) { return; }
         var ctx = {
             source: 'todo',
             sourceId: null,
-            canSend: function (kind) { return kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries; }
+            canSend: function (kind) { return data && (kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries); }
         };
-        var section = scroller(ctx, 'Want to watch', data.Titles, 'padded-left');
+        var section = scroller(ctx, 'Want to watch', titles, 'padded-left');
+        // Owned titles first: they can be watched now.
+        var container = section.querySelector('.scrollSlider');
+        owned.slice().reverse().forEach(function (item) { container.insertBefore(ownedCard(item), container.firstChild); });
         section.id = WANT_ID;
         // Above Discover when both are present.
         var discover = sectionsEl.querySelector('#' + HOME_ID);
@@ -485,7 +615,9 @@
 
     function loadWantRow(sectionsEl) {
         if (!sectionsEl || !surfaceFlags.WantToWatch) { return; }
-        api('GET', 'MindTheGaps/Home/WantToWatch').then(function (data) { renderWant(sectionsEl, data); }, function () { /* off */ });
+        var unowned = api('GET', 'MindTheGaps/Home/WantToWatch').catch(function () { return null; });
+        var owned = findPlaylistId(false).then(function (pid) { return pid ? playlistEntries(pid) : []; }).catch(function () { return []; });
+        Promise.all([unowned, owned]).then(function (r) { renderWant(sectionsEl, r[0], r[1]); });
     }
 
     var homeObserver = null;
@@ -546,10 +678,13 @@
                     if (token === pending) { renderPerson(page, item.Id, data); }
                 });
             }
-            if ((item.Type === 'Movie' || item.Type === 'Series') && s.ItemPage) {
-                return api('GET', 'MindTheGaps/Item/' + item.Id + '/Related').then(function (data) {
-                    if (token === pending) { renderRelated(page, item.Id, data); }
-                });
+            if (item.Type === 'Movie' || item.Type === 'Series') {
+                if (s.WantToWatch) { renderDetailWant(page, item.Id); }
+                if (s.ItemPage) {
+                    return api('GET', 'MindTheGaps/Item/' + item.Id + '/Related').then(function (data) {
+                        if (token === pending) { renderRelated(page, item.Id, data); }
+                    });
+                }
             }
         }).catch(function () {
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
@@ -561,6 +696,7 @@
     style.textContent =
         '.mtgCard{cursor:pointer}' +
         'button.mtgCard{background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-align:inherit}' +
+        'a.mtgOwnedCard,a.mtgOwnedCard:hover,a.mtgOwnedCard:focus{text-decoration:none;color:inherit}' +
         '.mtgCard .mtgCardImage{border:0;padding:0;cursor:pointer;opacity:.85}' +
         '.mtgCard:hover .mtgCardImage,.mtgCard:focus-within .mtgCardImage{opacity:1}' +
         '.mtgCardActions{display:flex;justify-content:center;align-items:center;gap:.2em;margin-top:.35em}' +
