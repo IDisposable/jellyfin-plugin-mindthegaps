@@ -279,18 +279,62 @@
         var dlg = document.getElementById(DIALOG_ID);
         if (!dlg) { return; }
         var restore = dlg.mtgRestoreFocus;
-        dlg.parentNode.removeChild(dlg);
         document.removeEventListener('keydown', onDialogKey, true);
+        document.removeEventListener('focusin', keepFocusInDialog, true);
+        dlg.parentNode.removeChild(dlg);
         if (restore && restore.focus) { restore.focus(); }
     }
 
+    // Anything that still manages to focus outside the dialog (a mouse, a scroller's own handling) is
+    // pulled back to the dialog's first control.
+    function keepFocusInDialog(e) {
+        var dlg = document.getElementById(DIALOG_ID);
+        if (!dlg || dlg.contains(e.target)) { return; }
+        var items = dialogFocusables(dlg);
+        if (items.length) { items[0].focus(); }
+    }
+
+    // Back on TV remotes arrives under several names and codes (Tizen 10009, webOS 461, Android 4).
+    var BACK_KEYS = { 'Escape': 1, 'GoBack': 1, 'BrowserBack': 1, 'Back': 1, 'XF86Back': 1 };
+    var BACK_CODES = { 27: 1, 10009: 1, 461: 1, 4: 1 };
+
+    function dialogFocusables(dlg) {
+        return Array.prototype.filter.call(dlg.querySelectorAll('button, a[href], select'), function (el) {
+            return !el.disabled && el.offsetParent !== null && el.getAttribute('tabindex') !== '-1';
+        });
+    }
+
+    // While the dialog is open it owns the keyboard: Back closes it, and on a TV the arrows only move
+    // between the dialog's own controls, so jellyfin-web's spatial navigation cannot reach the page behind.
     function onDialogKey(e) {
-        var typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT');
-        if (e.key === 'Escape' || (e.key === 'Backspace' && !typing) || e.key === 'GoBack' || e.key === 'BrowserBack') {
+        var dlg = document.getElementById(DIALOG_ID);
+        if (!dlg) { return; }
+        var tag = e.target && e.target.tagName;
+        var typing = tag === 'INPUT' || tag === 'SELECT';
+        if (BACK_KEYS[e.key] || BACK_CODES[e.keyCode] || (e.key === 'Backspace' && !typing)) {
             e.preventDefault();
             e.stopPropagation();
             closeDialog();
+            return;
         }
+
+        var key = keyName(e);
+        if (!key) { return; }
+        // A focused select changes its value with up and down; leave those to it.
+        if (tag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown')) { e.stopPropagation(); return; }
+
+        var items = dialogFocusables(dlg);
+        if (!items.length) { return; }
+        var index = items.indexOf(document.activeElement);
+        var next;
+        if (key === 'ArrowRight' || key === 'ArrowDown') {
+            next = index < 0 ? 0 : Math.min(index + 1, items.length - 1);
+        } else {
+            next = index < 0 ? 0 : Math.max(index - 1, 0);
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        items[next].focus();
     }
 
     function loadProfiles() {
@@ -391,6 +435,7 @@
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         document.addEventListener('keydown', onDialogKey, true);
+        document.addEventListener('focusin', keepFocusInDialog, true);
         firstFocus.focus();
     }
 
@@ -448,7 +493,7 @@
         box.appendChild(title);
         var sub = item.Year ? String(item.Year) : '';
         if (item.Role) { sub = sub ? sub + ' \u00b7 ' + item.Role : item.Role; }
-        if (item.Because) { sub = sub ? sub + ' \u00b7 ' + item.Because : item.Because; }
+        if (item.Because && ctx.becauseOnCards) { sub = sub ? sub + ' \u00b7 ' + item.Because : item.Because; }
         var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary', 'title': sub });
         secondary.appendChild(h('bdi', null, sub));
         box.appendChild(secondary);
@@ -558,6 +603,7 @@
             source: 'home',
             sourceId: null,
             wantOnCards: false,
+            becauseOnCards: false,
             canSend: function (kind) { return kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries; }
         };
         var section = scroller(ctx, "Discover: not in your library", data.Titles, 'padded-left');
