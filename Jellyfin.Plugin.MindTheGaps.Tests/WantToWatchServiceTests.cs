@@ -72,7 +72,9 @@ public class WantToWatchServiceTests
         System.IO.Directory.CreateDirectory(dir);
         try
         {
-            var service = new WantToWatchService(new TodoStore(NullLogger<TodoStore>.Instance, dir));
+            // Only the todo-store paths are exercised here; the library-facing collaborators (the arrival
+            // bridge) need a live ILibraryManager and are covered by the deployed instance, not unit tests.
+            var service = new WantToWatchService(new TodoStore(NullLogger<TodoStore>.Instance, dir), null!, null!, null!, NullLogger<WantToWatchService>.Instance);
             var gap = new GapItem
             {
                 Id = "recommendation:movie:275",
@@ -96,6 +98,33 @@ public class WantToWatchServiceTests
             service.Mark([card]);
             Assert.False(card.Wanted);
             Assert.Null(service.FindGap(gap.Id));
+        }
+        finally
+        {
+            System.IO.Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SameTitleFromTwoSurfaces_IsOneEntry_MarkedAndRemovedAsOne()
+    {
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "mtg-want-" + Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(dir);
+        try
+        {
+            var service = new WantToWatchService(new TodoStore(NullLogger<TodoStore>.Instance, dir), null!, null!, null!, NullLogger<WantToWatchService>.Instance);
+            var fromPerson = new GapItem { Id = "filmography:movie:1421903", Name = "Werwulf", TargetKind = BaseItemKind.Movie, Pattern = GapPattern.CreatorWorks, ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "1421903" } };
+            var fromSearch = new GapItem { Id = "recommendation:movie:1421903", Name = "Werwulf", TargetKind = BaseItemKind.Movie, Pattern = GapPattern.Recommendation, ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "1421903" } };
+
+            Assert.True(service.Add(fromPerson));
+            Assert.False(service.Add(fromSearch));
+
+            var searchCard = MissingTitleBuilder.ToTitle(fromSearch, null, null)!;
+            service.Mark([searchCard]);
+            Assert.True(searchCard.Wanted);
+
+            Assert.True(service.RemoveMatching(fromSearch));
+            Assert.Empty(service.WantedKeys());
         }
         finally
         {

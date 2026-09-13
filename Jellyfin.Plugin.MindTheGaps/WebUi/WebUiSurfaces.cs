@@ -29,4 +29,9 @@ public sealed class WebUiSurfaces
     /// Gets or sets a value indicating whether the caller may add to and remove from the want-to-watch list.
     /// </summary>
     public bool CanEditWantToWatch { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the per-user playlist that holds owned titles on the watchlist.
+    /// </summary>
+    public string WatchlistName { get; set; } = string.Empty;
 }

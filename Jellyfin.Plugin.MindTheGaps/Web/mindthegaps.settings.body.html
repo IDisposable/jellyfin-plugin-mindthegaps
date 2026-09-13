@@ -437,6 +437,18 @@
                 <div class="fieldDescription">Administrators bookmark titles from any of the sections above or the detail dialog; everyone sees the row. It is this plugin's TODO list, so bookmarks also appear on the report's TODO tab, clear themselves when the title arrives in the library, and export with it.</div>
             </div>
             <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="WatchlistName">Watchlist playlist name</label>
+                <input id="WatchlistName" name="WatchlistName" type="text" is="emby-input" placeholder="Want to watch" />
+                <div class="fieldDescription">Titles already in the library go on a Jellyfin playlist of this name, one per user, created on first use. It shows under Playlists on every client.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="WatchlistAutoRemoveWatched" name="WatchlistAutoRemoveWatched" type="checkbox" is="emby-checkbox" />
+                    <span>Take a title off the watchlist once it has been watched</span>
+                </label>
+                <div class="fieldDescription">A movie when it is played; a show when every episode is. Done on the server, so it works from any client.</div>
+            </div>
+            <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home row: titles</label>
                 <input id="HomeRowSize" name="HomeRowSize" type="number" is="emby-input" min="1" max="100" />
             </div>

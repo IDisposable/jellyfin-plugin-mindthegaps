@@ -16,6 +16,7 @@ using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
@@ -31,11 +32,15 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 /// </summary>
 public sealed class AcquisitionService
 {
+    private const string PresenceCacheKey = "mtg-arr-presence";
+
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan _presenceTtl = TimeSpan.FromSeconds(60);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<AcquisitionService> _logger;
 
     /// <summary>
@@ -44,12 +49,14 @@ public sealed class AcquisitionService
     /// <param name="httpClientFactory">The HTTP client factory.</param>
     /// <param name="libraryManager">The library manager, for resolving an owned series' TheTVDB id.</param>
     /// <param name="tmdb">The TMDB client, for resolving an unowned series' TheTVDB id from its TMDB id.</param>
+    /// <param name="cache">The memory cache, for the arrs' libraries.</param>
     /// <param name="logger">The logger.</param>
-    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, TmdbClient tmdb, ILogger<AcquisitionService> logger)
+    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, TmdbClient tmdb, IMemoryCache cache, ILogger<AcquisitionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _libraryManager = libraryManager;
         _tmdb = tmdb;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -255,6 +262,122 @@ public sealed class AcquisitionService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// What each configured arr already holds, keyed by TMDB id, so a surface can show "in Radarr" instead of
+    /// offering a send that would be rejected. One read of each arr's library, cached briefly; an arr that
+    /// is not configured or does not answer contributes nothing.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The presence, by TMDB id, for movies and for series.</returns>
+    public async Task<ArrPresence> GetPresenceAsync(PluginConfiguration config, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        var cached = await _cache.GetOrCreateAsync(PresenceCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = _presenceTtl;
+            var presence = new ArrPresence();
+            if (RadarrConfigured(config))
+            {
+                presence.Movies = await ReadPresenceAsync(config.RadarrUrl, config.RadarrApiKey, "/api/v3/movie", "Radarr", cancellationToken).ConfigureAwait(false);
+            }
+
+            if (SonarrConfigured(config))
+            {
+                presence.Series = await ReadPresenceAsync(config.SonarrUrl, config.SonarrApiKey, "/api/v3/series", "Sonarr", cancellationToken).ConfigureAwait(false);
+            }
+
+            return presence;
+        }).ConfigureAwait(false);
+        return cached ?? new ArrPresence();
+    }
+
+    /// <summary>
+    /// Forgets the cached arr libraries, after a send has changed them.
+    /// </summary>
+    public void ForgetPresence() => _cache.Remove(PresenceCacheKey);
+
+    /// <summary>
+    /// Reads an arr's library list into presence by TMDB id: for each entry with a positive integer
+    /// <c>tmdbId</c>, whether it has a file (<c>hasFile</c> for a movie, any <c>statistics.episodeFileCount</c>
+    /// for a series) and whether it is <c>monitored</c>.
+    /// </summary>
+    /// <param name="root">The JSON array.</param>
+    /// <returns>The presence by TMDB id.</returns>
+    public static IReadOnlyDictionary<int, ArrItemState> ParsePresence(JsonElement root)
+    {
+        var result = new Dictionary<int, ArrItemState>();
+        if (root.ValueKind != JsonValueKind.Array)
+        {
+            return result;
+        }
+
+        foreach (var element in root.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object
+                || !element.TryGetProperty("tmdbId", out var idProp)
+                || idProp.ValueKind != JsonValueKind.Number
+                || !idProp.TryGetInt32(out var id)
+                || id <= 0)
+            {
+                continue;
+            }
+
+            var hasFile = element.TryGetProperty("hasFile", out var hf) && hf.ValueKind == JsonValueKind.True;
+            if (!hasFile
+                && element.TryGetProperty("statistics", out var stats)
+                && stats.ValueKind == JsonValueKind.Object
+                && stats.TryGetProperty("episodeFileCount", out var count)
+                && count.ValueKind == JsonValueKind.Number
+                && count.TryGetInt32(out var files))
+            {
+                hasFile = files > 0;
+            }
+
+            var monitored = element.TryGetProperty("monitored", out var mon) && mon.ValueKind == JsonValueKind.True;
+            result[id] = new ArrItemState { HasFile = hasFile, Monitored = monitored };
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyDictionary<int, ArrItemState>> ReadPresenceAsync(string baseUrl, string apiKey, string path, string service, CancellationToken cancellationToken)
+    {
+        var url = baseUrl.TrimEnd('/') + path;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return new Dictionary<int, ArrItemState>();
+        }
+
+        var logUrl = LogSafe.Redact(uri.ToString());
+        try
+        {
+            var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("{Service}: {Status} from GET {Url}", service, (int)response.StatusCode, logUrl);
+                return new Dictionary<int, ArrItemState>();
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return ParsePresence(doc.RootElement);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Service}: could not read the library from GET {Url}", service, logUrl);
+            return new Dictionary<int, ArrItemState>();
+        }
     }
 
     private static int ChooseProfile(int? requested, int configured)

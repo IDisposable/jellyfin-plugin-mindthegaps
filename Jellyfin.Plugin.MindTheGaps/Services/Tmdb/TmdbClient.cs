@@ -330,6 +330,34 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Searches TMDB's movies by title, first page, for the watchlist search.
+    /// </summary>
+    /// <param name="query">The title, or part of it.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matches, TMDB's best first.</returns>
+    public async Task<IReadOnlyList<SearchMovie>> SearchMoviesAsync(string query, string? language, CancellationToken cancellationToken)
+    {
+        _logger.Detailed("TMDB: SearchMovie '{Query}' lang {Language}", query, language);
+        var page = await _client.SearchMovieAsync(query, NormalizeLanguage(language, null), 1, false, 0, null, 0, cancellationToken).ConfigureAwait(false);
+        return page?.Results ?? [];
+    }
+
+    /// <summary>
+    /// Searches TMDB's series by name, first page, for the watchlist search.
+    /// </summary>
+    /// <param name="query">The name, or part of it.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matches, TMDB's best first.</returns>
+    public async Task<IReadOnlyList<SearchTv>> SearchSeriesAsync(string query, string? language, CancellationToken cancellationToken)
+    {
+        _logger.Detailed("TMDB: SearchTvShow '{Query}' lang {Language}", query, language);
+        var page = await _client.SearchTvShowAsync(query, NormalizeLanguage(language, null), 1, false, 0, cancellationToken).ConfigureAwait(false);
+        return page?.Results ?? [];
+    }
+
+    /// <summary>
     /// Gets a single page of similar shows for a series.
     /// </summary>
     /// <param name="tmdbId">The TMDB series id.</param>

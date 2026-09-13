@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Text.Json;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 
@@ -53,10 +55,60 @@ public sealed class AcquisitionResult
             return string.Empty;
         }
 
+        // Radarr and Sonarr answer a rejected add with a JSON array of validation failures; the user wants
+        // the messages ("This movie has already been added"), not the envelope around them.
+        var messages = ValidationMessages(body);
+        if (messages.Count > 0)
+        {
+            return string.Join(" ", messages);
+        }
+
         // Collapse every run of whitespace (a CRLF, indentation in a JSON/HTML body) to one space.
         var oneLine = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return oneLine.Length <= 200
             ? oneLine
             : string.Create(CultureInfo.InvariantCulture, $"{oneLine[..200]}...");
+    }
+
+    /// <summary>
+    /// Reads the <c>errorMessage</c> of every entry in an arr validation-failure array, in order, without
+    /// repeats. Anything that is not such an array yields nothing.
+    /// </summary>
+    /// <param name="body">The response body.</param>
+    /// <returns>The messages.</returns>
+    public static IReadOnlyList<string> ValidationMessages(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body) || !body.TrimStart().StartsWith('['))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var messages = new List<string>();
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.Object
+                    && element.TryGetProperty("errorMessage", out var message)
+                    && message.ValueKind == JsonValueKind.String
+                    && message.GetString() is { Length: > 0 } text
+                    && !messages.Contains(text.Trim()))
+                {
+                    messages.Add(text.Trim());
+                }
+            }
+
+            return messages;
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }

@@ -24,5 +24,10 @@ public enum GapSource
     /// <summary>
     /// The want-to-watch row: the gap is an entry on the todo list, rebuilt from its snapshot.
     /// </summary>
-    Todo
+    Todo,
+
+    /// <summary>
+    /// The watchlist search: the gap names a TMDB title by id, rebuilt from TMDB's record.
+    /// </summary>
+    Search
 }

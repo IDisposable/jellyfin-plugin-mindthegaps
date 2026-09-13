@@ -83,6 +83,8 @@ public class PluginConfiguration : BasePluginConfiguration
         HomeRowEnabled = false;
         HomeRowSize = 24;
         WantToWatchEnabled = false;
+        WatchlistName = "Want to watch";
+        WatchlistAutoRemoveWatched = true;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
         SearchUrlTemplate = "https://www.google.com/search?q={0}";
@@ -531,6 +533,19 @@ public class PluginConfiguration : BasePluginConfiguration
     /// checks itself against the library, and exports with it. Off by default.
     /// </summary>
     public bool WantToWatchEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the per-user Jellyfin playlist that holds owned titles on the watchlist. The
+    /// web client creates it on first use; the server finds it by this name among the user's own playlists.
+    /// </summary>
+    public string WatchlistName { get; set; } = "Want to watch";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a title comes off a user's watchlist playlist once they have
+    /// watched it (a movie when played; a series when every episode is). Server-side, so it works from any
+    /// client. On by default.
+    /// </summary>
+    public bool WatchlistAutoRemoveWatched { get; set; }
 
     /// <summary>
     /// Gets a value indicating whether any web UI surface is on, which is when the client script is added to

@@ -41,6 +41,7 @@ public class WebUiController : ControllerBase
     private readonly RelatedMissingService _related;
     private readonly HomeDiscoverService _home;
     private readonly WantToWatchService _want;
+    private readonly WatchlistSearchService _search;
     private readonly WebUiGapResolver _resolver;
     private readonly AcquisitionService _acquisition;
 
@@ -51,14 +52,16 @@ public class WebUiController : ControllerBase
     /// <param name="related">Computes a title's unowned similar titles.</param>
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="want">The want-to-watch list.</param>
+    /// <param name="search">The watchlist search.</param>
     /// <param name="resolver">Rehydrates and describes a card's gap.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, WantToWatchService want, WebUiGapResolver resolver, AcquisitionService acquisition)
+    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, WantToWatchService want, WatchlistSearchService search, WebUiGapResolver resolver, AcquisitionService acquisition)
     {
         _person = person;
         _related = related;
         _home = home;
         _want = want;
+        _search = search;
         _resolver = resolver;
         _acquisition = acquisition;
     }
@@ -66,6 +69,15 @@ public class WebUiController : ControllerBase
     private static bool AnyEnabled => Plugin.Instance?.Configuration.WebUiEnabled == true;
 
     private bool IsAdministrator => User.IsInRole(AdministratorRole);
+
+    private Guid CurrentUserId
+    {
+        get
+        {
+            var claim = User.FindFirst("Jellyfin-UserId")?.Value;
+            return Guid.TryParse(claim, out var id) ? id : Guid.Empty;
+        }
+    }
 
     /// <summary>
     /// Serves the client script that renders the web UI surfaces. Anonymous because index.html loads it before
@@ -113,7 +125,8 @@ public class WebUiController : ControllerBase
             ItemPage = c.ItemPageEnabled,
             HomeRow = c.HomeRowEnabled,
             WantToWatch = c.WantToWatchEnabled,
-            CanEditWantToWatch = c.WantToWatchEnabled && IsAdministrator
+            CanEditWantToWatch = c.WantToWatchEnabled && IsAdministrator,
+            WatchlistName = WatchlistPlaylistService.Name
         };
     }
 
@@ -143,6 +156,8 @@ public class WebUiController : ControllerBase
 
         MarkWanted(result.Movies);
         MarkWanted(result.Series);
+        await MarkArrAsync(result.Movies, cancellationToken).ConfigureAwait(false);
+        await MarkArrAsync(result.Series, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -171,6 +186,7 @@ public class WebUiController : ControllerBase
         }
 
         MarkWanted(result.Titles);
+        await MarkArrAsync(result.Titles, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
@@ -178,13 +194,14 @@ public class WebUiController : ControllerBase
     /// The home screen's discovery row: the recommendation gaps the scan has accumulated, ranked.
     /// </summary>
     /// <param name="limit">The most titles to return; omitted uses the configured row size.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The row, or 404 while the surface is off.</returns>
     [HttpGet("Home/Discover")]
     [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<HomeDiscoverResult> GetHomeDiscover([FromQuery] int? limit)
+    public async Task<ActionResult<HomeDiscoverResult>> GetHomeDiscover([FromQuery] int? limit, CancellationToken cancellationToken)
     {
         if (!Enabled(GapSource.Home))
         {
@@ -194,26 +211,55 @@ public class WebUiController : ControllerBase
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
         var result = _home.Get(IsAdministrator, size);
         MarkWanted(result.Titles);
+        await MarkArrAsync(result.Titles, cancellationToken).ConfigureAwait(false);
         return result;
     }
 
     /// <summary>
     /// The home screen's want-to-watch row: the todo list's undone movies and series, newest added first.
     /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The row, or 404 while the list is off.</returns>
     [HttpGet("Home/WantToWatch")]
     [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<HomeDiscoverResult> GetWantToWatch()
+    public async Task<ActionResult<HomeDiscoverResult>> GetWantToWatch(CancellationToken cancellationToken)
     {
         if (!Enabled(GapSource.Todo))
         {
             return NotFound();
         }
 
-        return _want.Get(IsAdministrator);
+        var result = await _want.GetAsync(CurrentUserId, IsAdministrator).ConfigureAwait(false);
+        await MarkArrAsync(result.Titles, cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    /// <summary>
+    /// Searches TMDB by title for the watchlist: owned matches carry their library item, missing ones can be
+    /// bookmarked or sent.
+    /// </summary>
+    /// <param name="q">The title, or part of it.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matches, or 404 while the list is off.</returns>
+    [HttpGet("WebUi/Search")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<MissingTitle>>> Search([FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        if (!Enabled(GapSource.Todo))
+        {
+            return NotFound();
+        }
+
+        var titles = await _search.SearchAsync(q ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        MarkWanted(titles);
+        await MarkArrAsync(titles, cancellationToken).ConfigureAwait(false);
+        return new ActionResult<IReadOnlyList<MissingTitle>>(titles);
     }
 
     /// <summary>
@@ -238,13 +284,22 @@ public class WebUiController : ControllerBase
             return NotFound();
         }
 
+        var gap = await _resolver.ResolveAsync(parsed, sourceId ?? Guid.Empty, gapId ?? string.Empty, cancellationToken).ConfigureAwait(false);
         if (!wanted)
         {
-            _want.Remove(gapId ?? string.Empty);
+            // Remove every entry for the title, whichever surface added it; a stale id still removes itself.
+            if (gap is null)
+            {
+                _want.Remove(gapId ?? string.Empty);
+            }
+            else
+            {
+                _want.RemoveMatching(gap);
+            }
+
             return new WantToWatchState { GapId = gapId ?? string.Empty, Wanted = false };
         }
 
-        var gap = await _resolver.ResolveAsync(parsed, sourceId ?? Guid.Empty, gapId ?? string.Empty, cancellationToken).ConfigureAwait(false);
         if (gap is null)
         {
             return NotFound();
@@ -329,6 +384,7 @@ public class WebUiController : ControllerBase
         }
 
         var result = await _acquisition.SendToArrAsync(gap, Plugin.RequireConfiguration(), cancellationToken, qualityProfileId).ConfigureAwait(false);
+        _acquisition.ForgetPresence();
         return new AcquisitionSendResult
         {
             Success = result.Success,
@@ -344,8 +400,30 @@ public class WebUiController : ControllerBase
         GapSource.Item => c.ItemPageEnabled,
         GapSource.Home => c.HomeRowEnabled,
         GapSource.Todo => c.WantToWatchEnabled,
+        GapSource.Search => c.WantToWatchEnabled,
         _ => false
     };
+
+    // Marks cards whose title Radarr/Sonarr already holds, so the client offers "in Radarr" instead of a
+    // send that would be rejected as a duplicate.
+    private async Task MarkArrAsync(IReadOnlyList<MissingTitle> titles, CancellationToken cancellationToken)
+    {
+        if (titles.Count == 0)
+        {
+            return;
+        }
+
+        var presence = await _acquisition.GetPresenceAsync(Plugin.RequireConfiguration(), cancellationToken).ConfigureAwait(false);
+        foreach (var title in titles)
+        {
+            var table = title.Kind == "Movie" ? presence.Movies : presence.Series;
+            if (table.TryGetValue(title.TmdbId, out var state))
+            {
+                title.InArr = title.Kind == "Movie" ? "Radarr" : "Sonarr";
+                title.ArrState = state.HasFile ? "downloaded" : state.Monitored ? "monitored" : "unmonitored";
+            }
+        }
+    }
 
     private void MarkWanted(IReadOnlyList<MissingTitle> titles)
     {

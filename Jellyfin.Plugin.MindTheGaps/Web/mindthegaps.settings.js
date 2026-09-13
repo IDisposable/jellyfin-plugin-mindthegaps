@@ -75,6 +75,8 @@ function loadConfig(page, config) {
     page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
     page.querySelector('#HomeRowSize').value = config.HomeRowSize || 24;
     page.querySelector('#WantToWatchEnabled').checked = config.WantToWatchEnabled;
+    page.querySelector('#WatchlistName').value = config.WatchlistName || 'Want to watch';
+    page.querySelector('#WatchlistAutoRemoveWatched').checked = config.WatchlistAutoRemoveWatched;
     page.querySelector('#PersonPageMinVotes').value = config.PersonPageMinVotes || 0;
     page.querySelector('#PersonPageMinEpisodes').value = config.PersonPageMinEpisodes || 0;
     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
@@ -167,6 +169,8 @@ function saveConfig(page, e) {
         config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
         config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '24', 10);
         config.WantToWatchEnabled = form.querySelector('#WantToWatchEnabled').checked;
+        config.WatchlistName = form.querySelector('#WatchlistName').value.trim() || 'Want to watch';
+        config.WatchlistAutoRemoveWatched = form.querySelector('#WatchlistAutoRemoveWatched').checked;
         config.PersonPageMinVotes = parseInt(form.querySelector('#PersonPageMinVotes').value || '0', 10);
         config.PersonPageMinEpisodes = parseInt(form.querySelector('#PersonPageMinEpisodes').value || '0', 10);
         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);

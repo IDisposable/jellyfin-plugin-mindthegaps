@@ -78,6 +78,9 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<RelatedMissingService>();
         serviceCollection.AddSingleton<HomeDiscoverService>();
         serviceCollection.AddSingleton<WantToWatchService>();
+        serviceCollection.AddSingleton<WatchlistPlaylistService>();
+        serviceCollection.AddSingleton<WatchlistSearchService>();
+        serviceCollection.AddHostedService<WatchedAutoRemover>();
         serviceCollection.AddSingleton<WebUiGapResolver>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 

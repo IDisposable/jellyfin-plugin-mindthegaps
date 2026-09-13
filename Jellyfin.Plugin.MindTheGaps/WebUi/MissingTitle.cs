@@ -51,6 +51,24 @@ public sealed class MissingTitle
     public bool Wanted { get; set; }
 
     /// <summary>
+    /// Gets or sets the acquisition target that already holds the title ("Radarr", "Sonarr"), so the card
+    /// says so instead of offering a send that would be rejected; null when neither does.
+    /// </summary>
+    public string? InArr { get; set; }
+
+    /// <summary>
+    /// Gets or sets the arr entry's state when <see cref="InArr"/> is set: "downloaded" when it has a file,
+    /// "monitored" when it is waiting for one, "unmonitored" otherwise.
+    /// </summary>
+    public string? ArrState { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jellyfin item id when the title turns out to be in the library (a search result),
+    /// so the card links to it and bookmarks it on the playlist instead.
+    /// </summary>
+    public string? OwnedItemId { get; set; }
+
+    /// <summary>
     /// Gets or sets the TMDB id of the title.
     /// </summary>
     public int TmdbId { get; set; }

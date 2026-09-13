@@ -173,6 +173,28 @@
         return btn;
     }
 
+    // A playlist bookmark for a card whose title is in the library (a search result).
+    function ownedWantButton(itemId) {
+        var btn = h('button', { 'is': 'paper-icon-button-light', 'type': 'button', 'class': 'mtgWantButton mtgHoverWant', 'data-itemid': itemId, 'tabindex': isTv() ? '-1' : null });
+        btn.appendChild(h('span', { 'class': 'material-icons bookmark_border', 'aria-hidden': 'true' }));
+        btn.setAttribute('title', WATCHLIST_ADD);
+        btn.mtgWanted = false;
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var next = !btn.mtgWanted;
+            btn.disabled = true;
+            setOwnedWanted(itemId, next).then(function () { btn.disabled = false; syncOwnedWanted(itemId, next); }, function () { btn.disabled = false; alertUser('Could not update your watchlist.'); });
+        });
+        ownedWanted(itemId).then(function (state) {
+            btn.mtgWanted = !!state;
+            btn.classList.toggle('mtgWanted', !!state);
+            btn.setAttribute('title', state ? WATCHLIST_REMOVE : WATCHLIST_ADD);
+            btn.querySelector('.material-icons').className = 'material-icons ' + (state ? 'bookmark' : 'bookmark_border');
+        }, function () { /* leave unmarked */ });
+        return btn;
+    }
+
     // ---- Want to watch for owned titles: the user's own "Want to watch" playlist ----
     //
     // An owned title cannot go on the plugin's todo list (that list is of titles to acquire, and the
@@ -276,7 +298,10 @@
         btn.setAttribute('title', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
         btn.setAttribute('aria-label', wanted ? WATCHLIST_REMOVE : WATCHLIST_ADD);
         btn.mtgWanted = wanted;
-        btn.querySelector('.material-icons').className = 'material-icons cardOverlayButtonIcon cardOverlayButtonIcon-hover ' + (wanted ? 'bookmark' : 'bookmark_border');
+        btn.classList.toggle('mtgWanted', wanted);
+        var icon = btn.querySelector('.material-icons');
+        var overlay = icon.classList.contains('cardOverlayButtonIcon');
+        icon.className = 'material-icons ' + (overlay ? 'cardOverlayButtonIcon cardOverlayButtonIcon-hover ' : '') + (wanted ? 'bookmark' : 'bookmark_border');
     }
 
     function onCardHover(e) {
@@ -454,7 +479,7 @@
     var BACK_CODES = { 27: 1, 10009: 1, 461: 1, 4: 1 };
 
     function dialogFocusables(dlg) {
-        return Array.prototype.filter.call(dlg.querySelectorAll('button, a[href], select'), function (el) {
+        return Array.prototype.filter.call(dlg.querySelectorAll('button, a[href], select, input'), function (el) {
             return !el.disabled && el.offsetParent !== null && el.getAttribute('tabindex') !== '-1';
         });
     }
@@ -475,8 +500,10 @@
 
         var key = keyName(e);
         if (!key) { return; }
-        // A focused select changes its value with up and down; leave those to it.
+        // A focused select changes its value with up and down, and a text field moves its caret with left and
+        // right; leave those to them.
         if (tag === 'SELECT' && (key === 'ArrowUp' || key === 'ArrowDown')) { e.stopPropagation(); return; }
+        if (tag === 'INPUT' && (key === 'ArrowLeft' || key === 'ArrowRight')) { e.stopPropagation(); return; }
 
         var close = dlg.querySelector('.mtgClose');
         var items = dialogFocusables(dlg).filter(function (el) { return el !== close; });
@@ -519,23 +546,32 @@
         return parts.join(' \u00b7 ');
     }
 
-    function renderDialog(ctx, item, detail, profiles) {
+    // Opens a box as the one modal overlay: focus trapped inside, Back and Escape close it, a history entry
+    // so Back works however the client delivers it. Returns the close button so callers can order focus.
+    function openOverlay(box, label) {
         closeDialog();
-        var canSend = ctx.canSend(item.Kind);
         // "dialogContainer" is the class jellyfin-web's router checks before it will go back on a start page
         // (the home screen): without it, Back on a TV does nothing there, or exits the app.
-        var overlay = h('div', { 'id': DIALOG_ID, 'class': 'dialogContainer mtgOverlay', 'role': 'dialog', 'aria-modal': 'true', 'aria-label': detail.Title });
+        var overlay = h('div', { 'id': DIALOG_ID, 'class': 'dialogContainer mtgOverlay', 'role': 'dialog', 'aria-modal': 'true', 'aria-label': label });
         overlay.mtgRestoreFocus = document.activeElement;
         overlay.addEventListener('click', function (e) { if (e.target === overlay) { closeDialog(); } });
-
-        var box = h('div', { 'class': 'mtgDialog', 'data-gapid': item.GapId });
-        var bg = safeImage(detail.BackdropUrl);
-        if (bg) { box.style.backgroundImage = 'linear-gradient(rgba(16,16,16,.88), rgba(16,16,16,.97)), ' + bg; }
-
         var close = h('button', { 'is': 'paper-icon-button-light', 'type': 'button', 'class': 'mtgClose', 'title': 'Close', 'aria-label': 'Close' });
         close.appendChild(h('span', { 'class': 'material-icons close', 'aria-hidden': 'true' }));
         close.addEventListener('click', closeDialog);
-        box.appendChild(close);
+        box.insertBefore(close, box.firstChild);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        document.addEventListener('keydown', onDialogKey, true);
+        document.addEventListener('focusin', keepFocusInDialog, true);
+        try { window.history.pushState(dialogState(), '', window.location.href); } catch (err) { /* history unavailable: Escape and X still close */ }
+        return close;
+    }
+
+    function renderDialog(ctx, item, detail, profiles) {
+        var canSend = ctx.canSend(item.Kind) && !item.InArr;
+        var box = h('div', { 'class': 'mtgDialog', 'data-gapid': item.GapId });
+        var bg = safeImage(detail.BackdropUrl);
+        if (bg) { box.style.backgroundImage = 'linear-gradient(rgba(16,16,16,.88), rgba(16,16,16,.97)), ' + bg; }
 
         var body = h('div', { 'class': 'mtgDialogBody' });
         var poster = h('div', { 'class': 'mtgDialogPoster' });
@@ -562,11 +598,14 @@
         if (links.childNodes.length) { text.appendChild(links); }
 
         var actions = h('div', { 'class': 'mtgDialogActions' });
-        var firstFocus = close;
+        var firstFocus = null;
         if (canEditWant()) {
             var want = wantButton(ctx, item, true);
             actions.appendChild(want);
-            if (firstFocus === close) { firstFocus = want; }
+            firstFocus = firstFocus || want;
+        }
+        if (item.InArr) {
+            actions.appendChild(h('div', { 'class': 'mtgArrNote' }, arrLabel(item)));
         }
         if (canSend) {
             var list = profiles ? (item.Kind === 'Movie' ? profiles.Radarr : profiles.Sonarr) : null;
@@ -590,17 +629,20 @@
                 send(ctx, item, dl, profileId, function () { markSent(item); });
             });
             actions.appendChild(dl);
-            if (firstFocus === close) { firstFocus = dl; }
+            firstFocus = firstFocus || dl;
         }
         text.appendChild(actions);
         body.appendChild(text);
         box.appendChild(body);
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-        document.addEventListener('keydown', onDialogKey, true);
-        document.addEventListener('focusin', keepFocusInDialog, true);
-        try { window.history.pushState(dialogState(), '', window.location.href); } catch (err) { /* history unavailable: Escape and X still close */ }
-        firstFocus.focus();
+        var close = openOverlay(box, detail.Title);
+        (firstFocus || close).focus();
+    }
+
+    // What a card says instead of Download Now when Radarr or Sonarr already has the title.
+    function arrLabel(item) {
+        if (item.ArrState === 'downloaded') { return 'In ' + item.InArr + ' (downloaded)'; }
+        if (item.ArrState === 'monitored') { return 'In ' + item.InArr + ', waiting for release'; }
+        return 'In ' + item.InArr + ' (not monitored)';
     }
 
     function openDetail(ctx, item) {
@@ -613,6 +655,57 @@
         }, function () {
             alertUser('Could not load details for ' + item.Title + '.');
         });
+    }
+
+    // ---- Watchlist search: "Add a title" ----
+
+    function openSearch() {
+        var box = h('div', { 'class': 'mtgDialog mtgSearch' });
+        var body = h('div', { 'class': 'mtgSearchBody' });
+        body.appendChild(h('h2', { 'class': 'mtgDialogTitle' }, 'Add a title to your watchlist'));
+        var form = h('form', { 'class': 'mtgSearchForm' });
+        var field = h('div', { 'class': 'inputContainer mtgSearchField' });
+        var input = h('input', { 'is': 'emby-input', 'type': 'search', 'id': 'mtgSearchInput', 'placeholder': 'Movie or show title', 'autocomplete': 'off' });
+        field.appendChild(input);
+        form.appendChild(field);
+        var go = h('button', { 'is': 'emby-button', 'type': 'submit', 'class': 'raised button-submit' }, 'Search');
+        form.appendChild(go);
+        body.appendChild(form);
+        var note = h('p', { 'class': 'mtgNote' }, 'Titles that are not out yet can be bookmarked and sent to Radarr or Sonarr to download on release.');
+        body.appendChild(note);
+        var results = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer vertical-wrap mtgSearchResults' });
+        body.appendChild(results);
+        box.appendChild(body);
+        var ctx = {
+            source: 'search',
+            sourceId: null,
+            canSend: function (kind) { return !!(searchCanSend && (kind === 'Movie' ? searchCanSend.movies : searchCanSend.series)); }
+        };
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var q = input.value.trim();
+            if (q.length < 2) { return; }
+            note.textContent = 'Searching\u2026';
+            results.innerHTML = '';
+            api('GET', 'MindTheGaps/WebUi/Search', { q: q }).then(function (titles) {
+                note.textContent = titles.length ? '' : 'Nothing on TMDB matches that.';
+                titles.forEach(function (t) { results.appendChild(card(ctx, t, false)); });
+            }, function () { note.textContent = 'Search failed.'; });
+        });
+        openOverlay(box, 'Add a title');
+        input.focus();
+    }
+
+    // Whether the viewer may send from search results: an administrator with the targets configured, learnt
+    // from any row already loaded (the Discover or want rows carry the flags).
+    var searchCanSend = null;
+
+    function addTitleButton() {
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgAddTitle' });
+        btn.appendChild(h('span', { 'class': 'material-icons add', 'aria-hidden': 'true' }));
+        btn.appendChild(h('span', null, 'Add a title'));
+        btn.addEventListener('click', openSearch);
+        return btn;
     }
 
     // ---- Cards ----
@@ -656,6 +749,7 @@
         title.appendChild(h('bdi', null, item.Title));
         box.appendChild(title);
         var sub = item.Year ? String(item.Year) : '';
+        if (item.OwnedItemId) { sub = sub ? sub + ' \u00b7 In your library' : 'In your library'; }
         if (item.Role) { sub = sub ? sub + ' \u00b7 ' + item.Role : item.Role; }
         if (item.Because && ctx.becauseOnCards) { sub = sub ? sub + ' \u00b7 ' + item.Because : item.Because; }
         var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary', 'title': sub });
@@ -665,12 +759,19 @@
         var open = function (e) {
             e.preventDefault();
             e.stopPropagation();
+            if (item.OwnedItemId) {
+                closeDialog();
+                window.location.hash = '#/details?id=' + encodeURIComponent(item.OwnedItemId) + '&serverId=' + encodeURIComponent(ApiClient.serverId());
+                return;
+            }
             openDetail(ctx, item);
         };
         (tv ? el : img).addEventListener('click', open);
 
         var actions = h('div', { 'class': 'mtgCardActions' });
-        if (ctx.canSend(item.Kind)) {
+        if (item.InArr) {
+            actions.appendChild(h('span', { 'class': 'mtgArrBadge', 'title': arrLabel(item) }, 'In ' + item.InArr));
+        } else if (ctx.canSend(item.Kind)) {
             var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgSendButton', 'tabindex': tv ? '-1' : null }, 'Download Now');
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -678,7 +779,9 @@
             });
             actions.appendChild(btn);
         }
-        if (canEditWant() && ctx.wantOnCards !== false) {
+        if (item.OwnedItemId && surfaceFlags.WantToWatch) {
+            actions.appendChild(ownedWantButton(item.OwnedItemId));
+        } else if (canEditWant() && ctx.wantOnCards !== false) {
             actions.appendChild(wantButton(ctx, item, false));
         }
         if (actions.childNodes.length) { box.appendChild(actions); }
@@ -809,13 +912,22 @@
         var old = sectionsEl.querySelector('#' + WANT_ID);
         if (old) { old.parentNode.removeChild(old); }
         var titles = (data && data.Titles) || [];
-        if (!titles.length && !owned.length) { return; }
+        if (data) { searchCanSend = { movies: !!data.CanSendMovies, series: !!data.CanSendSeries }; }
+        if (!titles.length && !owned.length && !canEditWant()) { return; }
         var ctx = {
             source: 'todo',
             sourceId: null,
             canSend: function (kind) { return data && (kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries); }
         };
-        var section = scroller(ctx, 'Want to watch', titles, 'padded-left');
+        var section = scroller(ctx, surfaceFlags.WatchlistName || 'Want to watch', titles, 'padded-left');
+        if (canEditWant()) {
+            var head = section.querySelector('.sectionTitle');
+            var wrap = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left mtgWantHead' });
+            head.classList.remove('padded-left');
+            head.parentNode.insertBefore(wrap, head);
+            wrap.appendChild(head);
+            wrap.appendChild(addTitleButton());
+        }
         // Owned titles first: they can be watched now.
         var container = section.querySelector('.scrollSlider');
         owned.slice().reverse().forEach(function (item) { container.insertBefore(ownedCard(item), container.firstChild); });
@@ -980,6 +1092,17 @@
         '.mtgCard .mtgSendButton.mtgSent,.mtgDialogDownload.mtgSent{opacity:.6}' +
         '.mtgUpcomingBadge{position:absolute;top:.5em;left:.5em;z-index:1;padding:.2em .6em;border-radius:.3em;background:rgba(0,0,0,.75);color:#fff;font-size:75%;line-height:1.4}' +
         '.mtgNote{opacity:.8}' +
+        '.mtgArrBadge{display:inline-block;padding:.35em .8em;border-radius:.3em;background:rgba(255,255,255,.12);font-size:80%;opacity:.9}' +
+        '.mtgArrNote{opacity:.85;align-self:center}' +
+        '.mtgWantHead{display:flex;align-items:center;gap:1em}' +
+        '.mtgWantHead .sectionTitle{margin:0}' +
+        '.mtgAddTitle .material-icons{font-size:1.2em;margin-right:.2em}' +
+        '.mtgSearch{width:min(70em,100%)}' +
+        '.mtgSearchBody{padding:1.5em}' +
+        '.mtgSearchForm{display:flex;gap:1em;align-items:flex-end;margin-bottom:.5em}' +
+        '.mtgSearchField{flex:1 1 auto;margin:0}' +
+        '.mtgSearchResults{margin-top:1em}' +
+        '.mtgSearchResults .card{width:11em!important}' +
         '.mtgOverlay{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:2em}' +
         '.mtgDialog{position:relative;width:min(56em,100%);max-height:90vh;overflow:auto;border-radius:.4em;background:#181818 center/cover no-repeat;color:#fff;box-shadow:0 .5em 2em rgba(0,0,0,.6)}' +
         '.mtgClose{position:absolute;top:.4em;right:.4em;z-index:1}' +
