@@ -884,6 +884,7 @@
         var el = h('a', {
             'class': 'card overflowPortraitCard mtgCard mtgOwnedCard' + (tv ? ' show-focus show-animation' : ' card-hoverable'),
             'href': '#/details?id=' + encodeURIComponent(item.Id) + '&serverId=' + encodeURIComponent(ApiClient.serverId()),
+            'data-itemid': item.Id,
             'aria-label': item.Name
         });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
@@ -908,11 +909,25 @@
         return el;
     }
 
+    // The keys a rendered row's cards carry, in order, so a reload can tell whether anything changed.
+    function rowKeys(section) {
+        return Array.prototype.map.call(section.querySelectorAll('.mtgCard'), function (c) { return c.getAttribute('data-gapid') || c.getAttribute('data-itemid') || ''; });
+    }
+
     function renderWant(sectionsEl, data, owned) {
-        var old = sectionsEl.querySelector('#' + WANT_ID);
-        if (old) { old.parentNode.removeChild(old); }
         var titles = (data && data.Titles) || [];
         if (data) { searchCanSend = { movies: !!data.CanSendMovies, series: !!data.CanSendSeries }; }
+        var old = sectionsEl.querySelector('#' + WANT_ID);
+        var newKeys = owned.map(function (i) { return i.Id; }).concat(titles.map(function (t) { return t.GapId; }));
+        if (old) {
+            // The home view is cached and Jellyfin restores focus into it on return; rebuilding an unchanged
+            // row would remove the focused card, and the next remote press would start from nowhere.
+            if (rowKeys(old).join('|') === newKeys.join('|')) { return; }
+            var focused = old.contains(document.activeElement) ? document.activeElement.closest('.mtgCard') : null;
+            var focusKey = focused ? (focused.getAttribute('data-gapid') || focused.getAttribute('data-itemid')) : null;
+            var focusIndex = focused ? Array.prototype.indexOf.call(old.querySelectorAll('.mtgCard'), focused) : -1;
+            old.parentNode.removeChild(old);
+        }
         if (!titles.length && !owned.length && !canEditWant()) { return; }
         var ctx = {
             source: 'todo',
@@ -935,6 +950,15 @@
         // Above Discover when both are present.
         var discover = sectionsEl.querySelector('#' + HOME_ID);
         sectionsEl.insertBefore(section, discover || null);
+        if (focusKey) {
+            // The same card if it is still there, else its neighbour (the card that took its place, or the last).
+            var again = section.querySelector('.mtgCard[data-gapid="' + focusKey + '"], .mtgCard[data-itemid="' + focusKey + '"]');
+            if (!again && focusIndex >= 0) {
+                var all = section.querySelectorAll('.mtgCard');
+                again = all[Math.min(focusIndex, all.length - 1)] || null;
+            }
+            if (again) { (again.tagName === 'A' || again.tagName === 'BUTTON' ? again : again.querySelector('button')).focus(); }
+        }
     }
 
     function loadWantRow(sectionsEl) {
