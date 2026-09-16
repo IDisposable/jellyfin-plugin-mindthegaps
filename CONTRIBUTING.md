@@ -10,8 +10,9 @@ dotnet build Jellyfin.Plugin.MindTheGaps.sln
 dotnet test  Jellyfin.Plugin.MindTheGaps.sln
 ```
 
-You need the .NET 9 SDK. No Jellyfin server checkout is required: the projects reference the published
-`Jellyfin.Controller` / `Jellyfin.Model` / `Jellyfin.Common` NuGet packages, so the repo builds standalone.
+You need the .NET 9 SDK (10.11 ABI) and, if you want to build the 12.0 ABI too, the .NET 10 SDK. No
+Jellyfin server checkout is required: the projects reference the published `Jellyfin.Controller` /
+`Jellyfin.Model` / `Jellyfin.Common` NuGet packages, so the repo builds standalone.
 
 Both projects build clean with StyleCop and the .NET analyzers running as **errors**
 (`TreatWarningsAsErrors`), so a warning fails the build. Keep it green.
@@ -26,9 +27,12 @@ Both projects build clean with StyleCop and the .NET analyzers running as **erro
   `artifacts` too, or the plugin fails to load with a `ReflectionTypeLoadException`.
 - **Versions are centralized.** `Directory.Packages.props` pins every package version from a single
   `$(JellyfinVersion)` property, so the CI matrix can build each ABI by passing `-p:JellyfinVersion=`.
-- **One ABI today.** The plugin targets `net9.0` / Jellyfin ABI `10.11.0.0` (the only published Jellyfin
-  NuGet ABI). The [CI matrix](.github/workflows/build.yaml) has a `12.x` row ready to uncomment once a 12.x
-  NuGet ships. Keep the `.csproj` `TargetFramework` and `build.yaml`'s `targetAbi` in step.
+- **Two ABIs today.** The [CI matrix](.github/workflows/build.yaml) builds `net9.0` / Jellyfin ABI
+  `10.11.0.0` and `net10.0` / ABI `12.0.0.0`. The `.csproj` files default to `net9.0`; a row overrides via
+  `-p:MtgFramework=`, not `-p:TargetFramework=`, because the SDK strips a `TargetFramework` global property
+  when it recurses into a `ProjectReference`, which would otherwise revert the plugin project (referenced by
+  the Tests project) back to its hardcoded default. Keep the `.csproj` default and `build.yaml`'s `targetAbi`
+  in step with whichever ABI's row you're adding.
 
 The full standalone build-and-package pattern is written up in
 [this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd), and the conventions this
