@@ -130,17 +130,18 @@ public sealed class AcquisitionService
             return AcquisitionResult.Fail("Sonarr is not configured.");
         }
 
+        var seriesTitle = SeriesTitle(gap);
         var tvdbId = ResolveSeriesTvdbId(gap);
         if (tvdbId is null)
         {
-            _logger.LogWarning("Sonarr send skipped: '{Series}' has no TheTVDB id", gap.SourceItemName ?? gap.Name);
+            _logger.LogWarning("Sonarr send skipped: '{Series}' has no TheTVDB id", seriesTitle);
             return AcquisitionResult.Fail("This series has no TheTVDB id, which Sonarr needs.");
         }
 
         var monitor = string.IsNullOrWhiteSpace(config.SonarrMonitor) ? "all" : config.SonarrMonitor;
         var seriesPayload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["title"] = gap.SourceItemName ?? gap.Name,
+            ["title"] = seriesTitle,
             ["tvdbId"] = tvdbId.Value,
             ["qualityProfileId"] = config.SonarrQualityProfileId,
             ["rootFolderPath"] = config.SonarrRootFolderPath,
@@ -186,6 +187,19 @@ public sealed class AcquisitionService
             ["mediaId"] = tmdbId.Value
         };
         return await PostAsync(config.SeerrUrl, "/api/v1/request", config.SeerrApiKey, payload, "Jellyseerr", "Requested in Jellyseerr.", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The series title Sonarr is given. A whole-series gap (a filmography, recommendation, or favorites
+    /// entry) is the series itself, so its own name; an episode or season gap belongs to the owned series
+    /// named in its source, so use that name.
+    /// </summary>
+    /// <param name="gap">The gap.</param>
+    /// <returns>The series title.</returns>
+    public static string SeriesTitle(GapItem gap)
+    {
+        ArgumentNullException.ThrowIfNull(gap);
+        return gap.TargetKind == BaseItemKind.Series ? gap.Name : gap.SourceItemName ?? gap.Name;
     }
 
     // The movie/series TMDB id: a movie gap carries it in ProviderIds; an episode/series gap carries the
@@ -247,11 +261,11 @@ public sealed class AcquisitionService
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogWarning("{Service}: {Status} from POST {Url} body {Body}", service, (int)response.StatusCode, logUrl, body);
+            _logger.LogInformation("{Service}: {Status} from POST {Url} body {Body}", service, (int)response.StatusCode, logUrl, body);
 
             // A 4xx is common and expected (already requested, already owned, no matching item); report the
             // service's own message so the user sees why.
-            var summary = AcquisitionResult.Summarize(body);
+            var summary = AcquisitionResult.Summarize(body, _logger);
             return AcquisitionResult.Fail(string.IsNullOrEmpty(summary)
                 ? string.Create(CultureInfo.InvariantCulture, $"{service} returned {(int)response.StatusCode}.")
                 : string.Create(CultureInfo.InvariantCulture, $"{service} returned {(int)response.StatusCode}. {summary}"));

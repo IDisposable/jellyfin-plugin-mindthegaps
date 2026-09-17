@@ -66,7 +66,7 @@ public class AcquisitionController : ControllerBase
     [HttpPost("SendToArr")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AcquisitionSendResult>> SendToArr([FromQuery] string? id, CancellationToken cancellationToken)
-        => await SendOneAsync(id, _acquisition.SendToArrAsync, cancellationToken).ConfigureAwait(false);
+        => await SendOneAsync(id, (gapItem, config, ct) => _acquisition.SendToArrAsync(gapItem, config, ct), cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Sends several selected gaps to Radarr/Sonarr, rehydrated server-side by their ids. One failed send
@@ -78,7 +78,7 @@ public class AcquisitionController : ControllerBase
     [HttpPost("SendToArrBulk")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AcquisitionSendResult>> SendToArrBulk([FromBody] IReadOnlyList<string> ids, CancellationToken cancellationToken)
-        => await SendManyAsync(ids, _acquisition.SendToArrAsync, cancellationToken).ConfigureAwait(false);
+        => await SendManyAsync(ids, (gapItem, config, ct) => _acquisition.SendToArrAsync(gapItem, config, ct), cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Requests one gap in Jellyseerr/Overseerr, rehydrated server-side by its id.
@@ -89,7 +89,7 @@ public class AcquisitionController : ControllerBase
     [HttpPost("SendToSeerr")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AcquisitionSendResult>> SendToSeerr([FromQuery] string? id, CancellationToken cancellationToken)
-        => await SendOneAsync(id, _acquisition.SendToSeerrAsync, cancellationToken).ConfigureAwait(false);
+        => await SendOneAsync(id, (gapItem, config, ct) => _acquisition.SendToSeerrAsync(gapItem, config, ct), cancellationToken).ConfigureAwait(false);
 
     /// <summary>
     /// Requests several selected gaps in Jellyseerr/Overseerr, rehydrated server-side by their ids.
@@ -100,7 +100,7 @@ public class AcquisitionController : ControllerBase
     [HttpPost("SendToSeerrBulk")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AcquisitionSendResult>> SendToSeerrBulk([FromBody] IReadOnlyList<string> ids, CancellationToken cancellationToken)
-        => await SendManyAsync(ids, _acquisition.SendToSeerrAsync, cancellationToken).ConfigureAwait(false);
+        => await SendManyAsync(ids, (gapItem, config, ct) => _acquisition.SendToSeerrAsync(gapItem, config, ct), cancellationToken).ConfigureAwait(false);
 
     // Run one send for a gap rehydrated from the stored report (never trust a client-posted gap object).
     private async Task<AcquisitionSendResult> SendOneAsync(string? id, Func<GapItem, PluginConfiguration, CancellationToken, Task<AcquisitionResult>> send, CancellationToken cancellationToken)

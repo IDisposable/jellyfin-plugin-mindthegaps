@@ -1,5 +1,7 @@
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -58,12 +60,14 @@ public class AcquisitionServiceTests
     [Fact]
     public void Summarize_CollapsesAndCaps()
     {
-        Assert.Equal(string.Empty, AcquisitionResult.Summarize(null));
-        Assert.Equal(string.Empty, AcquisitionResult.Summarize("   "));
-        Assert.Equal("one two three", AcquisitionResult.Summarize("one\r\ntwo\nthree"));
+        var logger = NullLogger<AcquisitionService>.Instance;
+
+        Assert.Equal(string.Empty, AcquisitionResult.Summarize(null, logger));
+        Assert.Equal(string.Empty, AcquisitionResult.Summarize("   ", logger));
+        Assert.Equal("one two three", AcquisitionResult.Summarize("one\r\ntwo\nthree", logger));
 
         var huge = new string('x', 500);
-        var summary = AcquisitionResult.Summarize(huge);
+        var summary = AcquisitionResult.Summarize(huge, logger);
         Assert.Equal(203, summary.Length);
         Assert.EndsWith("...", summary, System.StringComparison.Ordinal);
     }

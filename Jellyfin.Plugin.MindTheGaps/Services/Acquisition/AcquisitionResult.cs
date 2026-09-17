@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 
@@ -45,12 +48,21 @@ public sealed class AcquisitionResult
     /// not dump a whole HTML/JSON body into a toast.
     /// </summary>
     /// <param name="body">The raw response body (may be null).</param>
+    /// <param name="logger">The logger.</param>
     /// <returns>A one-line, length-capped summary.</returns>
-    public static string Summarize(string? body)
+    public static string Summarize(string? body, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(body))
         {
             return string.Empty;
+        }
+
+        // Radarr and Sonarr answer a rejected add with a JSON array of validation failures; the user wants
+        // the messages ("This movie has already been added"), not the envelope around them.
+        var messages = ValidationMessages(body, logger);
+        if (messages.Count > 0)
+        {
+            return string.Join(" ", messages);
         }
 
         // Collapse every run of whitespace (a CRLF, indentation in a JSON/HTML body) to one space.
@@ -58,5 +70,53 @@ public sealed class AcquisitionResult
         return oneLine.Length <= 200
             ? oneLine
             : string.Create(CultureInfo.InvariantCulture, $"{oneLine[..200]}...");
+    }
+
+    /// <summary>
+    /// Reads the <c>errorMessage</c> of every entry in an arr validation-failure array.
+    /// </summary>
+    /// <param name="body">The response body.</param>
+    /// <param name="logger">The logger.</param>
+    /// <returns>The messages.</returns>
+    public static IReadOnlyList<string> ValidationMessages(string? body, ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(body) || !body.TrimStart().StartsWith('['))
+        {
+            logger.LogWarning("Expected an array but got non-array response body {Body}.", body);
+            return [];
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                logger.LogWarning("Expected an array but failed to parse validation messages from response body {Body}.", body);
+                return [];
+            }
+
+            var messages = new List<string>();
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.Object
+                    && element.TryGetProperty("errorMessage", out var message)
+                    && message.ValueKind == JsonValueKind.String
+                    && message.GetString() is { Length: > 0 } text)
+                {
+                    text = text.Trim();
+                    if (!messages.Contains(text))
+                    {
+                        messages.Add(text);
+                    }
+                }
+            }
+
+            return messages;
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to parse validation messages from response body {Body}.", body);
+            return [];
+        }
     }
 }

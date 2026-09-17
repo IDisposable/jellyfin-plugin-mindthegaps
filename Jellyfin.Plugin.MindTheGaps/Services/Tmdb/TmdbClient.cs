@@ -119,7 +119,7 @@ public sealed class TmdbClient : IDisposable
             return cached;
         }
 
-        _logger.Detailed("TMDB: GetPerson {TmdbId} lang {Language}", tmdbId, language);
+        _logger.Detailed("TMDB: GetPerson {TmdbId} language {Language} country {Country}", tmdbId, language, country);
         var person = await _client.GetPersonAsync(
             tmdbId,
             NormalizeLanguage(language, country),
