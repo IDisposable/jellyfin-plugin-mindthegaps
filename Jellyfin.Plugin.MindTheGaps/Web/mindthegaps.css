@@ -201,9 +201,15 @@
     grid-template-columns: repeat(auto-fill, minmax(30em, 1fr));
 }
 
-/* One row: checkbox, thumbnail, title, meta, and the icon popovers, all on one line. */
+/* One row: checkbox, thumbnail, title, meta, and the icon popovers, all on one line until
+    something expands (the hover overview, or an open popover). Jellyfin's own page wrapper sets
+    CSS containment (contain: size), which makes that wrapper the containing block for any
+    position:fixed descendant instead of the viewport, so an expanding piece here is plain in-flow
+    content; flex-wrap lets it drop onto its own full-width line below rather than needing to float
+    over the page. */
 .cgRow {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: .5em;
     position: relative;
@@ -259,19 +265,18 @@
 
 /* Hovering or focusing the title reveals the overview inline, without a click. Desktop-only
     (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback instead.
-    position:fixed (top/left set by floatNear in JS) so a row anywhere in a long report is not
-    clipped by an ancestor's overflow the way a plain position:absolute child would be. */
+    A plain in-flow block (see .cgRow above for why position:fixed is not viable here): flex-
+    basis:100% on this wrapped flex item drops it onto its own full-width line under the title. */
 .cgHoverDetail {
     display: none;
-    position: fixed;
-    z-index: 15;
-    width: 22em;
-    max-width: 80vw;
+    flex-basis: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: .3em;
     padding: .6em .7em;
     border-radius: 6px;
     border: 1px solid #5a5a5a;
     background: #1b1b1b;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
     font-size: .85em;
 }
 
@@ -288,13 +293,22 @@
     flex: 0 0 auto;
     margin-left: auto;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: .3em;
 }
 
-/* A popover icon button: a <details> whose <summary> is the icon and whose body is an
-    absolutely-positioned dropdown, so open/close needs no script-tracked state. */
+/* A popover icon button: a <details> whose <summary> is the icon and whose body is a plain
+    in-flow block (below), so open/close needs no script-tracked state. */
 .cgPop {
     position: relative;
+}
+
+/* An open popover claims the whole icon row's width on its own line (.cgIcons wraps above) so its
+    body has real room to render in, rather than being squeezed into the same narrow column as the
+    icon that opened it. */
+.cgPop[open] {
+    flex-basis: 100%;
 }
 
 .cgPop > summary {
@@ -322,18 +336,14 @@
     font-size: 1.1em;
 }
 
-/* position:fixed (top/left set by floatNear in JS) so a row anywhere in a long report is not clipped
-    by an ancestor's overflow the way a plain position:absolute child would be. A nested popover
-    (.cgPopNested, below) overrides this back to static since it renders inline in its parent body. */
+/* A plain in-flow block (see .cgRow above for why position:fixed is not viable here): it renders
+    directly below its <summary>, filling the full-width line its open .cgPop claims. */
 .cgPopBody {
-    position: fixed;
-    z-index: 16;
-    min-width: 12em;
+    margin-top: .3em;
     padding: .5em;
     border-radius: 6px;
     border: 1px solid #5a5a5a;
     background: #1b1b1b;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
     font-size: .85em;
 }
 
@@ -351,8 +361,6 @@
 }
 
 .cgPopNested .cgPopBody {
-    position: static;
-    box-shadow: none;
     margin-top: .2em;
     border: none;
     border-left: 2px solid #5a5a5a;

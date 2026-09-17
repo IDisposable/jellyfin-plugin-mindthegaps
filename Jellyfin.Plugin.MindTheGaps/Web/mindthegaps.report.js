@@ -359,26 +359,6 @@ function findRowItem(page, gapId) {
     return null;
 }
 
-// Positions a floating element (a popover body or the hover-detail card) as position:fixed, anchored
-// to anchorEl's bounding box and clamped to the viewport. A row can be anywhere in a long report, and
-// #cgList's ancestors clip a plain position:absolute child once the row scrolls away from the top;
-// position:fixed has no ancestor to be clipped by. align 'end' right-aligns to the anchor (a popover
-// icon near the row's right edge), 'start' left-aligns (the hover-detail, under the title).
-function floatNear(anchorEl, floatEl, align) {
-    if (!anchorEl || !floatEl) { return; }
-    var rect = anchorEl.getBoundingClientRect();
-    var w = floatEl.offsetWidth || Math.min(352, window.innerWidth * 0.8);
-    var left = align === 'end' ? rect.right - w : rect.left;
-    left = Math.max(4, Math.min(left, window.innerWidth - w - 4));
-    var top = rect.bottom + 4;
-    var h = floatEl.offsetHeight;
-    if (h && top + h > window.innerHeight - 4) { top = Math.max(4, rect.top - h - 4); }
-    floatEl.style.position = 'fixed';
-    floatEl.style.top = top + 'px';
-    floatEl.style.left = left + 'px';
-    floatEl.style.right = 'auto';
-}
-
 // The Watch popover's body: resolved offers when known, else the on-demand lookup; always a
 // JustWatch search underneath, not only as a fallback when nothing else resolved.
 function buildWatchPopoverBody(item) {
@@ -489,19 +469,16 @@ function directChild(parent, selector) {
 function populatePopover(page, det) {
     if (!det || !det.classList.contains('cgPop') || !det.hasAttribute('data-pop')) { return; }
     var body = directChild(det, '.cgPopBody');
-    if (!body) { return; }
-    if (!det.dataset.built) {
-        det.dataset.built = '1';
-        var row = det.closest('.cgRow');
-        var item = row && findRowItem(page, row.getAttribute('data-gapid'));
-        if (item) {
-            var kind = det.getAttribute('data-pop');
-            if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
-            else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
-            else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
-        }
+    if (!body || det.dataset.built) { return; }
+    det.dataset.built = '1';
+    var row = det.closest('.cgRow');
+    var item = row && findRowItem(page, row.getAttribute('data-gapid'));
+    if (item) {
+        var kind = det.getAttribute('data-pop');
+        if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
+        else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
+        else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
     }
-    floatNear(directChild(det, 'summary'), body, 'end');
 }
 
 // One item's row: checkbox, a thumbnail, a title (an <h3>, since a row is effectively a heading
@@ -3617,10 +3594,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // toggle (setting .open from JS dispatches 'toggle' too). Only one popover is open at a time:
     // closing every other currently-open .cgPop here (skipping an ancestor or descendant of the one
     // just opened, since a nested Resolve popover opening must not close the Actions popover holding
-    // it) covers both the top-level popovers and the nested Resolve one in a single place. Every open
-    // (not just the first) repositions the body as a fixed overlay anchored to the summary icon: a
-    // report can be many rows tall, and #cgList's own ancestors clip an absolutely-positioned child
-    // the moment a row is not near the top of the visible area, which a fixed overlay is immune to.
+    // it) covers both the top-level popovers and the nested Resolve one in a single place. The body
+    // itself is a plain in-flow block (see renderRow/CSS): CSS containment on Jellyfin's own page
+    // wrapper rules out position:fixed ever landing in the right place here (see mindthegaps.css's
+    // .cgRow comment), so .cgPop[open] claims the icon row's full width via flex-basis instead.
     page.querySelector('#cgList').addEventListener('toggle', function (e) {
         var det = e.target;
         if (!det.matches || !det.matches('.cgPop')) { return; }
@@ -3634,8 +3611,9 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (!det.matches('.cgPop[data-pop]') || !det.open) { return; }
         populatePopover(page, det);
     }, true);
-    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the title,
-    // and repositions itself as a fixed overlay every time for the same clipping reason as above.
+    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the title.
+    // It is a plain in-flow block too (see renderRow/CSS), shown via a class so keyboard focus and
+    // mouse hover share one code path instead of relying solely on the :hover/:focus-only CSS below.
     var buildHoverDetailOnce = function (e) {
         var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
         if (!titleEl) { return; }
@@ -3648,7 +3626,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
         }
         detailEl.classList.add('cgHoverShown');
-        floatNear(titleEl, detailEl, 'start');
     };
     page.querySelector('#cgList').addEventListener('mouseover', buildHoverDetailOnce);
     page.querySelector('#cgList').addEventListener('focusin', buildHoverDetailOnce);
@@ -3666,14 +3643,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         var detailEl = row && row.querySelector('.cgHoverDetail');
         if (detailEl) { detailEl.classList.remove('cgHoverShown'); }
     });
-    // A fixed-position popover does not scroll with its row; close it on scroll rather than leave it
-    // floating over content it no longer points at. The hover-detail needs no such handling: it is
-    // shown purely by :hover/:focus, which end on their own once the pointer is no longer over a
-    // title that has scrolled away.
-    window.addEventListener('scroll', function () {
-        var open = page.querySelectorAll('#cgList .cgPop[open]');
-        for (var i = 0; i < open.length; i++) { open[i].open = false; }
-    }, true);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {
