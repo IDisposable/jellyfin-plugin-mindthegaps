@@ -167,7 +167,6 @@
     margin: .1em;
     border: 1px solid #5a5a5a;
     border-radius: 4px;
-    font-size: .82em;
     text-decoration: none;
     color: inherit;
     background: rgba(255, 255, 255, .05);
@@ -263,9 +262,11 @@
     font-size: .85em;
 }
 
-/* Hovering or focusing the title reveals the overview inline, without a click. Desktop-only
-    (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback instead.
-    A plain in-flow block (see .cgRow above for why position:fixed is not viable here): flex-
+/* Hovering or focusing the title (or the detail itself, so moving the pointer down into it does not
+    end the hover) reveals it inline, without a click; clicking the title pins it open regardless of
+    hover/focus (cgHoverPinned, see the click handler), until that title or another row's is clicked.
+    Desktop-only (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback
+    instead. A plain in-flow block (see .cgRow above for why position:fixed is not viable here): flex-
     basis:100% on this wrapped flex item drops it onto its own full-width line under the title. */
 .cgHoverDetail {
     display: none;
@@ -281,11 +282,13 @@
 }
 
 .cgRow:has(.cgTitle:hover) .cgHoverDetail,
-.cgRow:has(.cgTitle:focus) .cgHoverDetail {
+.cgRow:has(.cgTitle:focus) .cgHoverDetail,
+.cgRow:has(.cgHoverDetail:hover) .cgHoverDetail {
     display: block;
 }
 
-.cgHoverDetail.cgHoverShown {
+.cgHoverDetail.cgHoverShown,
+.cgHoverDetail.cgHoverPinned {
     display: block;
 }
 
@@ -347,7 +350,8 @@
     font-size: .85em;
 }
 
-.cgPopBody .cgLink {
+.cgPopBody .cgLink,
+.cgHoverDetail .cgLink {
     display: block;
     margin: .15em 0;
 }

@@ -234,7 +234,7 @@ function isGuidId(id) { return /^[0-9a-f]{32}$/i.test(id || ''); }
 // click covers: a domain, a set kind, one group, one season, or a single row.
 function clearBtn(scope, key, label) {
     var title = 'Check ' + label + ' against your library and clear what you now have, then offer a provider re-check for the rest';
-    return ' ' + cgAnchor('cgClear', {
+    return ' ' + cgAnchor('cgClear emby-button', {
         'data-scope': scope,
         'data-key': key == null ? '' : String(key),
         title: title,
@@ -380,7 +380,7 @@ function buildWatchPopoverBody(item) {
 
     if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
         body += newTab(false, {
-            'class': 'cgLink cgPopLink', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name),
+            'class': 'cgLink cgPopLink emby-button', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name),
             title: 'Search JustWatch for where to watch'
         }, 'Search JustWatch');
     }
@@ -393,8 +393,9 @@ function buildWatchPopoverBody(item) {
 function buildInfoPopoverBody(item) {
     var providerLinks = (item.Links || []).map(providerLink).join('');
     return (providerLinks || wrap('div', { style: 'opacity:.7;margin-bottom:.3em;' }, 'No linked ids yet.'))
-        + wrap('div', { style: 'margin-top:.4em;' },
-            searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId) + clearBtn('row', item.Id, 'this title'));
+        + searchIcon(item.Name, domainScope(item.DomainName))
+        + openIcon(item.LibraryItemId)
+        + clearBtn('row', item.Id, 'this title');
 }
 
 // The Actions popover's body: mint/acquisition/diagnose/todo as their own items, and a nested
@@ -445,18 +446,20 @@ function buildActionsPopoverBody(item) {
     return actionItems.join('');
 }
 
-// The hover/focus detail's body: the overview, plus (for a Recommendation) the other titles that
-// suggested it, whose primary source is the group header rather than a repeated peer here.
+// The hover/focus/click detail's body: the overview, where to watch (the same content the Watch
+// popover holds, so this reads as one glance without needing to open it separately), plus (for a
+// Recommendation) the other titles that suggested it, whose primary source is the group header
+// rather than a repeated peer here. No title line: the row's own <h3> is right above it.
 function buildHoverDetailBody(item) {
     var detailParts = [];
     if (item.PatternName === 'Recommendation' && (item.OtherSources || []).length) {
         var srcs = [];
         (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
-        if (srcs.length) { detailParts.push(wrap('p', { style: 'margin:.3em 0;opacity:.85;' }, 'Also recommended by: ' + srcs.join(', '))); }
+        if (srcs.length) { detailParts.push(wrap('p', { style: 'margin:0 0 .4em;opacity:.85;' }, 'Also recommended by: ' + srcs.join(', '))); }
     }
-
-    if (item.Overview) { detailParts.push(wrap('p', { style: 'margin:.3em 0 0;opacity:.85;' }, esc(item.Overview))); }
-    return wrap('p', { style: 'margin:0;font-weight:600;' }, esc(item.Name)) + detailParts.join('');
+    if (item.Overview) { detailParts.push(wrap('p', { style: 'margin:0 0 .4em;opacity:.85;' }, esc(item.Overview))); }
+    detailParts.push(buildWatchPopoverBody(item));
+    return detailParts.join('');
 }
 
 function directChild(parent, selector) {
@@ -515,7 +518,8 @@ function renderRow(item) {
             : h('span', { style: 'color:#f0ad4e;', title: 'Announced, with no release date yet.' }, 'Announced').outerHTML);
     }
 
-    var hasDetail = !!item.Overview || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
+    var watchableKind = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode';
+    var hasDetail = !!item.Overview || watchableKind || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
     var overview = hasDetail ? wrap('div', { 'class': 'cgHoverDetail' }, '') : '';
 
     var iconsHtml = wrap('span', { 'class': 'cgIcons' },
@@ -534,10 +538,12 @@ function renderRow(item) {
         title: res ? 'Resolved: ' + dismissalLabel(res) : null,
         style: res ? 'opacity:.55;' : ''
     },
-        selBox + thumb
-        + wrap('h3', { 'class': 'cgTitle', tabindex: '0' }, esc(item.Name)) + overview
+        selBox
+        + thumb
+        + wrap('h3', { 'class': 'cgTitle', tabindex: '0' }, esc(item.Name))
         + wrap('span', { 'class': 'cgMeta' }, metaParts.join(' &middot; '))
-        + iconsHtml);
+        + iconsHtml
+        + overview);
 }
 
 function groupBy(items, keyFn) {
@@ -562,7 +568,7 @@ function itemUrl(id) {
 function openIcon(id) {
     if (!id) { return ''; }
     return ' ' + jellyfinLink(
-        { 'class': 'cgLink cgOpen', href: itemUrl(id), title: 'Open in Jellyfin', 'aria-label': 'Open in Jellyfin' },
+        { 'class': 'cgLink cgOpen emby-button', href: itemUrl(id), title: 'Open in Jellyfin', 'aria-label': 'Open in Jellyfin' },
         icon('open_in_new'));
 }
 
@@ -863,7 +869,7 @@ function searchIcon(name, collectionType) {
     if (!name) { return ''; }
     return ' ' + jellyfinLink(
         {
-            'class': 'cgLink cgSearch', href: searchUrl(name, collectionType),
+            'class': 'cgLink cgSearch emby-button', href: searchUrl(name, collectionType),
             title: 'Search this Jellyfin for “' + name + '”', 'aria-label': 'Search Jellyfin for ' + name
         },
         icon('search'));
@@ -964,7 +970,8 @@ function sourceBody(items) {
         var seasonDiag = (key !== 'na' && n > 0)
             ? seasonDiagnoseBtn(seasonItems[0].Id, (seriesName ? seriesName + ' ' : '') + label)
             : '';
-        var seasonExtra = searchIcon(seriesName, 'tvshows') + openIcon(openId)
+        var seasonExtra = searchIcon(seriesName, 'tvshows')
+            + openIcon(openId)
             + clearBtn('season', (seriesName || '') + '|' + key, 'this season')
             + seasonDiag + batchDismissBtns(label);
         return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra);
@@ -1205,7 +1212,12 @@ function buildTree(items) {
                 var sItems = bySource.map[src];
                 var token = 'lz' + (++cgGroupSeq);
                 lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
-                return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId, streamDot(sItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + recSourceDismissBtn(sItems[0].SourceItemId, src) + sourceLinks(sItems[0]), token);
+                return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId,
+                    streamDot(sItems)
+                    + searchIcon(src, '')
+                    + clearBtn('group', src, 'everything listed under ' + src)
+                    + recSourceDismissBtn(sItems[0].SourceItemId, src)
+                    + sourceLinks(sItems[0]), token);
             }).join('');
             return kindSection(kind, groups);
         }).join('') + emptyRunSections(byKind.map);
@@ -1220,7 +1232,12 @@ function buildTree(items) {
             // tab with tens of thousands of rows renders just the headers up front.
             var token = 'lz' + (++cgGroupSeq);
             lazyBodies[token] = function () { return sortRows(cItems).map(renderRow).join(''); };
-            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId, streamDot(cItems) + searchIcon(src, '') + clearBtn('group', src, 'everything listed under ' + src) + creatorDismissBtn(cItems[0].SourceItemId, src) + sourceLinks(cItems[0]), token);
+            return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId,
+                streamDot(cItems)
+                + searchIcon(src, '')
+                + clearBtn('group', src, 'everything listed under ' + src)
+                + creatorDismissBtn(cItems[0].SourceItemId, src)
+                + sourceLinks(cItems[0]), token);
         }).join('');
     }
 
@@ -3611,38 +3628,40 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (!det.matches('.cgPop[data-pop]') || !det.open) { return; }
         populatePopover(page, det);
     }, true);
-    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the title.
-    // It is a plain in-flow block too (see renderRow/CSS), shown via a class so keyboard focus and
-    // mouse hover share one code path instead of relying solely on the :hover/:focus-only CSS below.
-    var buildHoverDetailOnce = function (e) {
+    // The hover/focus/click detail is a plain in-flow block (see renderRow/CSS) with two independent
+    // ways to be visible: cgHoverShown, a transient preview while the pointer or keyboard focus is
+    // over the title or the detail itself (removed the moment both are left), and cgHoverPinned, set
+    // by clicking the title and cleared only by clicking that title again or another row's (the
+    // click handler, near the popover accordion above, keeps only one pinned at a time the same way).
+    var ensureHoverDetailBuilt = function (row) {
+        var detailEl = row && row.querySelector('.cgHoverDetail');
+        if (!detailEl || detailEl.dataset.built) { return detailEl; }
+        detailEl.dataset.built = '1';
+        var item = findRowItem(page, row.getAttribute('data-gapid'));
+        if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
+        return detailEl;
+    };
+    var showHoverDetail = function (e) {
         var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
         if (!titleEl) { return; }
-        var row = titleEl.closest('.cgRow');
-        var detailEl = row && row.querySelector('.cgHoverDetail');
-        if (!detailEl) { return; }
-        if (!detailEl.dataset.built) {
-            detailEl.dataset.built = '1';
-            var item = findRowItem(page, row.getAttribute('data-gapid'));
-            if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
-        }
-        detailEl.classList.add('cgHoverShown');
+        var detailEl = ensureHoverDetailBuilt(titleEl.closest('.cgRow'));
+        if (detailEl) { detailEl.classList.add('cgHoverShown'); }
     };
-    page.querySelector('#cgList').addEventListener('mouseover', buildHoverDetailOnce);
-    page.querySelector('#cgList').addEventListener('focusin', buildHoverDetailOnce);
-    page.querySelector('#cgList').addEventListener('mouseout', function (e) {
-        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
-        if (!titleEl || (e.relatedTarget && titleEl.contains(e.relatedTarget))) { return; }
-        var row = titleEl.closest('.cgRow');
+    page.querySelector('#cgList').addEventListener('mouseover', showHoverDetail);
+    page.querySelector('#cgList').addEventListener('focusin', showHoverDetail);
+    var hideHoverDetail = function (e) {
+        var zoneEl = e.target.closest ? e.target.closest('.cgTitle, .cgHoverDetail') : null;
+        if (!zoneEl) { return; }
+        var row = zoneEl.closest('.cgRow');
+        var titleEl = row && row.querySelector('.cgTitle');
         var detailEl = row && row.querySelector('.cgHoverDetail');
-        if (detailEl) { detailEl.classList.remove('cgHoverShown'); }
-    });
-    page.querySelector('#cgList').addEventListener('focusout', function (e) {
-        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
-        if (!titleEl || (e.relatedTarget && titleEl.contains(e.relatedTarget))) { return; }
-        var row = titleEl.closest('.cgRow');
-        var detailEl = row && row.querySelector('.cgHoverDetail');
-        if (detailEl) { detailEl.classList.remove('cgHoverShown'); }
-    });
+        if (!titleEl || !detailEl) { return; }
+        var to = e.relatedTarget;
+        if (to && (titleEl.contains(to) || detailEl.contains(to))) { return; }
+        detailEl.classList.remove('cgHoverShown');
+    };
+    page.querySelector('#cgList').addEventListener('mouseout', hideHoverDetail);
+    page.querySelector('#cgList').addEventListener('focusout', hideHoverDetail);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {
@@ -3665,6 +3684,23 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             e.preventDefault();
             pop.open = !pop.open;
             if (pop.open) { populatePopover(page, pop); }
+            return;
+        }
+
+        // Clicking a title pins its detail open (cgHoverPinned) independent of hover/focus, until
+        // that title is clicked again or another row's is: only one row is pinned at a time.
+        var clickedTitle = e.target.closest('.cgTitle');
+        if (clickedTitle) {
+            var pinnedRow = clickedTitle.closest('.cgRow');
+            var pinnedDetail = ensureHoverDetailBuilt(pinnedRow);
+            if (pinnedDetail) {
+                var wasPinned = pinnedDetail.classList.contains('cgHoverPinned');
+                var otherPinned = page.querySelectorAll('#cgList .cgHoverDetail.cgHoverPinned');
+                for (var pi = 0; pi < otherPinned.length; pi++) {
+                    if (otherPinned[pi] !== pinnedDetail) { otherPinned[pi].classList.remove('cgHoverPinned'); }
+                }
+                pinnedDetail.classList.toggle('cgHoverPinned', !wasPinned);
+            }
             return;
         }
 
