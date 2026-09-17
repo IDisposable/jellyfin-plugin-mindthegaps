@@ -11,6 +11,55 @@ function bindSettingsToggle(page, toggleId, inputId) {
     if (container) { container.style.opacity = on ? '' : '0.5'; }
 }
 
+// Every provider <details> group, and the config fields that mark it "configured" (any toggle on,
+// or a credential set). Drives both the collapsed summary's on/off badge and which groups start
+// open, so a fresh install sees a clean menu of provider names and a configured one opens already
+// showing what it does.
+var PROVIDER_GROUPS = [
+    { id: 'cgProvTmdb', on: function (c) { return !!(c.ScanCuratedSets || c.ScanTmdbLists || c.ScanTmdbTopRated || c.ScanTmdbPopular || c.ScanTmdbUpcoming || c.ScanTmdbNowPlaying || c.ScanTmdbWatchlist || c.ScanTmdbFavorites || c.TmdbApiKey); } },
+    { id: 'cgProvTrakt', on: function (c) { return !!(c.TraktEnabled || c.ScanTraktLists || c.ScanTraktWatchlist); } },
+    { id: 'cgProvMdbList', on: function (c) { return !!(c.ScanMdbList || c.ScanMdbListWatchlist); } },
+    { id: 'cgProvDiscogs', on: function (c) { return !!(c.ScanDiscogs || c.ScanDiscogsWantlist); } },
+    { id: 'cgProvOpenLibrary', on: function (c) { return !!(c.ScanCuratedBooks || c.ScanOpenLibraryWantToRead); } },
+    { id: 'cgProvTvdb', on: function (c) { return !!(c.ScanTvdbFavorites || c.TvdbApiKey); } },
+    { id: 'cgProvImdb', on: function (c) { return !!(c.ScanImdbLists || c.ScanImdbPeopleLists); } },
+    { id: 'cgProvJustWatch', on: function (c) { return !!c.ScanJustWatchLists; } },
+    { id: 'cgProvSeerr', on: function (c) { return !!c.SeerrUrl; } },
+    { id: 'cgProvRadarr', on: function (c) { return !!c.RadarrUrl; } },
+    { id: 'cgProvSonarr', on: function (c) { return !!c.SonarrUrl; } }
+];
+
+function updateProviderGroups(page, config) {
+    PROVIDER_GROUPS.forEach(function (g) {
+        var isOn = g.on(config);
+        var details = page.querySelector('#' + g.id);
+        var badge = page.querySelector('#' + g.id + 'Badge');
+        if (details) { details.open = isOn; }
+        if (badge) {
+            badge.textContent = isOn ? 'on' : 'off';
+            badge.className = 'cgProvBadge ' + (isOn ? 'cgProvBadgeOn' : 'cgProvBadgeOff');
+        }
+    });
+}
+
+// The settings search box: a plain-text filter over every checkbox/input's own container. Matching
+// text opens the provider group it is in, so a hit is never hidden behind a collapsed summary;
+// clearing the box restores every container without touching what the user opened or closed by hand.
+function filterSettings(page, query) {
+    var q = (query || '').trim().toLowerCase();
+    var containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer');
+    for (var i = 0; i < containers.length; i++) {
+        var c = containers[i];
+        if (!q) { c.style.display = ''; continue; }
+        var match = (c.textContent || '').toLowerCase().indexOf(q) !== -1;
+        c.style.display = match ? '' : 'none';
+        if (match) {
+            var details = c.closest('details.cgProvGroup');
+            if (details) { details.open = true; }
+        }
+    }
+}
+
 function loadConfig(page, config) {
     page.querySelector('#ScanCollections').checked = config.ScanCollections;
     page.querySelector('#ScanSeries').checked = config.ScanSeries;
@@ -83,6 +132,7 @@ function loadConfig(page, config) {
     page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
     page.querySelector('#MaxCastBillingOrder').value = config.MaxCastBillingOrder;
     bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId');
+    updateProviderGroups(page, config);
     // Freshly loaded values are not unsaved edits (assigning .value/.checked fires no events).
     page._settingsDirty = false;
 }
@@ -355,6 +405,7 @@ function bindSettings(page) {
     page.querySelector('#MindTheGapsConfigForm').addEventListener('input', markDirty);
     page.querySelector('#MindTheGapsConfigForm').addEventListener('change', markDirty);
     page.querySelector('#TraktEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId'); });
+    page.querySelector('#cgSettingsSearch').addEventListener('input', function () { filterSettings(page, this.value); });
     setupChips(page, 'studio', 'cgStudioBox', 'cgStudioChips', 'cgStudioInput', 'cgStudioSuggest');
     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');

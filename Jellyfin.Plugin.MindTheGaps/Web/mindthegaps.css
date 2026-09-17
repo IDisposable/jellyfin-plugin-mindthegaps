@@ -602,3 +602,44 @@
     opacity: .65;
     padding: .5em 0;
 }
+
+/* A provider's settings, collapsed by default: <summary> is the provider name plus its on/off
+    badge, <div class="cgProvBody"> the fields, indented so it reads as one group under the summary. */
+.cgProvGroup {
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: .5em .8em;
+    margin: .5em 0;
+}
+
+.cgProvSummary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.05em;
+    display: flex;
+    align-items: center;
+    gap: .5em;
+}
+
+.cgProvBody {
+    margin: .6em 0 .2em .3em;
+}
+
+.cgProvBadge {
+    font-size: .75em;
+    font-weight: 400;
+    padding: .1em .5em;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.cgProvBadgeOn {
+    color: #3ddc97;
+    background: rgba(61, 220, 151, .14);
+}
+
+.cgProvBadgeOff {
+    opacity: .55;
+    background: rgba(255, 255, 255, .06);
+}
