@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.7.2"
+version: "10.11.7.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,12 +20,7 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.7.2 (beta) - Follow-up to 10.11.7.1's Gaps Report overhaul. The domain tabs (Movies/Shows/Music/
-  Books) move to the very top of the report, above the filters, since picking one is the first thing you
-  do on the page. A row's Watch/Info/Actions popovers now open on hover as well as click, close a moment
-  after the pointer leaves, and only one is open at a time; they (and a title's hover-revealed overview)
-  no longer get clipped when the row is not near the top of a long list, and close if you scroll the page
-  while one is open. The A-Z letter bar shows each letter on its own, with its gap count moved into the
-  hover text instead of cluttering the label. The report and settings pages now show an error message
-  instead of spinning forever or failing silently if a load or save fails, and switching domains or
-  patterns quickly no longer risks a slower, superseded request overwriting what you switched to.
+  10.11.7.3 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions), which 10.11.7.2 shipped
+  broken: clicking or hovering a row did nothing. Opening one now toggles it directly instead of relying
+  on the browser's native click handling, and the title's hover-revealed overview no longer depends on a
+  CSS feature some browsers don't support. Only one popover is open at a time, same as before.
