@@ -446,11 +446,13 @@ function buildActionsPopoverBody(item) {
     return actionItems.join('');
 }
 
-// The hover/focus/click detail's body: the overview, where to watch (the same content the Watch
-// popover holds, so this reads as one glance without needing to open it separately), plus (for a
-// Recommendation) the other titles that suggested it, whose primary source is the group header
-// rather than a repeated peer here. No title line: the row's own <h3> is right above it.
-function buildHoverDetailBody(item) {
+// The title's click-revealed detail body: the overview, plus (for a Recommendation) the other
+// titles that suggested it, whose primary source is the group header rather than a repeated peer
+// here, then where to watch. No title line: the row's own <h3> is right above it. Non-compact
+// (spacious) view has the room to fold in the Information and Actions popovers' content too, as
+// flat buttons, instead of making those separate clicks; compact view keeps them behind their own
+// icons, where space is tighter, so this stays overview-and-watch-only there.
+function buildExpandedDetailBody(item) {
     var detailParts = [];
     if (item.PatternName === 'Recommendation' && (item.OtherSources || []).length) {
         var srcs = [];
@@ -459,6 +461,10 @@ function buildHoverDetailBody(item) {
     }
     if (item.Overview) { detailParts.push(wrap('p', { style: 'margin:0 0 .4em;opacity:.85;' }, esc(item.Overview))); }
     detailParts.push(buildWatchPopoverBody(item));
+    if (!reportPage()._compact) {
+        detailParts.push(buildInfoPopoverBody(item));
+        detailParts.push(buildActionsPopoverBody(item));
+    }
     return detailParts.join('');
 }
 
@@ -488,14 +494,16 @@ function populatePopover(page, det) {
 // for its own content within the list), meta (year/kind/upcoming), and three icon popovers holding
 // everything the row can do. #cgReportPanel's cgCompactMode class (the Compact view toggle) resizes
 // the thumbnail and tightens the title/meta by CSS alone; the markup and behavior are identical
-// either way, so there is exactly one renderer.
+// either way, so there is exactly one renderer. The icons behave the same in both views until the
+// title's detail is expanded: non-compact then hides them by CSS
+// (#cgReportPanel:not(.cgCompactMode) .cgRow:has(.cgTitleDetail.cgPinned) .cgIcons), since their
+// content is folded into that detail once it is open (see buildExpandedDetailBody) and there is nothing
+// left for them to do; compact view keeps them regardless, since it never folds that content in.
 //
-// A popover's body, and the hover-detail's body, start empty and build on first open/hover (see the
-// delegated 'toggle'/'mouseover'/'focusin' handlers near the rest of #cgList's delegation): a report
-// can hold thousands of rows, and most of their popovers are never opened, so building every body up
-// front would add DOM weight for little benefit. Only whether a group exists at all (cheap booleans -
-// watchable/providerLinks/Overview/OtherSources) is decided here, so a row with nothing to show there
-// renders no empty shell for it.
+// A popover's body, and the detail's body, start empty and build on first open/click (see the
+// delegated 'toggle'/click handlers near the rest of #cgList's delegation): a report can hold
+// thousands of rows, and most popovers are never opened, so building every body up front would add
+// DOM weight for little benefit.
 function renderRow(item) {
     var res = activeDismissal(item);
 
@@ -518,9 +526,14 @@ function renderRow(item) {
             : h('span', { style: 'color:#f0ad4e;', title: 'Announced, with no release date yet.' }, 'Announced').outerHTML);
     }
 
+    // Non-compact view always has a detail to show (Information and Actions fold into it there, so
+    // even a row with no overview/watch/recommendation content still has its Diagnose/TODO/etc.);
+    // compact view keeps those behind their own icons, so it only needs one when there is real
+    // overview/watch/recommendation content to show.
     var watchableKind = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode';
-    var hasDetail = !!item.Overview || watchableKind || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
-    var overview = hasDetail ? wrap('div', { 'class': 'cgHoverDetail' }, '') : '';
+    var compact = !!reportPage()._compact;
+    var hasDetail = !compact || !!item.Overview || watchableKind || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
+    var overview = hasDetail ? wrap('div', { 'class': 'cgTitleDetail' }, '') : '';
 
     var iconsHtml = wrap('span', { 'class': 'cgIcons' },
         wrap('details', { 'class': 'cgPop', 'data-pop': 'watch' },
@@ -540,7 +553,7 @@ function renderRow(item) {
     },
         selBox
         + thumb
-        + wrap('h3', { 'class': 'cgTitle', tabindex: '0' }, esc(item.Name))
+        + wrap('h3', { 'class': 'cgTitle', tabindex: '0', title: item.Overview || null }, esc(item.Name))
         + wrap('span', { 'class': 'cgMeta' }, metaParts.join(' &middot; '))
         + iconsHtml
         + overview);
@@ -3628,40 +3641,19 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (!det.matches('.cgPop[data-pop]') || !det.open) { return; }
         populatePopover(page, det);
     }, true);
-    // The hover/focus/click detail is a plain in-flow block (see renderRow/CSS) with two independent
-    // ways to be visible: cgHoverShown, a transient preview while the pointer or keyboard focus is
-    // over the title or the detail itself (removed the moment both are left), and cgHoverPinned, set
-    // by clicking the title and cleared only by clicking that title again or another row's (the
-    // click handler, near the popover accordion above, keeps only one pinned at a time the same way).
-    var ensureHoverDetailBuilt = function (row) {
-        var detailEl = row && row.querySelector('.cgHoverDetail');
+    // The title's detail is a plain in-flow block (see renderRow/CSS), click-only, not hover: the
+    // detail renders directly below the title, so moving the pointer down into it necessarily exits
+    // the title first, indistinguishable from moving away entirely. cgPinned, set by clicking
+    // the title, is cleared only by clicking that title again or another row's (the click handler,
+    // near the popover accordion above, keeps only one pinned at a time the same way).
+    var ensureExpandedDetailBuilt = function (row) {
+        var detailEl = row && row.querySelector('.cgTitleDetail');
         if (!detailEl || detailEl.dataset.built) { return detailEl; }
         detailEl.dataset.built = '1';
         var item = findRowItem(page, row.getAttribute('data-gapid'));
-        if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
+        if (item) { detailEl.innerHTML = buildExpandedDetailBody(item); }
         return detailEl;
     };
-    var showHoverDetail = function (e) {
-        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
-        if (!titleEl) { return; }
-        var detailEl = ensureHoverDetailBuilt(titleEl.closest('.cgRow'));
-        if (detailEl) { detailEl.classList.add('cgHoverShown'); }
-    };
-    page.querySelector('#cgList').addEventListener('mouseover', showHoverDetail);
-    page.querySelector('#cgList').addEventListener('focusin', showHoverDetail);
-    var hideHoverDetail = function (e) {
-        var zoneEl = e.target.closest ? e.target.closest('.cgTitle, .cgHoverDetail') : null;
-        if (!zoneEl) { return; }
-        var row = zoneEl.closest('.cgRow');
-        var titleEl = row && row.querySelector('.cgTitle');
-        var detailEl = row && row.querySelector('.cgHoverDetail');
-        if (!titleEl || !detailEl) { return; }
-        var to = e.relatedTarget;
-        if (to && (titleEl.contains(to) || detailEl.contains(to))) { return; }
-        detailEl.classList.remove('cgHoverShown');
-    };
-    page.querySelector('#cgList').addEventListener('mouseout', hideHoverDetail);
-    page.querySelector('#cgList').addEventListener('focusout', hideHoverDetail);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {
@@ -3687,19 +3679,19 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        // Clicking a title pins its detail open (cgHoverPinned) independent of hover/focus, until
-        // that title is clicked again or another row's is: only one row is pinned at a time.
+        // Clicking a title pins its detail open (cgPinned) until that title is clicked again or
+        // another row's is: only one row is pinned at a time.
         var clickedTitle = e.target.closest('.cgTitle');
         if (clickedTitle) {
             var pinnedRow = clickedTitle.closest('.cgRow');
-            var pinnedDetail = ensureHoverDetailBuilt(pinnedRow);
+            var pinnedDetail = ensureExpandedDetailBuilt(pinnedRow);
             if (pinnedDetail) {
-                var wasPinned = pinnedDetail.classList.contains('cgHoverPinned');
-                var otherPinned = page.querySelectorAll('#cgList .cgHoverDetail.cgHoverPinned');
+                var wasPinned = pinnedDetail.classList.contains('cgPinned');
+                var otherPinned = page.querySelectorAll('#cgList .cgTitleDetail.cgPinned');
                 for (var pi = 0; pi < otherPinned.length; pi++) {
-                    if (otherPinned[pi] !== pinnedDetail) { otherPinned[pi].classList.remove('cgHoverPinned'); }
+                    if (otherPinned[pi] !== pinnedDetail) { otherPinned[pi].classList.remove('cgPinned'); }
                 }
-                pinnedDetail.classList.toggle('cgHoverPinned', !wasPinned);
+                pinnedDetail.classList.toggle('cgPinned', !wasPinned);
             }
             return;
         }

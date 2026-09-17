@@ -201,7 +201,7 @@
 }
 
 /* One row: checkbox, thumbnail, title, meta, and the icon popovers, all on one line until
-    something expands (the hover overview, or an open popover). Jellyfin's own page wrapper sets
+    something expands (the click-revealed detail, or an open popover). Jellyfin's own page wrapper sets
     CSS containment (contain: size), which makes that wrapper the containing block for any
     position:fixed descendant instead of the viewport, so an expanding piece here is plain in-flow
     content; flex-wrap lets it drop onto its own full-width line below rather than needing to float
@@ -262,13 +262,11 @@
     font-size: .85em;
 }
 
-/* Hovering or focusing the title (or the detail itself, so moving the pointer down into it does not
-    end the hover) reveals it inline, without a click; clicking the title pins it open regardless of
-    hover/focus (cgHoverPinned, see the click handler), until that title or another row's is clicked.
-    Desktop-only (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback
-    instead. A plain in-flow block (see .cgRow above for why position:fixed is not viable here): flex-
-    basis:100% on this wrapped flex item drops it onto its own full-width line under the title. */
-.cgHoverDetail {
+/* Clicking the title pins the detail open (cgPinned, set by the click handler) until that title
+    or another row's is clicked. A plain in-flow block (see .cgRow above for why position:fixed is not
+    viable here): flex-basis:100% on this wrapped flex item drops it onto its own full-width line
+    under the title. */
+.cgTitleDetail {
     display: none;
     flex-basis: 100%;
     width: 100%;
@@ -281,14 +279,7 @@
     font-size: .85em;
 }
 
-.cgRow:has(.cgTitle:hover) .cgHoverDetail,
-.cgRow:has(.cgTitle:focus) .cgHoverDetail,
-.cgRow:has(.cgHoverDetail:hover) .cgHoverDetail {
-    display: block;
-}
-
-.cgHoverDetail.cgHoverShown,
-.cgHoverDetail.cgHoverPinned {
+.cgTitleDetail.cgPinned {
     display: block;
 }
 
@@ -339,6 +330,14 @@
     font-size: 1.1em;
 }
 
+/* Non-compact (spacious) view folds the Watch/Information/Actions popovers' content into the
+    title's click-revealed detail once it is open (see buildExpandedDetailBody), so the icons have
+    nothing left to open there and only clutter the row; collapsed, they behave exactly like compact
+    view (see the toggle listener's accordion, unconditional on compact/not). */
+#cgReportPanel:not(.cgCompactMode) .cgRow:has(.cgTitleDetail.cgPinned) .cgIcons {
+    display: none;
+}
+
 /* A plain in-flow block (see .cgRow above for why position:fixed is not viable here): it renders
     directly below its <summary>, filling the full-width line its open .cgPop claims. */
 .cgPopBody {
@@ -350,10 +349,26 @@
     font-size: .85em;
 }
 
-.cgPopBody .cgLink,
-.cgHoverDetail .cgLink {
+.cgPopBody .cgLink {
     display: block;
+    width: fit-content;
+    max-width: 100%;
     margin: .15em 0;
+}
+
+/* The detail box is wide (it spans the row), so its buttons tile left to right and wrap instead of
+    each forcing its own line. A stray wrapping <div> from a body-builder shared with the narrower
+    .cgPopBody above (buildWatchPopoverBody's offers/button wrapper) is unwrapped so its child tiles
+    too, instead of the wrapper forcing a line break on its own. */
+.cgTitleDetail > div {
+    display: contents;
+}
+
+.cgTitleDetail .cgLink {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    margin: .15em .3em .15em 0;
 }
 
 .cgPopNested > summary {
