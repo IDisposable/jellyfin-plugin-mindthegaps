@@ -10,10 +10,12 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
@@ -32,6 +34,8 @@ public sealed class AcquisitionService
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILibraryManager _libraryManager;
+    private readonly TmdbClient _tmdb;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<AcquisitionService> _logger;
 
     /// <summary>
@@ -39,11 +43,15 @@ public sealed class AcquisitionService
     /// </summary>
     /// <param name="httpClientFactory">The HTTP client factory.</param>
     /// <param name="libraryManager">The library manager, for resolving an owned series' TheTVDB id.</param>
+    /// <param name="tmdb">The TMDB client, for resolving an unowned series' TheTVDB id from its TMDB id.</param>
+    /// <param name="cache">The memory cache, for the arrs' libraries.</param>
     /// <param name="logger">The logger.</param>
-    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, ILogger<AcquisitionService> logger)
+    public AcquisitionService(IHttpClientFactory httpClientFactory, ILibraryManager libraryManager, TmdbClient tmdb, IMemoryCache cache, ILogger<AcquisitionService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _libraryManager = libraryManager;
+        _tmdb = tmdb;
+        _cache = cache;
         _logger = logger;
     }
 
