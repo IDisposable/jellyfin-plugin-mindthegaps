@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -18,6 +23,7 @@ using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
+[Collection("PluginConfiguration")]
 public class AcquisitionServiceTests
 {
     [Fact]
@@ -135,6 +141,38 @@ public class AcquisitionServiceTests
     }
 
     [Fact]
+    public async Task SendManyAsync_WhenNoIdsAreInReport_ReturnsFailureWithoutSending()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "mtg-acq-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new GapStore(NullLogger<GapStore>.Instance, dir);
+            store.Save(new GapReport { GeneratedUtc = DateTime.UtcNow, TotalGaps = 1, Items = [new GapItem { Id = "present", Name = "Present" }] });
+            var controller = new AcquisitionController(store, null!);
+            var method = typeof(AcquisitionController).GetMethod("SendManyAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var sends = 0;
+
+            var result = await ((Task<AcquisitionSendResult>)method.Invoke(controller, [
+                new[] { "missing" },
+                (Func<GapItem, PluginConfiguration, CancellationToken, Task<AcquisitionResult>>)((_, _, _) =>
+                {
+                    sends++;
+                    return Task.FromResult(AcquisitionResult.Ok());
+                }),
+                CancellationToken.None,
+            ])!);
+
+            Assert.False(result.Success);
+            Assert.Equal(0, sends);
+            Assert.Equal("None of those gaps are in the current report; rescan and try again.", result.Message);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public async Task SendToArrAsync_WhenMovieHasNoTmdbId_ReturnsFailure()
     {
         var service = new AcquisitionService(null!, null!, new TmdbClient(new MemoryCache(new MemoryCacheOptions())), new MemoryCache(new MemoryCacheOptions()), NullLogger<AcquisitionService>.Instance);
@@ -156,6 +194,111 @@ public class AcquisitionServiceTests
 
         Assert.False(result.Success);
         Assert.Equal("This series has no TheTVDB id, which Sonarr needs.", result.Message);
+    }
+
+    [Fact]
+    public async Task SendToArrAsync_MoviePostsRadarrPayloadAndApiKey()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.Accepted);
+        var service = CreateService(handler);
+        var gap = new GapItem
+        {
+            Name = "The Matrix",
+            TargetKind = BaseItemKind.Movie,
+            ProviderIds = new Dictionary<string, string> { [ProviderIds.Tmdb] = "603" }
+        };
+
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration
+        {
+            RadarrUrl = "http://radarr.test/",
+            RadarrApiKey = "radarr-key",
+            RadarrQualityProfileId = 7,
+            RadarrRootFolderPath = "/movies"
+        }, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("http://radarr.test/api/v3/movie", handler.Request!.RequestUri!.ToString());
+        Assert.Equal("radarr-key", handler.Request.Headers.GetValues("X-Api-Key").Single());
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Equal("The Matrix", body.RootElement.GetProperty("title").GetString());
+        Assert.Equal(603, body.RootElement.GetProperty("tmdbId").GetInt32());
+        Assert.Equal(7, body.RootElement.GetProperty("qualityProfileId").GetInt32());
+        Assert.True(body.RootElement.GetProperty("addOptions").GetProperty("searchForMovie").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SendToSeerrAsync_SeriesPostsTvRequest()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.OK);
+        var service = CreateService(handler);
+        var gap = new GapItem
+        {
+            Name = "The Wire",
+            TargetKind = BaseItemKind.Series,
+            ProviderIds = new Dictionary<string, string> { [ProviderIds.Tmdb] = "1399" }
+        };
+
+        var result = await service.SendToSeerrAsync(gap, new PluginConfiguration
+        {
+            SeerrUrl = "https://seerr.test",
+            SeerrApiKey = "seerr-key"
+        }, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("https://seerr.test/api/v1/request", handler.Request!.RequestUri!.ToString());
+        Assert.Equal("seerr-key", handler.Request.Headers.GetValues("X-Api-Key").Single());
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Equal("tv", body.RootElement.GetProperty("mediaType").GetString());
+        Assert.Equal(1399, body.RootElement.GetProperty("mediaId").GetInt32());
+    }
+
+    [Fact]
+    public async Task SendToArrAsync_InvalidUrlReturnsFailureWithoutSending()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.OK);
+        var service = CreateService(handler);
+        var gap = new GapItem
+        {
+            Name = "The Matrix",
+            TargetKind = BaseItemKind.Movie,
+            ProviderIds = new Dictionary<string, string> { [ProviderIds.Tmdb] = "603" }
+        };
+
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration
+        {
+            RadarrUrl = "ftp://radarr.test",
+            RadarrApiKey = "key",
+            RadarrQualityProfileId = 7,
+            RadarrRootFolderPath = "/movies"
+        }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("not a valid http(s) address", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task SendToArrAsync_NonSuccessReturnsArrValidationMessage()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.BadRequest, "[{\"errorMessage\":\"Already added\"}]");
+        var service = CreateService(handler);
+        var gap = new GapItem
+        {
+            Name = "The Matrix",
+            TargetKind = BaseItemKind.Movie,
+            ProviderIds = new Dictionary<string, string> { [ProviderIds.Tmdb] = "603" }
+        };
+
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration
+        {
+            RadarrUrl = "http://radarr.test",
+            RadarrApiKey = "key",
+            RadarrQualityProfileId = 7,
+            RadarrRootFolderPath = "/movies"
+        }, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("Radarr returned 400. Already added", result.Message);
     }
 
     [Fact]
@@ -184,5 +327,43 @@ public class AcquisitionServiceTests
     private static void SetPluginInstance(Plugin? plugin)
     {
         typeof(Plugin).GetField("<Instance>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, plugin);
+    }
+
+    private static AcquisitionService CreateService(AcquisitionHandler handler)
+        => new(new AcquisitionFactory(handler), null!, new TmdbClient(new MemoryCache(new MemoryCacheOptions())), new MemoryCache(new MemoryCacheOptions()), NullLogger<AcquisitionService>.Instance);
+
+    private sealed class AcquisitionFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+
+        public AcquisitionFactory(HttpMessageHandler handler) => _handler = handler;
+
+        public HttpClient CreateClient(string name) => new(_handler, disposeHandler: false);
+    }
+
+    private sealed class AcquisitionHandler : HttpMessageHandler
+    {
+        private readonly HttpStatusCode _status;
+        private readonly string _body;
+
+        public AcquisitionHandler(HttpStatusCode status, string body = "")
+        {
+            _status = status;
+            _body = body;
+        }
+
+        public int Calls { get; private set; }
+
+        public HttpRequestMessage? Request { get; private set; }
+
+        public string? Body { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Request = request;
+            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            return new HttpResponseMessage(_status) { Content = new StringContent(_body) };
+        }
     }
 }

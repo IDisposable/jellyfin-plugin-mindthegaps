@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using TMDbLib.Client;
 using TMDbLib.Objects.Authentication;
 using TMDbLib.Objects.Search;
 
@@ -33,8 +33,9 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 public sealed class TmdbAccountClient : IDisposable
 {
     private readonly ILogger<TmdbAccountClient> _logger;
+    private readonly ITmdbAccountApiFactory _clientFactory;
     private readonly SemaphoreSlim _clientLock = new(1, 1);
-    private TMDbClient? _client;
+    private ITmdbAccountApi? _client;
     private string? _builtForKey;
     private string? _builtForSession;
 
@@ -43,8 +44,14 @@ public sealed class TmdbAccountClient : IDisposable
     /// </summary>
     /// <param name="logger">The logger.</param>
     public TmdbAccountClient(ILogger<TmdbAccountClient> logger)
+        : this(logger, new TmdbAccountApiFactory())
+    {
+    }
+
+    internal TmdbAccountClient(ILogger<TmdbAccountClient> logger, ITmdbAccountApiFactory clientFactory)
     {
         _logger = logger;
+        _clientFactory = clientFactory;
     }
 
     /// <summary>
@@ -213,11 +220,16 @@ public sealed class TmdbAccountClient : IDisposable
     }
 
     private async Task<IReadOnlyList<T>?> PageAsync<T>(
-        Func<TMDbClient, int, CancellationToken, Task<TMDbLib.Objects.General.SearchContainer<T>?>> fetch,
+        Func<ITmdbAccountApi, int, CancellationToken, Task<TMDbLib.Objects.General.SearchContainer<T>?>> fetch,
         string what,
         int maxItems,
         CancellationToken cancellationToken)
     {
+        if (maxItems <= 0)
+        {
+            return [];
+        }
+
         var client = await BuildAsync(withSession: true, cancellationToken).ConfigureAwait(false);
         if (client is null)
         {
@@ -248,12 +260,12 @@ public sealed class TmdbAccountClient : IDisposable
             return results.Count > 0 ? results : null;
         }
 
-        return results;
+        return results.Take(maxItems).ToArray();
     }
 
     // Builds (or reuses) a client for the current key and session. Rebuilt whenever either changes, so a key
     // or session edited in the settings page takes effect without a server restart.
-    private async Task<TMDbClient?> BuildAsync(bool withSession, CancellationToken cancellationToken)
+    private async Task<ITmdbAccountApi?> BuildAsync(bool withSession, CancellationToken cancellationToken)
     {
         var key = OwnApiKey;
         if (key is null)
@@ -280,7 +292,7 @@ public sealed class TmdbAccountClient : IDisposable
             }
 
             _client?.Dispose();
-            _client = new TMDbClient(key) { ThrowApiExceptions = false, MaxRetryCount = 3 };
+            _client = _clientFactory.Create(key);
             _builtForKey = key;
             _builtForSession = session;
 
