@@ -280,6 +280,10 @@
     display: block;
 }
 
+.cgHoverDetail.cgHoverShown {
+    display: block;
+}
+
 .cgIcons {
     flex: 0 0 auto;
     margin-left: auto;
