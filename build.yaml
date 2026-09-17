@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.7.4"
+version: "10.11.7.5"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,8 +20,9 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.7.4 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions) and hover-revealed
-  overview for real this time: the browser's own page wrapper uses a CSS feature that changes where a
-  floating overlay renders, which put every popover somewhere other than where it was calculated to be,
-  invisibly. They are plain expanding content in the row now, with no floating position to get wrong.
-  Only one popover is open at a time, same as before.
+  10.11.7.5 (beta) - Follow-up polish to 10.11.7.4's row popovers. The title's hover-revealed detail
+  moved to below the Watch/Info/Actions icons, drops the repeated title, and now shows where to watch
+  alongside the overview. It stays open when you move the pointer into it instead of closing the
+  moment you leave the title, and clicking a title pins it open until you click that title or another
+  row's again, so clicking elsewhere on the page (or outside the browser) no longer dismisses it.
+  Popover and detail buttons/links are sized and centered consistently with the rest of the dashboard.
