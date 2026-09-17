@@ -1,4 +1,6 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" Condition="Exists('$(MSBuildThisFileDirectory)../Directory.Build.props')" />
+
   <PropertyGroup Condition="'$(Version)' == ''">
     <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../build.yaml')), 'version:\s*"([^"]+)"').Groups.get_Item(1).Value)</Version>
   </PropertyGroup>

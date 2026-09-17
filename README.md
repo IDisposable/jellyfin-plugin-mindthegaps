@@ -14,13 +14,14 @@ your cast and crew made that you don't own, and related titles worth adding.
 <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/IDisposable/jellyfin-plugin-mindthegaps/build.yaml?branch=main">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 <img alt="Jellyfin 10.11" src="https://img.shields.io/badge/Jellyfin-10.11-blueviolet">
+<img alt="Jellyfin 12.0" src="https://img.shields.io/badge/Jellyfin-12.0-blueviolet">
 </p>
 
 ## What it does
 
 A scheduled task scans your library; a dashboard page (**Dashboard > Gaps Report**) shows the
-results: filterable by tab and media type, searchable, with links out (TMDB, IMDb, and more) and an
-on-demand "Where to watch" for each item. What it scans for is on its own page
+results: tabbed by media domain, filterable and searchable within a tab, with links out (TMDB, IMDb, and
+more) and an on-demand "Where to watch" for each item. What it scans for is on its own page
 (**Dashboard > Mind the Gaps**), which is also where the plugin's Settings button lands.
 
 <p align="center">
@@ -30,20 +31,21 @@ on-demand "Where to watch" for each item. What it scans for is on its own page
 More screenshots throughout the [report guide](docs/report-guide.md) and the
 [configuration reference](docs/configuration.md).
 
-Every gap is one of three kinds, surfaced as the report's three tabs:
+The report's tabs are your **media domains** (Movies, Shows, Music, Books), each badged with its gap
+count; a **View** dropdown inside the active tab picks which of three kinds of gap you are looking at:
 
-| Tab | What it finds | Examples |
+| View | What it finds | Examples |
 |---|---|---|
 | **Set completion** | a missing piece of something you partly own | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums |
 | **Creator works** | other work by a person or artist you own | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books |
-| **Recommendations** (the Discover tab) | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, plus the unowned titles on a TMDB, MDBList, Trakt, or IMDb list and on your JustWatch watchlist, each list shown as its own group |
+| **Discover** | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, TMDB's own Top Rated/Popular/Upcoming/Now Playing feeds, plus the unowned titles on a TMDB, MDBList, Trakt, or IMDb list and on your JustWatch watchlist, each list shown as its own group |
 
 Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
 MDBList, and JustWatch are opt-in cross-checks and sources that need their own credentials. IMDb lists are
 opt-in but need no credential.
 
-How the pieces connect: the providers and lists you enable feed three gap patterns, and each pattern
-surfaces as one report tab, labelled for the media type you are viewing.
+How the pieces connect: the providers and lists you enable feed three gap patterns, and each pattern is
+one of the View options inside whichever domain tab you are on.
 
 ```mermaid
 flowchart LR
@@ -141,6 +143,9 @@ flowchart TD
 - **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
   that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
   groups each suggestion under the owned title that surfaced it.
+- **TMDB discover feeds**: Top Rated, Popular, Upcoming, and Now Playing, each its own toggle (no account or
+  list needed, just the TMDB API key). Unowned movies from whichever feeds you turn on land on the Discover
+  tab like any other source.
 - **Discovery lists (TMDB, MDBList, Trakt, IMDb, and JustWatch)**: point the report at a list and complete it
   the way you complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list
   ids or themoviedb.org/list URLs pasted in), an **MDBList community list** (a type-ahead chip picker: search,
@@ -162,14 +167,18 @@ flowchart TD
 - **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
   looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
   missing episode it shows where to watch the show.
-- **A usable report**: grouped by movies/shows and source, with an A-Z jump bar for the creator-works and
-  recommendation tabs and a coverage badge ("6 of 9 owned, 67%") on collection groups. Each tab loads on
-  demand, and Set completion lays its collapsed series and collections out in responsive columns so a big
-  library is not one very tall list. Filter by type, specials, upcoming, streamable, or dismissed; search
-  (matches the creator/source too); save named view presets or copy a shareable link to the exact view;
-  export the current view to Markdown. Links to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link
-  provider the host has, including the JustWatch plugin), an "open in Jellyfin" jump to items you already
-  hold, and a search icon that opens a scoped Jellyfin search for any title, series, collection, or creator.
+- **A usable report**: tabbed by domain (Movies/Shows/Music/Books, each badged with its gap count), with an
+  A-Z jump bar for the creator-works and Discover views and a coverage badge ("6 of 9 owned, 67%") on
+  collection groups. Each domain's data loads on demand and only the active one stays in memory. Set
+  completion lays its collapsed series and collections out in responsive columns so a big library is not one
+  very tall list; a **Compact view** toggle switches every row to a denser layout with a smaller thumbnail.
+  Every row opens its watch links, provider links, and actions from three icon popovers (Watch/Info/Actions)
+  instead of a wall of buttons, and hovering or focusing a title reveals its overview without leaving the
+  list. Filter by specials, upcoming, streamable, or dismissed; search (matches the creator/source too); save
+  named view presets or copy a shareable link to the exact view; export the current view to Markdown. Links
+  to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has, including the
+  JustWatch plugin), an "open in Jellyfin" jump to items you already hold, and a search icon that opens a
+  scoped Jellyfin search for any title, series, collection, or creator.
 - **Diagnose why something is "missing"**: a per-gap popup explains the verdict, laying the gap beside the
   owned items that look like it (owned under the wrong id, an owned item already holds this id, a same-named
   reboot like V 1984 versus V 2009, or genuinely missing). A "Deeper analysis" confirms against the source
@@ -246,15 +255,17 @@ Open **Dashboard > Mind the Gaps** and click **Rescan now**. For collection gaps
 TMDB id (from the TMDB box-set provider). The scan also runs on a schedule (editable under
 **Dashboard > Scheduled Tasks**).
 
-See the [report guide](docs/report-guide.md) for the three pattern tabs (Set completion, Creator works,
-Recommendations), the filters and saved views, and the per-row actions (where to watch, send, mint, dismiss).
+See the [report guide](docs/report-guide.md) for the domain tabs and the View dropdown (Set completion,
+Creator works, Discover), the filters and saved views, and the per-row actions (where to watch, send,
+mint, dismiss).
 
 ## Configuration
 
-In the dashboard, go to **Plugins > Mind the Gaps**. The source toggles are grouped into **Complete what
-you own** (collections, studios, keywords, Discogs labels, series, music discography, books, and an owned
-actor or director's filmography) and **Discover new titles** (recommendations, TMDB lists, MDBList lists,
-Trakt lists, IMDb watchlists, and your JustWatch watchlist).
+In the dashboard, go to **Plugins > Mind the Gaps**. **What to scan** holds the plain toggles with no id or
+credential of their own (collections, series, filmographies, recommendations, music, books); **Sources** has
+one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary, TheTVDB, IMDb, JustWatch),
+each holding that provider's scan toggles, list/username fields, and credential together, badged on or off
+in its header. A search box above both narrows to whatever matches and opens the section it is in.
 For every setting, what it does, and what changes when you set or clear it, see the
 [configuration reference](docs/configuration.md). In brief, alongside those toggles:
 
@@ -263,10 +274,11 @@ For every setting, what it does, and what changes when you set or clear it, see 
 | Metadata country / language | Locale for TMDB lookups and availability. |
 | Max related per item | Caps how many "similar" titles each owned item contributes. |
 | Max creators scanned per run | Caps the filmography scan; people are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster. |
-| Relevance floors | Minimum TMDB votes for filmography and recommendation gaps (plus an optional cast-billing limit), so Creator works and Recommendations stay actionable on a large library. |
+| Relevance floors | Minimum TMDB votes for filmography and recommendation gaps (plus an optional cast-billing limit and, separately, a minimum-episode floor for a TV credit), so Creator works and Recommendations stay actionable on a large library. |
 | Track curated sets | Gates the studio and keyword sets (the ids below feed it). |
 | Curated studio / keyword ids | TMDB company and keyword ids to complete, picked with a type-ahead chip picker. |
 | Scan TMDB lists | Gates the TMDB discovery lists (the list ids beside it feed it). |
+| TMDB discover feeds | Four independent toggles (Top Rated, Popular, Upcoming, Now Playing); each surfaces its unowned movies on Discover. |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Acquisition stack | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action. |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |

@@ -10,8 +10,8 @@ dotnet build Jellyfin.Plugin.MindTheGaps.sln
 dotnet test  Jellyfin.Plugin.MindTheGaps.sln
 ```
 
-You need the .NET 9 SDK (10.11 ABI) and, if you want to build the 12.0 ABI too, the .NET 10 SDK. No
-Jellyfin server checkout is required: the projects reference the published `Jellyfin.Controller` /
+You need the .NET 10 SDK (12.0 ABI, the default) and, if you want to build the 10.11 ABI too, the .NET 9
+SDK. No Jellyfin server checkout is required: the projects reference the published `Jellyfin.Controller` /
 `Jellyfin.Model` / `Jellyfin.Common` NuGet packages, so the repo builds standalone.
 
 Both projects build clean with StyleCop and the .NET analyzers running as **errors**
@@ -25,11 +25,23 @@ Both projects build clean with StyleCop and the .NET analyzers running as **erro
   the host does not provide, so they are listed in `build.yaml`'s `artifacts` and jprm bundles them into the
   zip alongside `Jellyfin.Plugin.MindTheGaps.dll`. If you add a runtime NuGet dependency, add its DLL to
   `artifacts` too, or the plugin fails to load with a `ReflectionTypeLoadException`.
-- **Versions are centralized.** `Directory.Packages.props` pins every package version from a single
-  `$(JellyfinVersion)` property, so the CI matrix can build each ABI by passing `-p:JellyfinVersion=`.
+- **`JellyfinVersion` drives both packages and framework.** `Directory.Packages.props` pins every package
+  version from `$(JellyfinVersion)` (default `12.0`); the repo-root `Directory.Build.props` derives
+  `TargetFramework` from the same property (major `10` -> `net9.0`, else `net10.0`), so a plain local
+  `dotnet build` targets the 12.0 ABI with no flags, and `-p:JellyfinVersion=10.11.0` alone switches the
+  whole solution to `net9.0`. `Directory.Build.props` also exists once per project
+  (`Jellyfin.Plugin.MindTheGaps/` and `.Tests/`, both pulling `Version` from `build.yaml`); each explicitly
+  imports the repo-root one first, since MSBuild only auto-imports the closest `Directory.Build.props` to a
+  project, not every one on the way up.
 - **Two ABIs today.** The [CI matrix](.github/workflows/build.yaml) builds `net9.0` / Jellyfin ABI
-  `10.11.0.0` and `net10.0` / ABI `12.0.0.0`. The `.csproj` files default to `net9.0`; a row overrides via
-  `-p:PluginFramework=`, determines the framework built by `.csproj` and `build.yaml`'s `targetAbi`.
+  `10.11.0.0` and `net10.0` / ABI `12.0.0.0`, passing `-p:JellyfinVersion=` (and, for the single-project
+  `Build` step only, `-p:TargetFramework=` too). The solution-level `Test` step passes `JellyfinVersion`
+  alone, deliberately never `-p:TargetFramework=`: MSBuild strips the literal `TargetFramework` global
+  property when Tests' `ProjectReference` asks the plugin project for its compatible framework, which would
+  silently revert it to `Directory.Build.props`'s default. `JellyfinVersion`, not being that property,
+  survives the same query and re-derives the same framework on both sides. The `Package` step's `jprm plugin
+  build` runs its own internal `dotnet build` of the whole solution this same way, driven only by the
+  `JellyfinVersion` environment variable it's given, for the same reason.
 
 The full standalone build-and-package pattern is written up in
 [this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd), and the conventions this

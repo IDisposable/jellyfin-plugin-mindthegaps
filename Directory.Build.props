@@ -1,0 +1,14 @@
+<Project>
+  <!-- JellyfinVersion drives both NuGet package selection (Directory.Packages.props) and TargetFramework
+       here. A custom property survives an evaluation context a directly-passed TargetFramework does not:
+       MSBuild strips the literal TargetFramework global property when resolving a ProjectReference's
+       compatible framework, so deriving TargetFramework from JellyfinVersion instead keeps the Tests
+       project's reference to the plugin project correctly resolved even there. An explicit
+       -p:TargetFramework still overrides if ever set directly. -->
+  <PropertyGroup>
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">12.0</JellyfinVersion>
+    <_JellyfinMajor>$([System.Text.RegularExpressions.Regex]::Match($(JellyfinVersion), '^\d+').Value)</_JellyfinMajor>
+    <TargetFramework Condition="'$(TargetFramework)' == '' AND '$(_JellyfinMajor)' == '10'">net9.0</TargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
+  </PropertyGroup>
+</Project>

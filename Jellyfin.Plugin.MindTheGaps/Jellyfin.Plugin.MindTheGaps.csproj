@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework Condition="'$(PluginFramework)' != ''">$(PluginFramework)</TargetFramework>
     <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.MindTheGaps</RootNamespace>
     <Nullable>enable</Nullable>

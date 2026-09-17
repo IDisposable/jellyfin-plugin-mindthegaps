@@ -94,18 +94,22 @@ jobs:
           fi
           echo "value=$v" >> "$GITHUB_OUTPUT"
 
-      # PluginFramework determines the target framework for the plugin.
+      # JellyfinVersion drives TargetFramework too (Directory.Build.props); passing -p:TargetFramework
+      # directly here is fine since this single-project build has no ProjectReference to resolve.
       - name: Build
         run: >
           dotnet build Jellyfin.Plugin.MindTheGaps/Jellyfin.Plugin.MindTheGaps.csproj
-          -c Release -p:PluginFramework=${{ matrix.framework }}
+          -c Release -p:TargetFramework=${{ matrix.framework }}
           -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
 
+      # No -p:TargetFramework here: MSBuild strips that specific global property when Tests' reference to
+      # the plugin project asks it for a compatible framework, which would revert the plugin project to
+      # Directory.Build.props's JellyfinVersion-derived default anyway. Passing JellyfinVersion instead
+      # resolves the same way for both projects without relying on a property that does not survive there.
       - name: Test
         run: >
           dotnet test Jellyfin.Plugin.MindTheGaps.sln
-          -c Release -p:PluginFramework=${{ matrix.framework }}
-          -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
+          -c Release -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
 
       - name: Package
         if: github.event_name == 'release'
