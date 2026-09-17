@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.7.6",
+                "changelog": "10.11.7.6 (beta) - More Gaps Report polish. Hovering a title no longer reveals its detail (it was too easy to dismiss by accident moving toward it); click the title instead, same as before, and a collapsed title's browser tooltip now shows its overview with no click at all. In the normal (non-compact) view, expanding a title's detail now folds in the Where to watch, Information, and Actions content as one set of buttons that tile across instead of stacking one per line, and hides the row's icons only while that detail is open, showing them the rest of the time exactly like Compact view does. Detail and popover buttons no longer stretch to the full width of the row.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.6/mind-the-gaps_12.0.7.6.zip",
+                "checksum": "54116bae904a21e177fec27cd5cef21c",
+                "timestamp": "2026-09-17T23:13:47Z"
+            },
+            {
                 "version": "12.0.7.5",
                 "changelog": "10.11.7.5 (beta) - Follow-up polish to 10.11.7.4's row popovers. The title's hover-revealed detail moved to below the Watch/Info/Actions icons, drops the repeated title, and now shows where to watch alongside the overview. It stays open when you move the pointer into it instead of closing the moment you leave the title, and clicking a title pins it open until you click that title or another row's again, so clicking elsewhere on the page (or outside the browser) no longer dismisses it. Popover and detail buttons/links are sized and centered consistently with the rest of the dashboard.\n",
                 "targetAbi": "12.0.0.0",
@@ -47,6 +55,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.7.6",
+                "changelog": "10.11.7.6 (beta) - More Gaps Report polish. Hovering a title no longer reveals its detail (it was too easy to dismiss by accident moving toward it); click the title instead, same as before, and a collapsed title's browser tooltip now shows its overview with no click at all. In the normal (non-compact) view, expanding a title's detail now folds in the Where to watch, Information, and Actions content as one set of buttons that tile across instead of stacking one per line, and hides the row's icons only while that detail is open, showing them the rest of the time exactly like Compact view does. Detail and popover buttons no longer stretch to the full width of the row.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.6/mind-the-gaps_10.11.7.6.zip",
+                "checksum": "fbb344e59291fe9d3d580c24f0c35ee9",
+                "timestamp": "2026-09-17T23:14:03Z"
             },
             {
                 "version": "10.11.7.5",
