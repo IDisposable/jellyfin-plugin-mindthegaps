@@ -1,0 +1,46 @@
+# Runs the Playwright dashboard UI suite (e2e/), which drives the real report.js/report.css
+# against a mocked ApiClient/Dashboard (see e2e/support/build-harness.js) rather than a live
+# Jellyfin server. Its own workflow, gated on the dashboard/tooling paths it actually exercises, so
+# a plain .NET-only change does not pay for a Chromium download.
+name: ui-tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Jellyfin.Plugin.MindTheGaps/Web/**'
+      - 'e2e/**'
+      - 'playwright.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Jellyfin.Plugin.MindTheGaps/Web/**'
+      - 'e2e/**'
+      - 'playwright.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+jobs:
+  ui-tests:
+    name: dashboard UI tests (playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npm run test:ui:install
+      - run: npm run test:ui
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

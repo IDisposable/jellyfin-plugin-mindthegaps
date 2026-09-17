@@ -13,5 +13,9 @@ temp/
 transcripts/
 CLAUDE.md
 
-# Node tooling (oxlint)
+# Node tooling (oxlint, Playwright)
 node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

@@ -17,6 +17,20 @@ SDK. No Jellyfin server checkout is required: the projects reference the publish
 Both projects build clean with StyleCop and the .NET analyzers running as **errors**
 (`TreatWarningsAsErrors`), so a warning fails the build. Keep it green.
 
+The dashboard JavaScript (`Jellyfin.Plugin.MindTheGaps/Web/`) has its own tooling, over Node:
+
+```bash
+npm ci
+npm run lint          # oxlint
+npm run test:ui:install   # once, fetches Chromium
+npm run test:ui       # Playwright, see e2e/
+```
+
+`e2e/` drives the real `mindthegaps.report.js`/`.css` against a mocked `ApiClient`/`Dashboard`
+(`e2e/support/build-harness.js`), wrapped in the same page div jellyfin-web itself uses (CSS
+containment and all, see the next section), so a dashboard interaction bug shows up here instead of
+only in a live install.
+
 ## How the build is put together
 
 - **Standalone references.** The Jellyfin NuGet packages are referenced **compile-only**
@@ -104,6 +118,9 @@ Jellyfin.Plugin.MindTheGaps/            # the plugin
   VirtualItems/VirtualItemMinter.cs     # temporary, opt-in
 .editorconfig                           # code style + analyzer severities
 Jellyfin.Plugin.MindTheGaps.Tests/      # xUnit tests + captured API fixtures
+e2e/                                     # Playwright dashboard UI tests (npm run test:ui)
+playwright.config.js
+package.json                            # npm tooling: oxlint + Playwright
 ```
 
 ## Architecture in one paragraph
@@ -123,7 +140,9 @@ behind these choices lives in the [ADRs](docs/adr/); the current status and back
 - **Tests for new behavior.** Parsers and mappers are pure and tested against **real captured API
   responses** under `Jellyfin.Plugin.MindTheGaps.Tests/TestData/` (see
   [ADR-0006](docs/adr/0006-captured-data-testing.md)). The live HTTP clients and the library-mutating minter
-  are not unit-tested; everything they delegate to is.
+  are not unit-tested; everything they delegate to is. New interactive dashboard behavior (a popover, a
+  filter, anything with its own click/hover wiring) gets a Playwright spec under `e2e/`, the JS/CSS
+  equivalent of a mapper test.
 - **Analyzers are errors.** StyleCop + .NET analyzers via `.editorconfig` with
   `AnalysisMode=AllEnabledByDefault`, nullable enabled, and `ConfigureAwait(false)` on every await.
 - **Terminology.** "Shows / Series / Seasons / Episodes" is episodic content; "Live TV" is the unrelated

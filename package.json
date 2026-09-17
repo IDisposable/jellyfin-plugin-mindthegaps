@@ -2,11 +2,14 @@
   "name": "jellyfin-plugin-mindthegaps",
   "version": "0.0.0",
   "private": true,
-  "description": "Lint tooling for the Mind the Gaps dashboard JavaScript (Jellyfin.Plugin.MindTheGaps/Web).",
+  "description": "Lint and UI test tooling for the Mind the Gaps dashboard JavaScript (Jellyfin.Plugin.MindTheGaps/Web).",
   "scripts": {
-    "lint": "oxlint --deny-warnings Jellyfin.Plugin.MindTheGaps/Web"
+    "lint": "oxlint --deny-warnings Jellyfin.Plugin.MindTheGaps/Web",
+    "test:ui": "playwright test",
+    "test:ui:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "oxlint": "1.71.0"
   }
 }
