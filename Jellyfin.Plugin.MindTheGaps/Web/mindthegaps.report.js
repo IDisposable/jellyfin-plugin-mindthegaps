@@ -3586,14 +3586,26 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         // "enable all" / "disable all" visibly change the results, not just the checkboxes).
         if (page._report) { applyAndRender(page); }
     });
-    // A row's popover builds its body on first open (see renderRow). 'toggle' on <details> does not
-    // bubble, so this listener runs in the capture phase to see it at all via delegation. Every open
-    // (not just the first) repositions the body as a fixed overlay anchored to the summary icon: a
-    // report can be many rows tall, and #cgList's own ancestors clip an absolutely-positioned child
-    // the moment a row is not near the top of the visible area, which a fixed overlay is immune to.
+    // A popover opens on hover as well as click/keyboard (below); whichever way one opens, exactly
+    // one is open at a time. 'toggle' on <details> does not bubble, so this runs in the capture phase
+    // to see it at all via delegation, and fires for a hover-driven open too (setting .open from JS
+    // dispatches the same event as a native click). Closing every other currently-open .cgPop here
+    // (skipping an ancestor or descendant of the one just opened, since a nested Resolve popover
+    // opening must not close the Actions popover holding it) covers both triggers in one place.
     page.querySelector('#cgList').addEventListener('toggle', function (e) {
         var det = e.target;
-        if (!det.matches || !det.matches('.cgPop[data-pop]') || !det.open) { return; }
+        if (!det.matches || !det.matches('.cgPop')) { return; }
+        if (det.open) {
+            var openOnes = page.querySelectorAll('#cgList .cgPop[open]');
+            for (var i = 0; i < openOnes.length; i++) {
+                var o = openOnes[i];
+                if (o !== det && !o.contains(det) && !det.contains(o)) { o.open = false; }
+            }
+        }
+        // Everything past here (lazy body build, floating position) is only for a top-level
+        // Watch/Info/Actions popover: the nested Resolve one renders inline (static) in its parent's
+        // body and needs neither.
+        if (!det.matches('.cgPop[data-pop]') || !det.open) { return; }
         var body = det.querySelector(':scope > .cgPopBody');
         if (!body) { return; }
         if (!det.dataset.built) {
@@ -3609,6 +3621,29 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         }
         floatNear(det.querySelector(':scope > summary'), body, 'end');
     }, true);
+    // Hovering a popover (or a nested one inside it) opens it the same as a click, and leaving it
+    // closes it after a short grace period, canceled if the pointer re-enters in time (room to move
+    // from the icon down into its own body without it closing underneath the pointer). mouseover/
+    // mouseout with a relatedTarget containment check stand in for the non-bubbling mouseenter/
+    // mouseleave, since delegation needs a bubbling event.
+    var popCloseTimer = null;
+    var popCloseEl = null;
+    var cancelPopClose = function () {
+        if (popCloseTimer) { clearTimeout(popCloseTimer); popCloseTimer = null; popCloseEl = null; }
+    };
+    page.querySelector('#cgList').addEventListener('mouseover', function (e) {
+        var pop = e.target.closest ? e.target.closest('.cgPop') : null;
+        if (!pop || pop.contains(e.relatedTarget)) { return; }
+        if (popCloseEl === pop) { cancelPopClose(); }
+        if (!pop.open) { pop.open = true; }
+    });
+    page.querySelector('#cgList').addEventListener('mouseout', function (e) {
+        var pop = e.target.closest ? e.target.closest('.cgPop') : null;
+        if (!pop || pop.contains(e.relatedTarget) || !pop.open) { return; }
+        cancelPopClose();
+        popCloseEl = pop;
+        popCloseTimer = setTimeout(function () { pop.open = false; popCloseTimer = null; popCloseEl = null; }, 250);
+    });
     // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the title,
     // and repositions itself as a fixed overlay every time for the same clipping reason as above.
     var buildHoverDetailOnce = function (e) {
