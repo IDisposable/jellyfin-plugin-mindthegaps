@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.7.5",
+                "changelog": "10.11.7.5 (beta) - Follow-up polish to 10.11.7.4's row popovers. The title's hover-revealed detail moved to below the Watch/Info/Actions icons, drops the repeated title, and now shows where to watch alongside the overview. It stays open when you move the pointer into it instead of closing the moment you leave the title, and clicking a title pins it open until you click that title or another row's again, so clicking elsewhere on the page (or outside the browser) no longer dismisses it. Popover and detail buttons/links are sized and centered consistently with the rest of the dashboard.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.5/mind-the-gaps_12.0.7.5.zip",
+                "checksum": "a8ace030ebcc257ea9d4a39e44a4c4cb",
+                "timestamp": "2026-09-17T20:46:11Z"
+            },
+            {
                 "version": "12.0.7.4",
                 "changelog": "10.11.7.4 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions) and hover-revealed overview for real this time: the browser's own page wrapper uses a CSS feature that changes where a floating overlay renders, which put every popover somewhere other than where it was calculated to be, invisibly. They are plain expanding content in the row now, with no floating position to get wrong. Only one popover is open at a time, same as before.\n",
                 "targetAbi": "12.0.0.0",
@@ -39,6 +47,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.7.5",
+                "changelog": "10.11.7.5 (beta) - Follow-up polish to 10.11.7.4's row popovers. The title's hover-revealed detail moved to below the Watch/Info/Actions icons, drops the repeated title, and now shows where to watch alongside the overview. It stays open when you move the pointer into it instead of closing the moment you leave the title, and clicking a title pins it open until you click that title or another row's again, so clicking elsewhere on the page (or outside the browser) no longer dismisses it. Popover and detail buttons/links are sized and centered consistently with the rest of the dashboard.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.5/mind-the-gaps_10.11.7.5.zip",
+                "checksum": "8037245bb8f618eae0424b3eaddfb774",
+                "timestamp": "2026-09-17T20:46:29Z"
             },
             {
                 "version": "10.11.7.4",
