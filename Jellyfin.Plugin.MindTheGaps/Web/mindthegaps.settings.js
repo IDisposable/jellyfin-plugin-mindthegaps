@@ -223,10 +223,15 @@ function saveConfig(page, e) {
         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
         config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
         config.MaxCastBillingOrder = parseInt(form.querySelector('#MaxCastBillingOrder').value || '0', 10);
-        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+        return ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
             page._settingsDirty = false;
             Dashboard.processPluginConfigurationUpdateResult(result);
         });
+    }).then(function () {
+        Dashboard.hideLoadingMsg();
+    }).catch(function () {
+        Dashboard.hideLoadingMsg();
+        Dashboard.alert('Could not save the settings. Check the server logs and try again.');
     });
     return false;
 }
@@ -449,5 +454,8 @@ document.querySelector('#MindTheGapsSettingsPage').addEventListener('pageshow', 
         loadConfig(page, config);
         if (page._refreshTmdbAccount) { page._refreshTmdbAccount(); }
         Dashboard.hideLoadingMsg();
+    }).catch(function () {
+        Dashboard.hideLoadingMsg();
+        Dashboard.alert('Could not load the settings. Check the server logs and reload the page.');
     });
 });

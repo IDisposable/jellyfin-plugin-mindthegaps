@@ -2378,7 +2378,7 @@ function pruneOtherDomains(page, keepDomain) {
 // Fetch one domain's (and, once known, one pattern's) items on demand, cached per domain+pattern, so
 // a large report is not shipped whole; the browser only loads the tab and pattern being viewed. Sets
 // page._report to that slice.
-function ensureSlice(page, pattern, domain) {
+function ensureSlice(page, pattern, domain, loadId) {
     page._slices = page._slices || {};
     var key = sliceKey(pattern, domain);
     if (page._slices[key]) {
@@ -2389,6 +2389,7 @@ function ensureSlice(page, pattern, domain) {
     var query = domain ? { pattern: pattern, domain: domain } : { pattern: pattern };
     return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', query), dataType: 'json' })
         .then(function (report) {
+            if (loadId != null && page._loadSeq !== loadId) { throw { stale: true }; }
             page._slices[key] = report;
             page._report = report;
             // Seed the provider filter from this slice's offers too (a tab not yet loaded when
@@ -2400,15 +2401,22 @@ function ensureSlice(page, pattern, domain) {
             noteProviders(page, offers);
             Dashboard.hideLoadingMsg();
             return report;
-        }, function () { Dashboard.hideLoadingMsg(); return { Items: [] }; });
+        }, function (error) {
+            if (loadId != null && page._loadSeq !== loadId) { throw { stale: true }; }
+            Dashboard.hideLoadingMsg();
+            throw error;
+        });
 }
 
 function load(page) {
+    var loadId = (page._loadSeq || 0) + 1;
+    page._loadSeq = loadId;
     Dashboard.showLoadingMsg();
     // Drop any cached slices so a reload (after a scan, mint, or availability pass) re-fetches.
     page._slices = {};
     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Summary'), dataType: 'json' })
         .then(function (summary) {
+            if (page._loadSeq !== loadId) { throw { stale: true }; }
             page._summary = summary;
             // Seed the provider filter from the providers seen across the whole report, so it is
             // populated before any one tab (or "Where to watch" click) loads.
@@ -2439,9 +2447,13 @@ function load(page) {
                     render = applyView(page, shared);
                 } else {
                     page._pattern = pickPattern(page, page._domain);
-                    render = ensureSlice(page, page._pattern, page._domain).then(function () { applyAndRender(page); });
+                    render = ensureSlice(page, page._pattern, page._domain, loadId).then(function () {
+                        if (page._loadSeq !== loadId) { throw { stale: true }; }
+                        applyAndRender(page);
+                    });
                 }
                 return render.then(function () {
+                    if (page._loadSeq !== loadId) { throw { stale: true }; }
                     checkStale(page, summary);
                     Dashboard.hideLoadingMsg();
                     // A deep-link (cgdiag in the URL, e.g. from an exported audit) opens that
@@ -2451,7 +2463,8 @@ function load(page) {
                 });
             });
         })
-        .catch(function () {
+        .catch(function (error) {
+            if ((error && error.stale) || page._loadSeq !== loadId) { return; }
             // The report is the first thing every admin hits; if it cannot load (the summary,
             // the resolutions, or the first tab's slice), surface it rather than spin forever
             // behind the loading overlay.
