@@ -65,6 +65,8 @@ public class MdbListMapperTests
         Assert.Equal(MediaDomain.Movies, matrix.Domain);
         Assert.Equal(BaseItemKind.Movie, matrix.TargetKind);
         Assert.Equal("603", matrix.ProviderIds["Tmdb"]);
+        Assert.Equal("A computer hacker learns about the true nature of reality.", matrix.Overview);
+        Assert.Equal("https://image.tmdb.org/t/p/w500/matrix.jpg", matrix.ImageUrl);
 
         var breakingBad = gaps.Single(g => g.Name == "Breaking Bad");
         Assert.Equal(MediaDomain.Shows, breakingBad.Domain);

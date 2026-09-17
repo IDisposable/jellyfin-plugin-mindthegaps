@@ -162,7 +162,7 @@ internal sealed class MdbListClient
         }
 
         return await PageAsync(
-            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/{listId}/items?apikey={key}&offset={offset}&limit={PageSize}"),
+            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/lists/{listId}/items?apikey={key}&offset={offset}&limit={PageSize}&append_to_response=poster,description"),
             CachedApiClient.DefaultCacheDuration,
             cancellationToken).ConfigureAwait(false) ?? [];
     }
@@ -184,7 +184,7 @@ internal sealed class MdbListClient
 
         // A watchlist is edited between scans, so it is not held for the half-day a community list is.
         return await PageAsync(
-            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/watchlist/items?apikey={key}&offset={offset}&limit={PageSize}"),
+            offset => string.Create(CultureInfo.InvariantCulture, $"{BaseUrl}/watchlist/items?apikey={key}&offset={offset}&limit={PageSize}&append_to_response=poster,description"),
             TimeSpan.FromMinutes(10),
             cancellationToken).ConfigureAwait(false);
     }

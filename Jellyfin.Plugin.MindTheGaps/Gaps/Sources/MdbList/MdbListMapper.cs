@@ -133,7 +133,9 @@ internal static class MdbListMapper
                 sourceItemType: sourceItemType,
                 releaseDate: item.ReleaseYear is > 0
                     ? new DateTime(item.ReleaseYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-                    : null);
+                    : null,
+                imageUrl: item.Poster,
+                overview: item.Description);
         }
     }
 }

@@ -31,4 +31,12 @@ internal sealed class MdbListItem
     /// <summary>Gets or sets the release year, when present.</summary>
     [JsonPropertyName("release_year")]
     public int? ReleaseYear { get; set; }
+
+    /// <summary>Gets or sets the overview text, present when requested via <c>append_to_response=description</c>.</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>Gets or sets the poster image URL, present when requested via <c>append_to_response=poster</c>.</summary>
+    [JsonPropertyName("poster")]
+    public string? Poster { get; set; }
 }

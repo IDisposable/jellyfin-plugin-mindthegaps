@@ -1,6 +1,6 @@
 {
   "movies": [
-    { "id": 1, "rank": 1, "title": "The Matrix", "imdb_id": "tt0133093", "tvdb_id": null, "tmdb_id": 603, "mediatype": "movie", "release_year": 1999 },
+    { "id": 1, "rank": 1, "title": "The Matrix", "imdb_id": "tt0133093", "tvdb_id": null, "tmdb_id": 603, "mediatype": "movie", "release_year": 1999, "description": "A computer hacker learns about the true nature of reality.", "poster": "https://image.tmdb.org/t/p/w500/matrix.jpg" },
     { "id": 2, "rank": 2, "title": "Another Film", "imdb_id": "tt0111161", "tvdb_id": null, "tmdb_id": 278, "mediatype": "movie", "release_year": 1994 },
     { "id": 3, "rank": 3, "title": "No Ids Film", "imdb_id": "", "tvdb_id": null, "tmdb_id": 0, "mediatype": "movie", "release_year": 2000 }
   ],
