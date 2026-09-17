@@ -238,7 +238,7 @@ Download the `.zip` from the [latest release](https://github.com/IDisposable/jel
 extract it into a folder under your server's `config/plugins/` directory (e.g.
 `config/plugins/MindTheGaps/`), and restart Jellyfin.
 
-Requires a server matching the plugin's `targetAbi` (currently `10.11.0.0`, `net9.0`).
+Requires a server matching the plugin's `targetAbi` (currently `10.11` and `net9.0` or `12.0` and `net10.0`)
 
 ## Usage
 

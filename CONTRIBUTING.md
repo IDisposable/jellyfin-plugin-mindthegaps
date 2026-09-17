@@ -29,10 +29,7 @@ Both projects build clean with StyleCop and the .NET analyzers running as **erro
   `$(JellyfinVersion)` property, so the CI matrix can build each ABI by passing `-p:JellyfinVersion=`.
 - **Two ABIs today.** The [CI matrix](.github/workflows/build.yaml) builds `net9.0` / Jellyfin ABI
   `10.11.0.0` and `net10.0` / ABI `12.0.0.0`. The `.csproj` files default to `net9.0`; a row overrides via
-  `-p:MtgFramework=`, not `-p:TargetFramework=`, because the SDK strips a `TargetFramework` global property
-  when it recurses into a `ProjectReference`, which would otherwise revert the plugin project (referenced by
-  the Tests project) back to its hardcoded default. Keep the `.csproj` default and `build.yaml`'s `targetAbi`
-  in step with whichever ABI's row you're adding.
+  `-p:PluginFramework=`, determines the framework built by `.csproj` and `build.yaml`'s `targetAbi`.
 
 The full standalone build-and-package pattern is written up in
 [this gist](https://gist.github.com/IDisposable/31b194e3f6dc5acbb0e08009b6c800bd), and the conventions this
