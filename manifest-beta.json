@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.7.4",
+                "changelog": "10.11.7.4 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions) and hover-revealed overview for real this time: the browser's own page wrapper uses a CSS feature that changes where a floating overlay renders, which put every popover somewhere other than where it was calculated to be, invisibly. They are plain expanding content in the row now, with no floating position to get wrong. Only one popover is open at a time, same as before.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.4/mind-the-gaps_12.0.7.4.zip",
+                "checksum": "33946ee9071bf701644271f9b34e3b41",
+                "timestamp": "2026-09-17T18:17:49Z"
+            },
+            {
                 "version": "12.0.7.3",
                 "changelog": "10.11.7.3 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions), which 10.11.7.2 shipped broken: clicking or hovering a row did nothing. Opening one now toggles it directly instead of relying on the browser's native click handling, and the title's hover-revealed overview no longer depends on a CSS feature some browsers don't support. Only one popover is open at a time, same as before.\n",
                 "targetAbi": "12.0.0.0",
@@ -31,6 +39,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.7.4",
+                "changelog": "10.11.7.4 (beta) - Fixes the Gaps Report's row popovers (Watch/Info/Actions) and hover-revealed overview for real this time: the browser's own page wrapper uses a CSS feature that changes where a floating overlay renders, which put every popover somewhere other than where it was calculated to be, invisibly. They are plain expanding content in the row now, with no floating position to get wrong. Only one popover is open at a time, same as before.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.4/mind-the-gaps_10.11.7.4.zip",
+                "checksum": "e5a247d27b679c8a4cee1749b7a6f21d",
+                "timestamp": "2026-09-17T18:17:57Z"
             },
             {
                 "version": "10.11.7.3",
