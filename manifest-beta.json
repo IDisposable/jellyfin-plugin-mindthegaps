@@ -9,12 +9,28 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.7.2",
+                "changelog": "10.11.7.2 (beta) - Follow-up to 10.11.7.1's Gaps Report overhaul. The domain tabs (Movies/Shows/Music/ Books) move to the very top of the report, above the filters, since picking one is the first thing you do on the page. A row's Watch/Info/Actions popovers now open on hover as well as click, close a moment after the pointer leaves, and only one is open at a time; they (and a title's hover-revealed overview) no longer get clipped when the row is not near the top of a long list, and close if you scroll the page while one is open. The A-Z letter bar shows each letter on its own, with its gap count moved into the hover text instead of cluttering the label. The report and settings pages now show an error message instead of spinning forever or failing silently if a load or save fails, and switching domains or patterns quickly no longer risks a slower, superseded request overwriting what you switched to.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.2/mind-the-gaps_12.0.7.2.zip",
+                "checksum": "d949cec820a0b73e93f102fd08461930",
+                "timestamp": "2026-09-17T11:22:17Z"
+            },
+            {
                 "version": "12.0.7.1",
                 "changelog": "10.11.7.1 (beta) -  Four new TMDB feeds, Top Rated, Popular, Upcoming, and Now Playing, can be turned on individually under Discover. Jellyfin 12.0 is now a supported target alongside 10.11, each release building and shipping its own ABI-matched package. The Gaps Report page flips its navigation so Movies, Shows, Music, and Books are the primary tabs, each badged with its own gap count, with Set completion, Creator works, and Discover as a dropdown scoped to whichever domain is active; only the active domain's data stays loaded, so switching domains no longer accumulates memory the way holding every domain at once did. A Compact view toggle switches the list to a denser layout, and every row, compact or not, now opens its watch links, provider links, and actions from three icon popovers instead of a long row of buttons; hovering or focusing a title reveals its overview without leaving the list. The toolbar is split into a filter row and an action row. The settings page is reorganized into one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary, TheTVDB, IMDb, JustWatch), each badged on or off, plus a search box that opens whichever section a match lands in. MDBList entries now carry a poster and description like every other source. A creator's page can be trimmed further with a minimum TMDB vote count for a movie credit and a minimum episode count for a TV credit, both separate from the scan-wide filmography floor since TV credits carry no vote count. The TODO list shows an image and release date per entry. Sending a whole-series gap to Sonarr from a filmography, recommendation, or favorites entry now sends the series' own title rather than the name of whatever surfaced it, and a rejected Radarr, Sonarr, or Jellyseerr request shows the service's validation message instead of a raw response body.\n",
                 "targetAbi": "12.0.0.0",
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.7.2",
+                "changelog": "10.11.7.2 (beta) - Follow-up to 10.11.7.1's Gaps Report overhaul. The domain tabs (Movies/Shows/Music/ Books) move to the very top of the report, above the filters, since picking one is the first thing you do on the page. A row's Watch/Info/Actions popovers now open on hover as well as click, close a moment after the pointer leaves, and only one is open at a time; they (and a title's hover-revealed overview) no longer get clipped when the row is not near the top of a long list, and close if you scroll the page while one is open. The A-Z letter bar shows each letter on its own, with its gap count moved into the hover text instead of cluttering the label. The report and settings pages now show an error message instead of spinning forever or failing silently if a load or save fails, and switching domains or patterns quickly no longer risks a slower, superseded request overwriting what you switched to.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.2/mind-the-gaps_10.11.7.2.zip",
+                "checksum": "7a50c4ff848ebd616dc21d771c35f715",
+                "timestamp": "2026-09-17T11:22:38Z"
             },
             {
                 "version": "10.11.7.1",
