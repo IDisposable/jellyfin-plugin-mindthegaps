@@ -49,6 +49,17 @@ public class TodoEntry
     public string? Creator { get; set; }
 
     /// <summary>
+    /// Gets or sets the poster URL the gap carried when it was added, so the entry can be shown as a card
+    /// without another provider call. Absent on entries added before this field existed.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the release date the gap carried when it was added.
+    /// </summary>
+    public DateTime? ReleaseDate { get; set; }
+
+    /// <summary>
     /// Gets or sets the gap's provider ids (e.g. {"Tmdb":"603","Imdb":"tt0133093"}), used to verify the
     /// entry against the library.
     /// </summary>
