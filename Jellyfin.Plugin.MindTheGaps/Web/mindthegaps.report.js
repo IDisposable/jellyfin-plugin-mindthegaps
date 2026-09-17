@@ -359,6 +359,26 @@ function findRowItem(page, gapId) {
     return null;
 }
 
+// Positions a floating element (a popover body or the hover-detail card) as position:fixed, anchored
+// to anchorEl's bounding box and clamped to the viewport. A row can be anywhere in a long report, and
+// #cgList's ancestors clip a plain position:absolute child once the row scrolls away from the top;
+// position:fixed has no ancestor to be clipped by. align 'end' right-aligns to the anchor (a popover
+// icon near the row's right edge), 'start' left-aligns (the hover-detail, under the title).
+function floatNear(anchorEl, floatEl, align) {
+    if (!anchorEl || !floatEl) { return; }
+    var rect = anchorEl.getBoundingClientRect();
+    var w = floatEl.offsetWidth || Math.min(352, window.innerWidth * 0.8);
+    var left = align === 'end' ? rect.right - w : rect.left;
+    left = Math.max(4, Math.min(left, window.innerWidth - w - 4));
+    var top = rect.bottom + 4;
+    var h = floatEl.offsetHeight;
+    if (h && top + h > window.innerHeight - 4) { top = Math.max(4, rect.top - h - 4); }
+    floatEl.style.position = 'fixed';
+    floatEl.style.top = top + 'px';
+    floatEl.style.left = left + 'px';
+    floatEl.style.right = 'auto';
+}
+
 // The Watch popover's body: resolved offers when known, else the on-demand lookup; always a
 // JustWatch search underneath, not only as a fallback when nothing else resolved.
 function buildWatchPopoverBody(item) {
@@ -1709,9 +1729,10 @@ function downloadText(filename, text) {
 function renderLetterBar(page, letters, sel, counts, total) {
     var bar = page.querySelector('#cgJump');
     if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters' }, '* (' + total + ')').outerHTML;
+    var gapWord = function (n) { return n + (n === 1 ? ' gap' : ' gaps'); };
+    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters (' + gapWord(total) + ')' }, '*').outerHTML;
     html += letters.map(function (L) {
-        return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L }, L + ' (' + ((counts && counts[L]) || 0) + ')').outerHTML;
+        return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L, title: gapWord((counts && counts[L]) || 0) }, L).outerHTML;
     }).join('');
     bar.innerHTML = html;
     bar.style.display = 'flex';
@@ -3553,35 +3574,53 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (page._report) { applyAndRender(page); }
     });
     // A row's popover builds its body on first open (see renderRow). 'toggle' on <details> does not
-    // bubble, so this listener runs in the capture phase to see it at all via delegation.
+    // bubble, so this listener runs in the capture phase to see it at all via delegation. Every open
+    // (not just the first) repositions the body as a fixed overlay anchored to the summary icon: a
+    // report can be many rows tall, and #cgList's own ancestors clip an absolutely-positioned child
+    // the moment a row is not near the top of the visible area, which a fixed overlay is immune to.
     page.querySelector('#cgList').addEventListener('toggle', function (e) {
         var det = e.target;
-        if (!det.matches || !det.matches('.cgPop[data-pop]') || !det.open || det.dataset.built) { return; }
-        det.dataset.built = '1';
-        var row = det.closest('.cgRow');
-        var item = row && findRowItem(page, row.getAttribute('data-gapid'));
-        if (!item) { return; }
+        if (!det.matches || !det.matches('.cgPop[data-pop]') || !det.open) { return; }
         var body = det.querySelector(':scope > .cgPopBody');
         if (!body) { return; }
-        var kind = det.getAttribute('data-pop');
-        if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
-        else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
-        else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
+        if (!det.dataset.built) {
+            det.dataset.built = '1';
+            var row = det.closest('.cgRow');
+            var item = row && findRowItem(page, row.getAttribute('data-gapid'));
+            if (item) {
+                var kind = det.getAttribute('data-pop');
+                if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
+                else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
+                else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
+            }
+        }
+        floatNear(det.querySelector(':scope > summary'), body, 'end');
     }, true);
-    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the
-    // title. mouseover and focusin are used because delegation needs a bubbling event.
+    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the title,
+    // and repositions itself as a fixed overlay every time for the same clipping reason as above.
     var buildHoverDetailOnce = function (e) {
         var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
         if (!titleEl) { return; }
         var row = titleEl.closest('.cgRow');
         var detailEl = row && row.querySelector('.cgHoverDetail');
-        if (!detailEl || detailEl.dataset.built) { return; }
-        detailEl.dataset.built = '1';
-        var item = findRowItem(page, row.getAttribute('data-gapid'));
-        if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
+        if (!detailEl) { return; }
+        if (!detailEl.dataset.built) {
+            detailEl.dataset.built = '1';
+            var item = findRowItem(page, row.getAttribute('data-gapid'));
+            if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
+        }
+        floatNear(titleEl, detailEl, 'start');
     };
     page.querySelector('#cgList').addEventListener('mouseover', buildHoverDetailOnce);
     page.querySelector('#cgList').addEventListener('focusin', buildHoverDetailOnce);
+    // A fixed-position popover does not scroll with its row; close it on scroll rather than leave it
+    // floating over content it no longer points at. The hover-detail needs no such handling: it is
+    // shown purely by :hover/:focus, which end on their own once the pointer is no longer over a
+    // title that has scrolled away.
+    window.addEventListener('scroll', function () {
+        var open = page.querySelectorAll('#cgList .cgPop[open]');
+        for (var i = 0; i < open.length; i++) { open[i].open = false; }
+    }, true);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {

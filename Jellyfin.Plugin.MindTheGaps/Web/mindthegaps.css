@@ -258,16 +258,15 @@
 }
 
 /* Hovering or focusing the title reveals the overview inline, without a click. Desktop-only
-    (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback instead. */
+    (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback instead.
+    position:fixed (top/left set by floatNear in JS) so a row anywhere in a long report is not
+    clipped by an ancestor's overflow the way a plain position:absolute child would be. */
 .cgHoverDetail {
     display: none;
-    position: absolute;
-    top: 100%;
-    left: 2em;
-    z-index: 5;
+    position: fixed;
+    z-index: 15;
     width: 22em;
     max-width: 80vw;
-    margin-top: .2em;
     padding: .6em .7em;
     border-radius: 6px;
     border: 1px solid #5a5a5a;
@@ -319,12 +318,12 @@
     font-size: 1.1em;
 }
 
+/* position:fixed (top/left set by floatNear in JS) so a row anywhere in a long report is not clipped
+    by an ancestor's overflow the way a plain position:absolute child would be. A nested popover
+    (.cgPopNested, below) overrides this back to static since it renders inline in its parent body. */
 .cgPopBody {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 6;
-    margin-top: .2em;
+    position: fixed;
+    z-index: 16;
     min-width: 12em;
     padding: .5em;
     border-radius: 6px;
