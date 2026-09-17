@@ -35,6 +35,7 @@ public sealed class TmdbClient : IDisposable
 
     private const string ImageBaseUrl = "https://image.tmdb.org/t/p/";
     private const string PosterSize = "w500";
+    private const string BackdropSize = "w1280";
 
     private readonly IMemoryCache _cache;
     private readonly ILogger<TmdbClient>? _logger;
@@ -673,6 +674,14 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The absolute URL, or <see langword="null"/>.</returns>
     public string? GetPosterUrl(string? posterPath)
         => string.IsNullOrEmpty(posterPath) ? null : ImageBaseUrl + PosterSize + posterPath;
+
+    /// <summary>
+    /// Resolves a TMDB backdrop path to a URL.
+    /// </summary>
+    /// <param name="backdropPath">The backdrop path.</param>
+    /// <returns>The URL, or <see langword="null"/>.</returns>
+    public string? GetBackdropUrl(string? backdropPath)
+        => string.IsNullOrEmpty(backdropPath) ? null : ImageBaseUrl + BackdropSize + backdropPath;
 
     /// <inheritdoc />
     public void Dispose()

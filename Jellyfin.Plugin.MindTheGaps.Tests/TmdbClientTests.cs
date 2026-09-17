@@ -30,4 +30,23 @@ public class TmdbClientTests
         Assert.Null(client.GetPosterUrl(null));
         Assert.Null(client.GetPosterUrl(string.Empty));
     }
+
+    [Fact]
+    public void GetBackdropUrl_BuildsAbsoluteUrl()
+    {
+        using var client = new TmdbClient(new Microsoft.Extensions.Caching.Memory.MemoryCache(
+            new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
+
+        Assert.Equal("https://image.tmdb.org/t/p/w1280/abc.jpg", client.GetBackdropUrl("/abc.jpg"));
+    }
+
+    [Fact]
+    public void GetBackdropUrl_NullOrEmpty_ReturnsNull()
+    {
+        using var client = new TmdbClient(new Microsoft.Extensions.Caching.Memory.MemoryCache(
+            new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
+
+        Assert.Null(client.GetBackdropUrl(null));
+        Assert.Null(client.GetBackdropUrl(string.Empty));
+    }
 }
