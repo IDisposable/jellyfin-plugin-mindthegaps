@@ -102,10 +102,6 @@
     opacity: .7;
 }
 
-.cgRowTitle {
-    font-size: 1.15em;
-}
-
 .cgGridWrap {
     display: grid;
     grid-template-columns: 1fr;
@@ -156,18 +152,6 @@
     padding-left: 3.9em;
 }
 
-.cgRow {
-    cursor: pointer;
-}
-
-.cgDetails {
-    margin: .25em 0 .4em 0;
-    opacity: .8;
-    font-size: .9em;
-    max-width: 70%;
-    white-space: pre-line;
-}
-
 .cgTab {
     margin-right: .4em;
 }
@@ -175,20 +159,6 @@
 .cgTab.cgActive {
     background: #00a4dc;
     color: #fff;
-}
-
-/* A note line under a row (where to watch, no sources, dismissal). The base sits a hair below the
-    line above; the muted and resolved variants tint it. */
-.cgRowNote {
-    margin-top: .2em;
-}
-
-.cgRowNoteMuted {
-    opacity: .6;
-}
-
-.cgRowNoteResolved {
-    color: #3ddc97;
 }
 
 .cgLink {
@@ -221,6 +191,170 @@
 .cgLink .material-icons {
     font-size: 1.05em;
     vertical-align: middle;
+}
+
+/* Compact view, opt-in via #cgCompact, toggles #cgReportPanel's cgCompactMode class. renderRow is
+    the only row renderer, for either mode, so this class does not change any markup: it widens the
+    collapsed-set grid back to multiple columns, and (below) shrinks the thumbnail and tightens the
+    meta line. */
+.cgCompactMode .cgGridWrap {
+    grid-template-columns: repeat(auto-fill, minmax(30em, 1fr));
+}
+
+/* One row: checkbox, thumbnail, title, meta, and the icon popovers, all on one line. */
+.cgRow {
+    display: flex;
+    align-items: center;
+    gap: .5em;
+    position: relative;
+    padding: .35em .25em;
+}
+
+.cgSelSpacer {
+    display: inline-block;
+    width: 1.4em;
+    flex: none;
+}
+
+.cgThumb {
+    width: 40px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex: none;
+}
+
+.cgThumbEmpty {
+    display: inline-block;
+    background: #222;
+}
+
+.cgCompactMode .cgThumb {
+    width: 22px;
+    height: 32px;
+    border-radius: 3px;
+}
+
+.cgTitle {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px dotted #767676;
+    margin: 0;
+    font-size: 1.05em;
+    font-weight: 500;
+}
+
+.cgMeta {
+    flex: 0 0 auto;
+    opacity: .7;
+    font-size: .9em;
+}
+
+.cgCompactMode .cgMeta {
+    font-size: .85em;
+}
+
+/* Hovering or focusing the title reveals the overview inline, without a click. Desktop-only
+    (:has() has no touch equivalent); a touch build would need a tap-to-reveal fallback instead. */
+.cgHoverDetail {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 2em;
+    z-index: 5;
+    width: 22em;
+    max-width: 80vw;
+    margin-top: .2em;
+    padding: .6em .7em;
+    border-radius: 6px;
+    border: 1px solid #5a5a5a;
+    background: #1b1b1b;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    font-size: .85em;
+}
+
+.cgRow:has(.cgTitle:hover) .cgHoverDetail,
+.cgRow:has(.cgTitle:focus) .cgHoverDetail {
+    display: block;
+}
+
+.cgIcons {
+    flex: 0 0 auto;
+    margin-left: auto;
+    display: flex;
+    gap: .3em;
+}
+
+/* A popover icon button: a <details> whose <summary> is the icon and whose body is an
+    absolutely-positioned dropdown, so open/close needs no script-tracked state. */
+.cgPop {
+    position: relative;
+}
+
+.cgPop > summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8em;
+    height: 1.6em;
+    border: 1px solid #5a5a5a;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .05);
+    cursor: pointer;
+}
+
+.cgPop > summary::-webkit-details-marker {
+    display: none;
+}
+
+.cgPop > summary:hover {
+    background: rgba(255, 255, 255, .14);
+}
+
+.cgPop > summary .material-icons {
+    font-size: 1.1em;
+}
+
+.cgPopBody {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 6;
+    margin-top: .2em;
+    min-width: 12em;
+    padding: .5em;
+    border-radius: 6px;
+    border: 1px solid #5a5a5a;
+    background: #1b1b1b;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    font-size: .85em;
+}
+
+.cgPopBody .cgLink {
+    display: block;
+    margin: .15em 0;
+}
+
+.cgPopNested > summary {
+    display: block;
+    width: auto;
+    height: auto;
+    padding: .3em .5em;
+    margin: .15em 0;
+}
+
+.cgPopNested .cgPopBody {
+    position: static;
+    box-shadow: none;
+    margin-top: .2em;
+    border: none;
+    border-left: 2px solid #5a5a5a;
+    border-radius: 0;
+    padding-left: .6em;
 }
 
 .cgLink .material-icons.cgIconLead {

@@ -352,128 +352,170 @@ function isMintable(item) {
     return !!provider && !!(item.ProviderIds || {})[provider];
 }
 
+// Finds a currently-loaded gap by id, to rehydrate a handler that only has a data-gapid to work from.
+function findRowItem(page, gapId) {
+    var items = (page && page._report && page._report.Items) || [];
+    for (var i = 0; i < items.length; i++) { if (items[i].Id === gapId) { return items[i]; } }
+    return null;
+}
+
+// The Watch popover's body: resolved offers when known, else the on-demand lookup; always a
+// JustWatch search underneath, not only as a fallback when nothing else resolved.
+function buildWatchPopoverBody(item) {
+    var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
+    var watchTmdb = item.WatchTmdbId || tmdb;
+    var watchKind = item.TargetKindName === 'Episode' ? 'Series' : item.TargetKindName;
+    var watchable = !!watchTmdb && (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode');
+    var shownOffers = filterOffers(item.Availability);
+
+    var body = '';
+    if (shownOffers.length) {
+        body = wrap('div', { style: 'margin-bottom:.4em;' }, availLinks(shownOffers));
+    } else if (watchable && item.AvailabilityChecked) {
+        body = wrap('div', { style: 'margin-bottom:.4em;opacity:.7;' }, 'No streaming sources found.');
+    } else if (watchable) {
+        body = wrap('div', { style: 'margin-bottom:.4em;' },
+            actionBtn('cgWatch', { 'data-tmdb': watchTmdb, 'data-type': watchKind }, 'Look up where to watch'));
+    }
+
+    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
+        body += newTab(false, {
+            'class': 'cgLink cgPopLink', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name),
+            title: 'Search JustWatch for where to watch'
+        }, 'Search JustWatch');
+    }
+
+    return body || wrap('div', { style: 'opacity:.7;' }, 'Not applicable.');
+}
+
+// The Information popover's body: the external id links this gap already carries, plus the
+// search/open/dismiss icons a bare title has no room for.
+function buildInfoPopoverBody(item) {
+    var providerLinks = (item.Links || []).map(providerLink).join('');
+    return (providerLinks || wrap('div', { style: 'opacity:.7;margin-bottom:.3em;' }, 'No linked ids yet.'))
+        + wrap('div', { style: 'margin-top:.4em;' },
+            searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId) + clearBtn('row', item.Id, 'this title'));
+}
+
+// The Actions popover's body: mint/acquisition/diagnose/todo as their own items, and a nested
+// Resolve popover for the dismissal family (Resolve/Not interested/Snooze are the same Resolve
+// call with a different canned note, so one popover, not three peers).
+function buildActionsPopoverBody(item) {
+    var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
+    var watchTmdb = item.WatchTmdbId || tmdb;
+    var res = activeDismissal(item);
+    var actionItems = [];
+
+    if (isMintable(item)) {
+        actionItems.push(actionBtn('cgMint', { 'data-gapid': item.Id, title: 'Mint a virtual placeholder for this item' }, icon('eco', 'cgIconLead') + 'Mint'));
+    }
+
+    if (acqConfig) {
+        if (acqConfig.RadarrConfigured && item.TargetKindName === 'Movie' && tmdb) {
+            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send this movie to Radarr' }, icon('movie', 'cgIconLead') + 'Radarr'));
+        }
+
+        if (acqConfig.SonarrConfigured && (item.TargetKindName === 'Series' || item.TargetKindName === 'Episode')) {
+            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send the owning series to Sonarr' }, icon('live_tv', 'cgIconLead') + 'Sonarr'));
+        }
+
+        if (acqConfig.SeerrConfigured && watchTmdb) {
+            actionItems.push(actionBtn('cgSendSeerr', { 'data-gapid': item.Id, title: 'Request this title in Jellyseerr' }, icon('playlist_add', 'cgIconLead') + 'Request'));
+        }
+    }
+
+    actionItems.push(actionBtn('cgDiagnose', { 'data-gapid': item.Id, 'data-name': item.Name, title: 'Why is this listed as missing?' }, icon('troubleshoot', 'cgIconLead') + 'Diagnose'));
+    actionItems.push(actionBtn('cgTodoAdd', { 'data-gapid': item.Id, title: 'Add to my TODO list' }, icon('playlist_add_check', 'cgIconLead') + 'TODO'));
+
+    var resolveBody;
+    if (res) {
+        resolveBody = wrap('div', { style: 'opacity:.8;margin-bottom:.4em;' }, dismissalLabel(res))
+            + actionBtn('cgClearResolve', { 'data-gapid': item.Id, title: 'Clear the dismissal (show as missing again)' }, 'Clear');
+    } else {
+        resolveBody = actionBtn('cgResolve', { 'data-gapid': item.Id, title: 'Mark resolved (not really missing)' }, icon('done', 'cgIconLead') + 'Mark resolved')
+            + actionBtn('cgNotInterested', { 'data-gapid': item.Id, title: 'Not interested (a real gap you do not want)' }, 'Not interested');
+        if (item.IsUpcoming && item.ReleaseDate) {
+            resolveBody += actionBtn('cgSnooze', { 'data-gapid': item.Id, 'data-until': item.ReleaseDate, title: 'Hide until it is released' }, 'Snooze until release');
+        }
+    }
+
+    actionItems.push(wrap('details', { 'class': 'cgPop cgPopNested' },
+        wrap('summary', null, 'Resolve') + wrap('div', { 'class': 'cgPopBody' }, resolveBody)));
+
+    return actionItems.join('');
+}
+
+// The hover/focus detail's body: the overview, plus (for a Recommendation) the other titles that
+// suggested it, whose primary source is the group header rather than a repeated peer here.
+function buildHoverDetailBody(item) {
+    var detailParts = [];
+    if (item.PatternName === 'Recommendation' && (item.OtherSources || []).length) {
+        var srcs = [];
+        (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
+        if (srcs.length) { detailParts.push(wrap('p', { style: 'margin:.3em 0;opacity:.85;' }, 'Also recommended by: ' + srcs.join(', '))); }
+    }
+
+    if (item.Overview) { detailParts.push(wrap('p', { style: 'margin:.3em 0 0;opacity:.85;' }, esc(item.Overview))); }
+    return wrap('p', { style: 'margin:0;font-weight:600;' }, esc(item.Name)) + detailParts.join('');
+}
+
+// One item's row: checkbox, a thumbnail, a title (an <h3>, since a row is effectively a heading
+// for its own content within the list), meta (year/kind/upcoming), and three icon popovers holding
+// everything the row can do. #cgReportPanel's cgCompactMode class (the Compact view toggle) resizes
+// the thumbnail and tightens the title/meta by CSS alone; the markup and behavior are identical
+// either way, so there is exactly one renderer.
+//
+// A popover's body, and the hover-detail's body, start empty and build on first open/hover (see the
+// delegated 'toggle'/'mouseover'/'focusin' handlers near the rest of #cgList's delegation): a report
+// can hold thousands of rows, and most of their popovers are never opened, so building every body up
+// front would add DOM weight for little benefit. Only whether a group exists at all (cheap booleans -
+// watchable/providerLinks/Overview/OtherSources) is decided here, so a row with nothing to show there
+// renders no empty shell for it.
 function renderRow(item) {
-    var meta = [];
-    if (item.Year) { meta.push(esc(item.Year)); }
-    meta.push(esc(item.TargetKindName));
-    // "Upcoming" when the release date is known. An undated movie/series/episode is also not out
-    // yet, but says "Announced" rather than implying a date the provider never gave us.
+    var res = activeDismissal(item);
+
+    var selBox = isMintable(item)
+        ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint' }).outerHTML
+        : h('span', { 'class': 'cgSelSpacer' }).outerHTML;
+
+    var thumb = item.ImageUrl
+        ? h('img', { src: item.ImageUrl, loading: 'lazy', 'class': 'cgThumb' }).outerHTML
+        : h('span', { 'class': 'cgThumb cgThumbEmpty' }).outerHTML;
+
+    // Meta: the year as a <time> (a real point in time), the target kind, and an upcoming/announced
+    // badge when the release has not happened yet.
+    var metaParts = [];
+    if (item.Year) { metaParts.push(h('time', { datetime: String(item.Year) }, item.Year).outerHTML); }
+    metaParts.push(esc(item.TargetKindName));
     if (item.IsUpcoming) {
-        meta.push(item.ReleaseDate
+        metaParts.push(item.ReleaseDate
             ? h('span', { style: 'color:#f0ad4e;', title: 'Not released yet.' }, 'Upcoming').outerHTML
             : h('span', { style: 'color:#f0ad4e;', title: 'Announced, with no release date yet.' }, 'Announced').outerHTML);
     }
 
-    var providerLinks = (item.Links || []).map(providerLink).join('');
+    var hasDetail = !!item.Overview || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
+    var overview = hasDetail ? wrap('div', { 'class': 'cgHoverDetail' }, '') : '';
 
-    var tmdb = item.ProviderIds && item.ProviderIds.Tmdb;
-    // "Where to watch" looks up the title itself for a movie/series, or the owning series
-    // for an episode (episodes have no streaming page of their own).
-    var watchTmdb = item.WatchTmdbId || tmdb;
-    var watchKind = item.TargetKindName === 'Episode' ? 'Series' : item.TargetKindName;
-    var watchable = !!watchTmdb && (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode');
-    var hasAvail = item.Availability && item.Availability.length;
-    var res = activeDismissal(item);
-    var actions = [];
-    // Offer the on-demand look-up only when we have not looked yet. Once checked, an empty
-    // result is shown as "no sources" instead (below), not a button that comes back empty.
-    if (watchable && !hasAvail && !item.AvailabilityChecked) {
-        actions.push(actionBtn('cgWatch', { 'data-tmdb': watchTmdb, 'data-type': watchKind }, 'Where to watch'));
-    }
-    // A JustWatch search for movies/shows that have no JustWatch link of their own (the JustWatch
-    // plugin only links owned items), so there is always a quick "where can I watch this" path.
-    if (item.TargetKindName === 'Movie' || item.TargetKindName === 'Series') {
-        var hasJw = (item.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
-        if (!hasJw) {
-            actions.push(newTab(false, { 'class': 'cgLink', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(item.Name), title: 'Search JustWatch for where to watch' }, 'JustWatch search'));
-        }
-    }
-    // Experimental: mint this single gap as a virtual placeholder (any mintable kind; episodes
-    // are native in core, so they are excluded by isMintable).
-    if (isMintable(item)) {
-        actions.push(actionBtn('cgMint', { 'data-gapid': item.Id, title: 'Mint a virtual placeholder for this item' }, icon('eco', 'cgIconLead') + 'Mint'));
-    }
-    // Acquisition handoff (opt-in): a Send button appears only for a configured target. Radarr
-    // takes a movie, Sonarr takes the owning series, Jellyseerr/Overseerr requests either. The
-    // server resolves the ids and routes by kind, so a missing id fails with a clear message.
-    if (acqConfig) {
-        if (acqConfig.RadarrConfigured && item.TargetKindName === 'Movie' && tmdb) {
-            actions.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send this movie to Radarr' }, icon('movie', 'cgIconLead') + 'Radarr'));
-        }
-        if (acqConfig.SonarrConfigured && (item.TargetKindName === 'Series' || item.TargetKindName === 'Episode')) {
-            actions.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send the owning series to Sonarr' }, icon('live_tv', 'cgIconLead') + 'Sonarr'));
-        }
-        if (acqConfig.SeerrConfigured && watchTmdb) {
-            actions.push(actionBtn('cgSendSeerr', { 'data-gapid': item.Id, title: 'Request this title in Jellyseerr' }, icon('playlist_add', 'cgIconLead') + 'Request'));
-        }
-    }
-    // Diagnose why this is reported missing (a provider-id mismatch on an owned item, or a
-    // same-named reboot for an episode). Every gap kind today is diagnosable; an unsupported
-    // kind still gets a graceful "not available for this kind" verdict, so always offer it.
-    actions.push(actionBtn('cgDiagnose', { 'data-gapid': item.Id, 'data-name': item.Name, title: 'Why is this listed as missing?' }, icon('troubleshoot', 'cgIconLead') + 'Diagnose'));
-    // Add this gap to the personal TODO list (a saved "go find this" note that survives rescans).
-    actions.push(actionBtn('cgTodoAdd', { 'data-gapid': item.Id, title: 'Add to my TODO list' }, icon('playlist_add_check', 'cgIconLead') + 'TODO'));
-    // Dismiss this gap (resolve / not interested / snooze until release), or clear that.
-    if (res) {
-        actions.push(actionBtn('cgClearResolve', { 'data-gapid': item.Id, title: 'Clear the dismissal (show as missing again)' }, 'Clear'));
-    } else {
-        actions.push(actionBtn('cgResolve', { 'data-gapid': item.Id, title: 'Mark resolved (not really missing)' }, icon('done', 'cgIconLead') + 'Resolve'));
-        actions.push(actionBtn('cgNotInterested', { 'data-gapid': item.Id, title: 'Not interested (a real gap you do not want)' }, 'Not interested'));
-        if (item.IsUpcoming && item.ReleaseDate) {
-            actions.push(actionBtn('cgSnooze', { 'data-gapid': item.Id, 'data-until': item.ReleaseDate, title: 'Hide until it is released' }, 'Snooze'));
-        }
-    }
+    var iconsHtml = wrap('span', { 'class': 'cgIcons' },
+        wrap('details', { 'class': 'cgPop', 'data-pop': 'watch' },
+            wrap('summary', { title: 'Where to watch', 'aria-label': 'Where to watch' }, icon('play_arrow'))
+            + wrap('div', { 'class': 'cgPopBody' }, ''))
+        + wrap('details', { 'class': 'cgPop', 'data-pop': 'info' },
+            wrap('summary', { title: 'Information', 'aria-label': 'Information' }, icon('info'))
+            + wrap('div', { 'class': 'cgPopBody' }, ''))
+        + wrap('details', { 'class': 'cgPop', 'data-pop': 'actions' },
+            wrap('summary', { title: 'Actions', 'aria-label': 'Actions' }, icon('more_vert'))
+            + wrap('div', { 'class': 'cgPopBody' }, '')));
 
-    // Provider links can run long because the host's own providers contribute too, so let them
-    // wrap on the left and keep the action buttons (Where to watch, Mint) flush right.
-    var linksRow = (providerLinks || actions.length)
-        ? wrap('div', { 'class': 'cgLinks', style: 'display:flex;flex-wrap:wrap;align-items:center;gap:.25em;margin-top:.3em;' },
-            providerLinks
-            + (actions.length ? wrap('span', { 'class': 'cgActions', style: 'margin-left:auto;display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:.25em;align-items:center;' }, actions.join('')) : ''))
-        : '';
-
-    var avail = '';
-    var shownOffers = filterOffers(item.Availability);
-    if (shownOffers.length) {
-        avail = wrap('div', { 'class': 'fieldDescription cgRowNote' }, 'Where to watch: ' + availLinks(shownOffers));
-    } else if (watchable && item.AvailabilityChecked && !hasAvail) {
-        avail = wrap('div', { 'class': 'fieldDescription cgRowNote cgRowNoteMuted' }, 'No streaming sources found.');
-    }
-
-    var resolvedLine = res
-        ? wrap('div', { 'class': 'fieldDescription cgRowNote cgRowNoteResolved' }, dismissalLabel(res))
-        : '';
-
-    var detailParts = [];
-    if (item.PatternName === 'Recommendation' && (item.OtherSources || []).length) {
-        // The primary source is the group header now, so the row lists only the other sources.
-        var srcs = [];
-        (item.OtherSources || []).forEach(function (s) { if (s && s.Name && !recSourceDismissed(s.Id)) { srcs.push(recSource(s.Name, s.Year, s.Type, s.Id)); } });
-        if (srcs.length) { detailParts.push(wrap('div', { style: 'opacity:.85;' }, 'Also recommended by: ' + srcs.join(', '))); }
-    }
-    if (item.Overview) { detailParts.push(esc(item.Overview)); }
-    var details = detailParts.length
-        ? wrap('div', { 'class': 'cgDetails', style: 'display:none;' }, detailParts.join(''))
-        : '';
-
-    var poster = item.ImageUrl
-        ? h('img', { src: item.ImageUrl, loading: 'lazy', style: 'width:40px;height:60px;object-fit:cover;margin-right:.8em;border-radius:4px;' }).outerHTML
-        : h('div', { style: 'width:40px;height:60px;margin-right:.8em;background:#222;border-radius:4px;' }).outerHTML;
-
-    // Any mintable gap gets a multi-select checkbox (Movie, Series, MusicAlbum, Book).
-    var selBox = isMintable(item)
-        ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint', style: 'margin-right:.5em;flex:none;' }).outerHTML
-        : h('span', { style: 'display:inline-block;width:1.4em;flex:none;' }).outerHTML;
-
-    var titleLine = wrap('div', { 'class': 'listItemBodyText cgRowTitle' },
-        esc(item.Name) + searchIcon(item.Name, domainScope(item.DomainName)) + openIcon(item.LibraryItemId)
-        + clearBtn('row', item.Id, 'this title'));
-    var secondaryLine = wrap('div', { 'class': 'listItemBodyText secondary' }, meta.join(' &middot; '));
-    var body = wrap('div', { style: 'flex:1;min-width:0;' },
-        titleLine + secondaryLine + details + avail + resolvedLine + linksRow);
-
-    return wrap('div', { 'class': 'listItem cgRow', 'data-gapid': item.Id, style: 'display:flex;align-items:center;padding:.35em .25em;' + (res ? 'opacity:.55;' : '') },
-        selBox + poster + body);
+    return wrap('div', {
+        'class': 'listItem cgRow', 'data-gapid': item.Id,
+        title: res ? 'Resolved: ' + dismissalLabel(res) : null,
+        style: res ? 'opacity:.55;' : ''
+    },
+        selBox + thumb
+        + wrap('h3', { 'class': 'cgTitle', tabindex: '0' }, esc(item.Name)) + overview
+        + wrap('span', { 'class': 'cgMeta' }, metaParts.join(' &middot; '))
+        + iconsHtml);
 }
 
 function groupBy(items, keyFn) {
@@ -1972,14 +2014,9 @@ function applyAndRender(page) {
 
     // Snapshot what the user has expanded/collapsed/selected and where they are scrolled, so a
     // re-render (resolving a row, toggling a filter) does not throw it all away.
-    var collapsed = {}, openRows = {}, checkedSel = {};
+    var collapsed = {}, checkedSel = {};
     var pg = listEl.querySelectorAll('.cgGroup');
     for (var gi = 0; gi < pg.length; gi++) { collapsed[groupKey(pg[gi])] = pg[gi].classList.contains('cgCollapsed'); }
-    var pr = listEl.querySelectorAll('.cgRow');
-    for (var rj = 0; rj < pr.length; rj++) {
-        var dd = pr[rj].querySelector('.cgDetails');
-        if (dd && dd.style.display !== 'none') { openRows[pr[rj].getAttribute('data-gapid')] = true; }
-    }
     var psel = listEl.querySelectorAll('.cgSel:checked');
     for (var sk = 0; sk < psel.length; sk++) { checkedSel[psel[sk].getAttribute('data-gapid')] = true; }
     var scroller = scrollerFor(page);
@@ -2000,10 +2037,6 @@ function applyAndRender(page) {
         if (!ng[ngi].classList.contains('cgCollapsed')) { ensureGroupBody(ng[ngi]); }
     }
     syncGroupAria(listEl);
-    var nr = listEl.querySelectorAll('.cgRow');
-    for (var nri = 0; nri < nr.length; nri++) {
-        if (openRows[nr[nri].getAttribute('data-gapid')]) { var nd = nr[nri].querySelector('.cgDetails'); if (nd) { nd.style.display = 'block'; } }
-    }
     var nsel = listEl.querySelectorAll('.cgSel');
     for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
     scroller.scrollTop = scrollY;
@@ -2056,6 +2089,7 @@ function saveFilters(page) {
             hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
             showResolved: page.querySelector('#cgShowResolved').checked,
             streamable: page.querySelector('#cgStreamable').checked,
+            compact: page.querySelector('#cgCompact').checked,
             letter: page._letter,
             mon: {}
         };
@@ -2079,6 +2113,9 @@ function restoreFilters(page) {
     if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
     if (state.showResolved != null) { page.querySelector('#cgShowResolved').checked = !!state.showResolved; }
     if (state.streamable != null) { page.querySelector('#cgStreamable').checked = !!state.streamable; }
+    page._compact = !!state.compact;
+    page.querySelector('#cgCompact').checked = page._compact;
+    page.querySelector('#cgReportPanel').classList.toggle('cgCompactMode', page._compact);
     if (state.letter != null) { page._letter = state.letter; }
     if (state.mon) {
         var cbs = page.querySelectorAll('.cgMon');
@@ -2118,6 +2155,7 @@ function captureView(page) {
         hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
         showResolved: page.querySelector('#cgShowResolved').checked,
         streamable: page.querySelector('#cgStreamable').checked,
+        compact: page.querySelector('#cgCompact').checked,
         letter: page._letter,
         mon: mon,
         disabledProviders: disabledProviders
@@ -2138,6 +2176,7 @@ function compactView(page) {
     if (!v.hideUpcoming) { delete v.hideUpcoming; }
     if (!v.showResolved) { delete v.showResolved; }
     if (!v.streamable) { delete v.streamable; }
+    if (!v.compact) { delete v.compact; }
     if (v.mon) {
         var allOn = true;
         for (var k in v.mon) { if (!v.mon[k]) { allOn = false; break; } }
@@ -2233,6 +2272,9 @@ function applyView(page, v) {
     page.querySelector('#cgHideUpcoming').checked = !!v.hideUpcoming;
     page.querySelector('#cgShowResolved').checked = !!v.showResolved;
     page.querySelector('#cgStreamable').checked = !!v.streamable;
+    page._compact = !!v.compact;
+    page.querySelector('#cgCompact').checked = page._compact;
+    page.querySelector('#cgReportPanel').classList.toggle('cgCompactMode', page._compact);
     if (v.mon) {
         var cbs = page.querySelectorAll('.cgMon');
         for (var i = 0; i < cbs.length; i++) {
@@ -2289,13 +2331,11 @@ function renderViews(page) {
         + names.map(function (n) { return h('option', { value: n }, n).outerHTML; }).join('');
 }
 
-// A slice's cache key: pattern alone (every domain, used only when no domain is known yet) or
-// pattern+domain (the normal case now that a tab loads one domain at a time).
+// A slice's cache key: pattern alone when no domain is known, else domain+pattern.
 function sliceKey(pattern, domain) { return domain ? domain + '|' + pattern : pattern; }
 
-// Drops every cached slice for a domain (plain and pattern-scoped alike), so a change underneath the
-// report (a rescan, a mint, a bulk recheck) cannot leave a stale pattern-scoped slice behind uninvalidated
-// while only the old plain-domain key gets cleared.
+// Drops every cached slice for a domain, both key forms, so a change underneath the report (a
+// rescan, a mint, a bulk recheck) cannot leave a stale pattern-scoped slice behind uninvalidated.
 function invalidateDomainSlices(page, domain) {
     if (!page._slices) { return; }
     Object.keys(page._slices).forEach(function (k) {
@@ -2453,11 +2493,16 @@ function pageActive(page) {
 
 // Reflect the where-to-watch backlog on the toolbar button from the summary: how many titles
 // still need a lookup, or that the backlog is cleared, or that availability is off in settings.
+// Also the one place that shows or hides the monetization filter panel: it has nothing to filter
+// (no offers exist yet) unless availability is actually turned on, so it stays hidden until then
+// rather than always showing five checkboxes and an empty provider list.
 function updateAvailButton(page) {
     var btn = page.querySelector('#cgLookupAvail');
     if (!btn) { return; }
     var span = btn.querySelector('span');
     var s = page._summary || {};
+    var panel = page.querySelector('#cgAvailPanel');
+    if (panel) { panel.style.display = s.AvailabilityEnabled ? '' : 'none'; }
     if (!s.AvailabilityEnabled) {
         if (span) { span.textContent = 'Look up where to watch'; }
         btn.disabled = true;
@@ -3345,6 +3390,12 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         saveFilters(page);
         if (page._report) { applyAndRender(page); }
     });
+    page.querySelector('#cgCompact').addEventListener('change', function () {
+        page._compact = this.checked;
+        page.querySelector('#cgReportPanel').classList.toggle('cgCompactMode', page._compact);
+        saveFilters(page);
+        if (page._report) { applyAndRender(page); }
+    });
     page.querySelector('#cgLookupAvail').addEventListener('click', function () {
         startAvailability(page, this);
     });
@@ -3501,6 +3552,36 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         // "enable all" / "disable all" visibly change the results, not just the checkboxes).
         if (page._report) { applyAndRender(page); }
     });
+    // A row's popover builds its body on first open (see renderRow). 'toggle' on <details> does not
+    // bubble, so this listener runs in the capture phase to see it at all via delegation.
+    page.querySelector('#cgList').addEventListener('toggle', function (e) {
+        var det = e.target;
+        if (!det.matches || !det.matches('.cgPop[data-pop]') || !det.open || det.dataset.built) { return; }
+        det.dataset.built = '1';
+        var row = det.closest('.cgRow');
+        var item = row && findRowItem(page, row.getAttribute('data-gapid'));
+        if (!item) { return; }
+        var body = det.querySelector(':scope > .cgPopBody');
+        if (!body) { return; }
+        var kind = det.getAttribute('data-pop');
+        if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
+        else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
+        else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
+    }, true);
+    // The hover/focus detail builds the same way, on first mouseover or keyboard focus of the
+    // title. mouseover and focusin are used because delegation needs a bubbling event.
+    var buildHoverDetailOnce = function (e) {
+        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
+        if (!titleEl) { return; }
+        var row = titleEl.closest('.cgRow');
+        var detailEl = row && row.querySelector('.cgHoverDetail');
+        if (!detailEl || detailEl.dataset.built) { return; }
+        detailEl.dataset.built = '1';
+        var item = findRowItem(page, row.getAttribute('data-gapid'));
+        if (item) { detailEl.innerHTML = buildHoverDetailBody(item); }
+    };
+    page.querySelector('#cgList').addEventListener('mouseover', buildHoverDetailOnce);
+    page.querySelector('#cgList').addEventListener('focusin', buildHoverDetailOnce);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {
@@ -3761,13 +3842,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
             if (!nowCollapsed) { ensureGroupBody(hdr.parentElement); refreshSelectBar(page); }
             return;
-        }
-
-        // Click a row (but not one of its links or the select checkbox) to reveal its overview.
-        var row = e.target.closest('.cgRow');
-        if (row && !e.target.closest('a') && !e.target.closest('input')) {
-            var d = row.querySelector('.cgDetails');
-            if (d) { d.style.display = d.style.display === 'none' ? 'block' : 'none'; }
         }
     });
     // Floating "back to top" button: show it once scrolled down, and scroll the report's

@@ -16,7 +16,7 @@
                 <span>Rescan now</span>
             </button>
         </div>
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:.5em;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:.4em;">
             <label id="cgTypeFilterWrap" style="display:inline-flex;align-items:center;gap:.5em;margin:0;">
                 <span>View:</span>
                 <select is="emby-select" id="cgTypeFilter" class="emby-select" style="width:auto;"></select>
@@ -36,6 +36,11 @@
                 <input type="checkbox" id="cgShowResolved" />Show dismissed </label>
             <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
                 <input type="checkbox" id="cgStreamable" />Hide items with no sources </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Multiple columns of collapsed sets, and a smaller thumbnail on each row. Off by default.">
+                <input type="checkbox" id="cgCompact" />Compact view </label>
+            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
+        </div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin-bottom:.5em;">
             <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
                 <span>Look up where to watch</span>
             </button>
@@ -54,9 +59,8 @@
             <button is="emby-button" type="button" id="cgVerifyShown" class="raised" style="margin:0;" title="Check every row currently shown against your library and clear the ones you now have, then offer a provider re-check for whatever is still missing.">
                 <span>Clear what I have</span>
             </button>
-            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
         </div>
-        <div style="font-size:.9em;opacity:.85;margin-bottom:.4em;">
+        <div id="cgAvailPanel" style="display:none;font-size:.9em;opacity:.85;margin-bottom:.4em;">
             <div style="font-weight:600;">Where to watch</div>
             <div id="cgMonFilter" style="margin-top:.15em;">
                 <span style="opacity:.7;">Types:</span>
