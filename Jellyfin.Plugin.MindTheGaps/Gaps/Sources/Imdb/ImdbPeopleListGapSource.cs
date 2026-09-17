@@ -116,8 +116,9 @@ internal sealed class ImdbPeopleListGapSource : IGapSource
                 ordered.Count);
         }
 
-        var language = context.Config.MetadataLanguage;
-        var country = context.Config.MetadataCountryCode;
+        var config = context.Config;
+        var language = config.MetadataLanguage;
+        var country = config.MetadataCountryCode;
         var scannedKeys = new List<string>(batch.Count);
 
         for (var index = 0; index < batch.Count; index++)
@@ -140,8 +141,9 @@ internal sealed class ImdbPeopleListGapSource : IGapSource
                 candidate.Name,
                 context.Ownership,
                 _tmdb.GetPosterUrl,
-                context.Config.MinFilmographyVotes,
-                context.Config.MaxCastBillingOrder);
+                minVotes: config.MinFilmographyVotes,
+                maxCastOrder: config.MaxCastBillingOrder,
+                minTvEpisodes: config.PersonPageMinEpisodes);
 
             foreach (var gap in gaps)
             {

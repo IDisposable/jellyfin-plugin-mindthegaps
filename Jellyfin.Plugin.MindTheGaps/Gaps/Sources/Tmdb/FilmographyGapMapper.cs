@@ -38,6 +38,12 @@ internal static class FilmographyGapMapper
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="minVotes">The minimum TMDB vote count a credit must have to be kept (0 disables).</param>
     /// <param name="maxCastOrder">The deepest cast billing order to keep (0 disables).</param>
+    /// <param name="minTvEpisodes">The fewest episodes a TV cast credit must span to be kept (0 disables). A
+    /// one-episode credit is a guest spot or a talk-show appearance, not the person's work; a TV credit whose
+    /// episode count is not in the TMDB response is retained.</param>
+    /// <param name="maxCredits">The most gaps to emit for the person, movie credits first. The scan defaults
+    /// to (<see cref="GapScanLimits.MaxCreditsPerPerson"/>) so one prolific person cannot swamp the report;
+    /// a per-person view that shows everything can pass up to <see cref="int.MaxValue"/>.</param>
     /// <returns>The filmography gaps.</returns>
     /// <remarks>
     /// The relevance gate keeps the list actionable for a large library, where the noise is cast roles: a
@@ -53,7 +59,9 @@ internal static class FilmographyGapMapper
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
         int minVotes,
-        int maxCastOrder)
+        int maxCastOrder,
+        int minTvEpisodes = 0,
+        int maxCredits = GapScanLimits.MaxCreditsPerPerson)
     {
         var emitted = 0;
         var credits = person.MovieCredits;
@@ -62,7 +70,7 @@ internal static class FilmographyGapMapper
         {
             foreach (var role in credits.Cast)
             {
-                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                if (emitted >= maxCredits)
                 {
                     break;
                 }
@@ -96,7 +104,7 @@ internal static class FilmographyGapMapper
         {
             foreach (var job in credits.Crew)
             {
-                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                if (emitted >= maxCredits)
                 {
                     break;
                 }
@@ -121,7 +129,7 @@ internal static class FilmographyGapMapper
         {
             foreach (var role in tvCredits.Cast)
             {
-                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                if (emitted >= maxCredits)
                 {
                     break;
                 }
@@ -130,7 +138,9 @@ internal static class FilmographyGapMapper
                 // applied with the zero those fields default to: a positive vote floor drops TV cast roles
                 // (vote count 0), matching how the same floor trims obscure movie cast roles, while the
                 // cast-billing limit never drops a TV role (billing order 0 is never deeper than any limit).
-                if (!MeetsVotes(0, minVotes))
+                // If minTvEpisodes is set, skip roles with fewer episodes than the minimum (if any are specified).
+                if (!MeetsVotes(0, minVotes)
+                    || (minTvEpisodes > 0 && role.EpisodeCount > 0 && role.EpisodeCount < minTvEpisodes))
                 {
                     continue;
                 }
@@ -158,7 +168,7 @@ internal static class FilmographyGapMapper
         {
             foreach (var job in tvCredits.Crew)
             {
-                if (emitted >= GapScanLimits.MaxCreditsPerPerson)
+                if (emitted >= maxCredits)
                 {
                     break;
                 }

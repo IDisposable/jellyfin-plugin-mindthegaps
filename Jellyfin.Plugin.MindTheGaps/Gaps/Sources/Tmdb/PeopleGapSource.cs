@@ -68,9 +68,10 @@ internal sealed class PeopleGapSource : IGapSource
         GapScanContext context,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var language = context.Config.MetadataLanguage;
-        var country = context.Config.MetadataCountryCode;
-        var cap = context.Config.MaxFilmographyPeople > 0 ? context.Config.MaxFilmographyPeople : DefaultMaxPeople;
+        var config = context.Config;
+        var language = config.MetadataLanguage;
+        var country = config.MetadataCountryCode;
+        var cap = config.MaxFilmographyPeople > 0 ? config.MaxFilmographyPeople : DefaultMaxPeople;
 
         var people = _libraryManager.GetItemList(new InternalItemsQuery
         {
@@ -141,8 +142,9 @@ internal sealed class PeopleGapSource : IGapSource
                 person.Name,
                 context.Ownership,
                 _tmdb.GetPosterUrl,
-                context.Config.MinFilmographyVotes,
-                context.Config.MaxCastBillingOrder);
+                minVotes: config.MinFilmographyVotes, // on person-page, use config.PersonPageMinVotes
+                maxCastOrder: config.MaxCastBillingOrder, // on person-page, use 0 to not limit
+                minTvEpisodes: config.PersonPageMinEpisodes);
 
             foreach (var gap in gaps)
             {

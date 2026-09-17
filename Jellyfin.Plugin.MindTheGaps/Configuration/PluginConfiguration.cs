@@ -60,6 +60,8 @@ public class PluginConfiguration : BasePluginConfiguration
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
         MinRecommendationVotes = 100;
+        PersonPageMinVotes = 0;
+        PersonPageMinEpisodes = 2;
         MaxMissingEpisodesPerShow = 200;
         MaxFilmographyPeople = 1000;
         MinFilmographyVotes = 100;
@@ -403,6 +405,21 @@ public class PluginConfiguration : BasePluginConfiguration
     /// surfaces). Raise it to keep only well-known suggestions.
     /// </summary>
     public int MinRecommendationVotes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows
+    /// every credit). Separate from <see cref="MinFilmographyVotes"/> because the page answers "what of this
+    /// person's work don't I have?" for one person at a time, where the report's floor for a whole-library
+    /// scan is too aggressive: TV credits carry no vote count, so any positive floor hides every series.
+    /// </summary>
+    public int PersonPageMinVotes { get; set; }
+
+    /// <summary>
+    /// Gets or sets the fewest episodes a TV acting credit must span to appear on the person page (0 shows
+    /// every credit). One-episode credits are guest spots and talk-show appearances rather than the person's
+    /// work, so the default of 2 keeps recurring roles and drops those.
+    /// </summary>
+    public int PersonPageMinEpisodes { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of missing episodes listed per show. 0 means no limit (list

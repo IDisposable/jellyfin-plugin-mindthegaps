@@ -76,6 +76,8 @@ function loadConfig(page, config) {
     page.querySelector('#SonarrMonitor').value = config.SonarrMonitor || 'all';
     page.querySelector('#MaxRelatedPerItem').value = config.MaxRelatedPerItem;
     page.querySelector('#MinRecommendationVotes').value = config.MinRecommendationVotes;
+    page.querySelector('#PersonPageMinVotes').value = config.PersonPageMinVotes || 0;
+    page.querySelector('#PersonPageMinEpisodes').value = config.PersonPageMinEpisodes || 0;
     page.querySelector('#MaxMissingEpisodesPerShow').value = config.MaxMissingEpisodesPerShow;
     page.querySelector('#MaxFilmographyPeople').value = config.MaxFilmographyPeople;
     page.querySelector('#MinFilmographyVotes').value = config.MinFilmographyVotes;
@@ -165,6 +167,8 @@ function saveConfig(page, e) {
         config.SonarrMonitor = form.querySelector('#SonarrMonitor').value.trim() || 'all';
         config.MaxRelatedPerItem = parseInt(form.querySelector('#MaxRelatedPerItem').value || '0', 10);
         config.MinRecommendationVotes = parseInt(form.querySelector('#MinRecommendationVotes').value || '0', 10);
+        config.PersonPageMinVotes = parseInt(form.querySelector('#PersonPageMinVotes').value || '0', 10);
+        config.PersonPageMinEpisodes = parseInt(form.querySelector('#PersonPageMinEpisodes').value || '0', 10);
         config.MaxMissingEpisodesPerShow = parseInt(form.querySelector('#MaxMissingEpisodesPerShow').value || '0', 10);
         config.MaxFilmographyPeople = parseInt(form.querySelector('#MaxFilmographyPeople').value || '1000', 10);
         config.MinFilmographyVotes = parseInt(form.querySelector('#MinFilmographyVotes').value || '0', 10);
