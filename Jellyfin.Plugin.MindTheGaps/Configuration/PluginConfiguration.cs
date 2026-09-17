@@ -40,6 +40,10 @@ public class PluginConfiguration : BasePluginConfiguration
         TmdbSessionId = string.Empty;
         ScanTmdbWatchlist = false;
         ScanTmdbFavorites = false;
+        ScanTmdbTopRated = false;
+        ScanTmdbPopular = false;
+        ScanTmdbUpcoming = false;
+        ScanTmdbNowPlaying = false;
         ScanTraktWatchlist = false;
         TraktUsername = string.Empty;
         ScanTvdbFavorites = false;
@@ -263,6 +267,34 @@ public class PluginConfiguration : BasePluginConfiguration
     /// only its watchlist. Off by default, since a favorite is usually something already owned.
     /// </summary>
     public bool ScanTmdbFavorites { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned movies from TMDB's official "Top Rated"
+    /// feed as discovery (Recommendation) gaps. Needs no account, only the TMDB api key (the built-in
+    /// default key works). Off by default.
+    /// </summary>
+    public bool ScanTmdbTopRated { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned movies from TMDB's official "Popular"
+    /// feed as discovery (Recommendation) gaps. Needs no account, only the TMDB api key (the built-in
+    /// default key works). Off by default.
+    /// </summary>
+    public bool ScanTmdbPopular { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned movies from TMDB's official "Upcoming"
+    /// feed as discovery (Recommendation) gaps. Needs no account, only the TMDB api key (the built-in
+    /// default key works). Off by default.
+    /// </summary>
+    public bool ScanTmdbUpcoming { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to surface unowned movies from TMDB's official "Now Playing"
+    /// feed as discovery (Recommendation) gaps. Needs no account, only the TMDB api key (the built-in
+    /// default key works). Off by default.
+    /// </summary>
+    public bool ScanTmdbNowPlaying { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to surface the unowned titles on a Trakt user's watchlist as

@@ -973,6 +973,17 @@ function lettersOf(items, pattern) {
     return Object.keys(present).sort(letterSort);
 }
 
+// How many items land under each letter, for the jump bar's pill counts. An item can land under two
+// letters ("The Matrix" is findable at both T and M), so these do not sum to the item total; the "*"
+// pill's count is the caller's own items.length instead.
+function letterCounts(items, pattern) {
+    var counts = {};
+    items.forEach(function (it) {
+        itemLetters(it, pattern).forEach(function (L) { counts[L] = (counts[L] || 0) + 1; });
+    });
+    return counts;
+}
+
 // The "kind of set" a SetCompletion gap completes, from its owning item's type, so the tab can
 // group collections, studios, keywords, series, and discographies into separate sections.
 // The wording for each Set completion kind. The set of kinds and their order come from the server
@@ -1007,6 +1018,7 @@ var DISCOVER_KIND_LABELS = {
     List: 'TMDB lists',
     MdbList: 'MDBList community lists',
     TraktList: 'Trakt lists',
+    TmdbMovieDiscover: 'TMDB discover feeds',
     Movie: 'Recommended by what you own',
     Series: 'Recommended by what you own'
 };
@@ -1183,8 +1195,7 @@ function kindSection(kind, body, noClear) {
 function emptyRunSections(present) {
     var page = reportPage();
     if (!page || page._letter !== '*') { return ''; }
-    var typeFilter = page.querySelector('#cgTypeFilter');
-    if (typeFilter && typeFilter.value) { return ''; }
+    if (page._domain) { return ''; }
 
     var byLabel = {};
     ((page._report && page._report.SourceRuns) || []).forEach(function (r) {
@@ -1207,7 +1218,7 @@ function emptyRunSections(present) {
 // The filters shared by the tab counts and the list, all of them except the pattern itself,
 // so a tab's badge shows how many gaps would appear if you opened it under the current filters.
 function buildFilter(page) {
-    var type = page.querySelector('#cgTypeFilter').value;
+    var type = page._domain;
     var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
     var hideSpecials = page.querySelector('#cgHideSpecials').checked;
     var hideUpcoming = page.querySelector('#cgHideUpcoming').checked;
@@ -1235,54 +1246,73 @@ function buildFilter(page) {
 }
 
 function renderTabs(page) {
-    // The per-pattern totals come from the summary, so the inactive tabs show a count without
-    // their items being loaded. Each tab shows the raw gap total for its pattern.
-    var counts = (page._summary && page._summary.PatternCounts) || {};
-    // Stay on a pattern that has any gaps at all, so toggling a filter down to zero does not
-    // yank you to another tab; only fall back when the current pattern is truly empty.
-    var patterns = vocab().patterns;
-    if (!page._pattern || !counts[page._pattern]) {
-        page._pattern = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
+    // Every domain the server says is covered (summary.Domains) gets a tab, in the server's display
+    // order, even one with zero entries this scan (Music when nothing music is owned) - a tab is
+    // never missing just because this scan found nothing for it. The per-domain totals come from the
+    // summary, so an inactive tab shows a count without its items being loaded, summed across patterns.
+    var domains = vocab().domains;
+    // Stay on a domain that has any gaps at all, so toggling a filter down to zero does not yank
+    // you to another tab; only fall back when the current domain is truly empty.
+    if (!page._domain || !domainTotal(page, page._domain)) {
+        page._domain = domains.filter(function (d) { return domainTotal(page, d); })[0] || domains[0];
     }
-    // Every tab is worded for the domain in view (Series completion, Discography, Artist works,
-    // ...), since the Type selector applies to the whole report, not per tab.
-    var domain = page.querySelector('#cgTypeFilter').value;
-    page.querySelector('#cgTabs').innerHTML = patterns.map(function (p) {
-        var active = p === page._pattern ? ' cgActive' : '';
-        var lbl = patternLabel(p, domain);
+    page.querySelector('#cgTabs').innerHTML = domains.map(function (d) {
+        var active = d === page._domain ? ' cgActive' : '';
         return h('button', {
-            type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-pattern': p
-        }, lbl).outerHTML;
+            type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-domain': d
+        }, d + ' (' + domainTotal(page, d) + ')').outerHTML;
     }).join('');
 }
 
-// Build the "Type:" (media domain) selector. It offers every domain the server says is covered
-// (summary.Domains, which leaves out any the model names but nothing fills), plus any unexpected one
-// actually present, in the server's display order. A covered domain with zero entries this scan
-// (Music when nothing music is owned) still shows, so the chooser is never hidden and a
-// domain is never missing just because this scan found nothing for it. It defaults to the first
-// domain that does have entries, so the report opens on content; a remembered domain
-// (page._wantType, from a saved view or the per-browser filters) is applied once.
+// Per-pattern gap counts for a domain, straight from the summary (no items downloaded), so a pattern
+// to load can be picked before the network call that loads it rather than after.
+function patternCountsFor(page, domain) {
+    return (page._summary && page._summary.DomainPatternCounts && page._summary.DomainPatternCounts[domain]) || {};
+}
+
+// The raw total for a domain across every pattern, from the same summary counts, so a domain tab's
+// badge and its "does this tab have anything at all" check need no items downloaded either.
+function domainTotal(page, domain) {
+    var counts = patternCountsFor(page, domain);
+    return Object.keys(counts).reduce(function (sum, k) { return sum + counts[k]; }, 0);
+}
+
+// Decides which pattern a domain should load, without needing that domain's items downloaded first
+// (each Gaps request is narrowed to one pattern now, so guessing wrong would mean a second fetch): an
+// explicit ask (a restored view or a shared link) wins once, then the pattern last shown for this
+// domain in this session, then the first pattern in tab order the summary says has anything in it.
+// Records the choice, so renderTypeFilter (which only reads the record) shows what was actually fetched.
+function pickPattern(page, domain) {
+    page._patternByDomain = page._patternByDomain || {};
+    var patterns = vocab().patterns;
+    var chosen;
+    if (page._wantPattern && patterns.indexOf(page._wantPattern) !== -1) {
+        chosen = page._wantPattern;
+        page._wantPattern = '';
+    } else if (page._patternByDomain[domain] && patterns.indexOf(page._patternByDomain[domain]) !== -1) {
+        chosen = page._patternByDomain[domain];
+    } else {
+        var counts = patternCountsFor(page, domain);
+        chosen = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
+    }
+
+    page._patternByDomain[domain] = chosen;
+    return chosen;
+}
+
+// Build the "Pattern:" selector (Set completion / Creator works / Discover), worded for the active
+// domain via patternLabel (e.g. "Series completion" under Shows) - the secondary axis now that
+// domain is the primary tab.
 function renderTypeFilter(page) {
     var wrap = page.querySelector('#cgTypeFilterWrap');
     var sel = page.querySelector('#cgTypeFilter');
-    var present = {};
-    ((page._report && page._report.Items) || []).forEach(function (it) {
-        if (it.PatternName === page._pattern) { present[categoryOf(it)] = true; }
-    });
-    var domains = vocab().domains.slice();
-    Object.keys(present).forEach(function (d) { if (domains.indexOf(d) === -1) { domains.push(d); } });
-    domains.sort(domainCompare());
+    var patterns = vocab().patterns;
+    var counts = patternCountsFor(page, page._domain);
     if (wrap) { wrap.style.display = 'inline-flex'; }
-    // Decide before rebuilding the options (which clears sel.value): a remembered domain wins,
-    // else keep the current one, else the first domain that actually has entries.
-    var firstWithEntries = domains.filter(function (d) { return present[d]; })[0] || domains[0];
-    var desired = (page._wantType && domains.indexOf(page._wantType) !== -1) ? page._wantType
-        : ((sel.value && domains.indexOf(sel.value) !== -1) ? sel.value : firstWithEntries);
-    sel.innerHTML = domains.map(function (d) { return h('option', { value: d }, d).outerHTML; }).join('');
-    sel.value = desired;
-    // Consume the remembered domain once applied, so a later manual pick is not overridden.
-    if (page._wantType && desired === page._wantType) { page._wantType = ''; }
+    sel.innerHTML = patterns.map(function (p) {
+        return h('option', { value: p }, patternLabel(p, page._domain) + ' (' + (counts[p] || 0) + ')').outerHTML;
+    }).join('');
+    sel.value = page._pattern || patterns[0];
 }
 
 // The element that actually scrolls the report (or the window), cached on the page.
@@ -1634,12 +1664,12 @@ function downloadText(filename, text) {
 // The A-Z selector: one entry per letter present, plus a leading "*" for all. Clicking a letter
 // renders only that letter's entities (so a huge tab does not render at once); "*" renders the
 // lot. Hidden when there is only one letter (nothing to choose).
-function renderLetterBar(page, letters, sel) {
+function renderLetterBar(page, letters, sel, counts, total) {
     var bar = page.querySelector('#cgJump');
     if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters' }, '*').outerHTML;
+    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters' }, '* (' + total + ')').outerHTML;
     html += letters.map(function (L) {
-        return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L }, L).outerHTML;
+        return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L }, L + ' (' + ((counts && counts[L]) || 0) + ')').outerHTML;
     }).join('');
     bar.innerHTML = html;
     bar.style.display = 'flex';
@@ -1863,9 +1893,10 @@ function pollBulkRecheck(page) {
         if (st && st.Running) {
             return new Promise(function (resolve) { setTimeout(resolve, 1000); }).then(function () { return pollBulkRecheck(page); });
         }
-        // Finished: the report changed underneath us, so drop the cached tabs and re-fetch this one.
-        if (page._slices) { page._slices[page._pattern] = null; }
-        return ensureSlice(page, page._pattern).then(function () {
+        // Finished: the report changed underneath us, so drop this domain's cached slices (plain and
+        // pattern-scoped alike) and re-fetch the pattern in view.
+        invalidateDomainSlices(page, page._domain);
+        return ensureSlice(page, page._pattern, page._domain).then(function () {
             Dashboard.hideLoadingMsg();
             applyAndRender(page);
             Dashboard.alert('Re-check finished' + (st && st.Total ? ' (' + st.Done + ' of ' + st.Total + ' set(s))' : '') + '.');
@@ -1908,21 +1939,23 @@ function applyAndRender(page) {
             + wrap('button', { is: 'emby-button', type: 'button', id: 'cgEnableAvail', 'class': 'raised button-submit' },
                 h('span', null, 'Look up where to watch').outerHTML);
     } else {
-        // The pattern has gaps overall (summary count) but none pass the filters: name the
+        // The domain has gaps overall (summary count) but none pass the filters: name the
         // filters that are on so the user knows what to relax, rather than a dead-end blank.
-        // The Type (domain) selector is not a "hide" filter here, so it is handled separately:
-        // if the chosen domain is empty but the tab has gaps in another domain, say so.
-        var rawForPattern = (page._summary && page._summary.PatternCounts && page._summary.PatternCounts[page._pattern]) || 0;
-        var selDomain = page.querySelector('#cgTypeFilter').value;
-        var rawItems = (report.Items || []).filter(function (it) { return it.PatternName === page._pattern; });
-        var selDomainHasRaw = !selDomain || rawItems.some(function (it) { return categoryOf(it) === selDomain; });
+        // The pattern selector is not a "hide" filter here, so it is handled separately: if the
+        // chosen pattern is empty but the domain has gaps under another pattern, say so. Both
+        // checks come from the summary counts, not report.Items, which is already narrowed to
+        // this exact domain+pattern by the fetch and so cannot see what another pattern has.
+        var patternCounts = patternCountsFor(page, page._domain);
+        var rawForPattern = patternCounts[page._pattern] || 0;
+        var rawForDomain = Object.keys(patternCounts).reduce(function (sum, k) { return sum + patternCounts[k]; }, 0);
+        var otherPatternHasRaw = rawForPattern === 0 && rawForDomain > 0;
         var active = [];
         if ((page.querySelector('#cgSearch').value || '').trim()) { active.push('the search box'); }
         if (page.querySelector('#cgHideSpecials').checked) { active.push('"Hide specials"'); }
         if (page.querySelector('#cgHideUpcoming').checked) { active.push('"Hide upcoming"'); }
         if (streamable) { active.push('"Hide items with no sources"'); }
-        if (selDomain && !selDomainHasRaw && rawItems.length) {
-            empty = h('p', { 'class': 'fieldDescription' }, 'No ' + selDomain + ' gaps on this tab. Pick another type from the menu above.').outerHTML;
+        if (otherPatternHasRaw) {
+            empty = h('p', { 'class': 'fieldDescription' }, 'No ' + patternLabel(page._pattern, page._domain) + ' gaps in this domain. Pick another pattern from the menu above.').outerHTML;
         } else if (rawForPattern > 0 && active.length) {
             var list = active.length === 1 ? active[0]
                 : active.slice(0, -1).join(', ') + ' or ' + active[active.length - 1];
@@ -1975,7 +2008,7 @@ function applyAndRender(page) {
     for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
     scroller.scrollTop = scrollY;
 
-    renderLetterBar(page, letters, letter);
+    renderLetterBar(page, letters, letter, letterCounts(items, page._pattern), items.length);
     var rollup = page.querySelector('#cgRollup');
     var rh = items.length ? rollupHtml(items) : '';
     rollup.innerHTML = rh;
@@ -2017,7 +2050,7 @@ var STORAGE_KEY = 'mindthegaps.filters';
 function saveFilters(page) {
     try {
         var state = {
-            type: page.querySelector('#cgTypeFilter').value,
+            pattern: page.querySelector('#cgTypeFilter').value,
             sort: page.querySelector('#cgSort').value,
             hideSpecials: page.querySelector('#cgHideSpecials').checked,
             hideUpcoming: page.querySelector('#cgHideUpcoming').checked,
@@ -2038,9 +2071,9 @@ function saveFilters(page) {
 function restoreFilters(page) {
     var state;
     try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
-    // The Type options are built per tab from the data, so remember the wanted domain and let
-    // renderTypeFilter apply it once that tab's domains are known.
-    page._wantType = state.type || '';
+    // The Pattern options are built per domain tab, so remember the wanted pattern and let
+    // renderTypeFilter/pickPattern apply it once that domain's patterns are known.
+    page._wantPattern = state.pattern || '';
     if (state.sort != null) { page.querySelector('#cgSort').value = state.sort; }
     if (state.hideSpecials != null) { page.querySelector('#cgHideSpecials').checked = !!state.hideSpecials; }
     if (state.hideUpcoming != null) { page.querySelector('#cgHideUpcoming').checked = !!state.hideUpcoming; }
@@ -2078,7 +2111,7 @@ function captureView(page) {
     for (var i = 0; i < cbs.length; i++) { mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
     return {
         pattern: page._pattern,
-        type: page.querySelector('#cgTypeFilter').value,
+        type: page._domain,
         sort: page.querySelector('#cgSort').value,
         search: page.querySelector('#cgSearch').value || '',
         hideSpecials: page.querySelector('#cgHideSpecials').checked,
@@ -2186,10 +2219,14 @@ function consumeUrlDiag() {
 
 function applyView(page, v) {
     if (!v) { return; }
-    if (v.pattern) { page._pattern = v.pattern; }
+    if (v.type) {
+        page._domain = v.type;
+        pruneOtherDomains(page, page._domain);
+    }
+
     page._letter = v.letter != null ? v.letter : null;
-    // The Type options are rebuilt per tab, so route the wanted domain through _wantType.
-    page._wantType = v.type || '';
+    // The Pattern options are rebuilt per domain tab, so route the wanted pattern through _wantPattern.
+    page._wantPattern = v.pattern || '';
     if (v.sort != null) { page.querySelector('#cgSort').value = v.sort; }
     page.querySelector('#cgSearch').value = v.search || '';
     page.querySelector('#cgHideSpecials').checked = !!v.hideSpecials;
@@ -2206,8 +2243,9 @@ function applyView(page, v) {
     disabledProviders = v.disabledProviders || {};
     renderProviderFilter(page);
     saveFilters(page);
-    // A saved view can switch the pattern, so make sure that tab's items are loaded first.
-    return ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
+    // A saved view can switch the domain, so make sure that tab's items are loaded first.
+    page._pattern = pickPattern(page, page._domain);
+    return ensureSlice(page, page._pattern, page._domain).then(function () { applyAndRender(page); });
 }
 
 // Lists creators and recommendation sources dismissed wholesale (with a Restore), so one can
@@ -2251,18 +2289,46 @@ function renderViews(page) {
         + names.map(function (n) { return h('option', { value: n }, n).outerHTML; }).join('');
 }
 
-// Fetch one pattern's items on demand (cached per pattern), so a large report is not shipped
-// whole; the browser only loads the tab being viewed. Sets page._report to that slice.
-function ensureSlice(page, pattern) {
+// A slice's cache key: pattern alone (every domain, used only when no domain is known yet) or
+// pattern+domain (the normal case now that a tab loads one domain at a time).
+function sliceKey(pattern, domain) { return domain ? domain + '|' + pattern : pattern; }
+
+// Drops every cached slice for a domain (plain and pattern-scoped alike), so a change underneath the
+// report (a rescan, a mint, a bulk recheck) cannot leave a stale pattern-scoped slice behind uninvalidated
+// while only the old plain-domain key gets cleared.
+function invalidateDomainSlices(page, domain) {
+    if (!page._slices) { return; }
+    Object.keys(page._slices).forEach(function (k) {
+        if (k === domain || k.indexOf(domain + '|') === 0) { delete page._slices[k]; }
+    });
+}
+
+// Drops every OTHER domain's cached slices, so a library with a lot of both movies and shows does not
+// hold both fully in memory at once just because the browser visited both tabs this session: only the
+// domain now in view stays cached (across its own patterns), and switching back to a domain that was
+// evicted re-fetches it rather than reusing a stale hold on memory.
+function pruneOtherDomains(page, keepDomain) {
+    if (!page._slices) { return; }
+    Object.keys(page._slices).forEach(function (k) {
+        if (k !== keepDomain && k.indexOf(keepDomain + '|') !== 0) { delete page._slices[k]; }
+    });
+}
+
+// Fetch one domain's (and, once known, one pattern's) items on demand, cached per domain+pattern, so
+// a large report is not shipped whole; the browser only loads the tab and pattern being viewed. Sets
+// page._report to that slice.
+function ensureSlice(page, pattern, domain) {
     page._slices = page._slices || {};
-    if (page._slices[pattern]) {
-        page._report = page._slices[pattern];
+    var key = sliceKey(pattern, domain);
+    if (page._slices[key]) {
+        page._report = page._slices[key];
         return Promise.resolve(page._report);
     }
     Dashboard.showLoadingMsg();
-    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', { pattern: pattern }), dataType: 'json' })
+    var query = domain ? { pattern: pattern, domain: domain } : { pattern: pattern };
+    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', query), dataType: 'json' })
         .then(function (report) {
-            page._slices[pattern] = report;
+            page._slices[key] = report;
             page._report = report;
             // Seed the provider filter from this slice's offers too (a tab not yet loaded when
             // the summary was built still contributes once opened).
@@ -2298,19 +2364,22 @@ function load(page) {
                 page._autoSettingsDone = true;
                 Dashboard.navigate('configurationpage?name=MindTheGapsSettings');
             }
-            // Pick a pattern that has gaps before loading its slice.
-            var counts = summary.PatternCounts || {};
-            if (!page._pattern || !counts[page._pattern]) {
-                var patterns = vocab().patterns;
-                page._pattern = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
+            // Pick a domain that has gaps before loading its slice.
+            if (!page._domain || !domainTotal(page, page._domain)) {
+                var domains = vocab().domains;
+                page._domain = domains.filter(function (d) { return domainTotal(page, d); })[0] || domains[0];
             }
             return fetchResolved().then(function () {
                 // A shared link (cgview in the URL) overrides the default tab and the
                 // per-browser filters, once: it is stripped from the address bar on read.
                 var shared = consumeUrlView();
-                var render = shared
-                    ? applyView(page, shared)
-                    : ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
+                var render;
+                if (shared) {
+                    render = applyView(page, shared);
+                } else {
+                    page._pattern = pickPattern(page, page._domain);
+                    render = ensureSlice(page, page._pattern, page._domain).then(function () { applyAndRender(page); });
+                }
                 return render.then(function () {
                     checkStale(page, summary);
                     Dashboard.hideLoadingMsg();
@@ -3013,6 +3082,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // on every show, below.
     if (page._cgBound) { load(page); return; }
     page._cgBound = true;
+    page._domain = null;
     page._pattern = null;
 
     page.querySelector('#cgRefresh').addEventListener('click', function () {
@@ -3032,7 +3102,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         var orig = label ? label.textContent : '';
         btn.disabled = true;
         if (label) { label.textContent = 'Auditing…'; }
-        var auditDomain = page.querySelector('#cgTypeFilter').value;
+        var auditDomain = page._domain || '';
         var auditPattern = page._pattern || '';
         // Name the file by domain and the domain-aware pattern label, the same as the gap export.
         var auditLabel = auditPattern ? patternLabel(auditPattern, auditDomain) : '';
@@ -3234,13 +3304,23 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     page.querySelector('#cgTabs').addEventListener('click', function (e) {
         var tab = e.target.closest ? e.target.closest('.cgTab') : null;
         if (!tab) { return; }
-        page._pattern = tab.getAttribute('data-pattern');
-        page._letter = null; // a new tab has its own letters; let applyAndRender default it
-        ensureSlice(page, page._pattern).then(function () { applyAndRender(page); });
+        page._lettersByDomain = page._lettersByDomain || {};
+        page._lettersByDomain[page._domain] = page._letter;
+        page._domain = tab.getAttribute('data-domain');
+        pruneOtherDomains(page, page._domain);
+        // Restore this tab's own remembered letter (including an explicit "*"); a tab visited for
+        // the first time has none, so applyAndRender picks its default.
+        page._letter = Object.prototype.hasOwnProperty.call(page._lettersByDomain, page._domain)
+            ? page._lettersByDomain[page._domain] : null;
+        page._pattern = pickPattern(page, page._domain);
+        ensureSlice(page, page._pattern, page._domain).then(function () { applyAndRender(page); });
     });
     page.querySelector('#cgTypeFilter').addEventListener('change', function () {
+        page._pattern = this.value;
+        page._patternByDomain = page._patternByDomain || {};
+        page._patternByDomain[page._domain] = page._pattern;
         saveFilters(page);
-        if (page._report) { applyAndRender(page); }
+        ensureSlice(page, page._pattern, page._domain).then(function () { applyAndRender(page); });
     });
     page.querySelector('#cgSort').addEventListener('change', function () {
         saveFilters(page);
@@ -3317,8 +3397,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             // Name the file by the active domain and the domain-aware pattern label (the same words
             // shown on screen), each lowercased with all whitespace turned to hyphens, so it reads
             // consistently and each domain's export of a pattern keeps its own filename.
-            var typeSel = page.querySelector('#cgTypeFilter');
-            var domainValue = (typeSel && typeSel.value) || '';
+            var domainValue = page._domain || '';
             var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
             var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
             downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));

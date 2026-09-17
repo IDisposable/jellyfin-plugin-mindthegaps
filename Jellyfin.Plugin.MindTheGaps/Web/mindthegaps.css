@@ -108,17 +108,13 @@
 
 .cgGridWrap {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(30em, 1fr));
+    grid-template-columns: 1fr;
     gap: .1em 1.4em;
     align-items: start;
 }
 
 .cgGridWrap>.cgGroup {
     min-width: 0;
-}
-
-.cgGridWrap>.cgGroup:not(.cgCollapsed) {
-    grid-column: 1 / -1;
 }
 
 /* Keep a collapsed cell to one line: the name ellipsizes; the count, the short coverage %, and

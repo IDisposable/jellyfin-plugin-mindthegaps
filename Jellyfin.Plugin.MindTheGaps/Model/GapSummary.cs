@@ -26,10 +26,13 @@ public class GapSummary
     public int TotalGaps { get; set; }
 
     /// <summary>
-    /// Gets or sets the gap count per pattern, keyed by the pattern name (matching
-    /// <see cref="GapItem.PatternName"/>), so the dashboard can label and order the tabs.
+    /// Gets or sets the gap count per domain and pattern, keyed by domain name then pattern name, so the
+    /// dashboard can pick which domain tab to show (summed across patterns, for its badge) and which
+    /// pattern to load within it before fetching any items (each <c>Gaps</c> request is narrowed to one
+    /// domain and one pattern), rather than downloading everything to find what has anything in it.
     /// </summary>
-    public IReadOnlyDictionary<string, int> PatternCounts { get; set; } = new Dictionary<string, int>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> DomainPatternCounts { get; set; } =
+        new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.Ordinal);
 
     /// <summary>
     /// Gets or sets the gap patterns in tab order, so the dashboard renders its tabs from the model's own

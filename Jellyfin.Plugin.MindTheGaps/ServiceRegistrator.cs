@@ -96,6 +96,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, TvdbFavoritesGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktWatchlistGapSource>();
         serviceCollection.AddSingleton<IGapSource, TmdbAccountListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, TmdbMovieDiscoverGapSource>();
         serviceCollection.AddSingleton<IGapSource, JustWatchListGapSource>();
 
         // The episode providers the series-content source merges per series (not gap sources themselves).

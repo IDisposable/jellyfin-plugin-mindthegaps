@@ -28,6 +28,9 @@ internal static class CuratedSetGapMapper
     /// for a discovery list (a TMDB list), which the dashboard shows under the discover tab.</param>
     /// <param name="sourceItemId">A stable per-source id (so a discovery list can be dismissed on its own);
     /// empty for the studio/keyword sets, which group by name and type instead.</param>
+    /// <param name="gapPrefix">The gap-id prefix; defaults to <see cref="GapSourceKeys.Curated"/>'s for a
+    /// studio/keyword/TMDB-list set. A caller with its own <see cref="GapSourceKey"/> (a source that is not
+    /// itself a curated set, such as a TMDB discover feed) passes its own prefix instead.</param>
     /// <returns>The gaps for the set's unowned members.</returns>
     public static IEnumerable<GapItem> BuildMovies(
         IEnumerable<SearchMovie> results,
@@ -38,8 +41,19 @@ internal static class CuratedSetGapMapper
         Func<string?, string?> posterUrl,
         int perSet,
         GapPattern pattern = GapPattern.SetCompletion,
-        string? sourceItemId = null)
+        string? sourceItemId = null,
+        string? gapPrefix = null)
     {
+        var prefix = gapPrefix ?? GapSourceKeys.Curated.GapPrefix;
+
+        // The set's own TMDB id, when setKey carries one ("company:41077" -> "41077"), links the set
+        // itself (not just its members) to TMDB. A caller whose setKey has no such id (a discover feed
+        // has no TMDB page of its own to link to) gets no source link, rather than a wrong one.
+        var colonIndex = setKey.LastIndexOf(':');
+        var sourceProviderIds = colonIndex < 0
+            ? null
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = setKey[(colonIndex + 1)..] };
+
         var emitted = 0;
         foreach (var movie in results)
         {
@@ -62,7 +76,7 @@ internal static class CuratedSetGapMapper
             var year = movie.ReleaseDate?.Year;
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.Curated.GapPrefix}{setKey}:{movie.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{prefix}{setKey}:{movie.Id}"),
                 pattern: pattern,
                 domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,
@@ -71,7 +85,7 @@ internal static class CuratedSetGapMapper
                 sourceItemId: sourceItemId ?? string.Empty,
                 sourceItemName: setLabel,
                 sourceItemType: setType,
-                sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = setKey.Split(':')[^1] },
+                sourceProviderIds: sourceProviderIds,
                 releaseDate: movie.ReleaseDate,
                 imageUrl: posterUrl(movie.PosterPath),
                 overview: movie.Overview,

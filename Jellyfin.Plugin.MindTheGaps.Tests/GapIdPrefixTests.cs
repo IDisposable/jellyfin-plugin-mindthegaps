@@ -33,6 +33,7 @@ public class GapIdPrefixTests
     [InlineData("tvdbfavorites:")]
     [InlineData("traktwatchlist:")]
     [InlineData("tmdbaccount:")]
+    [InlineData("tmdbmoviediscover:")]
     public void EveryPrefixIsStillSpelledTheWayASavedReportHoldsIt(string wireValue)
         => Assert.Contains(wireValue, AllGapIdPrefixes());
 
@@ -40,7 +41,7 @@ public class GapIdPrefixTests
     public void GapIdPrefixesAreTheCompleteSet()
     {
         // Guards the list above: a new prefix must be added to the theory, not just the table.
-        Assert.Equal(24, AllGapIdPrefixes().Length);
+        Assert.Equal(25, AllGapIdPrefixes().Length);
     }
 
     [Fact]
@@ -123,7 +124,8 @@ public class GapIdPrefixTests
         GapSourceKeys.OpenLibraryWantToRead,
         GapSourceKeys.TvdbFavorites,
         GapSourceKeys.TraktWatchlist,
-        GapSourceKeys.TmdbAccountList
+        GapSourceKeys.TmdbAccountList,
+        GapSourceKeys.TmdbMovieDiscover
     ];
 
     private static string[] AllGapIdPrefixes() =>
@@ -151,6 +153,7 @@ public class GapIdPrefixTests
         GapSourceKeys.OpenLibraryWantToRead.GapPrefix,
         GapSourceKeys.TvdbFavorites.GapPrefix,
         GapSourceKeys.TraktWatchlist.GapPrefix,
-        GapSourceKeys.TmdbAccountList.GapPrefix
+        GapSourceKeys.TmdbAccountList.GapPrefix,
+        GapSourceKeys.TmdbMovieDiscover.GapPrefix
     ];
 }

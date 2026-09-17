@@ -33,6 +33,10 @@ function loadConfig(page, config) {
     page.querySelector('#CuratedTraktListIds').value = config.CuratedTraktListIds || '';
     page.querySelector('#ScanTmdbWatchlist').checked = config.ScanTmdbWatchlist;
     page.querySelector('#ScanTmdbFavorites').checked = config.ScanTmdbFavorites;
+    page.querySelector('#ScanTmdbTopRated').checked = config.ScanTmdbTopRated;
+    page.querySelector('#ScanTmdbPopular').checked = config.ScanTmdbPopular;
+    page.querySelector('#ScanTmdbUpcoming').checked = config.ScanTmdbUpcoming;
+    page.querySelector('#ScanTmdbNowPlaying').checked = config.ScanTmdbNowPlaying;
     page.querySelector('#ScanTraktWatchlist').checked = config.ScanTraktWatchlist;
     page.querySelector('#TraktUsername').value = config.TraktUsername || '';
     page.querySelector('#ScanMdbListWatchlist').checked = config.ScanMdbListWatchlist;
@@ -118,6 +122,10 @@ function saveConfig(page, e) {
         config.CuratedTraktListIds = form.querySelector('#CuratedTraktListIds').value.trim();
         config.ScanTmdbWatchlist = form.querySelector('#ScanTmdbWatchlist').checked;
         config.ScanTmdbFavorites = form.querySelector('#ScanTmdbFavorites').checked;
+        config.ScanTmdbTopRated = form.querySelector('#ScanTmdbTopRated').checked;
+        config.ScanTmdbPopular = form.querySelector('#ScanTmdbPopular').checked;
+        config.ScanTmdbUpcoming = form.querySelector('#ScanTmdbUpcoming').checked;
+        config.ScanTmdbNowPlaying = form.querySelector('#ScanTmdbNowPlaying').checked;
         config.ScanTraktWatchlist = form.querySelector('#ScanTraktWatchlist').checked;
         config.TraktUsername = form.querySelector('#TraktUsername').value.trim();
         config.ScanMdbListWatchlist = form.querySelector('#ScanMdbListWatchlist').checked;

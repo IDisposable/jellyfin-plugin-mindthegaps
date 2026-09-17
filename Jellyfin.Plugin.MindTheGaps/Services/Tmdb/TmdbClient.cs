@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.Find;
+using TMDbLib.Objects.General;
 using TMDbLib.Objects.People;
 using TMDbLib.Objects.Search;
 
@@ -314,6 +315,75 @@ public sealed class TmdbClient : IDisposable
         if (results?.Results is null)
         {
             _logger?.LogWarning("TMDB: DiscoverMoviesByKeyword {KeywordId} page {Page} returned nothing", keywordId, page);
+            return ([], 0);
+        }
+
+        return results.Results.Count == 0
+            ? ([], 0)
+            : (results.Results, results.TotalPages);
+    }
+
+    /// <summary>
+    /// Gets a single page of TMDB's official "Top Rated" movie feed.
+    /// </summary>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="region">The region the ranking is scoped to.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetTopRatedMoviesAsync(int page, string? language, string? region, CancellationToken cancellationToken)
+        => DiscoverFeedAsync("TopRated", async (l, p, r, ct) => await _client.GetMovieTopRatedListAsync(l, p, r, ct).ConfigureAwait(false), page, language, region, cancellationToken);
+
+    /// <summary>
+    /// Gets a single page of TMDB's official "Popular" movie feed.
+    /// </summary>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="region">The region the ranking is scoped to.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetPopularMoviesAsync(int page, string? language, string? region, CancellationToken cancellationToken)
+        => DiscoverFeedAsync("Popular", async (l, p, r, ct) => await _client.GetMoviePopularListAsync(l, p, r, ct).ConfigureAwait(false), page, language, region, cancellationToken);
+
+    /// <summary>
+    /// Gets a single page of TMDB's official "Upcoming" movie feed.
+    /// </summary>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="region">The region the release window is scoped to.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetUpcomingMoviesAsync(int page, string? language, string? region, CancellationToken cancellationToken)
+        => DiscoverFeedAsync("Upcoming", async (l, p, r, ct) => await _client.GetMovieUpcomingListAsync(l, p, r, ct).ConfigureAwait(false), page, language, region, cancellationToken);
+
+    /// <summary>
+    /// Gets a single page of TMDB's official "Now Playing" movie feed.
+    /// </summary>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="language">The metadata language.</param>
+    /// <param name="region">The region the release window is scoped to.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The results and the total page count.</returns>
+    public Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetNowPlayingMoviesAsync(int page, string? language, string? region, CancellationToken cancellationToken)
+        => DiscoverFeedAsync("NowPlaying", async (l, p, r, ct) => await _client.GetMovieNowPlayingListAsync(l, p, r, ct).ConfigureAwait(false), page, language, region, cancellationToken);
+
+    // Shared by the four official-feed wrappers above: they return different TMDbLib types
+    // (SearchContainerWithDates for the two date-scoped feeds, plain SearchContainer for the other two),
+    // but both expose Results/TotalPages through the common SearchContainer<T> base, so one helper covers
+    // all four once each caller's own async lambda upcasts its await to it.
+    private async Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> DiscoverFeedAsync(
+        string feedName,
+        Func<string?, int, string?, CancellationToken, Task<SearchContainer<SearchMovie>?>> fetch,
+        int page,
+        string? language,
+        string? region,
+        CancellationToken cancellationToken)
+    {
+        _logger.Detailed("TMDB: {Feed} page {Page} lang {Language} region {Region}", feedName, page, language, region);
+        var results = await fetch(language, page, region, cancellationToken).ConfigureAwait(false);
+        if (results?.Results is null)
+        {
+            _logger?.LogWarning("TMDB: {Feed} page {Page} returned nothing", feedName, page);
             return ([], 0);
         }
 

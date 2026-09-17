@@ -59,22 +59,28 @@ public class GapsController : ControllerBase
     }
 
     /// <summary>
-    /// Gets the latest gap report (todo list), optionally narrowed to a single pattern so the dashboard
-    /// can load one tab at a time instead of shipping the whole report.
+    /// Gets the latest gap report (todo list), optionally narrowed to a single pattern and/or domain so the
+    /// dashboard can load one tab, or one domain within a tab, at a time instead of shipping the whole report.
     /// </summary>
     /// <param name="pattern">An optional pattern name (for example SetCompletion); omitted returns all.</param>
-    /// <returns>The latest report, filtered to the pattern when one is given.</returns>
+    /// <param name="domain">An optional domain name (for example Movies); omitted returns all.</param>
+    /// <returns>The latest report, filtered to the pattern and/or domain when given.</returns>
     [HttpGet("Gaps")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<GapReport> GetGaps([FromQuery] string? pattern)
+    public ActionResult<GapReport> GetGaps([FromQuery] string? pattern, [FromQuery] string? domain)
     {
         var report = _store.LoadSnapshot();
-        if (string.IsNullOrEmpty(pattern) || !Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var wanted))
+        var wantedPattern = !string.IsNullOrEmpty(pattern) && Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var p) ? p : (GapPattern?)null;
+        var wantedDomain = !string.IsNullOrEmpty(domain) && Enum.TryParse<MediaDomain>(domain, ignoreCase: true, out var d) ? d : (MediaDomain?)null;
+        if (wantedPattern is null && wantedDomain is null)
         {
             return report;
         }
 
-        var items = report.Items.Where(i => i.Pattern == wanted).ToArray();
+        var items = report.Items
+            .Where(i => wantedPattern is null || i.Pattern == wantedPattern)
+            .Where(i => wantedDomain is null || i.Domain == wantedDomain)
+            .ToArray();
         return new GapReport
         {
             GeneratedUtc = report.GeneratedUtc,
@@ -82,8 +88,9 @@ public class GapsController : ControllerBase
             TotalGaps = report.TotalGaps,
             Items = items,
 
-            // Carried through the pattern filter: the Discover tab renders a section for a list that was
-            // read and holds nothing missing, which is exactly the case with no items to filter.
+            // Carried through unfiltered: the Discover tab renders a section for a list that was read and
+            // holds nothing missing, which is exactly the case with no items to filter, and a SourceRun
+            // carries neither a pattern nor a domain to filter it by.
             SourceRuns = report.SourceRuns
         };
     }
@@ -99,12 +106,18 @@ public class GapsController : ControllerBase
     {
         var report = _store.LoadSnapshot();
 
-        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var patternCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
         var providers = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var item in report.Items)
         {
-            counts.TryGetValue(item.PatternName, out var c);
-            counts[item.PatternName] = c + 1;
+            if (!patternCounts.TryGetValue(item.DomainName, out var byPattern))
+            {
+                byPattern = new Dictionary<string, int>(StringComparer.Ordinal);
+                patternCounts[item.DomainName] = byPattern;
+            }
+
+            byPattern.TryGetValue(item.PatternName, out var pc);
+            byPattern[item.PatternName] = pc + 1;
 
             foreach (var offer in item.Availability)
             {
@@ -121,7 +134,7 @@ public class GapsController : ControllerBase
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
-            PatternCounts = counts,
+            DomainPatternCounts = patternCounts.ToDictionary(kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value, StringComparer.Ordinal),
             // The dashboard's vocabulary, served rather than restated there: tabs, the Type selector, and
             // the Set completion group order all come from the model's own definitions.
             Patterns = Enum.GetValues<GapPattern>().Select(p => p.ToString()).ToArray(),

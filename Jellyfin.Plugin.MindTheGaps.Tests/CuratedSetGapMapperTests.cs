@@ -75,6 +75,34 @@ public class CuratedSetGapMapperTests
     }
 
     [Fact]
+    public void BuildMovies_CustomGapPrefix_UsesItInsteadOfCurated_AndSkipsSourceLink_WhenSetKeyHasNoId()
+    {
+        var results = new[] { Movie(201, "Top Rated Missing") };
+
+        var gaps = CuratedSetGapMapper.BuildMovies(
+            results,
+            "top_rated",
+            "Top Rated (TMDB)",
+            "TmdbMovieDiscover",
+            OwnsMovie(),
+            _ => null,
+            perSet: 100,
+            GapPattern.Recommendation,
+            "tmdbmoviediscover-top_rated",
+            "tmdbmoviediscover:").ToList();
+
+        var gap = Assert.Single(gaps);
+        Assert.Equal("tmdbmoviediscover:top_rated:201", gap.Id);
+        Assert.Equal(GapPattern.Recommendation, gap.Pattern);
+        Assert.Equal("tmdbmoviediscover-top_rated", gap.SourceItemId);
+        Assert.Equal("TmdbMovieDiscover", gap.SourceItemType);
+
+        // A feed has no TMDB page of its own to link the set to, unlike a company/keyword/list setKey
+        // ("type:id"), so no source-level TMDB link should be built from a colon-less setKey.
+        Assert.DoesNotContain(gap.SourceLinks, l => l.Name == "TMDB");
+    }
+
+    [Fact]
     public void BuildMovies_RespectsPerSetCap()
     {
         var results = Enumerable.Range(10, 20).Select(i => Movie(i, "Film " + i)).ToArray();

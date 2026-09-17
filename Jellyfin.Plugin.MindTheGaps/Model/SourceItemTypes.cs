@@ -74,6 +74,9 @@ public static class SourceItemTypes
     /// <summary>The connected TheMovieDb account's watchlist or favorites.</summary>
     public const string TmdbAccountList = "TmdbAccountList";
 
+    /// <summary>One of TMDB's official movie discover feeds (top rated, popular, upcoming, now playing).</summary>
+    public const string TmdbMovieDiscover = "TmdbMovieDiscover";
+
     /// <summary>
     /// Gets the source types that are deliberately curated lists, as opposed to a per-title recommendation.
     /// A gap surfaced by both files under the list, which is the more meaningful reason to be shown it.
@@ -113,6 +116,7 @@ public static class SourceItemTypes
         TmdbList,
         MdbList,
         TraktList,
+        TmdbMovieDiscover,
         Movie,
         Series
     ];
