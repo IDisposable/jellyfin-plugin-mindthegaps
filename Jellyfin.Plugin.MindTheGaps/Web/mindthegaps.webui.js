@@ -8,6 +8,12 @@
 // Talks to the server only through the web client's own ApiClient, so it inherits the signed-in user's
 // session and base URL. Touches nothing but the elements it owns, and removes them again before rendering
 // a different view.
+//
+// A card carries no actions itself: clicking anywhere on it opens a detail dialog (TMDB's own synopsis,
+// genres, rating, a trailer link when TMDB has one) with the Send/Add-to-TODO button and, when sendable, a
+// quality-profile picker moved into it. The dialog is appended to document.body rather than the page, since
+// jellyfin-web's own page wrapper sets CSS containment (see CLAUDE.md's "position: fixed is not safe" note)
+// which would otherwise make it the containing block for a fixed-position overlay and misplace it.
 (function () {
     'use strict';
 
@@ -64,11 +70,13 @@
         return 'https://www.themoviedb.org/' + (item.Kind === 'Series' ? 'tv' : 'movie') + '/' + item.TmdbId;
     }
 
-    function send(ctx, item, btn) {
+    function send(ctx, item, btn, qualityProfileId) {
         btn.disabled = true;
         var was = btn.textContent;
         btn.textContent = 'Sending\u2026';
-        api('POST', actionUrl(ctx, 'Send'), { gapId: item.GapId }).then(function (result) {
+        var params = { gapId: item.GapId };
+        if (qualityProfileId) { params.qualityProfileId = qualityProfileId; }
+        api('POST', actionUrl(ctx, 'Send'), params).then(function (result) {
             if (result && result.Success) {
                 btn.textContent = 'Sent';
                 btn.classList.add('mtgSent');
@@ -114,11 +122,247 @@
         return typeof canSend === 'function' ? canSend(item) : !!canSend;
     }
 
-    // A plain, static card: no dialog, no TV remote handling (unlike the report page's own rows, this
-    // renders inside jellyfin-web's native page, which also sets the CSS containment that makes
-    // position:fixed/absolute land in the wrong place, so everything here is plain in-flow content).
+    // ---- Detail dialog ----
+    //
+    // One dialog, built once and reused across opens (a fresh .mtgDialogBody replaces the old one each
+    // time). Appended straight to document.body: see the file header for why it cannot live inside the
+    // page like the cards do.
+    //
+    // Remote/keyboard handling is hand-rolled rather than hooked into jellyfin-web's own focusManager/
+    // inputManager/dialogHelper: those are plain ES module imports in their bundle, not exposed on
+    // window the way ApiClient/Dashboard deliberately are for legacy plugin scripts, so an externally
+    // injected script has no way to join their focus-scope stack or their internal history-based dialog
+    // list. What is reachable with only standard browser APIs: Tab/Arrow trap focus within the dialog's
+    // own controls (mirroring their focusManager's per-scope up/down/left/right), and a real
+    // history.pushState/popstate pair so the hardware/software Back button closes the dialog instead of
+    // leaving the page, the same technique their own dialogHelper uses against its internal router
+    // history. A platform whose native Back button bypasses browser history entirely (for example
+    // Tizen's proprietary tizenhwkey event, used by some native TV shells) is not covered by this and
+    // would need its own on-device check; Escape and the close button/backdrop click remain regardless.
+
+    var dialogEl = null;
+    var dialogInner = null;
+    var dialogCloseBtn = null;
+    var dialogToken = 0;
+    var dialogOpenerEl = null;
+    var dialogHistoryPushed = false;
+
+    function dialogFocusable() {
+        var all = dialogInner.querySelectorAll('button, a[href], select, [tabindex="0"]');
+        return Array.prototype.filter.call(all, function (el) { return el.offsetParent !== null; });
+    }
+
+    function moveDialogFocus(delta) {
+        var items = dialogFocusable();
+        if (!items.length) { return; }
+        var at = items.indexOf(document.activeElement);
+        var next = at === -1 ? 0 : (at + delta + items.length) % items.length;
+        items[next].focus();
+    }
+
+    // A Tab/Shift+Tab or Arrow key never leaves the dialog while it is open: jellyfin-web's own focus
+    // scope would otherwise let it wander back into the page underneath. Left/Right/Tab always cycle;
+    // Up/Down are left to a focused <select> so it keeps its native value-cycling behavior, which a
+    // real remote's D-pad already drives correctly on its own.
+    function onDialogKeydown(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            moveDialogFocus(e.shiftKey ? -1 : 1);
+        } else if (e.key === 'ArrowRight' || (e.key === 'ArrowDown' && document.activeElement.tagName !== 'SELECT')) {
+            e.preventDefault();
+            moveDialogFocus(1);
+        } else if (e.key === 'ArrowLeft' || (e.key === 'ArrowUp' && document.activeElement.tagName !== 'SELECT')) {
+            e.preventDefault();
+            moveDialogFocus(-1);
+        }
+    }
+
+    function closeDialog() {
+        if (!dialogEl || !dialogEl.classList.contains('mtgDialogOpen')) { return; }
+        dialogEl.classList.remove('mtgDialogOpen');
+        if (dialogHistoryPushed) {
+            dialogHistoryPushed = false;
+            window.history.back();
+        }
+
+        if (dialogOpenerEl && typeof dialogOpenerEl.focus === 'function') { dialogOpenerEl.focus(); }
+        dialogOpenerEl = null;
+    }
+
+    function ensureDialog() {
+        if (dialogEl) { return dialogEl; }
+        var backdrop = h('div', { 'class': 'mtgDialogBackdrop' });
+        backdrop.addEventListener('click', function (e) { if (e.target === backdrop) { closeDialog(); } });
+        var dialog = h('div', { 'class': 'mtgDialog', 'role': 'dialog', 'aria-modal': 'true' });
+        dialog.addEventListener('keydown', onDialogKeydown);
+        var closeBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'mtgDialogClose', 'aria-label': 'Close' }, '\u2715');
+        closeBtn.addEventListener('click', closeDialog);
+        dialog.appendChild(closeBtn);
+        backdrop.appendChild(dialog);
+        document.body.appendChild(backdrop);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && backdrop.classList.contains('mtgDialogOpen')) { closeDialog(); }
+        });
+        // The Back button on a platform that surfaces it as real browser history navigation (rather than
+        // a proprietary key event some native TV shells use instead): openDialog pushes one history entry,
+        // so a Back closes the dialog here without ever reaching a real page navigation.
+        window.addEventListener('popstate', function () {
+            if (backdrop.classList.contains('mtgDialogOpen')) {
+                dialogHistoryPushed = false;
+                backdrop.classList.remove('mtgDialogOpen');
+                if (dialogOpenerEl && typeof dialogOpenerEl.focus === 'function') { dialogOpenerEl.focus(); }
+                dialogOpenerEl = null;
+            }
+        });
+        dialogEl = backdrop;
+        dialogInner = dialog;
+        dialogCloseBtn = closeBtn;
+        return backdrop;
+    }
+
+    // The Send/Add-to-TODO control: independent of the TMDB detail lookup below, since a gap already
+    // carries everything a send needs, so it must not wait on (or fail because of) a slow or failing TMDB
+    // call. A sendable card gets a quality-profile picker too, populated lazily and left hidden (Send
+    // still works with the configured default) if that lookup fails.
+    function renderSendOrTodo(actionsEl, ctx, canSend, item) {
+        if (resolveCanSend(canSend, item)) {
+            var select = h('select', { 'is': 'emby-select', 'class': 'selectSmall mtgProfileSelect' });
+            select.style.display = 'none';
+            var sendBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgSendButton' }, 'Download Now');
+            sendBtn.addEventListener('click', function () {
+                var profileId = select.value ? parseInt(select.value, 10) : null;
+                send(ctx, item, sendBtn, profileId);
+            });
+            actionsEl.appendChild(select);
+            actionsEl.appendChild(sendBtn);
+            api('GET', 'MindTheGaps/WebUi/Profiles', { kind: item.Kind }).then(function (result) {
+                if (!result || !result.Profiles || !result.Profiles.length) { return; }
+                result.Profiles.forEach(function (p) {
+                    var opt = h('option', { 'value': p.Id }, p.Name);
+                    if (p.Id === result.DefaultId) { opt.selected = true; }
+                    select.appendChild(opt);
+                });
+                select.style.display = '';
+            }, function () { /* leave it hidden; Send still uses the configured default profile */ });
+        } else if (ctx.canTodo) {
+            var todoBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgTodoButton' }, 'Add to TODO');
+            todoBtn.addEventListener('click', function () { addToTodo(ctx, item, todoBtn); });
+            actionsEl.appendChild(todoBtn);
+        }
+    }
+
+    function metaLine(detail) {
+        var parts = [];
+        if (detail.RuntimeMinutes) { parts.push(detail.RuntimeMinutes + ' min'); }
+        if (detail.Status) { parts.push(detail.Status); }
+        if (detail.Kind === 'Series' && detail.NumberOfSeasons) {
+            parts.push(detail.NumberOfSeasons + (detail.NumberOfSeasons === 1 ? ' season' : ' seasons'));
+        }
+        if (detail.Networks && detail.Networks.length) { parts.push(detail.Networks.join(', ')); }
+        if (detail.VoteAverage) { parts.push('TMDB ' + detail.VoteAverage.toFixed(1) + '/10'); }
+        return parts.join(' \u00b7 ');
+    }
+
+    // Everything that needs the TMDB lookup: tagline, meta line, genres, overview, an IMDb link, a
+    // trailer link. Inserted once the lookup resolves, ahead of the links row so the layout reads
+    // top-to-bottom: title, synopsis, then the row of links/actions.
+    function fillDialogDetail(refs, detail) {
+        refs.loading.remove();
+        var bg = safeImage(detail.BackdropUrl);
+        if (bg) { refs.backdropImg.style.backgroundImage = bg; }
+        var posterBg = safeImage(detail.PosterUrl);
+        if (posterBg) { refs.poster.style.backgroundImage = posterBg; }
+
+        var extra = document.createDocumentFragment();
+        if (detail.Tagline) { extra.appendChild(h('p', { 'class': 'mtgDialogTagline' }, detail.Tagline)); }
+        var meta = metaLine(detail);
+        if (meta) { extra.appendChild(h('p', { 'class': 'mtgDialogMeta' }, meta)); }
+        if (detail.Genres && detail.Genres.length) { extra.appendChild(h('p', { 'class': 'mtgDialogGenres' }, detail.Genres.join(', '))); }
+        if (detail.Overview) { extra.appendChild(h('p', { 'class': 'mtgDialogOverview' }, detail.Overview)); }
+        refs.info.insertBefore(extra, refs.links);
+
+        if (detail.ImdbUrl) {
+            refs.links.appendChild(h('a', { 'href': detail.ImdbUrl, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': 'raised raised-mini mtgActionButton' }, 'View on IMDb'));
+        }
+        if (detail.YoutubeTrailerKey) {
+            refs.links.appendChild(h('a', {
+                'href': 'https://www.youtube.com/watch?v=' + encodeURIComponent(detail.YoutubeTrailerKey),
+                'target': '_blank',
+                'rel': 'noopener noreferrer',
+                'class': 'raised raised-mini mtgActionButton'
+            }, 'Watch trailer'));
+        }
+    }
+
+    // Everything that does not need to wait on TMDB: the shell, the poster (already have its URL from
+    // the card), the TMDB link, and the Send/Add-to-TODO action.
+    function dialogBody(ctx, canSend, item) {
+        var body = h('div', { 'class': 'mtgDialogBody' });
+        var backdropImg = h('div', { 'class': 'mtgDialogBackdropImage' });
+        body.appendChild(backdropImg);
+
+        var content = h('div', { 'class': 'mtgDialogContent' });
+        var poster = h('div', { 'class': 'mtgDialogPoster' });
+        var bg = safeImage(item.ImageUrl);
+        if (bg) { poster.style.backgroundImage = bg; }
+        content.appendChild(poster);
+
+        var info = h('div', { 'class': 'mtgDialogInfo' });
+        info.appendChild(h('h2', { 'class': 'mtgDialogTitle' }, item.Title + (item.Year ? ' (' + item.Year + ')' : '')));
+        var loading = h('p', { 'class': 'mtgNote' }, 'Loading details\u2026');
+        info.appendChild(loading);
+
+        var links = h('div', { 'class': 'mtgDialogLinks' });
+        links.appendChild(h('a', { 'href': tmdbUrl(item), 'target': '_blank', 'rel': 'noopener noreferrer', 'class': 'raised raised-mini mtgActionButton' }, 'View on TMDB'));
+        info.appendChild(links);
+
+        var actions = h('div', { 'class': 'mtgDialogActions' });
+        info.appendChild(actions);
+        renderSendOrTodo(actions, ctx, canSend, item);
+
+        content.appendChild(info);
+        body.appendChild(content);
+        return { body: body, info: info, loading: loading, links: links, poster: poster, backdropImg: backdropImg };
+    }
+
+    function openDialog(ctx, canSend, item) {
+        ensureDialog();
+        var wasOpen = dialogEl.classList.contains('mtgDialogOpen');
+        var token = ++dialogToken;
+        var old = dialogInner.querySelector('.mtgDialogBody');
+        if (old) { old.remove(); }
+        var refs = dialogBody(ctx, canSend, item);
+        dialogInner.appendChild(refs.body);
+        dialogEl.classList.add('mtgDialogOpen');
+
+        if (!wasOpen) {
+            dialogOpenerEl = document.activeElement;
+            window.history.pushState({ mtgDialog: true }, '');
+            dialogHistoryPushed = true;
+        }
+
+        // Autofocus the close button, not the Send button: a remote's Select right after opening must
+        // not risk triggering an action before the title has even loaded.
+        dialogCloseBtn.focus();
+
+        api('GET', 'MindTheGaps/WebUi/Detail', { tmdbId: item.TmdbId, kind: item.Kind }).then(function (detail) {
+            if (token !== dialogToken) { return; }
+            if (detail) { fillDialogDetail(refs, detail); } else { refs.loading.textContent = 'No further details available.'; }
+        }, function () {
+            if (token !== dialogToken) { return; }
+            refs.loading.textContent = 'Could not load details from TMDB.';
+        });
+    }
+
+    // A plain card: image, title, year/role. No actions of its own (unlike the report page's own rows,
+    // this renders inside jellyfin-web's native page, which also sets the CSS containment that makes
+    // position:fixed/absolute land in the wrong place, which is also why the dialog itself is appended to
+    // document.body rather than here); clicking anywhere on it, or pressing Enter/Space while it has
+    // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
+    // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
+    // conventions do not apply to it (see the detail dialog's own header comment for why not).
     function card(ctx, canSend, item) {
-        var el = h('div', { 'class': 'card portraitCard mtgCard card-hoverable', 'data-gapid': item.GapId });
+        var el = h('div', { 'class': 'card portraitCard mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-portrait' }));
@@ -145,30 +389,67 @@
         secondary.appendChild(h('bdi', null, sub));
         box.appendChild(secondary);
 
-        var actions = h('div', { 'class': 'mtgCardActions' });
-        if (resolveCanSend(canSend, item)) {
-            var sendBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgSendButton' }, 'Download Now');
-            sendBtn.addEventListener('click', function () { send(ctx, item, sendBtn); });
-            actions.appendChild(sendBtn);
-        } else if (ctx.canTodo) {
-            var todoBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgTodoButton' }, 'Add to TODO');
-            todoBtn.addEventListener('click', function () { addToTodo(ctx, item, todoBtn); });
-            actions.appendChild(todoBtn);
-        }
-
-        var tmdbLink = h('a', {
-            'href': tmdbUrl(item),
-            'target': '_blank',
-            'rel': 'noopener noreferrer',
-            'class': 'raised raised-mini mtgActionButton mtgTmdbLink',
-            'title': 'Open on TMDB'
-        }, 'TMDB');
-        tmdbLink.addEventListener('click', function (e) { e.stopPropagation(); });
-        actions.appendChild(tmdbLink);
-        box.appendChild(actions);
-
         el.appendChild(box);
+        el.addEventListener('click', function () { openDialog(ctx, canSend, item); });
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                openDialog(ctx, canSend, item);
+            }
+        });
         return el;
+    }
+
+    // Arrow-key navigation between cards in the same container, delegated onto the container rather than
+    // per-card. Left/Right moves to the adjacent card in DOM order, which for a wrapping grid also reads
+    // as "next/previous in reading order" (rolling from the end of one row to the start of the next) with
+    // no extra geometry needed; for a single-row scroller it is simply the next/previous card. Up/Down
+    // need actual geometry, since the next card in DOM order is not the one below it once a grid wraps:
+    // the nearest card whose center lies in that direction, weighted to prefer the closest row over exact
+    // horizontal alignment. In a single-row scroller nothing ever qualifies as "above" or "below", so
+    // Up/Down are a no-op there (left to the browser, e.g. page scroll) rather than std::abs geometry.
+    // This is the hand-rolled substitute for jellyfin-web's own focusManager.moveUp/Down/Left/Right,
+    // which is not reachable from an externally injected script (see the detail dialog's own comment for
+    // why not); a real remote's D-pad sends the same arrow keys either way.
+    function focusAdjacentCard(current, delta) {
+        var sib = delta > 0 ? current.nextElementSibling : current.previousElementSibling;
+        if (sib && sib.classList.contains('mtgCard')) { sib.focus(); return true; }
+        return false;
+    }
+
+    function focusCardInRow(container, current, verticalDelta) {
+        var curRect = current.getBoundingClientRect();
+        var curX = curRect.left + (curRect.width / 2);
+        var curY = curRect.top + (curRect.height / 2);
+        var best = null;
+        var bestScore = Infinity;
+        Array.prototype.forEach.call(container.children, function (candidate) {
+            if (candidate === current || !candidate.classList.contains('mtgCard')) { return; }
+            var rect = candidate.getBoundingClientRect();
+            var cy = rect.top + (rect.height / 2);
+            var inDirection = verticalDelta > 0 ? cy > curY + 1 : cy < curY - 1;
+            if (!inDirection) { return; }
+            var cx = rect.left + (rect.width / 2);
+            // Rows differ by far more than a card's width, so weighting the vertical gap heavily groups
+            // candidates by "closest row" first and only then breaks ties by horizontal position.
+            var score = (Math.abs(cy - curY) * 1000) + Math.abs(cx - curX);
+            if (score < bestScore) { bestScore = score; best = candidate; }
+        });
+        if (best) { best.focus(); return true; }
+        return false;
+    }
+
+    function wireCardNavigation(container) {
+        container.addEventListener('keydown', function (e) {
+            var current = e.target;
+            if (!current || !current.classList || !current.classList.contains('mtgCard')) { return; }
+            var moved = false;
+            if (e.key === 'ArrowRight') { moved = focusAdjacentCard(current, 1); }
+            else if (e.key === 'ArrowLeft') { moved = focusAdjacentCard(current, -1); }
+            else if (e.key === 'ArrowDown') { moved = focusCardInRow(container, current, 1); }
+            else if (e.key === 'ArrowUp') { moved = focusCardInRow(container, current, -1); }
+            if (moved) { e.preventDefault(); }
+        });
     }
 
     // A wrapping grid of cards (the person page).
@@ -179,6 +460,7 @@
         section.appendChild(head);
         var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer vertical-wrap padded-right' });
         items.forEach(function (item) { container.appendChild(card(ctx, canSend, item)); });
+        wireCardNavigation(container);
         section.appendChild(container);
         return section;
     }
@@ -190,6 +472,7 @@
         var scrollerEl = h('div', { 'is': 'emby-scroller', 'class': 'padded-top-focusscale padded-bottom-focusscale', 'data-centerfocus': 'true' });
         var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer scrollSlider focuscontainer-x' });
         items.forEach(function (item) { container.appendChild(card(ctx, canSend, item)); });
+        wireCardNavigation(container);
         scrollerEl.appendChild(container);
         section.appendChild(scrollerEl);
         return section;
@@ -334,10 +617,28 @@
     style.textContent =
         '.mtgUpcomingBadge{position:absolute;top:.5em;left:.5em;z-index:1;padding:.2em .6em;border-radius:.3em;background:rgba(0,0,0,.75);color:#fff;font-size:75%;line-height:1.4}' +
         '.mtgNote{opacity:.8}' +
-        '.mtgCardActions{display:flex;justify-content:center;align-items:center;gap:.2em;margin-top:.35em}' +
-        '.mtgCard .mtgActionButton{font-size:80%}' +
-        '.mtgCard .mtgActionButton.mtgSent{opacity:.6}' +
-        '.mtgCard a.mtgActionButton{text-decoration:none;display:inline-block}';
+        '.mtgCard{cursor:pointer}' +
+        '.mtgDialogBackdrop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:2em;overflow-y:auto}' +
+        '.mtgDialogBackdrop.mtgDialogOpen{display:flex}' +
+        '.mtgDialog{position:relative;max-width:56em;width:100%;max-height:90vh;overflow-y:auto;background:#101010;border-radius:.5em;box-shadow:0 1em 3em rgba(0,0,0,.6)}' +
+        '.mtgDialogClose{position:absolute;top:.5em;right:.5em;z-index:2;width:2.2em;height:2.2em;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:120%;line-height:1;text-align:center}' +
+        '.mtgDialogBackdropImage{width:100%;padding-top:33%;background-size:cover;background-position:center;background-color:#1c1c1c}' +
+        '.mtgDialogContent{display:flex;flex-wrap:wrap;gap:1.5em;padding:1.5em}' +
+        '.mtgDialogPoster{flex:0 0 10em;width:10em;height:15em;background-size:cover;background-position:center;background-color:#2b2b2b;border-radius:.3em}' +
+        '.mtgDialogInfo{flex:1 1 16em;min-width:0}' +
+        '.mtgDialogTitle{margin:0 0 .3em}' +
+        '.mtgDialogTagline{font-style:italic;opacity:.8;margin:.3em 0}' +
+        '.mtgDialogMeta,.mtgDialogGenres{opacity:.8;margin:.3em 0}' +
+        '.mtgDialogOverview{margin:.6em 0}' +
+        '.mtgDialogLinks,.mtgDialogActions{display:flex;flex-wrap:wrap;align-items:center;gap:.5em;margin-top:1em}' +
+        '.mtgDialog a.mtgActionButton{text-decoration:none;display:inline-block}' +
+        '.mtgActionButton.mtgSent{opacity:.6}' +
+        '.mtgProfileSelect{max-width:12em}' +
+        // Plain :focus, not :focus-visible: a TV has no mouse to distinguish from, and an older TV
+        // browser that does not recognize :focus-visible would otherwise drop the rule entirely and
+        // show no focus ring at all, which matters far more here than a mouse click briefly seeing one.
+        '.mtgCard:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
+        '.mtgDialog :focus{outline:3px solid #00a4dc;outline-offset:2px}';
     document.head.appendChild(style);
 
     document.addEventListener('viewshow', onViewShow);

@@ -1,6 +1,7 @@
 // Drives the real mindthegaps.webui.js against a fake jellyfin-web Movie/Series detail page, the
 // item-page sibling of webui-person-page.spec.js. See that file's header for why this harness (not the
-// dashboard one) exists and what it is checking for.
+// dashboard one) exists and what it is checking for, and for why Send/Add-to-TODO live inside the
+// detail dialog rather than on the card itself.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHarness } = require('./support/webui-harness');
 
@@ -12,6 +13,11 @@ async function openItemPage(page, harnessPath) {
     await page.evaluate(() => {
         document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
     });
+}
+
+async function openCardDialog(page, gapId) {
+    await page.locator('[data-gapid="' + gapId + '"]').click();
+    await expect(page.locator('.mtgDialogBackdrop')).toHaveClass(/mtgDialogOpen/);
 }
 
 test('renders the related row after similarCollapsible, in normal document flow', async ({ page }) => {
@@ -45,16 +51,17 @@ test('renders the related row after similarCollapsible, in normal document flow'
     expect(order).toBe(true);
 });
 
-test('a related title can be sent; the button reflects the outcome', async ({ page }) => {
+test('a related title can be sent from the dialog; the button reflects the outcome', async ({ page }) => {
     const related = {
         CanSend: true,
         Reason: null,
-        Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, TmdbId: 2, ImageUrl: 'https://example.com/poster.jpg', Upcoming: false }]
+        Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, Kind: 'Movie', TmdbId: 2, ImageUrl: 'https://example.com/poster.jpg', Upcoming: false }]
     };
     const harnessPath = buildWebUiHarness(MOVIE_ITEM, related, { Success: true, Message: 'Sent 1 item(s).' });
     await openItemPage(page, harnessPath);
+    await openCardDialog(page, 'recommendation:movie:2');
 
-    const button = page.locator('#mtgRelatedMissing .mtgSendButton');
+    const button = page.locator('.mtgDialog .mtgSendButton');
     await button.click();
     await expect(button).toHaveText('Sent');
 
@@ -67,12 +74,12 @@ test('no Send button when the caller cannot send, but the TMDB link still works'
     const related = { CanSend: false, CanTodo: false, Reason: null, Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }] };
     const harnessPath = buildWebUiHarness(MOVIE_ITEM, related);
     await openItemPage(page, harnessPath);
+    await openCardDialog(page, 'recommendation:movie:2');
 
-    await expect(page.locator('#mtgRelatedMissing')).toBeVisible();
-    await expect(page.locator('#mtgRelatedMissing .mtgSendButton')).toHaveCount(0);
-    await expect(page.locator('#mtgRelatedMissing .mtgTodoButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgTodoButton')).toHaveCount(0);
 
-    const tmdbLink = page.locator('#mtgRelatedMissing .mtgTmdbLink');
+    const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
     await expect(tmdbLink).toHaveAttribute('target', '_blank');
 });
@@ -81,8 +88,9 @@ test('an administrator with no arr configured gets an Add to TODO fallback', asy
     const related = { CanSend: false, CanTodo: true, Reason: null, Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }] };
     const harnessPath = buildWebUiHarness(MOVIE_ITEM, related, null, 1);
     await openItemPage(page, harnessPath);
+    await openCardDialog(page, 'recommendation:movie:2');
 
-    const todoBtn = page.locator('#mtgRelatedMissing .mtgTodoButton');
+    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
     await expect(todoBtn).toBeVisible();
     await todoBtn.click();
     await expect(todoBtn).toHaveText('Added to TODO');

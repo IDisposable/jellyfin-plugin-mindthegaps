@@ -1,7 +1,8 @@
 // Drives the real mindthegaps.webui.js against a fake jellyfin-web home screen. This is the surface
 // with the least straightforward wiring: the home view is cached by jellyfin-web and its own sections
 // render asynchronously after viewshow fires, so the script waits for a MutationObserver signal rather
-// than inserting immediately, and must not fire again on its own row coming and going.
+// than inserting immediately, and must not fire again on its own row coming and going. Send/Add-to-TODO
+// live inside the detail dialog (see webui-dialog.spec.js), not on the card itself.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHomeHarness } = require('./support/webui-harness');
 
@@ -21,6 +22,11 @@ async function simulateJellyfinsOwnSections(page) {
         section.textContent = 'Continue Watching';
         sections.appendChild(section);
     });
+}
+
+async function openCardDialog(page, gapId) {
+    await page.locator('[data-gapid="' + gapId + '"]').click();
+    await expect(page.locator('.mtgDialogBackdrop')).toHaveClass(/mtgDialogOpen/);
 }
 
 test('renders the discover row once jellyfin has laid out its own sections, in normal document flow', async ({ page }) => {
@@ -52,7 +58,7 @@ test('renders the discover row once jellyfin has laid out its own sections, in n
     expect(positions).not.toContain('absolute');
 });
 
-test('a movie can be sent from the home row; a series on the same row respects its own flag', async ({ page }) => {
+test('a movie can be sent from the dialog; a series on the same row respects its own flag', async ({ page }) => {
     const discover = {
         CanSendMovies: true,
         CanSendSeries: false,
@@ -66,11 +72,16 @@ test('a movie can be sent from the home row; a series on the same row respects i
     await simulateJellyfinsOwnSections(page);
     await expect(page.locator('#mtgHomeDiscover')).toBeVisible();
 
-    // The movie (CanSendMovies true) gets a Send button; the series (CanSendSeries false) does not.
-    await expect(page.locator('[data-gapid="recommendation:movie:1"] .mtgSendButton')).toHaveCount(1);
-    await expect(page.locator('[data-gapid="recommendation:series:2"] .mtgSendButton')).toHaveCount(0);
+    // The movie (CanSendMovies true) gets a Send button in its dialog; the series (CanSendSeries false)
+    // gets none.
+    await openCardDialog(page, 'recommendation:series:2');
+    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
+    await page.locator('.mtgDialogClose').click();
+    await expect(page.locator('.mtgDialogBackdrop')).not.toHaveClass(/mtgDialogOpen/);
 
-    const button = page.locator('[data-gapid="recommendation:movie:1"] .mtgSendButton');
+    await openCardDialog(page, 'recommendation:movie:1');
+    const button = page.locator('.mtgDialog .mtgSendButton');
+    await expect(button).toHaveCount(1);
     await button.click();
     await expect(button).toHaveText('Sent');
     const sendUrl = await page.evaluate(() => window.__lastSendUrl);
@@ -88,12 +99,13 @@ test('a card with no send flags gets a TMDB link and, for an administrator, an A
     const harnessPath = buildWebUiHomeHarness(discover, null, 1);
     await openHomePage(page, harnessPath);
     await simulateJellyfinsOwnSections(page);
+    await openCardDialog(page, 'recommendation:movie:1');
 
-    const card = page.locator('[data-gapid="recommendation:movie:1"]');
-    await expect(card.locator('.mtgSendButton')).toHaveCount(0);
-    await expect(card.locator('.mtgTmdbLink')).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
+    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
+    const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
+    await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
 
-    const todoBtn = card.locator('.mtgTodoButton');
+    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
     await expect(todoBtn).toBeVisible();
     await todoBtn.click();
     await expect(todoBtn).toHaveText('Added to TODO');

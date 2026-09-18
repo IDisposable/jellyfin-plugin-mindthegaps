@@ -2,7 +2,9 @@
 // report-*.spec.js drive the real report.js against a fake copy of this plugin's own dashboard. This
 // is the surface CLAUDE.md's "position: fixed is not safe" note is about: the script renders inside
 // jellyfin-web's own page, which sets the same CSS containment, so a regression here would be
-// invisible without actually rendering it inside that containing block.
+// invisible without actually rendering it inside that containing block. The cards themselves carry no
+// actions: clicking one opens a detail dialog appended to document.body (escaping that same CSS
+// containment on purpose, see webui-dialog.spec.js), and Send/Add-to-TODO live inside it.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHarness } = require('./support/webui-harness');
 
@@ -14,6 +16,11 @@ async function openPersonPage(page, harnessPath) {
     await page.evaluate(() => {
         document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
     });
+}
+
+async function openCardDialog(page, gapId) {
+    await page.locator('[data-gapid="' + gapId + '"]').click();
+    await expect(page.locator('.mtgDialogBackdrop')).toHaveClass(/mtgDialogOpen/);
 }
 
 test('renders the person page section with movies and series, in normal document flow', async ({ page }) => {
@@ -53,18 +60,19 @@ test('renders the person page section with movies and series, in normal document
     expect(order).toBe(true);
 });
 
-test('a movie can be sent to Radarr; the button reflects the outcome', async ({ page }) => {
+test('a movie can be sent to Radarr from the dialog; the button reflects the outcome', async ({ page }) => {
     const missing = {
         CanSendMovies: true,
         CanSendSeries: false,
         Reason: null,
-        Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 2001, Role: 'as Lead', TmdbId: 1, ImageUrl: null, Upcoming: false }],
+        Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 2001, Role: 'as Lead', Kind: 'Movie', TmdbId: 1, ImageUrl: null, Upcoming: false }],
         Series: []
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, { Success: true, Message: 'Sent 1 item(s).' });
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:movie:1');
 
-    const button = page.locator('#mtgPersonMissing .mtgSendButton');
+    const button = page.locator('.mtgDialog .mtgSendButton');
     await expect(button).toBeVisible();
     await button.click();
     await expect(button).toHaveText('Sent');
@@ -80,13 +88,14 @@ test('a failed send re-enables the button and shows the message', async ({ page 
         CanSendMovies: true,
         CanSendSeries: false,
         Reason: null,
-        Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 2001, Role: null, TmdbId: 1, ImageUrl: null, Upcoming: false }],
+        Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 2001, Role: null, Kind: 'Movie', TmdbId: 1, ImageUrl: null, Upcoming: false }],
         Series: []
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, { Success: false, Message: 'Radarr rejected it.' });
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:movie:1');
 
-    const button = page.locator('#mtgPersonMissing .mtgSendButton');
+    const button = page.locator('.mtgDialog .mtgSendButton');
     await button.click();
     await expect(button).toHaveText('Download Now');
     await expect(button).toBeEnabled();
@@ -103,13 +112,13 @@ test('no Send or TODO button for a non-administrator viewer, but the TMDB link s
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing);
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:movie:1');
 
-    await expect(page.locator('#mtgPersonMissing')).toBeVisible();
-    await expect(page.locator('#mtgPersonMissing .mtgSendButton')).toHaveCount(0);
-    await expect(page.locator('#mtgPersonMissing .mtgTodoButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgTodoButton')).toHaveCount(0);
 
-    const tmdbLink = page.locator('#mtgPersonMissing .mtgTmdbLink');
-    await expect(tmdbLink).toHaveCount(1);
+    const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
+    await expect(tmdbLink).toHaveText('View on TMDB');
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
     await expect(tmdbLink).toHaveAttribute('target', '_blank');
     await expect(tmdbLink).toHaveAttribute('rel', /noopener/);
@@ -124,11 +133,11 @@ test('the TMDB link is present even when Send is available, and links to the rig
         Movies: [],
         Series: [{ GapId: 'filmography:series:2', Title: 'A Missing Show', Year: 2010, Role: null, Kind: 'Series', TmdbId: 1396, ImageUrl: null, Upcoming: false }]
     };
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missing);
+    const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, null, undefined, null, { reject: true });
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:series:2');
 
-    const tmdbLink = page.locator('#mtgPersonMissing .mtgTmdbLink');
-    await expect(tmdbLink).toHaveCount(1);
+    const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/tv/1396');
 });
 
@@ -143,9 +152,10 @@ test('an administrator with no arr configured gets an Add to TODO fallback inste
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, null, 1);
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:movie:1');
 
-    await expect(page.locator('#mtgPersonMissing .mtgSendButton')).toHaveCount(0);
-    const todoBtn = page.locator('#mtgPersonMissing .mtgTodoButton');
+    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
+    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
     await expect(todoBtn).toBeVisible();
     await todoBtn.click();
     await expect(todoBtn).toHaveText('Added to TODO');
@@ -167,8 +177,9 @@ test('a failed Add to TODO re-enables the button', async ({ page }) => {
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, null, 0);
     await openPersonPage(page, harnessPath);
+    await openCardDialog(page, 'filmography:movie:1');
 
-    const todoBtn = page.locator('#mtgPersonMissing .mtgTodoButton');
+    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
     await todoBtn.click();
     await expect(todoBtn).toHaveText('Add to TODO');
     await expect(todoBtn).toBeEnabled();
