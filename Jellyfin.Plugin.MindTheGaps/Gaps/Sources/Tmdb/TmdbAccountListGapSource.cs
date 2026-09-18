@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// never be minted through it. <see cref="TmdbAccountClient"/> enforces that; this source only runs when both
 /// halves are present.
 /// </remarks>
-internal sealed class TmdbAccountListGapSource : IGapSource, IDiscoverSource
+internal sealed class TmdbAccountListGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A want-list is deliberate, so it is capped far above the 200 a community list gets.
     private const int MaxGapsPerList = 1000;
@@ -52,10 +52,33 @@ internal sealed class TmdbAccountListGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.TmdbAccountList.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanTmdbWatchlist
             && !string.IsNullOrWhiteSpace(config.TmdbApiKey)
             && !string.IsNullOrWhiteSpace(config.TmdbSessionId);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (!IsEnabled(config))
+        {
+            return false;
+        }
+
+        if (string.Equals(GapSourceKeys.TmdbAccountList.Owner("favorites"), item.SourceItemId, StringComparison.Ordinal))
+        {
+            return config.ScanTmdbFavorites;
+        }
+
+        // The watchlist itself, or a shape this method does not recognize: leave it alone.
+        return true;
+    }
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

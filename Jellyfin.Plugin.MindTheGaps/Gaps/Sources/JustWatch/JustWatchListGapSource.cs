@@ -22,7 +22,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.JustWatch;
 /// <remarks>
 /// There is no explore chip for this source: the lists are the account's fixed two, not something picked by id.
 /// </remarks>
-internal sealed class JustWatchListGapSource : IGapSource, IDiscoverSource
+internal sealed class JustWatchListGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A watchlist is a want-list rather than a feed, so it is capped well above the 200 a community list gets.
     private const int MaxGapsPerList = 1000;
@@ -51,8 +51,31 @@ internal sealed class JustWatchListGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.JustWatch.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanJustWatchLists && !string.IsNullOrWhiteSpace(config.JustWatchToken);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (!IsEnabled(config))
+        {
+            return false;
+        }
+
+        if (string.Equals(GapSourceKeys.JustWatch.Owner(JustWatchListType.Likelist.ToLowerInvariant()), item.SourceItemId, StringComparison.Ordinal))
+        {
+            return config.ScanJustWatchLikes;
+        }
+
+        // The watchlist itself, or a shape this method does not recognize: leave it alone.
+        return true;
+    }
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

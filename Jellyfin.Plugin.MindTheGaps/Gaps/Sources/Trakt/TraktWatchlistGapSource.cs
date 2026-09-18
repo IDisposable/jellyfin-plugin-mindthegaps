@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 /// not hold. Opt-in, needing the username and the Trakt client id the list and filmography sources already
 /// use; Trakt serves a public profile's watchlist without OAuth.
 /// </summary>
-internal sealed class TraktWatchlistGapSource : IGapSource, IDiscoverSource
+internal sealed class TraktWatchlistGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A watchlist is a deliberate list, so it is capped far above the 200 a community list gets. A truncation
     // is logged rather than silent, because a very large watchlist can genuinely exceed this.
@@ -46,10 +46,16 @@ internal sealed class TraktWatchlistGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.TraktWatchlist.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanTraktWatchlist
             && !string.IsNullOrWhiteSpace(config.TraktClientId)
             && !string.IsNullOrWhiteSpace(config.TraktUsername);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config) => IsEnabled(config);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

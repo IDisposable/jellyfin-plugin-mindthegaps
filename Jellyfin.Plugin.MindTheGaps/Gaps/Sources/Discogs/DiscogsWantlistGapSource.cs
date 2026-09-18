@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 /// Discovery source over a Discogs wantlist: the releases marked as wanted that the library does not hold.
 /// Opt-in, needing the username and the Discogs token already configured for the label and artist sources.
 /// </summary>
-internal sealed class DiscogsWantlistGapSource : IGapSource, IDiscoverSource
+internal sealed class DiscogsWantlistGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A wantlist is a deliberate list, so it is capped generously.
     private const int MaxGaps = 1000;
@@ -44,10 +44,16 @@ internal sealed class DiscogsWantlistGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.MusicAlbum };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.DiscogsWantlist.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanDiscogsWantlist
             && !string.IsNullOrWhiteSpace(config.DiscogsToken)
             && !string.IsNullOrWhiteSpace(config.DiscogsUsername);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config) => IsEnabled(config);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Jellyfin.Data.Enums;
@@ -16,7 +17,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// them against the library by OpenLibrary work id (with an author-and-title name fallback), emitting a
 /// <see cref="GapPattern.SetCompletion"/> gap per unowned work. Opt-in; needs at least one configured subject.
 /// </summary>
-internal sealed class BooksSubjectGapSource : IGapSource, IExploreSource
+internal sealed class BooksSubjectGapSource : IGapSource, IExploreSource, IConfiguredScopeSource
 {
     // OpenLibrary's subject page caps a single request; one page is plenty for set completion, and the cap
     // keeps a broad subject from flooding the list.
@@ -63,8 +64,16 @@ internal sealed class BooksSubjectGapSource : IGapSource, IExploreSource
     public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.OpenLibrarySubject.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanCuratedBooks && ParseSubjects(config.CuratedOpenLibrarySubjects).Count > 0;
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+        => config.ScanCuratedBooks
+            && ParseSubjects(config.CuratedOpenLibrarySubjects).Any(subject => string.Equals(GapSourceKeys.OpenLibrarySubject.Owner(subject), item.SourceItemId, StringComparison.OrdinalIgnoreCase));
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(

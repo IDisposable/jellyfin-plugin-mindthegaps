@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// Unlike a TMDB List (a user-entered id) these are fixed, id-less endpoints, so each is its own toggle
 /// rather than an id a user configures; each feed groups as its own dismissible entry under Discover.
 /// </summary>
-internal sealed class TmdbMovieDiscoverGapSource : IGapSource, IDiscoverSource
+internal sealed class TmdbMovieDiscoverGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // TMDB paginates these at 20 results/page, arbitrarily deep (hundreds of pages) for a live chart, not
     // a fixed "top 20" list, so both caps sit at the same level CuratedSetGapSource uses for its own
@@ -57,8 +57,28 @@ internal sealed class TmdbMovieDiscoverGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.TmdbMovieDiscover.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanTmdbTopRated || config.ScanTmdbPopular || config.ScanTmdbUpcoming || config.ScanTmdbNowPlaying;
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(config);
+
+        foreach (var feed in Feeds)
+        {
+            if (string.Equals(GapSourceKeys.TmdbMovieDiscover.Owner(feed.Kind), item.SourceItemId, StringComparison.Ordinal))
+            {
+                return IsFeedEnabled(config, feed.Kind);
+            }
+        }
+
+        return true;
+    }
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

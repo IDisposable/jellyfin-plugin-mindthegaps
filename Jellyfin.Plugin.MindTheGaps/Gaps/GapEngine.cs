@@ -303,6 +303,22 @@ public sealed class GapEngine
         // blip that would otherwise blank a collection or discography from the saved report).
         AccumulateSetCompletion(gaps, byId, priorReport.Items, context.Ownership, config);
 
+        // A non-rotating, config-scoped source (a keyword id removed, a whole watchlist source disabled)
+        // fully re-derives its scope every run, unlike the accumulate passes above: "I did not produce
+        // this gap this run" means it is genuinely out of scope, not merely "not yet this run's turn" the
+        // way a rotating source's carry-forward means. Prune those now, after every accumulate pass has
+        // run, so a gap a rotating source or AccumulateSetCompletion legitimately kept is never mistaken
+        // for one of these.
+        var staleIds = StaleOwnerPruner.FindStaleIds(gaps, _sources.OfType<IConfiguredScopeSource>(), config);
+        if (staleIds.Count > 0)
+        {
+            gaps.RemoveAll(g => staleIds.Contains(g.Id));
+            foreach (var id in staleIds)
+            {
+                byId.Remove(id);
+            }
+        }
+
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
         // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
         _externalLinks.Enrich(gaps);
@@ -343,6 +359,22 @@ public sealed class GapEngine
             cancellationToken).ConfigureAwait(false);
 
         return report;
+    }
+
+    /// <summary>
+    /// Prunes gaps that a non-rotating, config-scoped source produced in the past but would not produce
+    /// today (a removed keyword id, a disabled watchlist), without running a scan. Pure, config-only
+    /// filtering over the current report, so it is safe to run on demand right after a config edit rather
+    /// than waiting for the next scan to self-heal (which the automatic prune at the end of
+    /// <see cref="RunAsync"/> already does).
+    /// </summary>
+    /// <returns>The number of gaps removed.</returns>
+    public int PruneStaleGaps()
+    {
+        var config = Plugin.RequireConfiguration();
+        var snapshot = _store.LoadSnapshot();
+        var staleIds = StaleOwnerPruner.FindStaleIds(snapshot.Items, _sources.OfType<IConfiguredScopeSource>(), config);
+        return staleIds.Count == 0 ? 0 : _store.RemoveGaps(staleIds);
     }
 
     /// <summary>

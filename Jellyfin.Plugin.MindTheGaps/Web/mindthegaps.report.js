@@ -3242,6 +3242,18 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
                 Dashboard.alert('Reset failed. Check the server logs.');
             });
     });
+    page.querySelector('#PruneStale').addEventListener('click', function () {
+        if (!window.confirm('Remove gaps from a keyword, company, list, or watchlist you have since removed or turned off?')) { return; }
+        Dashboard.showLoadingMsg();
+        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/PruneStaleGaps'), dataType: 'json' })
+            .then(function (removed) {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert(removed > 0 ? 'Removed ' + removed + ' stale gap(s).' : 'Nothing to prune; every gap is still in scope.');
+            }, function () {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Prune failed. Check the server logs.');
+            });
+    });
     // Cache the configured region once so the JustWatch and availability links match the
     // availability lookups (which use MetadataCountryCode) rather than the browser language.
     ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {

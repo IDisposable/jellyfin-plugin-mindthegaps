@@ -34,6 +34,7 @@ public class GapsController : ControllerBase
     private readonly LibraryVerifier _verifier;
     private readonly GapEngine _engine;
     private readonly RecheckRunner _recheckRunner;
+    private readonly AvailabilityRunner _availability;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -46,7 +47,8 @@ public class GapsController : ControllerBase
     /// <param name="verifier">The library verifier, for clearing gaps the library has since been given.</param>
     /// <param name="engine">The gap engine, which reports what it is able to re-check per item.</param>
     /// <param name="recheckRunner">The background bulk re-check runner.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, GapEngine engine, RecheckRunner recheckRunner)
+    /// <param name="availability">The availability runner, for the summary's pending-lookup count.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, GapEngine engine, RecheckRunner recheckRunner, AvailabilityRunner availability)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -56,6 +58,7 @@ public class GapsController : ControllerBase
         _verifier = verifier;
         _engine = engine;
         _recheckRunner = recheckRunner;
+        _availability = availability;
     }
 
     /// <summary>
@@ -69,24 +72,23 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<GapReport> GetGaps([FromQuery] string? pattern, [FromQuery] string? domain)
     {
-        var report = _store.LoadSnapshot();
         var wantedPattern = !string.IsNullOrEmpty(pattern) && Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var p) ? p : (GapPattern?)null;
         var wantedDomain = !string.IsNullOrEmpty(domain) && Enum.TryParse<MediaDomain>(domain, ignoreCase: true, out var d) ? d : (MediaDomain?)null;
-        if (wantedPattern is null && wantedDomain is null)
+
+        // A domain is the dashboard's usual per-tab request: load just that domain's gaps (skipping the
+        // rest of the report entirely) rather than the whole report filtered down after the fact.
+        var report = wantedDomain is null ? _store.LoadSnapshot() : _store.LoadDomainSnapshot(wantedDomain.Value);
+        if (wantedPattern is null)
         {
             return report;
         }
 
-        var items = report.Items
-            .Where(i => wantedPattern is null || i.Pattern == wantedPattern)
-            .Where(i => wantedDomain is null || i.Domain == wantedDomain)
-            .ToArray();
         return new GapReport
         {
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
-            Items = items,
+            Items = report.Items.Where(i => i.Pattern == wantedPattern).ToArray(),
 
             // Carried through unfiltered: the Discover tab renders a section for a list that was read and
             // holds nothing missing, which is exactly the case with no items to filter, and a SourceRun
@@ -104,29 +106,8 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<GapSummary> GetSummary()
     {
-        var report = _store.LoadSnapshot();
-
-        var patternCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
-        var providers = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var item in report.Items)
-        {
-            if (!patternCounts.TryGetValue(item.DomainName, out var byPattern))
-            {
-                byPattern = new Dictionary<string, int>(StringComparer.Ordinal);
-                patternCounts[item.DomainName] = byPattern;
-            }
-
-            byPattern.TryGetValue(item.PatternName, out var pc);
-            byPattern[item.PatternName] = pc + 1;
-
-            foreach (var offer in item.Availability)
-            {
-                if (!string.IsNullOrEmpty(offer.Provider))
-                {
-                    providers.Add(offer.Provider);
-                }
-            }
-        }
+        var report = _store.Load();
+        var (domainPatternCounts, providers) = _store.GetSummaryFacts();
 
         var config = Plugin.RequireConfiguration();
         return new GapSummary
@@ -134,7 +115,7 @@ public class GapsController : ControllerBase
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
-            DomainPatternCounts = patternCounts.ToDictionary(kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value, StringComparer.Ordinal),
+            DomainPatternCounts = domainPatternCounts,
             // The dashboard's vocabulary, served rather than restated there: tabs, the Type selector, and
             // the Set completion group order all come from the model's own definitions.
             Patterns = Enum.GetValues<GapPattern>().Select(p => p.ToString()).ToArray(),
@@ -143,9 +124,9 @@ public class GapsController : ControllerBase
             DiscoverKinds = SourceItemTypes.DiscoverKindsInOrder,
             RecheckPrefixes = _engine.RecheckablePrefixes(),
             MintableKinds = VirtualItemMinter.MintableKinds,
-            Providers = providers.ToArray(),
+            Providers = providers,
             AvailabilityEnabled = config.IncludeAvailability,
-            AvailabilityPending = config.IncludeAvailability ? AvailabilityRunner.PendingTitleCount(report) : 0
+            AvailabilityPending = config.IncludeAvailability ? _availability.GetPendingTitleCount() : 0
         };
     }
 
@@ -294,6 +275,17 @@ public class GapsController : ControllerBase
         _cursors.Reset();
         return NoContent();
     }
+
+    /// <summary>
+    /// Removes gaps that a non-rotating, config-scoped source (a keyword, a company, a TMDB list, a
+    /// personal watchlist/wantlist, ...) produced in the past but would not produce today, without waiting
+    /// for the next scan. The next scan prunes these automatically anyway; this is for cleaning up right
+    /// after a config edit. Pure, in-memory filtering (no network calls), so it runs synchronously.
+    /// </summary>
+    /// <returns>The number of gaps removed.</returns>
+    [HttpPost("PruneStaleGaps")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<int> PruneStaleGaps() => _engine.PruneStaleGaps();
 
     /// <summary>
     /// Explores a by-id source ad-hoc against current library ownership, marks the produced gaps ad-hoc, and

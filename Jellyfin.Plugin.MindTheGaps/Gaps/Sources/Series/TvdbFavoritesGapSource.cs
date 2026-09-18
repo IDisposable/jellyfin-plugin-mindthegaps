@@ -21,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// A favorite is usually something already owned, so this yields far less than the other want-lists. It is
 /// worth having for the few that are not: a show followed on TheTVDB but never acquired.
 /// </remarks>
-internal sealed class TvdbFavoritesGapSource : IGapSource, IDiscoverSource
+internal sealed class TvdbFavoritesGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // Favorites are a hand-curated set, rarely more than a few dozen.
     private const int MaxGaps = 500;
@@ -50,10 +50,16 @@ internal sealed class TvdbFavoritesGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Series };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.TvdbFavorites.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanTvdbFavorites
             && !string.IsNullOrWhiteSpace(config.TvdbApiKey)
             && !string.IsNullOrWhiteSpace(config.TvdbPin);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config) => IsEnabled(config);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

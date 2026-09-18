@@ -47,6 +47,12 @@ public sealed class AvailabilityRunner
     private int _total;
     private string? _lastMessage;
 
+    // Memoizes GetPendingTitleCount by report generation, the same technique GapStore uses for its own
+    // derived reads: GetSummary calls this on every page load and after every scan/mint/verify/pass, not
+    // just once per actual change to the report.
+    private GapReport? _pendingCountSource;
+    private int _pendingCount;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AvailabilityRunner"/> class.
     /// </summary>
@@ -148,6 +154,26 @@ public sealed class AvailabilityRunner
         }
 
         return targets.Count;
+    }
+
+    /// <summary>
+    /// The memoized sibling of <see cref="PendingTitleCount(GapReport)"/> over the store's current report:
+    /// computed once per report generation and reused across repeated calls.
+    /// </summary>
+    /// <returns>The number of distinct unchecked watch targets in the current report.</returns>
+    public int GetPendingTitleCount()
+    {
+        var report = _store.Load();
+        lock (_lock)
+        {
+            if (!ReferenceEquals(_pendingCountSource, report))
+            {
+                _pendingCount = PendingTitleCount(report);
+                _pendingCountSource = report;
+            }
+
+            return _pendingCount;
+        }
     }
 
     /// <summary>
