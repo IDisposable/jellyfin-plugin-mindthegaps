@@ -22,7 +22,7 @@ internal static class TvMazeMapper
         {
             if (episode.Season is int season && episode.Number is int number)
             {
-                canonical.Add(new CanonicalEpisode(season, number, episode.Name, ParseDate(episode.Airdate), episode.Summary));
+                canonical.Add(new CanonicalEpisode(season, number, episode.Name, ParseDate(episode.Airdate), episode.Summary, episode.Image?.Medium));
             }
         }
 

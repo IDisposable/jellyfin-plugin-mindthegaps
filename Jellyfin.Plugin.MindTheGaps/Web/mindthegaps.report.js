@@ -3654,6 +3654,18 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (item) { detailEl.innerHTML = buildExpandedDetailBody(item); }
         return detailEl;
     };
+    // A row's thumbnail is a best-effort guess for some sources (MusicBrainz's cover art comes from a
+    // fixed URL formula keyed by MBID, with no check that art actually exists there), so a broken
+    // image is expected occasionally, not a bug: swap it for the plain "no image" placeholder rather
+    // than showing the browser's broken-image icon. 'error' does not bubble, so this runs in the
+    // capture phase to see it via delegation, the same reason 'toggle' does above.
+    page.querySelector('#cgList').addEventListener('error', function (e) {
+        var img = e.target;
+        if (!img.matches || !img.matches('img.cgThumb')) { return; }
+        var placeholder = document.createElement('span');
+        placeholder.className = 'cgThumb cgThumbEmpty';
+        img.replaceWith(placeholder);
+    }, true);
     // Group headers are focusable (role=button); Enter/Space toggles them like a click, so the
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {

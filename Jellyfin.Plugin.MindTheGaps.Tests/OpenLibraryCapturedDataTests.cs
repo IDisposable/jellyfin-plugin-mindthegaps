@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using Jellyfin.Data.Enums;
@@ -15,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 //   curl -s 'https://openlibrary.org/search/authors.json?q=Frank%20Herbert' > openlibrary_authorsearch.json
 //   curl -s 'https://openlibrary.org/authors/OL79034A/works.json?limit=100' > openlibrary_works.json
 //   curl -s 'https://openlibrary.org/works/OL893415W.json' > openlibrary_workdetail.json
-//   curl -s 'https://openlibrary.org/search.json?author_key=OL79034A&fields=key,title,first_publish_year&limit=100' > openlibrary_authorworks_search.json
+//   curl -s 'https://openlibrary.org/search.json?author_key=OL79034A&fields=key,title,first_publish_year,cover_i&limit=100' > openlibrary_authorworks_search.json
 //
 // The real data carries the rough edges the Books-source hardening handles, which these tests exercise:
 //  - the author search's first result is a different "Frank Herbert" (Hayward); the Dune author OL79034A is
@@ -109,10 +110,11 @@ public class OpenLibraryCapturedDataTests
         Assert.Equal(100, response.Docs!.Count);
 
         // Unlike the author-works endpoint, search results carry the first publish year, which is the whole
-        // reason the source switched to it: Dune resolves with its 1965 date.
-        var dune = response.Docs!.First(d => d.Key == "/works/OL893415W");
+        // reason the source switched to it: Dune resolves with its 1965 date and a cover id.
+        var dune = response.Docs!.First(d => d.Key == "/works/OL893414W");
         Assert.Equal("Dune", dune.Title);
         Assert.Equal(1965, dune.FirstPublishYear);
+        Assert.Equal(11481354, dune.CoverId);
         Assert.Contains(response.Docs!, d => d.FirstPublishYear.HasValue);
     }
 
@@ -152,6 +154,29 @@ public class OpenLibraryCapturedDataTests
 
         Assert.DoesNotContain(gaps, g => g.Id == "bibliography:" + AuthorKey + ":OL45588324W");
         Assert.Equal(2, gaps.Count);
+    }
+
+    [Fact]
+    public void Build_SetsImageUrlFromTheSearchEndpointsCoverId()
+    {
+        // GetAuthorWorksBySearchAsync (the path BooksBibliographyGapSource actually calls) maps a search doc's
+        // cover_i straight onto OpenLibraryWork.CoverId; this exercises that same mapping against the real
+        // capture, then confirms the mapper resolves it through OpenLibraryClient.CoverUrl.
+        var response = JsonSerializer.Deserialize<OpenLibrarySearchResponse>(
+            TestData.Read("openlibrary_authorworks_search.json"),
+            Options);
+        var works = response!.Docs!.Select(d => new OpenLibraryWork
+        {
+            Key = d.Key,
+            Title = d.Title,
+            FirstPublishDate = d.FirstPublishYear?.ToString(CultureInfo.InvariantCulture),
+            CoverId = d.CoverId
+        });
+
+        var gaps = OpenLibraryMapper.Build(AuthorKey, "Frank Herbert", works, "owner-guid", IndexWith(), 100).ToList();
+
+        var dune = gaps.Single(g => g.Id == "bibliography:" + AuthorKey + ":OL893414W");
+        Assert.Equal("https://covers.openlibrary.org/b/id/11481354-M.jpg", dune.ImageUrl);
     }
 
     [Fact]

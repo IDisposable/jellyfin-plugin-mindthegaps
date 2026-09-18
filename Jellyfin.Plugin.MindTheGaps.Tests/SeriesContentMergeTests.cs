@@ -6,7 +6,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
 public class SeriesContentMergeTests
 {
-    private static CanonicalEpisode Ep(int season, int number) => new(season, number, $"S{season}E{number}", null, null);
+    private static CanonicalEpisode Ep(int season, int number) => new(season, number, $"S{season}E{number}", null, null, null);
 
     private static IReadOnlyList<CanonicalEpisode> List(params (int Season, int Number)[] eps)
     {

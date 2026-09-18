@@ -68,7 +68,8 @@ internal static class MusicBrainzMapper
                 sourceItemName: sourceItemName,
                 sourceItemType: SourceItemTypes.MusicArtist,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.MusicBrainzArtist] = artistMbid },
-                releaseDate: ParseDate(group.FirstReleaseDate));
+                releaseDate: ParseDate(group.FirstReleaseDate),
+                imageUrl: Services.MusicBrainz.MusicBrainzClient.CoverArtUrl(group.Id));
         }
     }
 

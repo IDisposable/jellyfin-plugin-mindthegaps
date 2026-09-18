@@ -18,4 +18,8 @@ internal class OpenLibraryWork
     /// <summary>Gets or sets the first publish date, when present (free-form, often just a year).</summary>
     [JsonPropertyName("first_publish_date")]
     public string? FirstPublishDate { get; set; }
+
+    /// <summary>Gets or sets the cover image id, when present (resolve via <see cref="OpenLibraryClient.CoverUrl"/>).</summary>
+    [JsonPropertyName("cover_i")]
+    public long? CoverId { get; set; }
 }

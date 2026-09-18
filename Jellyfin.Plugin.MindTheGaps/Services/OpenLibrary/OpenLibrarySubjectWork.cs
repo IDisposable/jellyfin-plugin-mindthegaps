@@ -24,4 +24,8 @@ internal class OpenLibrarySubjectWork
     /// <summary>Gets or sets the first publish year, when present.</summary>
     [JsonPropertyName("first_publish_year")]
     public int? FirstPublishYear { get; set; }
+
+    /// <summary>Gets or sets the cover image id, when present (resolve via <see cref="OpenLibraryClient.CoverUrl"/>).</summary>
+    [JsonPropertyName("cover_id")]
+    public long? CoverId { get; set; }
 }

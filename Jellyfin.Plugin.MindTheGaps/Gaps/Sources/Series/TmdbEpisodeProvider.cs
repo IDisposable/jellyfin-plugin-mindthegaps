@@ -59,6 +59,6 @@ internal sealed class TmdbEpisodeProvider : ISeriesEpisodeProvider
         }
 
         var episodes = await _client.GetSeriesEpisodesAsync(tmdbId, context.Config.MetadataLanguage, cancellationToken).ConfigureAwait(false);
-        return episodes.Count == 0 ? null : TmdbSeriesMapper.ToCanonical(episodes);
+        return episodes.Count == 0 ? null : TmdbSeriesMapper.ToCanonical(episodes, _client.GetStillUrl);
     }
 }

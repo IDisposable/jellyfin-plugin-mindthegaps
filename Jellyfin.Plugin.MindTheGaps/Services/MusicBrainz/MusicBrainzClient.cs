@@ -76,4 +76,18 @@ internal sealed class MusicBrainzClient
     private Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class
         => _api.GetJsonAsync<T>(ServiceNames.MusicBrainz, BaseUrl + path, CachedApiClient.DefaultCacheDuration, _jsonOptions, null, cancellationToken);
+
+    /// <summary>
+    /// Builds a release-group's cover art URL from the Cover Art Archive, a fixed formula keyed by the
+    /// MBID we already have (no extra API call, unlike Discogs). Not every release-group has art there,
+    /// so this is a guess the caller's image element must be prepared to fail loading: no HEAD check is
+    /// made, since that would cost a request per album for something the browser already tells us for
+    /// free by firing an error event.
+    /// </summary>
+    /// <param name="releaseGroupMbid">The release-group's MusicBrainz id, or null.</param>
+    /// <returns>The cover art URL, or null.</returns>
+    public static string? CoverArtUrl(string? releaseGroupMbid)
+        => string.IsNullOrEmpty(releaseGroupMbid)
+            ? null
+            : string.Create(CultureInfo.InvariantCulture, $"https://coverartarchive.org/release-group/{releaseGroupMbid}/front");
 }

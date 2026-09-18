@@ -35,6 +35,11 @@ public class TvMazeCapturedDataTests
         Assert.Equal(1, first.Number);
         Assert.Equal("The Way Back", first.Name);
         Assert.Equal(1978, first.ReleaseDate?.Year);
+        Assert.Equal("https://static.tvmaze.com/uploads/images/medium_landscape/105/263597.jpg", first.ImageUrl);
+
+        // Most episodes in this capture have no image; the mapper carries that null through rather
+        // than inventing one.
+        Assert.Contains(canonical, e => e.ImageUrl is null);
     }
 
     [Fact]

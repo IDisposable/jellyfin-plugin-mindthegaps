@@ -332,7 +332,10 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
             }
 
             byKey[(season, number)] = episode;
-            lastChance.Add(new CanonicalEpisode(season, number, episode.Name, episode.PremiereDate, episode.Overview));
+            // No image here: this is the library's own virtual episode, and resolving one of its own
+            // images would need Jellyfin's item-image URL scheme rather than a remote provider URL,
+            // which is a different mechanism this source has no other reason to carry.
+            lastChance.Add(new CanonicalEpisode(season, number, episode.Name, episode.PremiereDate, episode.Overview, null));
         }
 
         return (owned, ownedCount, lastChance, byKey);
@@ -549,7 +552,8 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
             season: episode.Season,
             sourceItemYear: series.ProductionYear,
             setOwnedCount: ownedCount,
-            setTotalCount: totalCount);
+            setTotalCount: totalCount,
+            imageUrl: episode.ImageUrl);
 
         gap.WatchTmdbId = seriesTmdb;
         return gap;

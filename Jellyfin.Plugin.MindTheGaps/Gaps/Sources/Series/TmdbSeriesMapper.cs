@@ -14,15 +14,17 @@ internal static class TmdbSeriesMapper
     /// Maps TMDB season episodes to canonical episodes.
     /// </summary>
     /// <param name="episodes">The TMDB season episodes, across one or more seasons.</param>
+    /// <param name="stillUrl">Resolves a TMDB still path to a URL.</param>
     /// <returns>The canonical episodes.</returns>
-    public static IReadOnlyList<CanonicalEpisode> ToCanonical(IEnumerable<TvSeasonEpisode> episodes)
+    public static IReadOnlyList<CanonicalEpisode> ToCanonical(IEnumerable<TvSeasonEpisode> episodes, Func<string?, string?> stillUrl)
     {
         ArgumentNullException.ThrowIfNull(episodes);
+        ArgumentNullException.ThrowIfNull(stillUrl);
 
         var list = new List<CanonicalEpisode>();
         foreach (var ep in episodes)
         {
-            list.Add(new CanonicalEpisode(ep.SeasonNumber, (int)ep.EpisodeNumber, ep.Name, ep.AirDate, ep.Overview));
+            list.Add(new CanonicalEpisode(ep.SeasonNumber, (int)ep.EpisodeNumber, ep.Name, ep.AirDate, ep.Overview, stillUrl(ep.StillPath)));
         }
 
         return list;

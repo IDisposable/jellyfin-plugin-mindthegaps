@@ -22,7 +22,7 @@ internal static class TvdbMapper
         {
             if (episode.SeasonNumber is int season && episode.Number is int number)
             {
-                canonical.Add(new CanonicalEpisode(season, number, episode.Name, ParseDate(episode.Aired), episode.Overview));
+                canonical.Add(new CanonicalEpisode(season, number, episode.Name, ParseDate(episode.Aired), episode.Overview, episode.Image));
             }
         }
 

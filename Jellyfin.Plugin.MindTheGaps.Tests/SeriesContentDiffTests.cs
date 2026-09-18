@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 public class SeriesContentDiffTests
 {
     private static CanonicalEpisode Ep(int season, int number)
-        => new(season, number, $"E{number}", null, null);
+        => new(season, number, $"E{number}", null, null, null);
 
     private static OwnedEpisodes Owned(params (int Season, int Number)[] numbers)
     {
@@ -75,8 +75,8 @@ public class SeriesContentDiffTests
         var d2 = new DateTime(2020, 1, 8, 0, 0, 0, DateTimeKind.Utc);
         var canonical = new[]
         {
-            new CanonicalEpisode(3, 1, "A", d1, null),
-            new CanonicalEpisode(3, 2, "B", d2, null)
+            new CanonicalEpisode(3, 1, "A", d1, null, null),
+            new CanonicalEpisode(3, 2, "B", d2, null, null)
         };
         var owned = new OwnedEpisodes();
         owned.AddNumber(3, 5);
@@ -94,8 +94,8 @@ public class SeriesContentDiffTests
     {
         var canonical = new[]
         {
-            new CanonicalEpisode(1, 23, "The Finale (1)", null, null),
-            new CanonicalEpisode(1, 24, "The Finale (2)", null, null)
+            new CanonicalEpisode(1, 23, "The Finale (1)", null, null, null),
+            new CanonicalEpisode(1, 24, "The Finale (2)", null, null, null)
         };
         var owned = new OwnedEpisodes();
         owned.AddNumber(1, 23);
@@ -115,8 +115,8 @@ public class SeriesContentDiffTests
         owned.AddTitle(1, "Pilot");
         var canonical = new[]
         {
-            new CanonicalEpisode(1, 1, "Pilot", new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), null),
-            new CanonicalEpisode(1, 2, "Brand New", new DateTime(2020, 1, 8, 0, 0, 0, DateTimeKind.Utc), null)
+            new CanonicalEpisode(1, 1, "Pilot", new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc), null, null),
+            new CanonicalEpisode(1, 2, "Brand New", new DateTime(2020, 1, 8, 0, 0, 0, DateTimeKind.Utc), null, null)
         };
 
         var episode = Assert.Single(SeriesContentDiff.Missing(canonical, owned, 100));
@@ -124,7 +124,7 @@ public class SeriesContentDiffTests
     }
 
     private static CanonicalEpisode EpAired(int season, int number, int year)
-        => new(season, number, $"E{number}", new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc), null);
+        => new(season, number, $"E{number}", new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc), null, null);
 
     [Fact]
     public void LooksLikeDifferentSeries_RebootYearFarFromOwned_IsFlagged()

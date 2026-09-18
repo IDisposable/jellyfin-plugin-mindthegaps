@@ -38,6 +38,7 @@ public sealed class TmdbClient : IDisposable
     private const string ImageBaseUrl = "https://image.tmdb.org/t/p/";
     private const string PosterSize = "w500";
     private const string BackdropSize = "w1280";
+    private const string StillSize = "w300";
 
     private readonly IMemoryCache _cache;
     private readonly ILogger<TmdbClient>? _logger;
@@ -841,6 +842,15 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The URL, or <see langword="null"/>.</returns>
     public string? GetBackdropUrl(string? backdropPath)
         => string.IsNullOrEmpty(backdropPath) ? null : ImageBaseUrl + BackdropSize + backdropPath;
+
+    /// <summary>
+    /// Resolves a TMDB episode still path to a URL. Its own (smaller) size preset, since a still is
+    /// shown at thumbnail size in the report, the same as a poster.
+    /// </summary>
+    /// <param name="stillPath">The relative still path.</param>
+    /// <returns>The absolute URL, or <see langword="null"/>.</returns>
+    public string? GetStillUrl(string? stillPath)
+        => string.IsNullOrEmpty(stillPath) ? null : ImageBaseUrl + StillSize + stillPath;
 
     /// <inheritdoc />
     public void Dispose()

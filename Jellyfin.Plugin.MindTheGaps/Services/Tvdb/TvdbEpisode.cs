@@ -22,4 +22,7 @@ internal class TvdbEpisode
 
     /// <summary>Gets or sets the overview.</summary>
     public string? Overview { get; set; }
+
+    /// <summary>Gets or sets the episode still's URL, when present.</summary>
+    public string? Image { get; set; }
 }

@@ -100,15 +100,16 @@ internal sealed class OpenLibraryClient
 
     /// <summary>
     /// Lists an author's works via the search endpoint (search.json?author_key=...), which carries the first
-    /// publish year (the author-works list does not), so book gaps can get a year in a single call.
+    /// publish year and a cover id (the author-works list does not), so book gaps can get a year and a cover
+    /// in a single call.
     /// </summary>
     /// <param name="authorKey">The author key (for example "OL79034A").</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The author's works, with years where present.</returns>
+    /// <returns>The author's works, with years and covers where present.</returns>
     public async Task<IReadOnlyList<OpenLibraryWork>> GetAuthorWorksBySearchAsync(string authorKey, CancellationToken cancellationToken)
     {
         var response = await GetAsync<OpenLibrarySearchResponse>(
-            string.Create(CultureInfo.InvariantCulture, $"/search.json?author_key={Uri.EscapeDataString(authorKey)}&fields=key,title,first_publish_year&limit={WorksLimit}"),
+            string.Create(CultureInfo.InvariantCulture, $"/search.json?author_key={Uri.EscapeDataString(authorKey)}&fields=key,title,first_publish_year,cover_i&limit={WorksLimit}"),
             cancellationToken).ConfigureAwait(false);
 
         if (response?.Docs is null)
@@ -121,7 +122,8 @@ internal sealed class OpenLibraryClient
             {
                 Key = d.Key,
                 Title = d.Title,
-                FirstPublishDate = d.FirstPublishYear?.ToString(CultureInfo.InvariantCulture)
+                FirstPublishDate = d.FirstPublishYear?.ToString(CultureInfo.InvariantCulture),
+                CoverId = d.CoverId
             })
             .ToList();
     }

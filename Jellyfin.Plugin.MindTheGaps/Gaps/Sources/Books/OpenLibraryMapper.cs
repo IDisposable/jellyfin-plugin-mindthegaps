@@ -72,7 +72,8 @@ internal static class OpenLibraryMapper
                 sourceItemName: authorName,
                 sourceItemType: SourceItemTypes.Book,
                 sourceProviderIds: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.OpenLibrary] = authorKey },
-                releaseDate: ParseDate(work.FirstPublishDate));
+                releaseDate: ParseDate(work.FirstPublishDate),
+                imageUrl: OpenLibraryClient.CoverUrl(work.CoverId));
         }
     }
 

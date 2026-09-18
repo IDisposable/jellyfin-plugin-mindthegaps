@@ -65,6 +65,7 @@ public class OpenLibrarySubjectTests
         Assert.Equal("openlibrarysubject:science_fiction:OL1168083W", nineteen.Id);
         Assert.Equal("OL1168083W", nineteen.ProviderIds[ProviderIds.OpenLibrary]);
         Assert.Equal(1949, nineteen.Year);
+        Assert.Equal("https://covers.openlibrary.org/b/id/9267242-M.jpg", nineteen.ImageUrl);
 
         // The Invisible Man is captured with first_publish_year 0, so it still maps but carries no year.
         var invisible = gaps.Single(g => g.Name == "The Invisible Man");

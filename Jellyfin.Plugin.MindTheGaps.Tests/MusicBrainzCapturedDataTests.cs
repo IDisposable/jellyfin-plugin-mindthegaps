@@ -81,6 +81,7 @@ public class MusicBrainzCapturedDataTests
         Assert.Equal("discography:" + BeatlesMbid + ":" + AbbeyRoadMbid, abbey.Id);
         Assert.Equal(1969, abbey.Year);
         Assert.Equal("MusicArtist", abbey.SourceItemType);
+        Assert.Equal("https://coverartarchive.org/release-group/" + AbbeyRoadMbid + "/front", abbey.ImageUrl);
     }
 
     [Fact]

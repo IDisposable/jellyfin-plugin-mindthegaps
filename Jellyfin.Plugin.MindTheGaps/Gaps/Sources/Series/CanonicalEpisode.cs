@@ -11,4 +11,5 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// <param name="Name">The episode title, if any.</param>
 /// <param name="ReleaseDate">The original air date, if known.</param>
 /// <param name="Overview">A short overview, if any.</param>
-internal sealed record CanonicalEpisode(int Season, int Number, string? Name, DateTime? ReleaseDate, string? Overview);
+/// <param name="ImageUrl">An episode still, if the provider has one.</param>
+internal sealed record CanonicalEpisode(int Season, int Number, string? Name, DateTime? ReleaseDate, string? Overview, string? ImageUrl);

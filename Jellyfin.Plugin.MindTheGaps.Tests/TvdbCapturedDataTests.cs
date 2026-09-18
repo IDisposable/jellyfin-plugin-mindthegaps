@@ -47,5 +47,10 @@ public class TvdbCapturedDataTests
         Assert.Equal(1, first.Season);
         Assert.Equal(1, first.Number);
         Assert.Equal("The Way Back", first.Name);
+        Assert.Equal("https://artworks.thetvdb.com/banners/episodes/75565/173146.jpg", first.ImageUrl);
+
+        // TheTVDB does not have a still for every episode; the mapper carries that null through rather
+        // than inventing one.
+        Assert.Contains(canonical, e => e.ImageUrl is null);
     }
 }

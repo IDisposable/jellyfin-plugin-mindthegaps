@@ -22,4 +22,7 @@ internal class TvMazeEpisode
 
     /// <summary>Gets or sets the summary (may contain HTML).</summary>
     public string? Summary { get; set; }
+
+    /// <summary>Gets or sets the episode's still images, when present.</summary>
+    public TvMazeImage? Image { get; set; }
 }
