@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.7.7"
+version: "10.11.8.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,9 +20,25 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.7.7 (beta) - Gaps now show real cover art for books (bibliography and subject lists), music
-  (MusicBrainz discography and artist works), and series completion episodes (TMDB, TheTVDB, and
-  TVmaze all supply a still where they have one), instead of a blank thumbnail; a cover that fails to
-  load falls back to the blank placeholder instead of a broken-image icon. The "Not interested" action
-  has its own icon instead of borrowing an unrelated one, and the Resolve control sits on the same
-  line as the rest of a row's expanded actions instead of dropping to its own line.
+  10.11.8.0 - The Gaps Report is reorganized around your library's domains: Movies, Shows, Music, and
+  Books are now the primary tabs, each badged with its own gap count, with Set completion, Creator
+  works, and Discover scoped underneath as a view you pick per domain, so only the active domain's data
+  is loaded at a time. A Compact view toggle switches to a denser layout. Click a title to expand its
+  detail in place: the overview, where to watch, and (outside Compact view) every information and
+  action button tile inline instead of opening separate popovers; collapsed, the same actions live
+  behind three icon popovers on the row, and a collapsed title's own browser tooltip shows its overview
+  with no click at all. The toolbar is split into a filter row and an action row, and the settings page
+  is reorganized into one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary,
+  TheTVDB, IMDb, JustWatch), each badged on or off, with a search box that opens whichever section
+  matches. Four new TMDB feeds, Top Rated, Popular, Upcoming, and Now Playing, can be turned on
+  individually under Discover, and Jellyfin 12.0 is now a supported target alongside 10.11, each
+  release building and shipping its own ABI-matched package. Gaps now show real cover art for books
+  (bibliography and subject lists), music (MusicBrainz discography and artist works), and series
+  completion episodes (TMDB, TheTVDB, and TVmaze all supply a still where they have one) instead of a
+  blank thumbnail, falling back to the placeholder rather than a broken-image icon when a cover fails
+  to load; MDBList entries carry a poster and description like every other source. A creator's page can
+  be trimmed further with a minimum TMDB vote count for a movie credit and a minimum episode count for
+  a TV credit. The TODO list shows an image and release date per entry. Sending a whole-series gap to
+  Sonarr from a filmography, recommendation, or favorites entry sends the series' own title rather than
+  the name of whatever surfaced it, and a rejected Radarr, Sonarr, or Jellyseerr request shows the
+  service's validation message instead of a raw response body.
