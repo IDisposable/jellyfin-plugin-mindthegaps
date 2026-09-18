@@ -224,29 +224,6 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets a single page of similar movies for a movie.
-    /// </summary>
-    /// <param name="tmdbId">The TMDB movie id.</param>
-    /// <param name="page">The 1-based page number.</param>
-    /// <param name="language">The metadata language.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The results and the total page count.</returns>
-    public async Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetMovieSimilarPageAsync(int tmdbId, int page, string? language, CancellationToken cancellationToken)
-    {
-        _logger.Detailed("TMDB: GetMovieSimilar {TmdbId} page {Page} lang {Language}", tmdbId, page, language);
-        var results = await _client.GetMovieSimilarAsync(tmdbId, language, page, cancellationToken).ConfigureAwait(false);
-        if (results?.Results is null)
-        {
-            _logger?.LogWarning("TMDB: GetMovieSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
-            return ([], 0);
-        }
-
-        return results.Results.Count == 0
-            ? ([], 0)
-            : (results.Results, results.TotalPages);
-    }
-
-    /// <summary>
     /// Gets TMDB's recommendations for a movie: the titles TMDB's users who liked this one also liked. Far
     /// closer to "more like this" than the <c>similar</c> endpoint, which matches on keywords and genres and
     /// returns obscure titles for well-known films. First page only, cached, since a page view asks for it.
@@ -479,29 +456,6 @@ public sealed class TmdbClient : IDisposable
         _logger.Detailed("TMDB: SearchTvShow '{Query}' lang {Language}", query, language);
         var page = await _client.SearchTvShowAsync(query, NormalizeLanguage(language, null), 1, false, 0, cancellationToken).ConfigureAwait(false);
         return page?.Results ?? [];
-    }
-
-    /// <summary>
-    /// Gets a single page of similar shows for a series.
-    /// </summary>
-    /// <param name="tmdbId">The TMDB series id.</param>
-    /// <param name="page">The 1-based page number.</param>
-    /// <param name="language">The metadata language.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The results and the total page count.</returns>
-    public async Task<(IReadOnlyList<SearchTv> Results, int TotalPages)> GetSeriesSimilarPageAsync(int tmdbId, int page, string? language, CancellationToken cancellationToken)
-    {
-        _logger.Detailed("TMDB: GetSeriesSimilar {TmdbId} page {Page} lang {Language}", tmdbId, page, language);
-        var results = await _client.GetTvShowSimilarAsync(tmdbId, language, page, cancellationToken).ConfigureAwait(false);
-        if (results?.Results is null)
-        {
-            _logger?.LogWarning("TMDB: GetSeriesSimilar {TmdbId} page {Page} returned nothing", tmdbId, page);
-            return ([], 0);
-        }
-
-        return results.Results.Count == 0
-            ? ([], 0)
-            : (results.Results, results.TotalPages);
     }
 
     /// <summary>
