@@ -387,9 +387,10 @@
 
 .cgPopNested > summary {
     display: block;
+    box-sizing: border-box;
     width: fit-content;
     height: auto;
-    padding: .3em .5em;
+    padding: .18em .55em;
     margin: .15em 0;
 }
 
