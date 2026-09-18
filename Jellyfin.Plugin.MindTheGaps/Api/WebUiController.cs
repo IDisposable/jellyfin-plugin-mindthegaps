@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -40,6 +41,7 @@ public class WebUiController : ControllerBase
     private readonly HomeDiscoverService _home;
     private readonly AcquisitionService _acquisition;
     private readonly TodoStore _todo;
+    private readonly TmdbClient _tmdb;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiController"/> class.
@@ -49,13 +51,15 @@ public class WebUiController : ControllerBase
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
     /// <param name="todo">The personal todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo)
+    /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
+    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb)
     {
         _person = person;
         _related = related;
         _home = home;
         _acquisition = acquisition;
         _todo = todo;
+        _tmdb = tmdb;
     }
 
     private static bool WebUiEnabled => Plugin.Instance?.Configuration.WebUiEnabled == true;
@@ -295,6 +299,79 @@ public class WebUiController : ControllerBase
 
         var gap = _home.FindGap(gapId ?? string.Empty);
         return gap is null ? 0 : _todo.Add([gap]);
+    }
+
+    /// <summary>
+    /// The detail dialog's TMDB lookup for one card: enough to decide whether the title is worth acquiring
+    /// before sending it anywhere. Shared by all three surfaces (person, item, home), since a TMDB id and
+    /// kind is all a lookup needs; the gap itself is rehydrated separately, by the surface-specific Send.
+    /// </summary>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="kind">The title's kind, <c>Movie</c> or <c>Series</c>.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The detail, or 404 when the web UI is off, the kind is not recognized, or TMDB has nothing
+    /// for that id.</returns>
+    [HttpGet("WebUi/Detail")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MissingTitleDetail>> GetDetail([FromQuery] int tmdbId, [FromQuery] string? kind, CancellationToken cancellationToken)
+    {
+        if (!WebUiEnabled)
+        {
+            return NotFound();
+        }
+
+        var config = Plugin.RequireConfiguration();
+        if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
+        {
+            var movie = await _tmdb.GetMovieDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+            return movie is null ? NotFound() : MissingTitleDetailMapper.FromMovie(movie, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+        }
+
+        if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase))
+        {
+            var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+            return show is null ? NotFound() : MissingTitleDetailMapper.FromSeries(show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+        }
+
+        return NotFound();
+    }
+
+    /// <summary>
+    /// The quality profiles offered for a title's kind, for the detail dialog's picker.
+    /// </summary>
+    /// <param name="kind">The title's kind, <c>Movie</c> (Radarr) or <c>Series</c> (Sonarr).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, empty when the matching arr is not configured; 404 when the web UI is off or
+    /// the kind is not recognized.</returns>
+    [HttpGet("WebUi/Profiles")]
+    [Authorize(Policy = "RequiresElevation")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<QualityProfilesResult>> GetProfiles([FromQuery] string? kind, CancellationToken cancellationToken)
+    {
+        if (!WebUiEnabled)
+        {
+            return NotFound();
+        }
+
+        var config = Plugin.RequireConfiguration();
+        if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
+        {
+            var profiles = await _acquisition.GetRadarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
+            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.RadarrQualityProfileId };
+        }
+
+        if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase))
+        {
+            var profiles = await _acquisition.GetSonarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
+            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.SonarrQualityProfileId };
+        }
+
+        return NotFound();
     }
 
     // The shape shared by every "send one of this owning item's gaps" endpoint (person, item; home has no
