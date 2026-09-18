@@ -252,6 +252,10 @@
     font-weight: 500;
 }
 
+.cgDimmed {
+    opacity: .7;
+}
+
 .cgMeta {
     flex: 0 0 auto;
     opacity: .7;
@@ -371,9 +375,19 @@
     margin: .15em .3em .15em 0;
 }
 
+/* The nested Resolve popover is a <details>, not a .cgLink, so it tiles alongside the buttons above
+    only with its own rule; scoped to here rather than .cgPopNested generally, since the standalone
+    Actions popover (the narrow .cgPopBody, opened from its icon) still wants it block/stacked like
+    its siblings there. */
+.cgTitleDetail .cgPopNested {
+    display: inline-block;
+    vertical-align: top;
+    margin: .15em .3em .15em 0;
+}
+
 .cgPopNested > summary {
     display: block;
-    width: auto;
+    width: fit-content;
     height: auto;
     padding: .3em .5em;
     margin: .15em 0;
@@ -387,10 +401,16 @@
     padding-left: .6em;
 }
 
-.cgLink .material-icons.cgIconLead {
+.material-icons.cgIconLead {
     font-size: 1em;
     vertical-align: text-bottom;
     margin-right: .15em;
+}
+
+.material-icons.cgIconFollow {
+    font-size: 1em;
+    vertical-align: text-bottom;
+    margin-left: .15em;
 }
 
 /* The per-series re-check control spins its icon while the re-check runs (cleared on re-render). */

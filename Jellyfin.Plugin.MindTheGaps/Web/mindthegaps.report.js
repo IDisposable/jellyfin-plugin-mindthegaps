@@ -47,7 +47,7 @@ var MONETIZATION_LABELS = { flatrate: 'Subscription', free: 'Free', ads: 'With a
 
 
 // A material-icons glyph (name auto-escaped via h's textContent). Sizing and alignment come from
-// CSS (.cgLink .material-icons); pass cls 'cgIconLead' for an icon that leads button text.
+// CSS; pass cls 'cgIconLead' for an icon that leads text, 'cgIconFollow' for one that trails it.
 function icon(name, cls) {
     return h('span', { 'class': 'material-icons' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' }, name).outerHTML;
 }
@@ -370,11 +370,11 @@ function buildWatchPopoverBody(item) {
 
     var body = '';
     if (shownOffers.length) {
-        body = wrap('div', { style: 'margin-bottom:.4em;' }, availLinks(shownOffers));
+        body = wrap('div', { class: "cgOffers" }, availLinks(shownOffers) + ' ');
     } else if (watchable && item.AvailabilityChecked) {
-        body = wrap('div', { style: 'margin-bottom:.4em;opacity:.7;' }, 'No streaming sources found.');
+        body = wrap('div', { class: "cgOffers cgDimmed" }, 'No streaming sources found.');
     } else if (watchable) {
-        body = wrap('div', { style: 'margin-bottom:.4em;' },
+        body = wrap('div', { class: "cgOffers" },
             actionBtn('cgWatch', { 'data-tmdb': watchTmdb, 'data-type': watchKind }, 'Look up where to watch'));
     }
 
@@ -434,14 +434,14 @@ function buildActionsPopoverBody(item) {
             + actionBtn('cgClearResolve', { 'data-gapid': item.Id, title: 'Clear the dismissal (show as missing again)' }, 'Clear');
     } else {
         resolveBody = actionBtn('cgResolve', { 'data-gapid': item.Id, title: 'Mark resolved (not really missing)' }, icon('done', 'cgIconLead') + 'Mark resolved')
-            + actionBtn('cgNotInterested', { 'data-gapid': item.Id, title: 'Not interested (a real gap you do not want)' }, 'Not interested');
+            + actionBtn('cgNotInterested', { 'data-gapid': item.Id, title: 'Not interested (a real gap you do not want)' }, icon('not_interested', 'cgIconLead') + 'Not interested');
         if (item.IsUpcoming && item.ReleaseDate) {
             resolveBody += actionBtn('cgSnooze', { 'data-gapid': item.Id, 'data-until': item.ReleaseDate, title: 'Hide until it is released' }, 'Snooze until release');
         }
     }
 
     actionItems.push(wrap('details', { 'class': 'cgPop cgPopNested' },
-        wrap('summary', null, 'Resolve') + wrap('div', { 'class': 'cgPopBody' }, resolveBody)));
+        wrap('summary', null, 'Resolve' + icon('more_horiz', 'cgIconFollow')) + wrap('div', { 'class': 'cgPopBody' }, resolveBody)));
 
     return actionItems.join('');
 }
