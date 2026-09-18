@@ -178,7 +178,7 @@ public class AcquisitionServiceTests
         var service = new AcquisitionService(null!, null!, new TmdbClient(new MemoryCache(new MemoryCacheOptions())), new MemoryCache(new MemoryCacheOptions()), NullLogger<AcquisitionService>.Instance);
         var gap = new GapItem { Name = "No Tmdb", TargetKind = BaseItemKind.Movie };
 
-        var result = await service.SendToArrAsync(gap, new PluginConfiguration { RadarrUrl = "http://localhost:7878", RadarrApiKey = "k", RadarrQualityProfileId = 1, RadarrRootFolderPath = "/movies" }, CancellationToken.None);
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration { RadarrUrl = "http://localhost:7878", RadarrApiKey = "k", RadarrQualityProfileId = 1, RadarrRootFolderPath = "/movies" }, null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal("This movie has no TMDB id to send to Radarr.", result.Message);
@@ -190,7 +190,7 @@ public class AcquisitionServiceTests
         var service = new AcquisitionService(null!, null!, new TmdbClient(new MemoryCache(new MemoryCacheOptions())), new MemoryCache(new MemoryCacheOptions()), NullLogger<AcquisitionService>.Instance);
         var gap = new GapItem { Name = "Series", TargetKind = BaseItemKind.Series, SourceItemName = "Series" };
 
-        var result = await service.SendToArrAsync(gap, new PluginConfiguration { SonarrUrl = "http://localhost:8989", SonarrApiKey = "k", SonarrQualityProfileId = 1, SonarrRootFolderPath = "/tv" }, CancellationToken.None);
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration { SonarrUrl = "http://localhost:8989", SonarrApiKey = "k", SonarrQualityProfileId = 1, SonarrRootFolderPath = "/tv" }, null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal("This series has no TheTVDB id, which Sonarr needs.", result.Message);
@@ -214,7 +214,7 @@ public class AcquisitionServiceTests
             RadarrApiKey = "radarr-key",
             RadarrQualityProfileId = 7,
             RadarrRootFolderPath = "/movies"
-        }, CancellationToken.None);
+        }, null, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal("http://radarr.test/api/v3/movie", handler.Request!.RequestUri!.ToString());
@@ -224,6 +224,86 @@ public class AcquisitionServiceTests
         Assert.Equal(603, body.RootElement.GetProperty("tmdbId").GetInt32());
         Assert.Equal(7, body.RootElement.GetProperty("qualityProfileId").GetInt32());
         Assert.True(body.RootElement.GetProperty("addOptions").GetProperty("searchForMovie").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SendToArrAsync_QualityProfileIdOverridesTheConfiguredDefault()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.Accepted);
+        var service = CreateService(handler);
+        var gap = new GapItem
+        {
+            Name = "The Matrix",
+            TargetKind = BaseItemKind.Movie,
+            ProviderIds = new Dictionary<string, string> { [ProviderIds.Tmdb] = "603" }
+        };
+
+        var result = await service.SendToArrAsync(gap, new PluginConfiguration
+        {
+            RadarrUrl = "http://radarr.test/",
+            RadarrApiKey = "radarr-key",
+            RadarrQualityProfileId = 7,
+            RadarrRootFolderPath = "/movies"
+        }, 99, CancellationToken.None);
+
+        Assert.True(result.Success);
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Equal(99, body.RootElement.GetProperty("qualityProfileId").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetRadarrQualityProfilesAsync_ReturnsProfilesFromTheApi()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.OK, "[{\"id\":1,\"name\":\"HD-1080p\"},{\"id\":2,\"name\":\"Ultra-HD\"}]");
+        var service = CreateService(handler);
+        var config = new PluginConfiguration { RadarrUrl = "http://radarr.test", RadarrApiKey = "key", RadarrQualityProfileId = 1, RadarrRootFolderPath = "/movies" };
+
+        var profiles = await service.GetRadarrQualityProfilesAsync(config, CancellationToken.None);
+
+        Assert.Equal(2, profiles.Count);
+        Assert.Equal("HD-1080p", profiles[0].Name);
+        Assert.Equal(1, profiles[0].Id);
+        Assert.Equal("http://radarr.test/api/v3/qualityprofile", handler.Request!.RequestUri!.ToString());
+        Assert.Equal("key", handler.Request.Headers.GetValues("X-Api-Key").Single());
+        Assert.Equal(HttpMethod.Get, handler.Request.Method);
+    }
+
+    [Fact]
+    public async Task GetRadarrQualityProfilesAsync_EmptyWhenNotConfigured()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.OK, "[]");
+        var service = CreateService(handler);
+
+        var profiles = await service.GetRadarrQualityProfilesAsync(new PluginConfiguration(), CancellationToken.None);
+
+        Assert.Empty(profiles);
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public async Task GetSonarrQualityProfilesAsync_ReturnsProfilesFromTheApi()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.OK, "[{\"id\":3,\"name\":\"WEB-1080p\"}]");
+        var service = CreateService(handler);
+        var config = new PluginConfiguration { SonarrUrl = "http://sonarr.test", SonarrApiKey = "key", SonarrQualityProfileId = 1, SonarrRootFolderPath = "/tv" };
+
+        var profiles = await service.GetSonarrQualityProfilesAsync(config, CancellationToken.None);
+
+        Assert.Single(profiles);
+        Assert.Equal("WEB-1080p", profiles[0].Name);
+        Assert.Equal("http://sonarr.test/api/v3/qualityprofile", handler.Request!.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task GetRadarrQualityProfilesAsync_EmptyOnNonSuccessStatus()
+    {
+        var handler = new AcquisitionHandler(HttpStatusCode.Unauthorized);
+        var service = CreateService(handler);
+        var config = new PluginConfiguration { RadarrUrl = "http://radarr.test", RadarrApiKey = "bad-key", RadarrQualityProfileId = 1, RadarrRootFolderPath = "/movies" };
+
+        var profiles = await service.GetRadarrQualityProfilesAsync(config, CancellationToken.None);
+
+        Assert.Empty(profiles);
     }
 
     [Fact]
@@ -270,7 +350,7 @@ public class AcquisitionServiceTests
             RadarrApiKey = "key",
             RadarrQualityProfileId = 7,
             RadarrRootFolderPath = "/movies"
-        }, CancellationToken.None);
+        }, null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Contains("not a valid http(s) address", result.Message, StringComparison.Ordinal);
@@ -295,7 +375,7 @@ public class AcquisitionServiceTests
             RadarrApiKey = "key",
             RadarrQualityProfileId = 7,
             RadarrRootFolderPath = "/movies"
-        }, CancellationToken.None);
+        }, null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal("Radarr returned 400. Already added", result.Message);

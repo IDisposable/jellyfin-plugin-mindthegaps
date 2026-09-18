@@ -100,9 +100,11 @@ public sealed class AcquisitionService
     /// </summary>
     /// <param name="gap">The gap to send.</param>
     /// <param name="config">The plugin configuration.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile for this one send
+    /// (from the web UI's per-title picker), or null to use the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome.</returns>
-    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, CancellationToken cancellationToken)
+    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, int? qualityProfileId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(gap);
         ArgumentNullException.ThrowIfNull(config);
@@ -125,7 +127,7 @@ public sealed class AcquisitionService
             {
                 ["title"] = gap.Name,
                 ["tmdbId"] = tmdbId.Value,
-                ["qualityProfileId"] = config.RadarrQualityProfileId,
+                ["qualityProfileId"] = qualityProfileId ?? config.RadarrQualityProfileId,
                 ["rootFolderPath"] = config.RadarrRootFolderPath,
                 ["monitored"] = true,
                 ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["searchForMovie"] = true }
@@ -151,7 +153,7 @@ public sealed class AcquisitionService
         {
             ["title"] = seriesTitle,
             ["tvdbId"] = tvdbId.Value,
-            ["qualityProfileId"] = config.SonarrQualityProfileId,
+            ["qualityProfileId"] = qualityProfileId ?? config.SonarrQualityProfileId,
             ["rootFolderPath"] = config.SonarrRootFolderPath,
             ["monitored"] = true,
             ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -195,6 +197,66 @@ public sealed class AcquisitionService
             ["mediaId"] = tmdbId.Value
         };
         return await PostAsync(config.SeerrUrl, "/api/v1/request", config.SeerrApiKey, payload, "Jellyseerr", "Requested in Jellyseerr.", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lists Radarr's configured quality profiles, for the web UI's per-title picker.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, or empty when Radarr is not configured or could not be reached.</returns>
+    public Task<IReadOnlyList<QualityProfileChoice>> GetRadarrQualityProfilesAsync(PluginConfiguration config, CancellationToken cancellationToken)
+        => RadarrConfigured(config)
+            ? GetQualityProfilesAsync(config.RadarrUrl, config.RadarrApiKey, "Radarr", cancellationToken)
+            : Task.FromResult<IReadOnlyList<QualityProfileChoice>>([]);
+
+    /// <summary>
+    /// Lists Sonarr's configured quality profiles, for the web UI's per-title picker.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, or empty when Sonarr is not configured or could not be reached.</returns>
+    public Task<IReadOnlyList<QualityProfileChoice>> GetSonarrQualityProfilesAsync(PluginConfiguration config, CancellationToken cancellationToken)
+        => SonarrConfigured(config)
+            ? GetQualityProfilesAsync(config.SonarrUrl, config.SonarrApiKey, "Sonarr", cancellationToken)
+            : Task.FromResult<IReadOnlyList<QualityProfileChoice>>([]);
+
+    private async Task<IReadOnlyList<QualityProfileChoice>> GetQualityProfilesAsync(string baseUrl, string apiKey, string service, CancellationToken cancellationToken)
+    {
+        var url = baseUrl.TrimEnd('/') + "/api/v3/qualityprofile";
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal)
+                && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)))
+        {
+            return [];
+        }
+
+        var logUrl = LogSafe.Redact(uri.ToString());
+        try
+        {
+            var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("{Service}: {Status} from GET {Url}", service, (int)response.StatusCode, logUrl);
+                return [];
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var profiles = JsonSerializer.Deserialize<List<QualityProfileChoice>>(body, _jsonOptions);
+            return profiles ?? [];
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Service} quality profile list failed for GET {Url}", service, logUrl);
+            return [];
+        }
     }
 
     /// <summary>

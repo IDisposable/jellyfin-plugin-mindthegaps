@@ -126,6 +126,8 @@ public class WebUiController : ControllerBase
     /// </summary>
     /// <param name="personId">The Jellyfin person id.</param>
     /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile, from the dialog's
+    /// picker; omitted uses the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome, or 404 while the surface is off.</returns>
     [HttpPost("Person/{personId}/Send")]
@@ -133,10 +135,11 @@ public class WebUiController : ControllerBase
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public Task<ActionResult<AcquisitionSendResult>> SendPersonGap([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+    public Task<ActionResult<AcquisitionSendResult>> SendPersonGap([FromRoute] Guid personId, [FromQuery] string? gapId, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
         => SendOwnedGapAsync(
             PersonPageEnabled,
             ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct),
+            qualityProfileId,
             "That title is no longer listed for this person; refresh the page and try again.",
             cancellationToken);
 
@@ -186,6 +189,8 @@ public class WebUiController : ControllerBase
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
     /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile, from the dialog's
+    /// picker; omitted uses the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome, or 404 while the surface is off.</returns>
     [HttpPost("Item/{itemId}/Send")]
@@ -193,10 +198,11 @@ public class WebUiController : ControllerBase
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public Task<ActionResult<AcquisitionSendResult>> SendItemGap([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+    public Task<ActionResult<AcquisitionSendResult>> SendItemGap([FromRoute] Guid itemId, [FromQuery] string? gapId, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
         => SendOwnedGapAsync(
             ItemPageEnabled,
             ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct),
+            qualityProfileId,
             "That title is no longer listed here; refresh the page and try again.",
             cancellationToken);
 
@@ -242,6 +248,8 @@ public class WebUiController : ControllerBase
     /// current report by its id.
     /// </summary>
     /// <param name="gapId">The gap id the row showed.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile, from the dialog's
+    /// picker; omitted uses the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome, or 404 while the surface is off.</returns>
     [HttpPost("Home/Send")]
@@ -249,7 +257,7 @@ public class WebUiController : ControllerBase
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AcquisitionSendResult>> SendHomeGap([FromQuery] string? gapId, CancellationToken cancellationToken)
+    public async Task<ActionResult<AcquisitionSendResult>> SendHomeGap([FromQuery] string? gapId, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
     {
         if (!HomeRowEnabled)
         {
@@ -263,7 +271,7 @@ public class WebUiController : ControllerBase
         }
 
         var config = Plugin.RequireConfiguration();
-        var result = await _acquisition.SendToArrAsync(gap, config, cancellationToken).ConfigureAwait(false);
+        var result = await _acquisition.SendToArrAsync(gap, config, qualityProfileId, cancellationToken).ConfigureAwait(false);
         return ToSendResult(result);
     }
 
@@ -295,6 +303,7 @@ public class WebUiController : ControllerBase
     private async Task<ActionResult<AcquisitionSendResult>> SendOwnedGapAsync(
         bool surfaceEnabled,
         Func<CancellationToken, Task<GapItem?>> findGap,
+        int? qualityProfileId,
         string notFoundMessage,
         CancellationToken cancellationToken)
     {
@@ -310,7 +319,7 @@ public class WebUiController : ControllerBase
         }
 
         var config = Plugin.RequireConfiguration();
-        var result = await _acquisition.SendToArrAsync(gap, config, cancellationToken).ConfigureAwait(false);
+        var result = await _acquisition.SendToArrAsync(gap, config, qualityProfileId, cancellationToken).ConfigureAwait(false);
         return ToSendResult(result);
     }
 
