@@ -29,7 +29,7 @@ internal static class MissingTitleDetailMapper
         var imdbId = string.IsNullOrEmpty(movie.ImdbId) ? movie.ExternalIds?.ImdbId : movie.ImdbId;
         return new MissingTitleDetail
         {
-            Title = movie.Title,
+            Title = movie.Title ?? string.Empty,
             Kind = "Movie",
             TmdbId = movie.Id,
             Year = movie.ReleaseDate?.Year,
@@ -61,7 +61,7 @@ internal static class MissingTitleDetailMapper
         var runtime = show.EpisodeRunTime?.FirstOrDefault(r => r > 0);
         return new MissingTitleDetail
         {
-            Title = show.Name,
+            Title = show.Name ?? string.Empty,
             Kind = "Series",
             TmdbId = show.Id,
             Year = show.FirstAirDate?.Year,
