@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.7.7",
+                "changelog": "10.11.7.7 (beta) - Gaps now show real cover art for books (bibliography and subject lists), music (MusicBrainz discography and artist works), and series completion episodes (TMDB, TheTVDB, and TVmaze all supply a still where they have one), instead of a blank thumbnail; a cover that fails to load falls back to the blank placeholder instead of a broken-image icon. The \"Not interested\" action has its own icon instead of borrowing an unrelated one, and the Resolve control sits on the same line as the rest of a row's expanded actions instead of dropping to its own line.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.7/mind-the-gaps_12.0.7.7.zip",
+                "checksum": "78277c5b6d79e0b083477c26eaf32cac",
+                "timestamp": "2026-09-18T01:52:40Z"
+            },
+            {
                 "version": "12.0.7.6",
                 "changelog": "10.11.7.6 (beta) - More Gaps Report polish. Hovering a title no longer reveals its detail (it was too easy to dismiss by accident moving toward it); click the title instead, same as before, and a collapsed title's browser tooltip now shows its overview with no click at all. In the normal (non-compact) view, expanding a title's detail now folds in the Where to watch, Information, and Actions content as one set of buttons that tile across instead of stacking one per line, and hides the row's icons only while that detail is open, showing them the rest of the time exactly like Compact view does. Detail and popover buttons no longer stretch to the full width of the row.\n",
                 "targetAbi": "12.0.0.0",
@@ -55,6 +63,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.7.7",
+                "changelog": "10.11.7.7 (beta) - Gaps now show real cover art for books (bibliography and subject lists), music (MusicBrainz discography and artist works), and series completion episodes (TMDB, TheTVDB, and TVmaze all supply a still where they have one), instead of a blank thumbnail; a cover that fails to load falls back to the blank placeholder instead of a broken-image icon. The \"Not interested\" action has its own icon instead of borrowing an unrelated one, and the Resolve control sits on the same line as the rest of a row's expanded actions instead of dropping to its own line.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.7/mind-the-gaps_10.11.7.7.zip",
+                "checksum": "fc112e1075c0992c3807e59f5c1fa139",
+                "timestamp": "2026-09-18T01:53:13Z"
             },
             {
                 "version": "10.11.7.6",
