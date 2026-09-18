@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
@@ -67,8 +66,7 @@ internal sealed class TvdbEpisodeProvider : ISeriesEpisodeProvider
 
     private async Task<long?> ResolveSeriesIdAsync(BaseItem series, string apiKey, CancellationToken cancellationToken)
     {
-        if (series.ProviderIdOrNull(ProviderIds.Tvdb) is { } direct
-            && long.TryParse(direct, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tvdbId))
+        if (series.TryGetProviderIdAsLong(ProviderIds.Tvdb, out var tvdbId))
         {
             return tvdbId;
         }

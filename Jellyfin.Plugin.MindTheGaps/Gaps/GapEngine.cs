@@ -12,7 +12,6 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
@@ -36,6 +35,7 @@ public sealed class GapEngine
     private readonly ExternalLinkEnricher _externalLinks;
     private readonly Services.Webhook.WebhookNotifier _webhook;
     private readonly ResolutionStore _resolutions;
+    private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -48,6 +48,7 @@ public sealed class GapEngine
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="resolutions">Holds dismissals, including whole-creator dismissals not to carry forward.</param>
+    /// <param name="ownershipIndexBuilder">Indexes the owned library for the sources to check candidates against.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
@@ -57,6 +58,7 @@ public sealed class GapEngine
         ExternalLinkEnricher externalLinks,
         Services.Webhook.WebhookNotifier webhook,
         ResolutionStore resolutions,
+        OwnershipIndexBuilder ownershipIndexBuilder,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
@@ -66,6 +68,7 @@ public sealed class GapEngine
         _externalLinks = externalLinks;
         _webhook = webhook;
         _resolutions = resolutions;
+        _ownershipIndexBuilder = ownershipIndexBuilder;
         _logger = logger;
     }
 
@@ -367,7 +370,7 @@ public sealed class GapEngine
                 nameof(kind));
 
         var config = Plugin.RequireConfiguration();
-        var ownership = BuildOwnershipIndex(descriptor.Source.OwnedKinds.Distinct().ToArray());
+        var ownership = _ownershipIndexBuilder.Build(descriptor.Source.OwnedKinds.Distinct().ToArray());
         var context = new GapScanContext(config, ownership);
         context.SetProgressSink(f => progress?.Report(Math.Clamp(f, 0.0, 1.0) * 100.0));
 
@@ -452,7 +455,7 @@ public sealed class GapEngine
             return 0;
         }
 
-        var context = new GapScanContext(config, BuildOwnershipIndex(OwnedKindsOf(work.SelectMany(w => w.Claimants))));
+        var context = new GapScanContext(config, _ownershipIndexBuilder.Build(OwnedKindsOf(work.SelectMany(w => w.Claimants))));
 
         var done = 0;
         foreach (var (owner, claimants) in work)
@@ -934,50 +937,6 @@ public sealed class GapEngine
     {
         // The kinds to index are declared by the sources themselves; the engine just unions them.
         var kinds = enabledSources.SelectMany(s => s.OwnedKinds).Distinct().ToArray();
-        return new GapScanContext(config, BuildOwnershipIndex(kinds));
-    }
-
-    private OwnershipIndex BuildOwnershipIndex(BaseItemKind[] kinds)
-    {
-        var keys = new HashSet<string>(StringComparer.Ordinal);
-        var itemCount = 0;
-
-        if (kinds.Length > 0)
-        {
-            var owned = _libraryManager.GetItemList(new InternalItemsQuery
-            {
-                DtoOptions = LibraryQueryOptions.WithProviderIds(),
-                IncludeItemTypes = kinds,
-                Recursive = true
-            });
-            itemCount = owned.Count;
-            foreach (var item in owned)
-            {
-                var kind = item.GetBaseItemKind();
-                foreach (var providerId in item.ProviderIds)
-                {
-                    if (!string.IsNullOrEmpty(providerId.Value))
-                    {
-                        keys.Add(OwnershipIndex.MakeKey(kind, providerId.Key, providerId.Value));
-                    }
-                }
-
-                // Also index an album by its artist-and-title name key, so a source whose ids do not overlap
-                // the library's (a Discogs release against a MusicBrainz-tagged album) can still match by name.
-                if (item is MusicAlbum album && !string.IsNullOrEmpty(album.Name))
-                {
-                    keys.Add(OwnershipIndex.MakeKey(kind, OwnershipIndex.NameKeyProvider, OwnershipIndex.NameKey(album.AlbumArtist, album.Name)));
-                }
-            }
-        }
-
-        var ownership = new OwnershipIndex(keys);
-        _logger.LogInformation(
-            "Ownership index: {Items} owned items, {Keys} provider-id keys, across kinds [{Kinds}].",
-            itemCount,
-            ownership.Count,
-            string.Join(", ", kinds));
-
-        return ownership;
+        return new GapScanContext(config, _ownershipIndexBuilder.Build(kinds));
     }
 }

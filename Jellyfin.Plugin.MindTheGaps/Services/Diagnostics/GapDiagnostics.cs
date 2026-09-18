@@ -129,9 +129,7 @@ public sealed class GapDiagnostics
         // alone; a series needs both. Skipping when nothing more can be added avoids a wasted lookup (and the
         // cache miss it would cost) for the common movie-with-IMDb case.
         var haveAll = ids.ContainsKey(ProviderIds.Imdb) && (!isSeries || ids.ContainsKey(ProviderIds.Tvdb));
-        if (haveAll
-            || !ids.TryGetValue(ProviderIds.Tmdb, out var tmdb)
-            || !int.TryParse(tmdb, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (haveAll || !ids.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {
             return false;
         }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
@@ -52,8 +51,7 @@ internal sealed class TmdbEpisodeProvider : ISeriesEpisodeProvider
         ArgumentNullException.ThrowIfNull(series);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (series.ProviderIdOrNull(ProviderIds.Tmdb) is not { } raw
-            || !int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (!series.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {
             return null;
         }

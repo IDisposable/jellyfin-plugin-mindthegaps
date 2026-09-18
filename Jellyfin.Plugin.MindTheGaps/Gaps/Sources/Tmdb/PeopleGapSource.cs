@@ -113,8 +113,7 @@ internal sealed class PeopleGapSource : IGapSource
             var person = batch[index].Person;
             scannedKeys.Add(batch[index].Key);
 
-            if (!person.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
-                || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var personTmdbId))
+            if (!person.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var personTmdbId))
             {
                 continue;
             }

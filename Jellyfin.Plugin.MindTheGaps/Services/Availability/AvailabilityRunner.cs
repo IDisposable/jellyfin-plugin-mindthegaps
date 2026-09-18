@@ -442,8 +442,7 @@ public sealed class AvailabilityRunner
             return;
         }
 
-        if (!gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var tmdbStr)
-            || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (!gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {
             return;
         }

@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
 
@@ -25,14 +23,8 @@ internal static class DiscogsArtistDiscography
     /// <param name="artist">The owned library artist.</param>
     /// <returns>The Discogs artist id, or null.</returns>
     public static long? ResolveId(BaseItem artist)
-    {
         // ProviderIds.Discogs is the provider-id key an item carries (distinct from the HTTP service name).
-        return artist.TryGetProviderId(ProviderIds.Discogs, out var tagged)
-            && long.TryParse(tagged, NumberStyles.Integer, CultureInfo.InvariantCulture, out var taggedId)
-            && taggedId > 0
-            ? taggedId
-            : null;
-    }
+        => artist.TryGetProviderIdAsLong(ProviderIds.Discogs, out var id) ? id : null;
 
     /// <summary>
     /// Returns the Discogs releases whose normalized title is not among the given titles, so the completeness

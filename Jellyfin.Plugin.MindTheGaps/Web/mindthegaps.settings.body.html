@@ -423,6 +423,43 @@
             </div>
         </div>
         <div class="verticalSection">
+            <h2 class="sectionTitle">Web UI (experimental)</h2>
+            <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page load.</div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="WebUiEnabled" name="WebUiEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Enable Web UI surfaces</span>
+                </label>
+                <div class="fieldDescription">Master switch for every surface below. Off by default.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="PersonPageEnabled" name="PersonPageEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Person pages: "Missing from your library"</span>
+                </label>
+                <div class="fieldDescription">Shows the movies and series a person is credited on that you do not own, with a Send button for administrators. See "Person page" under Limits below to trim what counts as a credit.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ItemPageEnabled" name="ItemPageEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Movie/series pages: "More like this you don't have"</span>
+                </label>
+                <div class="fieldDescription">Shows TMDB's recommendations for an owned title that you do not own, with a Send button for administrators. Uses the same "Max related per item" and "Recommendations: minimum TMDB votes" limits under Limits below as the report's own Discover recommendations.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="HomeRowEnabled" name="HomeRowEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Home screen: "Discover: not in your library" row</span>
+                </label>
+                <div class="fieldDescription">Shows the recommendation gaps the scan has already accumulated, ranked by how many owned titles suggest each one, then by TMDB popularity. Unlike the person and item pages, this does not call TMDB itself, so it needs the report's own Discover recommendations turned on and scanned at least once.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home Discover row: max titles</label>
+                <input id="HomeRowSize" name="HomeRowSize" type="number" is="emby-input" min="1" max="100" />
+                <div class="fieldDescription">The most titles the home Discover row shows.</div>
+            </div>
+        </div>
+        <div class="verticalSection">
             <h2 class="sectionTitle">Acquisition stack (optional)</h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Hand a gap off to your downloaders. A per-row Send button appears only for a target you fill in here. Keys stay on the server.</div>
 

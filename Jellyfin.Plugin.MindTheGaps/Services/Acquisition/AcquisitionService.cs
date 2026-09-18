@@ -213,22 +213,13 @@ public sealed class AcquisitionService
     // The movie/series TMDB id: a movie gap carries it in ProviderIds; an episode/series gap carries the
     // owning series' id in WatchTmdbId (the same id the availability lookup uses).
     private static int? ResolveTmdbId(GapItem gap)
-        => ParseId(GetProviderId(gap, ProviderIds.Tmdb)) ?? ParseId(gap.WatchTmdbId);
-
-    private static int? ParseId(string? raw)
-        => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
-
-    private static string? GetProviderId(GapItem gap, string key)
     {
-        foreach (var pair in gap.ProviderIds)
+        if (gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var id))
         {
-            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
-            {
-                return pair.Value;
-            }
+            return id;
         }
 
-        return null;
+        return gap.WatchTmdbId.TryParseProviderId(out var watchId) ? watchId : null;
     }
 
     private async Task<AcquisitionResult> PostAsync(string baseUrl, string path, string apiKey, IReadOnlyDictionary<string, object?> payload, string service, string successMessage, CancellationToken cancellationToken)
@@ -297,14 +288,12 @@ public sealed class AcquisitionService
         if (Guid.TryParse(gap.SourceItemId, out var seriesId) && seriesId != Guid.Empty)
         {
             var series = _libraryManager.GetItemById(seriesId);
-            if (series is not null
-                && series.TryGetProviderId(ProviderIds.Tvdb, out var tvdb)
-                && ParseId(tvdb) is int fromLibrary)
+            if (series is not null && series.TryGetProviderIdAsInt(ProviderIds.Tvdb, out var fromLibrary))
             {
                 return fromLibrary;
             }
         }
 
-        return ParseId(GetProviderId(gap, ProviderIds.Tvdb));
+        return gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tvdb, out var fromGap) ? fromGap : null;
     }
 }

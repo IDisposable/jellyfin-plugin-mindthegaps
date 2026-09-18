@@ -66,8 +66,7 @@ internal sealed class TmdbAvailabilitySource : IAvailabilitySource
     /// <inheritdoc />
     public async Task<IReadOnlyList<AvailabilityOffer>> GetOffersAsync(AvailabilityQuery query, CancellationToken cancellationToken)
     {
-        if (!query.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var tmdbStr)
-            || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (!query.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {
             return [];
         }

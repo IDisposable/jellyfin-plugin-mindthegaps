@@ -44,6 +44,7 @@
   <ItemGroup>
     <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.report.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.html" />
     <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.settings.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.html" />
+    <EmbeddedResource Include="Web\mindthegaps.webui.js" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.webui.js" />
   </ItemGroup>
 
   <Target Name="BuildDashboard"
