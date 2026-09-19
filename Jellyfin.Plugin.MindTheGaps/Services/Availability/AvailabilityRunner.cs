@@ -38,6 +38,13 @@ public sealed class AvailabilityRunner
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<AvailabilityRunner> _logger;
     private readonly object _lock = new();
+
+    // Memoizes GetPendingTitleCount by the store's generation, the same technique GapStore uses for its own
+    // derived reads: GetSummary calls this on every page load and after every scan/mint/verify/pass, not
+    // just once per actual change to the report. The generation rather than the report reference, since
+    // this pass itself enriches the cached report in place. Lock-free, so no lock is held across the scan.
+    private readonly GenerationMemo<int> _pendingCount = new();
+
     // The run claim is a lock-free flag (0 = idle, 1 = running): TryStart claims it with a single atomic
     // compare-and-set. The remaining status fields stay under _lock so a status read is one consistent
     // snapshot (and _progress is a double, which is not guaranteed atomic without it).
@@ -148,6 +155,17 @@ public sealed class AvailabilityRunner
         }
 
         return targets.Count;
+    }
+
+    /// <summary>
+    /// The memoized sibling of <see cref="PendingTitleCount(GapReport)"/> over the store's current report:
+    /// computed once per report generation and reused across repeated calls.
+    /// </summary>
+    /// <returns>The number of distinct unchecked watch targets in the current report.</returns>
+    public int GetPendingTitleCount()
+    {
+        var (report, generation) = _store.LoadWithGeneration();
+        return _pendingCount.GetOrCompute(generation, () => PendingTitleCount(report));
     }
 
     /// <summary>
@@ -442,8 +460,7 @@ public sealed class AvailabilityRunner
             return;
         }
 
-        if (!gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var tmdbStr)
-            || !int.TryParse(tmdbStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+        if (!gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {
             return;
         }

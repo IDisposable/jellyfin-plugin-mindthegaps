@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// library does not hold. Opt-in and keyless, needing only the username, because OpenLibrary serves a public
 /// reading log as JSON.
 /// </summary>
-internal sealed class OpenLibraryWantToReadGapSource : IGapSource, IDiscoverSource
+internal sealed class OpenLibraryWantToReadGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A want-to-read shelf is a deliberate list, so it is capped generously.
     private const int MaxGaps = 1000;
@@ -45,8 +45,14 @@ internal sealed class OpenLibraryWantToReadGapSource : IGapSource, IDiscoverSour
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Book };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.OpenLibraryWantToRead.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanOpenLibraryWantToRead && !string.IsNullOrWhiteSpace(config.OpenLibraryUsername);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config) => IsEnabled(config);
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(

@@ -475,6 +475,33 @@ function directChild(parent, selector) {
     return null;
 }
 
+// The list loads rows, not whole gaps: what only an opened row shows (its overview, external links and
+// each offer's deeplink) stays on the server until the row is first opened, then is merged into the row's
+// own object so every builder below reads one shape. A failed fetch leaves the row as it was, so its
+// popover still renders (without the links) and the next open tries again.
+function ensureItemDetail(item) {
+    if (item._full) { return Promise.resolve(item); }
+    if (!item._detailPending) {
+        item._detailPending = ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/GapDetail', { id: item.Id }), dataType: 'json' })
+            .then(function (full) {
+                if (full) { Object.assign(item, full); }
+                item._full = true;
+                return item;
+            }, function () {
+                item._detailPending = null;
+                return item;
+            });
+    }
+    return item._detailPending;
+}
+
+// Only the Information popover and the expanded detail always need the detail; the Watch popover needs
+// it only to show deeplinks, and a row with no offers has none to show.
+function popoverNeedsDetail(kind, item) {
+    if (kind === 'info') { return true; }
+    return kind === 'watch' && (item.Availability || []).length > 0;
+}
+
 function populatePopover(page, det) {
     if (!det || !det.classList.contains('cgPop') || !det.hasAttribute('data-pop')) { return; }
     var body = directChild(det, '.cgPopBody');
@@ -482,12 +509,17 @@ function populatePopover(page, det) {
     det.dataset.built = '1';
     var row = det.closest('.cgRow');
     var item = row && findRowItem(page, row.getAttribute('data-gapid'));
-    if (item) {
-        var kind = det.getAttribute('data-pop');
-        if (kind === 'watch') { body.innerHTML = buildWatchPopoverBody(item); }
-        else if (kind === 'info') { body.innerHTML = buildInfoPopoverBody(item); }
-        else if (kind === 'actions') { body.innerHTML = buildActionsPopoverBody(item); }
+    if (!item) { return; }
+    var kind = det.getAttribute('data-pop');
+    var build = kind === 'watch' ? buildWatchPopoverBody
+        : kind === 'info' ? buildInfoPopoverBody
+            : buildActionsPopoverBody;
+    if (!popoverNeedsDetail(kind, item)) {
+        body.innerHTML = build(item);
+        return;
     }
+    body.innerHTML = wrap('div', { style: 'opacity:.7;' }, 'Loading');
+    ensureItemDetail(item).then(function (full) { body.innerHTML = build(full); });
 }
 
 // One item's row: checkbox, a thumbnail, a title (an <h3>, since a row is effectively a heading
@@ -504,6 +536,36 @@ function populatePopover(page, det) {
 // delegated 'toggle'/click handlers near the rest of #cgList's delegation): a report can hold
 // thousands of rows, and most popovers are never opened, so building every body up front would add
 // DOM weight for little benefit.
+// A couple of tiny service icons on the collapsed line, so where a title streams is visible without
+// opening it. They follow the same monetization and provider filters as the rest of the report. Streamable
+// offers (subscription, free, ad-supported) lead, since a rent or buy price is not where it is, and a
+// service offered several ways shows once. The logo comes with the offer when the lookup stored one; an
+// offer without one, or whose logo fails to load, shows the service's initial letter.
+var SERVICE_ICON_LIMIT = 2;
+var OFFER_ORDER = { flatrate: 0, free: 1, ads: 2, rent: 3, buy: 4 };
+
+function serviceIcons(item) {
+    var offers = filterOffers(item.Availability);
+    if (!offers.length) { return ''; }
+    var ranked = offers.map(function (o, i) { return { o: o, i: i, r: OFFER_ORDER[o.MonetizationType] === undefined ? 5 : OFFER_ORDER[o.MonetizationType] }; })
+        .sort(function (a, b) { return a.r - b.r || a.i - b.i; });
+    var seen = {};
+    var services = [];
+    ranked.forEach(function (x) {
+        if (x.o.Provider && !seen[x.o.Provider]) { seen[x.o.Provider] = true; services.push(x.o); }
+    });
+    var shown = services.slice(0, SERVICE_ICON_LIMIT).map(function (o) {
+        return o.LogoUrl
+            ? h('img', { src: o.LogoUrl, alt: o.Provider, title: o.Provider, loading: 'lazy', 'class': 'cgSvc' }).outerHTML
+            : h('span', { 'class': 'cgSvc cgSvcText', title: o.Provider }, o.Provider.charAt(0).toUpperCase()).outerHTML;
+    });
+    var rest = services.slice(SERVICE_ICON_LIMIT);
+    if (rest.length) {
+        shown.push(h('span', { 'class': 'cgSvcMore', title: rest.map(function (o) { return o.Provider; }).join(', ') }, '+' + rest.length).outerHTML);
+    }
+    return wrap('span', { 'class': 'cgSvcs' }, shown.join(''));
+}
+
 function renderRow(item) {
     var res = activeDismissal(item);
 
@@ -532,7 +594,7 @@ function renderRow(item) {
     // overview/watch/recommendation content to show.
     var watchableKind = item.TargetKindName === 'Movie' || item.TargetKindName === 'Series' || item.TargetKindName === 'Episode';
     var compact = !!reportPage()._compact;
-    var hasDetail = !compact || !!item.Overview || watchableKind || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
+    var hasDetail = !compact || !!item.HasOverview || !!item.Overview || watchableKind || (item.PatternName === 'Recommendation' && (item.OtherSources || []).length > 0);
     var overview = hasDetail ? wrap('div', { 'class': 'cgTitleDetail' }, '') : '';
 
     var iconsHtml = wrap('span', { 'class': 'cgIcons' },
@@ -555,6 +617,7 @@ function renderRow(item) {
         + thumb
         + wrap('h3', { 'class': 'cgTitle', tabindex: '0', title: item.Overview || null }, esc(item.Name))
         + wrap('span', { 'class': 'cgMeta' }, metaParts.join(' &middot; '))
+        + serviceIcons(item)
         + iconsHtml
         + overview);
 }
@@ -1503,6 +1566,26 @@ function exportItems(page) {
     return (report.Items || []).filter(function (it) { return it.PatternName === page._pattern && pass(it); });
 }
 
+// The export writes every link and offer, which the list rows do not carry. One request for the tab's
+// full gaps, merged into the rows already held so the on-screen objects stay the ones the export reads.
+function ensureFullForExport(page) {
+    var items = exportItems(page).filter(function (it) { return !it._full; });
+    if (!items.length) { return Promise.resolve(); }
+    var query = { pattern: page._pattern, full: 'true' };
+    if (page._domain) { query.domain = page._domain; }
+    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', query), dataType: 'json' })
+        .then(function (full) {
+            var byId = {};
+            (full.Items || []).forEach(function (g) { byId[g.Id] = g; });
+            items.forEach(function (it) {
+                if (byId[it.Id]) {
+                    Object.assign(it, byId[it.Id]);
+                    it._full = true;
+                }
+            });
+        });
+}
+
 function buildMarkdown(page) {
     var items = exportItems(page);
     // Angle brackets around the URL so encoded filter values cannot break the markdown link.
@@ -2407,6 +2490,20 @@ function pruneOtherDomains(page, keepDomain) {
     });
 }
 
+// What repeats across a tab's rows travels once (Model/GapRowReport.cs): the pattern and domain every
+// row shares, each distinct target kind, and each set's source links. Put them back on the rows, so the
+// rest of the page reads one flat shape whatever the wire did.
+function expandRows(report) {
+    var kinds = report.TargetKinds || [];
+    var linkSets = report.SourceLinkSets || [];
+    (report.Items || []).forEach(function (it) {
+        if (it.PatternName == null) { it.PatternName = report.PatternName; }
+        if (it.DomainName == null) { it.DomainName = report.DomainName; }
+        it.TargetKindName = kinds[it.TargetKindRef];
+        if (it.SourceLinksRef != null) { it.SourceLinks = linkSets[it.SourceLinksRef] || []; }
+    });
+}
+
 // Fetch one domain's (and, once known, one pattern's) items on demand, cached per domain+pattern, so
 // a large report is not shipped whole; the browser only loads the tab and pattern being viewed. Sets
 // page._report to that slice.
@@ -2422,6 +2519,7 @@ function ensureSlice(page, pattern, domain, loadId) {
     return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', query), dataType: 'json' })
         .then(function (report) {
             if (loadId != null && page._loadSeq !== loadId) { throw { stale: true }; }
+            expandRows(report);
             page._slices[key] = report;
             page._report = report;
             // Seed the provider filter from this slice's offers too (a tab not yet loaded when
@@ -3242,6 +3340,18 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
                 Dashboard.alert('Reset failed. Check the server logs.');
             });
     });
+    page.querySelector('#PruneStale').addEventListener('click', function () {
+        if (!window.confirm('Remove gaps from a keyword, company, list, or watchlist you have since removed or turned off?')) { return; }
+        Dashboard.showLoadingMsg();
+        ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/PruneStaleGaps'), dataType: 'json' })
+            .then(function (removed) {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert(removed > 0 ? 'Removed ' + removed + ' stale gap(s).' : 'Nothing to prune; every gap is still in scope.');
+            }, function () {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Prune failed. Check the server logs.');
+            });
+    });
     // Cache the configured region once so the JustWatch and availability links match the
     // availability lookups (which use MetadataCountryCode) rather than the browser language.
     ApiClient.getPluginConfiguration(pluginId).then(function (cfg) {
@@ -3517,7 +3627,14 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             var domainValue = page._domain || '';
             var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
             var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
-            downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
+            Dashboard.showLoadingMsg();
+            ensureFullForExport(page).then(function () {
+                Dashboard.hideLoadingMsg();
+                downloadText('mind-the-gaps-' + parts + '.md', buildMarkdown(page));
+            }, function () {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Could not load the full report for the export. Check the server logs.');
+            });
         };
 
         // Verify exactly what is about to be written, not just the letter on screen.
@@ -3651,9 +3768,24 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (!detailEl || detailEl.dataset.built) { return detailEl; }
         detailEl.dataset.built = '1';
         var item = findRowItem(page, row.getAttribute('data-gapid'));
-        if (item) { detailEl.innerHTML = buildExpandedDetailBody(item); }
+        if (item) {
+            detailEl.innerHTML = wrap('div', { style: 'opacity:.7;' }, 'Loading');
+            ensureItemDetail(item).then(function (full) { detailEl.innerHTML = buildExpandedDetailBody(full); });
+        }
         return detailEl;
     };
+    // The title's native tooltip is the overview, but a list row does not carry it (see ensureItemDetail),
+    // so it is fetched on the first hover and set as the title attribute, which the browser reads when it
+    // decides to show the tooltip, a beat after the pointer settles.
+    page.querySelector('#cgList').addEventListener('mouseover', function (e) {
+        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
+        if (!titleEl || titleEl.hasAttribute('title')) { return; }
+        var item = findRowItem(page, titleEl.closest('.cgRow').getAttribute('data-gapid'));
+        if (!item || !item.HasOverview) { return; }
+        ensureItemDetail(item).then(function (full) {
+            if (full.Overview) { titleEl.setAttribute('title', full.Overview); }
+        });
+    });
     // A row's thumbnail is a best-effort guess for some sources (MusicBrainz's cover art comes from a
     // fixed URL formula keyed by MBID, with no check that art actually exists there), so a broken
     // image is expected occasionally, not a bug: swap it for the plain "no image" placeholder rather
@@ -3661,6 +3793,15 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // capture phase to see it via delegation, the same reason 'toggle' does above.
     page.querySelector('#cgList').addEventListener('error', function (e) {
         var img = e.target;
+        if (img.matches && img.matches('img.cgSvc')) {
+            // A service logo that will not load falls back to the service's initial, like an absent one.
+            var initial = document.createElement('span');
+            initial.className = 'cgSvc cgSvcText';
+            initial.title = img.title;
+            initial.textContent = (img.alt || '?').charAt(0).toUpperCase();
+            img.replaceWith(initial);
+            return;
+        }
         if (!img.matches || !img.matches('img.cgThumb')) { return; }
         var placeholder = document.createElement('span');
         placeholder.className = 'cgThumb cgThumbEmpty';

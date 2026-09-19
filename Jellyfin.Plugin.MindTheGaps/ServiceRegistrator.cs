@@ -24,8 +24,10 @@ using Jellyfin.Plugin.MindTheGaps.Services.Tvdb;
 using Jellyfin.Plugin.MindTheGaps.Services.TvMaze;
 using Jellyfin.Plugin.MindTheGaps.Services.Webhook;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.MindTheGaps;
@@ -44,6 +46,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TodoStore>();
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
+        serviceCollection.AddSingleton<OwnershipIndexBuilder>();
         serviceCollection.AddSingleton<LibraryVerifier>();
         serviceCollection.AddSingleton<ExploreRegistry>();
         serviceCollection.AddSingleton<GapEngine>();
@@ -67,6 +70,10 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
         serviceCollection.AddSingleton<AcquisitionService>();
+        serviceCollection.AddSingleton<PersonMissingService>();
+        serviceCollection.AddSingleton<RelatedMissingService>();
+        serviceCollection.AddSingleton<HomeDiscoverService>();
+        serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 
         // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();

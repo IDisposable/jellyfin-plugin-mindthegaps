@@ -19,24 +19,33 @@
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
-  <UsingTask TaskName="ConcatDashboard" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+  <UsingTask TaskName="BuildDashboard" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Shell ParameterType="System.String" Required="true" />
       <Body ParameterType="System.String" Required="true" />
       <Css ParameterType="System.String" Required="true" />
       <Common ParameterType="System.String" Required="true" />
       <Js ParameterType="System.String" Required="true" />
-      <Output ParameterType="System.String" Required="true" />
+      <OutShell ParameterType="System.String" Required="true" />
+      <OutJs ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
       <Code Type="Fragment" Language="cs"><![CDATA[
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(OutShell));
+        var bundle = "(function () {\n" + System.IO.File.ReadAllText(Common) + "\n" + System.IO.File.ReadAllText(Js) + "\n})();\n";
+        System.IO.File.WriteAllText(OutJs, bundle);
+        var hashOf = new System.Func<string, string>(path =>
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                return System.BitConverter.ToString(sha.ComputeHash(System.IO.File.ReadAllBytes(path))).Replace("-", "").ToLowerInvariant().Substring(0, 16);
+            }
+        });
         var html = System.IO.File.ReadAllText(Shell)
             .Replace("@@MTG_BODY@@", System.IO.File.ReadAllText(Body))
-            .Replace("@@MTG_CSS@@", System.IO.File.ReadAllText(Css))
-            .Replace("@@MTG_COMMON@@", System.IO.File.ReadAllText(Common))
-            .Replace("@@MTG_JS@@", System.IO.File.ReadAllText(Js));
-        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Output));
-        System.IO.File.WriteAllText(Output, html);
+            .Replace("@@MTG_CSS_HASH@@", hashOf(Css))
+            .Replace("@@MTG_JS_HASH@@", hashOf(OutJs));
+        System.IO.File.WriteAllText(OutShell, html);
       ]]></Code>
     </Task>
   </UsingTask>
@@ -44,14 +53,18 @@
   <ItemGroup>
     <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.report.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.html" />
     <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.settings.generated.html" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.html" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.report.bundle.js" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.bundle.js" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)mindthegaps.settings.bundle.js" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.bundle.js" />
+    <EmbeddedResource Include="Web\mindthegaps.css" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.css" />
+    <EmbeddedResource Include="Web\mindthegaps.webui.js" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.webui.js" />
   </ItemGroup>
 
   <Target Name="BuildDashboard"
           BeforeTargets="PrepareResources;BeforeCompile;CoreCompile"
           Inputs="Web\mindthegaps.report.html;Web\mindthegaps.report.body.html;Web\mindthegaps.report.js;Web\mindthegaps.settings.html;Web\mindthegaps.settings.body.html;Web\mindthegaps.settings.js;Web\mindthegaps.css;Web\mindthegaps.common.js"
-          Outputs="$(IntermediateOutputPath)mindthegaps.report.generated.html;$(IntermediateOutputPath)mindthegaps.settings.generated.html">
-    <ConcatDashboard Shell="Web\mindthegaps.report.html" Body="Web\mindthegaps.report.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.report.js" Output="$(IntermediateOutputPath)mindthegaps.report.generated.html" />
-    <ConcatDashboard Shell="Web\mindthegaps.settings.html" Body="Web\mindthegaps.settings.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.settings.js" Output="$(IntermediateOutputPath)mindthegaps.settings.generated.html" />
+          Outputs="$(IntermediateOutputPath)mindthegaps.report.generated.html;$(IntermediateOutputPath)mindthegaps.report.bundle.js;$(IntermediateOutputPath)mindthegaps.settings.generated.html;$(IntermediateOutputPath)mindthegaps.settings.bundle.js">
+    <BuildDashboard Shell="Web\mindthegaps.report.html" Body="Web\mindthegaps.report.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.report.js" OutShell="$(IntermediateOutputPath)mindthegaps.report.generated.html" OutJs="$(IntermediateOutputPath)mindthegaps.report.bundle.js" />
+    <BuildDashboard Shell="Web\mindthegaps.settings.html" Body="Web\mindthegaps.settings.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.settings.js" OutShell="$(IntermediateOutputPath)mindthegaps.settings.generated.html" OutJs="$(IntermediateOutputPath)mindthegaps.settings.bundle.js" />
   </Target>
 
   <ItemGroup>

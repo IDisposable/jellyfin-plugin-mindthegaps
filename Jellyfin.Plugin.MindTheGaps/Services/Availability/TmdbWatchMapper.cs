@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Availability;
 
@@ -46,7 +47,8 @@ internal static class TmdbWatchMapper
                 {
                     Provider = provider.ProviderName,
                     MonetizationType = monetization,
-                    Url = link
+                    Url = link,
+                    LogoUrl = TmdbClient.BuildLogoUrl(provider.LogoPath)
                 });
             }
         }

@@ -8,9 +8,7 @@
 
 <body>
     <div id="MindTheGapsSettingsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-checkbox,emby-linkbutton,paper-icon-button-light">
-        <style>
-            @@MTG_CSS@@
-        </style>
+        <link rel="stylesheet" href="../MindTheGaps/Dashboard/mindthegaps.css?v=@@MTG_CSS_HASH@@" />
         <div data-role="content">
             <div class="content-primary">
                 <div class="sectionTitleContainer flex align-items-center">
@@ -18,14 +16,8 @@
                     <button is="paper-icon-button-light" type="button" id="cgBackToReport" style="margin-left:auto;" title="Back to the gaps report" aria-label="Back to the gaps report">
                         <span class="material-icons" aria-hidden="true">list_alt</span>
                     </button>
-                </div>
-                @@MTG_BODY@@
-                <script type="text/javascript">
-                    (function () {
-                        @@MTG_COMMON@@
-                        @@MTG_JS@@
-                    })();
-                </script>
+                </div> @@MTG_BODY@@
+                <script type="text/javascript" src="../MindTheGaps/Dashboard/settings.js?v=@@MTG_JS_HASH@@"></script>
             </div>
         </div>
     </div>

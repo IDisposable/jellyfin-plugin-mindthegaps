@@ -266,6 +266,36 @@
     font-size: .85em;
 }
 
+/* The streaming services a title is on, a couple of tiny icons on the collapsed line. */
+.cgSvcs {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: .25em;
+}
+
+.cgSvc {
+    width: 1.4em;
+    height: 1.4em;
+    border-radius: 4px;
+    object-fit: cover;
+    flex: none;
+}
+
+.cgSvcText {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #3a3a3a;
+    font-size: .75em;
+    font-weight: 600;
+}
+
+.cgSvcMore {
+    font-size: .8em;
+    opacity: .7;
+}
+
 /* Clicking the title pins the detail open (cgPinned, set by the click handler) until that title
     or another row's is clicked. A plain in-flow block (see .cgRow above for why position:fixed is not
     viable here): flex-basis:100% on this wrapped flex item drops it onto its own full-width line
@@ -309,7 +339,7 @@
     flex-basis: 100%;
 }
 
-.cgPop > summary {
+.cgPop>summary {
     list-style: none;
     display: inline-flex;
     align-items: center;
@@ -322,15 +352,15 @@
     cursor: pointer;
 }
 
-.cgPop > summary::-webkit-details-marker {
+.cgPop>summary::-webkit-details-marker {
     display: none;
 }
 
-.cgPop > summary:hover {
+.cgPop>summary:hover {
     background: rgba(255, 255, 255, .14);
 }
 
-.cgPop > summary .material-icons {
+.cgPop>summary .material-icons {
     font-size: 1.1em;
 }
 
@@ -364,7 +394,7 @@
     each forcing its own line. A stray wrapping <div> from a body-builder shared with the narrower
     .cgPopBody above (buildWatchPopoverBody's offers/button wrapper) is unwrapped so its child tiles
     too, instead of the wrapper forcing a line break on its own. */
-.cgTitleDetail > div {
+.cgTitleDetail>div {
     display: contents;
 }
 
@@ -385,7 +415,7 @@
     margin: .15em .3em .15em 0;
 }
 
-.cgPopNested > summary {
+.cgPopNested>summary {
     display: block;
     box-sizing: border-box;
     width: fit-content;

@@ -108,8 +108,18 @@ jobs:
       # resolves the same way for both projects without relying on a property that does not survive there.
       - name: Test
         run: >
-          dotnet test Jellyfin.Plugin.MindTheGaps.sln
-          -c Release -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
+          dotnet test Jellyfin.Plugin.MindTheGaps.sln -c Release
+          -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
+
+      # A Release build compiles Debug assertions away, and the plugin relies on them: GapStore's AssertLocked
+      # checks the lock contract that its lock-free readers depend on, and the test host turns a failed
+      # assertion into a test failure. Run the suite once in Debug so a violation fails here. One ABI is
+      # enough, since a second would exercise the same code paths.
+      - name: Test (Debug, lock assertions)
+        if: matrix.abi == '12.0'
+        run: >
+          dotnet test Jellyfin.Plugin.MindTheGaps.sln -c Debug
+          -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
 
       - name: Package
         if: github.event_name == 'release'
@@ -169,6 +179,11 @@ jobs:
           PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           pipx install jprm
+
+          # Ensure repo manifests exist
+          [ -f ./manifest-beta.json ] || jprm repo init ./manifest-beta.json
+          [ -f ./manifest.json ] || jprm repo init ./manifest.json
+
           for zip in artifacts/*.zip; do
             url="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/$(basename "$zip")"
             gh release upload "${{ github.event.release.tag_name }}" "$zip" --clobber

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
@@ -327,6 +328,445 @@ public class GapStoreTests
             Assert.Equal(0, store.RemoveGaps(new[] { "nope" }));
             Assert.Equal(0, store.RemoveGaps(Array.Empty<string>()));
             Assert.Same(report, store.Load());
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    private static GapItem Gap(string id, MediaDomain domain) => new() { Id = id, Name = id, Domain = domain };
+
+    [Fact]
+    public void Save_WritesOneFilePerDomainAndNoLegacyMonolith()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                Items = new[] { Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows) }
+            });
+
+            Assert.True(File.Exists(Path.Combine(dir, "gaps-movies.json")));
+            Assert.True(File.Exists(Path.Combine(dir, "gaps-shows.json")));
+            Assert.True(File.Exists(Path.Combine(dir, "gaps-meta.json")));
+            Assert.False(File.Exists(Path.Combine(dir, "gaps-music.json")));
+            Assert.False(File.Exists(Path.Combine(dir, "gaps-books.json")));
+            Assert.False(File.Exists(Path.Combine(dir, "gaps.json")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void Load_ReassemblesOneReportFromTheSplitFiles()
+    {
+        var dir = TempDir();
+        try
+        {
+            var generated = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                GeneratedUtc = generated,
+                GeneratedVersion = "1.2.3.4",
+                Items = new[] { Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows) },
+                SourceRuns = new[] { new SourceRun { Kind = "keyword", Name = "x" } }
+            });
+
+            // A cold load (no in-memory cache) has to read the split files back off disk.
+            var reloaded = Store(dir).Load();
+
+            Assert.Equal(generated, reloaded.GeneratedUtc);
+            Assert.Equal("1.2.3.4", reloaded.GeneratedVersion);
+            Assert.Equal(2, reloaded.Items.Count);
+            Assert.Contains(reloaded.Items, i => i.Id == "m1");
+            Assert.Contains(reloaded.Items, i => i.Id == "s1");
+            Assert.Single(reloaded.SourceRuns);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void Load_StillReadsALegacySingleFileReportAndSupersedesItOnTheNextSave()
+    {
+        var dir = TempDir();
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var legacy = new GapReport { TotalGaps = 1, Items = new[] { Gap("legacy", MediaDomain.Movies) } };
+            File.WriteAllText(Path.Combine(dir, "gaps.json"), JsonSerializer.Serialize(legacy));
+
+            var store = Store(dir);
+            var loaded = store.Load();
+            Assert.Single(loaded.Items);
+            Assert.Equal("legacy", loaded.Items[0].Id);
+
+            store.Save(new GapReport { Items = new[] { Gap("fresh", MediaDomain.Movies) } });
+
+            Assert.False(File.Exists(Path.Combine(dir, "gaps.json")));
+            var reloaded = Store(dir).Load();
+            Assert.Single(reloaded.Items);
+            Assert.Equal("fresh", reloaded.Items[0].Id);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void RemoveGaps_TouchingOnlyOneDomain_LeavesTheOtherDomainsFileByteIdentical()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                Items = new[] { Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows) }
+            });
+
+            var showsPath = Path.Combine(dir, "gaps-shows.json");
+            var showsBefore = File.ReadAllText(showsPath);
+
+            store.RemoveGaps(new[] { "m1" });
+
+            Assert.Equal(showsBefore, File.ReadAllText(showsPath));
+            // "m1" was the only item in Movies, so removing it empties (and deletes) that domain's file.
+            Assert.False(File.Exists(Path.Combine(dir, "gaps-movies.json")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void RemoveGaps_DroppingTheLastItemInADomain_DeletesThatDomainsFile()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("s1", MediaDomain.Shows) } });
+            Assert.True(File.Exists(Path.Combine(dir, "gaps-shows.json")));
+
+            store.RemoveGaps(new[] { "s1" });
+
+            Assert.False(File.Exists(Path.Combine(dir, "gaps-shows.json")));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData(nameof(TestPartialUpdateKind.RemoveGaps))]
+    [InlineData(nameof(TestPartialUpdateKind.ReplaceSourceGaps))]
+    [InlineData(nameof(TestPartialUpdateKind.MergeAdditiveGaps))]
+    [InlineData(nameof(TestPartialUpdateKind.RemoveAdhocGaps))]
+    public void PartialUpdates_CarrySourceRunsForward(string kind)
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var runs = new[] { new SourceRun { Kind = "keyword", Name = "unlikely hero" } };
+            store.Save(new GapReport
+            {
+                Items = new[] { Gap("a", MediaDomain.Movies) },
+                SourceRuns = runs
+            });
+
+            switch (Enum.Parse<TestPartialUpdateKind>(kind))
+            {
+                case TestPartialUpdateKind.RemoveGaps:
+                    store.RemoveGaps(new[] { "a" });
+                    break;
+                case TestPartialUpdateKind.ReplaceSourceGaps:
+                    store.ReplaceSourceGaps("owner", new[] { "collection:" }, new GapReport { Items = Array.Empty<GapItem>() });
+                    break;
+                case TestPartialUpdateKind.MergeAdditiveGaps:
+                    store.MergeAdditiveGaps(new GapReport { Items = new[] { Gap("b", MediaDomain.Movies) } });
+                    break;
+                case TestPartialUpdateKind.RemoveAdhocGaps:
+                    store.RemoveAdhocGaps(null);
+                    break;
+            }
+
+            Assert.Single(store.Load().SourceRuns);
+            Assert.Equal("unlikely hero", store.Load().SourceRuns[0].Name);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    private enum TestPartialUpdateKind
+    {
+        RemoveGaps,
+        ReplaceSourceGaps,
+        MergeAdditiveGaps,
+        RemoveAdhocGaps
+    }
+
+    [Fact]
+    public void LoadSnapshot_CarriesSourceRunsForward()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                Items = new[] { Gap("a", MediaDomain.Movies) },
+                SourceRuns = new[] { new SourceRun { Kind = "keyword", Name = "unlikely hero" } }
+            });
+
+            var snapshot = store.LoadSnapshot();
+
+            Assert.Single(snapshot.SourceRuns);
+            Assert.Equal("unlikely hero", snapshot.SourceRuns[0].Name);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LoadDomainSnapshot_ReturnsOnlyThatDomainsItems()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                Items = new[] { Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows), Gap("s2", MediaDomain.Shows) }
+            });
+
+            var movies = store.LoadDomainSnapshot(MediaDomain.Movies);
+            var shows = store.LoadDomainSnapshot(MediaDomain.Shows);
+            var books = store.LoadDomainSnapshot(MediaDomain.Books);
+
+            Assert.Single(movies.Items);
+            Assert.Equal("m1", movies.Items[0].Id);
+            Assert.Equal(2, shows.Items.Count);
+            Assert.Empty(books.Items);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LoadDomainSnapshot_CarriesMetaFieldsAlongside()
+    {
+        var dir = TempDir();
+        try
+        {
+            var generated = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            var store = Store(dir);
+            store.Save(new GapReport
+            {
+                GeneratedUtc = generated,
+                GeneratedVersion = "1.2.3.4",
+                Items = new[] { Gap("m1", MediaDomain.Movies) },
+                SourceRuns = new[] { new SourceRun { Kind = "keyword", Name = "x" } }
+            });
+
+            var snapshot = store.LoadDomainSnapshot(MediaDomain.Movies);
+
+            Assert.Equal(generated, snapshot.GeneratedUtc);
+            Assert.Equal("1.2.3.4", snapshot.GeneratedVersion);
+            Assert.Single(snapshot.SourceRuns);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LoadDomainSnapshot_ReflectsAScanThatReplacedTheReport()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("m1", MediaDomain.Movies) } });
+            Assert.Single(store.LoadDomainSnapshot(MediaDomain.Movies).Items);
+
+            // A fresh scan replaces the whole report; the domain index must not still answer from the
+            // previous generation just because it was already built once.
+            store.Save(new GapReport { Items = new[] { Gap("m2", MediaDomain.Movies), Gap("m3", MediaDomain.Movies) } });
+
+            var movies = store.LoadDomainSnapshot(MediaDomain.Movies);
+            Assert.Equal(2, movies.Items.Count);
+            Assert.DoesNotContain(movies.Items, i => i.Id == "m1");
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetSummaryFacts_CountsPerDomainAndPatternAndCollectsProviders()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var movieGap = Gap("m1", MediaDomain.Movies);
+            movieGap.Pattern = GapPattern.SetCompletion;
+            movieGap.Availability = new[] { new AvailabilityOffer { Provider = "Netflix" } };
+            var showGap = Gap("s1", MediaDomain.Shows);
+            showGap.Pattern = GapPattern.Recommendation;
+            showGap.Availability = new[] { new AvailabilityOffer { Provider = "Hulu" }, new AvailabilityOffer { Provider = string.Empty } };
+            store.Save(new GapReport { Items = new[] { movieGap, showGap } });
+
+            var (counts, providers) = store.GetSummaryFacts();
+
+            Assert.Equal(1, counts["Movies"]["SetCompletion"]);
+            Assert.Equal(1, counts["Shows"]["Recommendation"]);
+            Assert.Equal(new[] { "Hulu", "Netflix" }, providers);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetSummaryFacts_RecomputesAfterTheReportChangesButNotBeforeThen()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("m1", MediaDomain.Movies) } });
+
+            var first = store.GetSummaryFacts();
+            var second = store.GetSummaryFacts();
+            Assert.Same(first.DomainPatternCounts, second.DomainPatternCounts);
+
+            store.Save(new GapReport { Items = new[] { Gap("m1", MediaDomain.Movies), Gap("m2", MediaDomain.Movies) } });
+            var third = store.GetSummaryFacts();
+
+            Assert.NotSame(first.DomainPatternCounts, third.DomainPatternCounts);
+            Assert.Equal(2, third.DomainPatternCounts["Movies"]["SetCompletion"]);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetValidator_TagChangesOnlyWhenTheReportDoes()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("a"), Gap("b") } });
+
+            var first = store.GetValidator();
+            Assert.Equal(first.Tag, store.GetValidator().Tag);
+
+            store.RemoveGaps(new[] { "a" });
+
+            Assert.NotEqual(first.Tag, store.GetValidator().Tag);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetValidator_AnInPlaceAvailabilityMergeChangesTheTagAndTheSummaryFacts()
+    {
+        // A scan replaced the report while the pass was enriching an older copy of it, so the pass's
+        // results are folded into the cached report without replacing it. Anything derived from the report
+        // by reference would miss that; the tag and the summary's provider names must not.
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("g1") } });
+            var before = store.GetValidator().Tag;
+            Assert.Empty(store.GetSummaryFacts().Providers);
+
+            var enriched = Gap("g1");
+            enriched.AvailabilityChecked = true;
+            enriched.Availability = new[] { new AvailabilityOffer { Provider = "Netflix" } };
+            store.SaveAvailabilityMerge(new GapReport { Items = new[] { enriched } }, throttle: false);
+
+            Assert.NotEqual(before, store.GetValidator().Tag);
+            Assert.Equal(new[] { "Netflix" }, store.GetSummaryFacts().Providers);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LoadWithGeneration_PairsTheReportWithItsGeneration()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var first = new GapReport { Items = new[] { Gap("a") } };
+            store.Save(first);
+
+            var one = store.LoadWithGeneration();
+            Assert.Same(first, one.Report);
+            Assert.Equal(one.Generation, store.LoadWithGeneration().Generation);
+
+            var second = new GapReport { Items = new[] { Gap("a"), Gap("b") } };
+            store.Save(second);
+
+            var two = store.LoadWithGeneration();
+            Assert.Same(second, two.Report);
+            Assert.NotEqual(one.Generation, two.Generation);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetValidator_AfterAReloadIsDatedByTheScanThatProducedTheReport()
+    {
+        var dir = TempDir();
+        try
+        {
+            var scanned = new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+            Store(dir).Save(new GapReport { GeneratedUtc = scanned, Items = new[] { Gap("a") } });
+
+            var reloaded = Store(dir);
+            Assert.Equal(DateTime.MinValue, reloaded.GetValidator().LastChangedUtc);
+
+            reloaded.Load();
+
+            Assert.Equal(scanned, reloaded.GetValidator().LastChangedUtc);
         }
         finally
         {

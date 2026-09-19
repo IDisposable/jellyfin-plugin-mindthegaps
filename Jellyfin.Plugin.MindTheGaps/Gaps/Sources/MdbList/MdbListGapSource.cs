@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 /// by the TMDB/IMDb ids the list already carries. Opt-in: needs a Discover toggle, an MDBList API key, and
 /// at least one chosen list.
 /// </summary>
-internal sealed class MdbListGapSource : IGapSource, IDiscoverSource, IExploreSource
+internal sealed class MdbListGapSource : IGapSource, IDiscoverSource, IExploreSource, IConfiguredScopeSource
 {
     // Cap a single list so a huge community list does not flood the discovery feed.
     private const int MaxGapsPerList = 200;
@@ -65,10 +66,18 @@ internal sealed class MdbListGapSource : IGapSource, IDiscoverSource, IExploreSo
     public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.MdbList.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanMdbList
             && !string.IsNullOrWhiteSpace(config.MdbListApiKey)
             && ConfigIds.ParseInts(config.MdbListListIds).Count > 0;
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+        => config.ScanMdbList
+            && ConfigIds.ParseInts(config.MdbListListIds).Any(id => string.Equals(GapSourceKeys.MdbList.Owner(id), item.SourceItemId, StringComparison.Ordinal));
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(

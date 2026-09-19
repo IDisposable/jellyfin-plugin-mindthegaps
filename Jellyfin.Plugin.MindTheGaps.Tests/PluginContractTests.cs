@@ -13,6 +13,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 public class PluginContractTests
 {
     private const string SettingsHtml = "Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.html";
+    private const string SettingsBundle = "Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.settings.bundle.js";
 
     // Config the settings form deliberately does not own an input for. Each is still saved, just not from a
     // plain field, so the cross-check below has to be told about it rather than silently allowing gaps.
@@ -62,7 +63,8 @@ public class PluginContractTests
     {
         // Adding a property to PluginConfiguration and forgetting one of the three places it has to appear
         // (the input, the load half, the save half) leaves a setting that silently resets on every save.
-        var page = Read(SettingsHtml);
+        // The inputs are in the page's markup, and the load and save halves are in its script bundle.
+        var page = Read(SettingsHtml) + Read(SettingsBundle);
         var missing = new List<string>();
 
         foreach (var name in SettableConfigProperties())

@@ -25,7 +25,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Imdb;
 /// There is no explore chip for this source. An explore id is an <see cref="int"/>, and an IMDb id is a
 /// zero-padded string ("ls055576446"), so a round trip through an int would quietly address a different list.
 /// </remarks>
-internal sealed class ImdbListGapSource : IGapSource, IDiscoverSource
+internal sealed class ImdbListGapSource : IGapSource, IDiscoverSource, IConfiguredScopeSource
 {
     // A watchlist is a want-list rather than a feed, so it is capped well above the 200 a community list gets:
     // truncating what someone deliberately marked is worse than a long tab.
@@ -55,8 +55,16 @@ internal sealed class ImdbListGapSource : IGapSource, IDiscoverSource
     public IReadOnlyCollection<BaseItemKind> OwnedKinds { get; } = new[] { BaseItemKind.Movie, BaseItemKind.Series };
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.ImdbList.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => config.ScanImdbLists && ImdbListInput.ParseIds(config.ImdbListIds).Count > 0;
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+        => config.ScanImdbLists
+            && ImdbListInput.ParseIds(config.ImdbListIds).Any(id => string.Equals(GapSourceKeys.ImdbList.Owner(id), item.SourceItemId, StringComparison.Ordinal));
 
     /// <inheritdoc />
     public IAsyncEnumerable<GapItem> FindGapsAsync(

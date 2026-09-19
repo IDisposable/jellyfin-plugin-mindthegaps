@@ -140,7 +140,7 @@ public class VocabularyTests
     private static string DashboardScript()
     {
         var assembly = typeof(Plugin).Assembly;
-        using var stream = assembly.GetManifestResourceStream("Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.html")
+        using var stream = assembly.GetManifestResourceStream("Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.report.bundle.js")
             ?? throw new InvalidOperationException("Report page resource not found.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();

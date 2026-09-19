@@ -24,4 +24,9 @@ public class AvailabilityOffer
     /// Gets or sets a deep-link/web URL to the offer.
     /// </summary>
     public string? Url { get; set; }
+
+    /// <summary>
+    /// Gets or sets the URL of the provider logo, when the source supplies one, for the report's service icons.
+    /// </summary>
+    public string? LogoUrl { get; set; }
 }

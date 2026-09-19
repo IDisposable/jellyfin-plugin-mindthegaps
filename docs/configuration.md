@@ -189,7 +189,7 @@ These bound how much each scan produces, so one prolific show or a huge cast doe
 | **Max related per item** (`MaxRelatedPerItem`) | 20 | Caps how many "similar" titles each owned item contributes to recommendations. |
 | **Recommendations: minimum TMDB votes** (`MinRecommendationVotes`) | 100 | A recommended ("similar") title must have at least this many TMDB votes to surface, trimming the obscure long tail of the discovery feed. `0` shows everything; raise it (e.g. 500 or 1000) to keep only well-known suggestions. |
 | **Person page: minimum TMDB votes** (`PersonPageMinVotes`) | 0 | Hides a movie credit on a filmography scan with fewer TMDB votes than this. `0` shows every credit. Kept separate from the recommendations floor above and from **Filmography: minimum TMDB votes** below, because a TV credit carries no vote count and would otherwise be hidden by a floor meant for movies. |
-| **Person page: minimum episodes for a show** (`PersonPageMinEpisodes`) | 0 | Hides a TV acting credit spanning fewer episodes than this. One-episode credits are guest spots and talk-show appearances; `2` keeps recurring roles. `0` shows every credit. |
+| **Person page: minimum episodes for a show** (`PersonPageMinEpisodes`) | 2 | Hides a TV acting credit spanning fewer episodes than this. One-episode credits are guest spots and talk-show appearances; `2` keeps recurring roles. `0` shows every credit. |
 | **Max missing episodes per show** (`MaxMissingEpisodesPerShow`) | 200 | Caps missing episodes listed per show. `0` lists them all. |
 | **Max creators scanned per run** (`MaxFilmographyPeople`) | 1000 | Caps how many owned people have their filmography scanned per run. People are scanned stalest-first (never-scanned first, then longest-ago), so a lower cap still eventually covers everyone over successive runs; raise it to cover a large cast/crew faster (each person is one cached TMDB lookup). |
 | **Filmography: minimum TMDB votes** (`MinFilmographyVotes`) | 100 | A cast credit must have at least this many TMDB votes to surface as a Creator works gap, which keeps the list actionable on a large library by dropping obscure and unreleased films. `0` shows everything; raise it (e.g. 500 or 1000) to trim to only well-known films. Directing/writing credits are always shown (TMDB's filmography crew carries no vote count). |
@@ -200,6 +200,47 @@ fresh coverage cycle, treating everything as never-scanned. It does not delete a
 You rarely need it: each scan automatically prunes rotation entries for items that have left the
 library, so the table stays the size of the library on its own. Use it after raising a cap, or if you
 suspect the rotation is stuck.
+
+**Prune stale gaps** (button, in the report page's Maintenance section). Removes the gaps left behind by a
+source you have since taken out of the settings: a keyword or company id you deleted, a list you dropped,
+or a whole source you turned off, such as the Trakt watchlist. It only reads your settings and makes no
+network call. Every scan does the same thing automatically, so the button is for cleaning up right after an
+edit without waiting for the next scan. Sources that rotate through your library (creators, series
+content, recommendations) are not pruned this way.
+
+## Web UI (experimental)
+
+Off by default. Adds sections to Jellyfin Web's own pages, and serves the data behind them from the
+plugin's API.
+
+| Setting | Default | Effect |
+|---|---|---|
+| **Show the surfaces in Jellyfin Web** (`WebUiEnabled`) | Off | Adds the client script to Jellyfin Web at request time (it has no plugin hook), so the surfaces you turn on below appear on its pages. Takes effect on the next full page load. It does not affect whether a surface's data is served. |
+| **Person pages** (`PersonPageEnabled`) | Off | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own. See **Person page** under [Limits](#limits) to trim what counts as a credit. |
+| **Movie/series pages** (`ItemPageEnabled`) | Off | A "More like this you don't have" row on an owned title's page, from TMDB's recommendations for it. Uses **Max related per item** and **Recommendations: minimum TMDB votes** under [Limits](#limits). |
+| **Home screen** (`HomeRowEnabled`) | Off | A "Discover: not in your library" row from the recommendation gaps the last scan accumulated, ranked by how many owned titles suggest each one, then by TMDB popularity. It reads the report, so it makes no TMDB call when the home page loads. |
+| **Home Discover row: max titles** (`HomeRowSize`) | 20 | The most titles the row shows (1 to 100). |
+
+Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, and a trailer link. An
+administrator can **Send** the title to Radarr or Sonarr from it, choosing the quality profile, or add it to
+the TODO list. The dialog and the card grids work from a keyboard or a TV remote.
+
+### The data is an API
+
+Each surface's data is served by the plugin whether or not the script is added, so another client can use it:
+
+- `GET MindTheGaps/Person/{personId}/Missing`, `GET MindTheGaps/Item/{itemId}/Related` and `GET
+  MindTheGaps/Home/Discover`, each answering 404 until its own toggle is on.
+- `GET MindTheGaps/WebUi/Detail?tmdbId=&kind=` (`kind` is `Movie` or `Series`), a proxied TMDB lookup for a
+  title, always available.
+- Sending or adding to the TODO list (`POST .../Send`, `POST .../Todo`) and `GET MindTheGaps/WebUi/Profiles`
+  are administrators only.
+
+All the reads are open to any signed-in user, and the shapes are experimental and may change. What the
+reads do not do yet: they are not filtered by the caller's library access or parental rating (a title is
+listed if the library does not hold it, for everyone), and the Discover row draws on every recommendation
+gap in the report, including titles that came from your personal lists. Keep both in mind before turning a
+surface on for a server with restricted accounts. See [ADR-0019](adr/0019-web-ui-surfaces-are-an-api.md).
 
 ## Virtual items
 

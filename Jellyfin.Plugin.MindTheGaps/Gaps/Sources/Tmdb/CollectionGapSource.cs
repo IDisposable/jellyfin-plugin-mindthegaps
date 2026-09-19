@@ -106,8 +106,7 @@ internal sealed class CollectionGapSource : IGapSource, ISetContentSource
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!owner.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
-            || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var collectionId))
+        if (!owner.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var collectionId))
         {
             // No TMDB id to diff against: undetermined, not "complete".
             return null;

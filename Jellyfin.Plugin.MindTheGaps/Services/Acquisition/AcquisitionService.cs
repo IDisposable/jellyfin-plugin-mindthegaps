@@ -100,9 +100,11 @@ public sealed class AcquisitionService
     /// </summary>
     /// <param name="gap">The gap to send.</param>
     /// <param name="config">The plugin configuration.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile for this one send
+    /// (from the web UI's per-title picker), or null to use the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome.</returns>
-    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, CancellationToken cancellationToken)
+    public async Task<AcquisitionResult> SendToArrAsync(GapItem gap, PluginConfiguration config, int? qualityProfileId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(gap);
         ArgumentNullException.ThrowIfNull(config);
@@ -125,7 +127,7 @@ public sealed class AcquisitionService
             {
                 ["title"] = gap.Name,
                 ["tmdbId"] = tmdbId.Value,
-                ["qualityProfileId"] = config.RadarrQualityProfileId,
+                ["qualityProfileId"] = qualityProfileId ?? config.RadarrQualityProfileId,
                 ["rootFolderPath"] = config.RadarrRootFolderPath,
                 ["monitored"] = true,
                 ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal) { ["searchForMovie"] = true }
@@ -151,7 +153,7 @@ public sealed class AcquisitionService
         {
             ["title"] = seriesTitle,
             ["tvdbId"] = tvdbId.Value,
-            ["qualityProfileId"] = config.SonarrQualityProfileId,
+            ["qualityProfileId"] = qualityProfileId ?? config.SonarrQualityProfileId,
             ["rootFolderPath"] = config.SonarrRootFolderPath,
             ["monitored"] = true,
             ["addOptions"] = new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -198,6 +200,66 @@ public sealed class AcquisitionService
     }
 
     /// <summary>
+    /// Lists Radarr's configured quality profiles, for the web UI's per-title picker.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, or empty when Radarr is not configured or could not be reached.</returns>
+    public Task<IReadOnlyList<QualityProfileChoice>> GetRadarrQualityProfilesAsync(PluginConfiguration config, CancellationToken cancellationToken)
+        => RadarrConfigured(config)
+            ? GetQualityProfilesAsync(config.RadarrUrl, config.RadarrApiKey, "Radarr", cancellationToken)
+            : Task.FromResult<IReadOnlyList<QualityProfileChoice>>([]);
+
+    /// <summary>
+    /// Lists Sonarr's configured quality profiles, for the web UI's per-title picker.
+    /// </summary>
+    /// <param name="config">The plugin configuration.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, or empty when Sonarr is not configured or could not be reached.</returns>
+    public Task<IReadOnlyList<QualityProfileChoice>> GetSonarrQualityProfilesAsync(PluginConfiguration config, CancellationToken cancellationToken)
+        => SonarrConfigured(config)
+            ? GetQualityProfilesAsync(config.SonarrUrl, config.SonarrApiKey, "Sonarr", cancellationToken)
+            : Task.FromResult<IReadOnlyList<QualityProfileChoice>>([]);
+
+    private async Task<IReadOnlyList<QualityProfileChoice>> GetQualityProfilesAsync(string baseUrl, string apiKey, string service, CancellationToken cancellationToken)
+    {
+        var url = baseUrl.TrimEnd('/') + "/api/v3/qualityprofile";
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal)
+                && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)))
+        {
+            return [];
+        }
+
+        var logUrl = LogSafe.Redact(uri.ToString());
+        try
+        {
+            var client = _httpClientFactory.CreateClient(NamedClient.Default);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
+            using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("{Service}: {Status} from GET {Url}", service, (int)response.StatusCode, logUrl);
+                return [];
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var profiles = JsonSerializer.Deserialize<List<QualityProfileChoice>>(body, _jsonOptions);
+            return profiles ?? [];
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Service} quality profile list failed for GET {Url}", service, logUrl);
+            return [];
+        }
+    }
+
+    /// <summary>
     /// The series title Sonarr is given. A whole-series gap (a filmography, recommendation, or favorites
     /// entry) is the series itself, so its own name; an episode or season gap belongs to the owned series
     /// named in its source, so use that name.
@@ -213,22 +275,13 @@ public sealed class AcquisitionService
     // The movie/series TMDB id: a movie gap carries it in ProviderIds; an episode/series gap carries the
     // owning series' id in WatchTmdbId (the same id the availability lookup uses).
     private static int? ResolveTmdbId(GapItem gap)
-        => ParseId(GetProviderId(gap, ProviderIds.Tmdb)) ?? ParseId(gap.WatchTmdbId);
-
-    private static int? ParseId(string? raw)
-        => int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
-
-    private static string? GetProviderId(GapItem gap, string key)
     {
-        foreach (var pair in gap.ProviderIds)
+        if (gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var id))
         {
-            if (string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
-            {
-                return pair.Value;
-            }
+            return id;
         }
 
-        return null;
+        return gap.WatchTmdbId.TryParseProviderId(out var watchId) ? watchId : null;
     }
 
     private async Task<AcquisitionResult> PostAsync(string baseUrl, string path, string apiKey, IReadOnlyDictionary<string, object?> payload, string service, string successMessage, CancellationToken cancellationToken)
@@ -297,14 +350,12 @@ public sealed class AcquisitionService
         if (Guid.TryParse(gap.SourceItemId, out var seriesId) && seriesId != Guid.Empty)
         {
             var series = _libraryManager.GetItemById(seriesId);
-            if (series is not null
-                && series.TryGetProviderId(ProviderIds.Tvdb, out var tvdb)
-                && ParseId(tvdb) is int fromLibrary)
+            if (series is not null && series.TryGetProviderIdAsInt(ProviderIds.Tvdb, out var fromLibrary))
             {
                 return fromLibrary;
             }
         }
 
-        return ParseId(GetProviderId(gap, ProviderIds.Tvdb));
+        return gap.ProviderIds.TryGetProviderIdAsInt(ProviderIds.Tvdb, out var fromGap) ? fromGap : null;
     }
 }

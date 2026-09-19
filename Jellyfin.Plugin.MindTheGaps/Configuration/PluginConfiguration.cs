@@ -60,6 +60,11 @@ public class PluginConfiguration : BasePluginConfiguration
         AvailabilityCacheHours = 24;
         MaxRelatedPerItem = 20;
         MinRecommendationVotes = 100;
+        WebUiEnabled = false;
+        PersonPageEnabled = false;
+        ItemPageEnabled = false;
+        HomeRowEnabled = false;
+        HomeRowSize = 20;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
         MaxMissingEpisodesPerShow = 200;
@@ -405,6 +410,42 @@ public class PluginConfiguration : BasePluginConfiguration
     /// surfaces). Raise it to keep only well-known suggestions.
     /// </summary>
     public int MinRecommendationVotes { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the client script is added to jellyfin-web, which is what
+    /// draws the web UI surfaces (sections on its own person, movie/series, and home pages, as opposed to this
+    /// plugin's own Report/Settings pages). It governs only the script. Each surface's data endpoint is
+    /// governed by its own toggle (<see cref="PersonPageEnabled"/> and the two after it), so another client
+    /// can use a surface without the script.
+    /// </summary>
+    public bool WebUiEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a library person's page shows a "Missing from your library"
+    /// section for their unowned filmography. When on, the data is served to any signed-in user.
+    /// </summary>
+    public bool PersonPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether an owned movie or series page shows a "More like this you
+    /// don't have" row of TMDB's recommendations for it. When on, the data is served to every signed-in
+    /// user. Uses the same <see cref="MaxRelatedPerItem"/>/<see cref="MinRecommendationVotes"/> limits the
+    /// scan's own recommendations source does.
+    /// </summary>
+    public bool ItemPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the home screen shows a "Discover: not in your library" row
+    /// of the recommendation gaps the scan has accumulated. When on, the data is served to every signed-in
+    /// user. Unlike the person and item pages, this reads the scanned report rather than calling TMDB on
+    /// demand.
+    /// </summary>
+    public bool HomeRowEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most titles the home Discover row shows.
+    /// </summary>
+    public int HomeRowSize { get; set; }
 
     /// <summary>
     /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows

@@ -108,6 +108,12 @@
             <div class="fieldDescription">Forgets which items were scanned recently, so the next scan starts a fresh coverage cycle treating everything as never-scanned. Does not delete any gaps or dismissals. Stale entries for items that left the library are pruned automatically, so you rarely need
                 this.</div>
         </div>
+        <div style="margin: 0.5em 0;">
+            <button id="PruneStale" is="emby-button" type="button" class="raised emby-button">
+                <span>Prune stale gaps</span>
+            </button>
+            <div class="fieldDescription">Removes gaps from a keyword, company, TMDB list, or personal watchlist/wantlist you have since removed or turned off. The next scan does this automatically; use this to clean up right away after a config change instead of waiting for one.</div>
+        </div>
     </div>
     <div class="verticalSection">
         <h2 class="sectionTitle">Virtual items</h2>

@@ -17,7 +17,9 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 
 /// <summary>
-/// Discovery source: surfaces TMDB "similar" movies/series for owned titles that aren't in the library.
+/// Discovery source: surfaces TMDB's recommendations (what its users who liked an owned title also liked)
+/// for owned movies/series that aren't in the library. TMDB's "similar" endpoint, which matches on keywords
+/// and genres, was tried first and returns obscure titles for well-known films; recommendations do not.
 /// Opt-in (off by default) since it can produce a lot of suggestions.
 /// </summary>
 internal sealed class RecommendationsGapSource : IGapSource
@@ -111,27 +113,26 @@ internal sealed class RecommendationsGapSource : IGapSource
             var (item, isMovie, key) = seeds[index];
             scannedKeys.Add(key);
 
-            if (!item.TryGetProviderId(ProviderIds.Tmdb, out var idStr)
-                || !int.TryParse(idStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
+            if (!item.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
             {
                 continue;
             }
 
             if (isMovie)
             {
-                (IReadOnlyList<TMDbLib.Objects.Search.SearchMovie> Results, int TotalPages) similar;
+                IReadOnlyList<TMDbLib.Objects.Search.SearchMovie> recommended;
                 try
                 {
-                    similar = await _tmdb.GetMovieSimilarPageAsync(tmdbId, 1, language, cancellationToken).ConfigureAwait(false);
+                    recommended = await _tmdb.GetMovieRecommendationsAsync(tmdbId, language, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Recommendations: failed to fetch similar movies for {Id}", tmdbId);
+                    _logger.LogWarning(ex, "Recommendations: failed to fetch recommended movies for {Id}", tmdbId);
                     continue;
                 }
 
                 foreach (var gap in RecommendationGapMapper.BuildMovies(
-                    similar.Results,
+                    recommended,
                     key,
                     item.Name,
                     item.ProductionYear,
@@ -145,19 +146,19 @@ internal sealed class RecommendationsGapSource : IGapSource
             }
             else
             {
-                (IReadOnlyList<TMDbLib.Objects.Search.SearchTv> Results, int TotalPages) similar;
+                IReadOnlyList<TMDbLib.Objects.Search.SearchTv> recommended;
                 try
                 {
-                    similar = await _tmdb.GetSeriesSimilarPageAsync(tmdbId, 1, language, cancellationToken).ConfigureAwait(false);
+                    recommended = await _tmdb.GetSeriesRecommendationsAsync(tmdbId, language, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Recommendations: failed to fetch similar series for {Id}", tmdbId);
+                    _logger.LogWarning(ex, "Recommendations: failed to fetch recommended series for {Id}", tmdbId);
                     continue;
                 }
 
                 foreach (var gap in RecommendationGapMapper.BuildSeries(
-                    similar.Results,
+                    recommended,
                     key,
                     item.Name,
                     item.ProductionYear,

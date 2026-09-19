@@ -49,11 +49,13 @@ test('hovering the title does not reveal the detail', async ({ page }) => {
     await expect(row.locator('.cgTitleDetail')).toBeHidden();
 });
 
-test('the title carries a native title= tooltip with the overview, for a zero-click hint', async ({ page }) => {
+test('the title gets a native title= tooltip with the overview once hovered, for a zero-click hint', async ({ page }) => {
     await setup(page);
     const row = page.locator('.cgRow').filter({ hasText: "Breakfast at Tiffany's" });
-    const title = await row.locator('.cgTitle').getAttribute('title');
-    expect(title).toBe('A young New York socialite falls for her new neighbor.');
+    // The list row does not carry the overview, so there is nothing to show until the first hover.
+    await expect(row.locator('.cgTitle')).not.toHaveAttribute('title', /.+/);
+    await row.locator('.cgTitle').dispatchEvent('mouseover', { bubbles: true });
+    await expect(row.locator('.cgTitle')).toHaveAttribute('title', 'A young New York socialite falls for her new neighbor.');
 });
 
 test.describe('non-compact (spacious) view', () => {

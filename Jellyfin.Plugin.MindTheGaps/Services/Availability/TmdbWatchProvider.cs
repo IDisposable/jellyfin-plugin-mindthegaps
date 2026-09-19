@@ -10,4 +10,7 @@ internal class TmdbWatchProvider
 
     /// <summary>Gets or sets the TMDB provider id.</summary>
     public int ProviderId { get; set; }
+
+    /// <summary>Gets or sets the relative path of the provider logo.</summary>
+    public string? LogoPath { get; set; }
 }

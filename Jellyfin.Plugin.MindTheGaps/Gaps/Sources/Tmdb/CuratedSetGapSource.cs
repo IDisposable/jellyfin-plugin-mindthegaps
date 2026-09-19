@@ -22,7 +22,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 /// company) or tagged with a keyword. Tracks the studios/keywords the user configures (by TMDB id) and
 /// surfaces the ones the library does not own, grouped by the set's name. Opt-in (off by default).
 /// </summary>
-internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExploreSource
+internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExploreSource, IConfiguredScopeSource
 {
     // 20 results per discover page; cap pages and emitted gaps so a broad studio does not flood the list.
     private const int MaxPagesPerSet = 10;
@@ -93,12 +93,67 @@ internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExplor
     public IReadOnlyCollection<ExploreDescriptor> ExploreDescriptors => _exploreDescriptors;
 
     /// <inheritdoc />
+    public string GapIdPrefix => GapSourceKeys.Curated.GapPrefix;
+
+    /// <inheritdoc />
     public bool IsEnabled(PluginConfiguration config)
         => (config.ScanCuratedSets
                 && (ConfigIds.ParseInts(config.CuratedCompanyIds).Count > 0
                     || ConfigIds.ParseInts(config.CuratedKeywordIds).Count > 0
                     || config.AutoSeedStudios))
             || (config.ScanTmdbLists && TmdbListInput.ParseIds(config.CuratedTmdbListIds).Count > 0);
+
+    /// <inheritdoc />
+    public bool StillInScope(GapItem item, PluginConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(config);
+
+        // A TMDB-list gap's SourceItemId is always "tmdblist-{listId}": that key is declared OwnerOnly and
+        // only ever built via Owner(listId) (never the bare, suffix-less Owner()), so a single StartsWith
+        // is the whole test, no exact-match case to also cover.
+        var listStemPrefix = GapSourceKeys.TmdbList.OwnerStem + "-";
+        if (item.SourceItemId?.StartsWith(listStemPrefix, StringComparison.Ordinal) == true)
+        {
+            return config.ScanTmdbLists
+                && int.TryParse(item.SourceItemId[listStemPrefix.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var listId)
+                && TmdbListInput.ParseIds(config.CuratedTmdbListIds).Contains(listId);
+        }
+
+        // A keyword/company gap carries no synthetic owner id (grouped by set name/type instead, see
+        // CuratedSetGapMapper); the set's kind and TMDB id live in the gap id itself: "curated:{kind}:{id}:{movieId}".
+        var rest = item.Id.Length > GapIdPrefix.Length ? item.Id[GapIdPrefix.Length..] : string.Empty;
+        var firstColon = rest.IndexOf(':', StringComparison.Ordinal);
+        var secondColon = firstColon < 0 ? -1 : rest.IndexOf(':', firstColon + 1);
+        if (firstColon < 0 || secondColon < 0)
+        {
+            return true;
+        }
+
+        var kind = rest[..firstColon];
+        if (!int.TryParse(rest[(firstColon + 1)..secondColon], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+        {
+            return true;
+        }
+
+        if (!config.ScanCuratedSets)
+        {
+            return false;
+        }
+
+        return kind switch
+        {
+            "keyword" => ConfigIds.ParseInts(config.CuratedKeywordIds).Contains(id),
+
+            // Auto-seeded studios are picked live each scan (most-owned-first, resolved by a TMDB search),
+            // so which company ids currently qualify cannot be determined without that same network call -
+            // exactly what a pure, config-only prune must not do. While auto-seed is on, a company id is
+            // left alone rather than risk deleting a legitimately still-active auto-seeded studio's gaps;
+            // only an explicitly configured company id can be confidently pruned once removed.
+            "company" => config.AutoSeedStudios || ConfigIds.ParseInts(config.CuratedCompanyIds).Contains(id),
+            _ => true
+        };
+    }
 
     /// <inheritdoc />
     public async IAsyncEnumerable<GapItem> FindGapsAsync(
