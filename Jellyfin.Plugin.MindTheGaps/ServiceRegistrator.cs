@@ -77,6 +77,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
 
         // Availability sources + aggregator + background enrichment runner.
         serviceCollection.AddSingleton<AvailabilityService>();
+        serviceCollection.AddSingleton<TmdbProviderLogos>();
         serviceCollection.AddSingleton<AvailabilityRunner>();
         serviceCollection.AddSingleton<IAvailabilitySource, TmdbAvailabilitySource>();
 

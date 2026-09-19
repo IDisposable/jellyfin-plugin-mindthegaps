@@ -28,12 +28,6 @@ internal sealed class TmdbAvailabilitySource : IAvailabilitySource
     // runs, and so it survives a quiet spell. A new fetch resets freshness; this just bounds memory.
     private static readonly TimeSpan _hardRetention = TimeSpan.FromDays(14);
 
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        PropertyNameCaseInsensitive = true
-    };
-
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly PluginLifetime _lifetime;
@@ -178,7 +172,7 @@ internal sealed class TmdbAvailabilitySource : IAvailabilitySource
         var stream = await http.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         await using (stream.ConfigureAwait(false))
         {
-            return await JsonSerializer.DeserializeAsync<TmdbWatchResponse>(stream, _jsonOptions, cancellationToken).ConfigureAwait(false);
+            return await JsonSerializer.DeserializeAsync<TmdbWatchResponse>(stream, TmdbWatchJson.Options, cancellationToken).ConfigureAwait(false);
         }
     }
 

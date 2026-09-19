@@ -125,3 +125,58 @@ test.describe('service icons on the collapsed line', () => {
         await expect(page.locator('.cgRow').first().locator('.cgSvcs')).toHaveCount(0);
     });
 });
+
+// TMDB lists a service's tiers and its resellers' channels as separate providers. They are one service to the
+// person reading the list, so a row shows it once and the filter has a single entry for it.
+test.describe('one service, however TMDB splits it', () => {
+    const offer = (Provider, LogoUrl) => ({ Provider, MonetizationType: 'flatrate', LogoUrl, Url: 'https://example.test/watch' });
+    const NETFLIX_LOGO = 'data:image/png;base64,bm90IGFuIGltYWdl';
+
+    test('a service and its ad tier share one icon, wearing the base service logo', async ({ page }) => {
+        await setup(page, {
+            Availability: [offer('Netflix Standard with Ads', 'https://example.test/ads.png'), offer('Netflix', NETFLIX_LOGO), offer('Hulu')],
+            AvailabilityChecked: true
+        });
+        const svcs = page.locator('.cgRow').first().locator('.cgSvcs');
+        await expect(svcs.locator('.cgSvc')).toHaveCount(2);
+        await expect(svcs.locator('.cgSvcMore')).toHaveCount(0);
+        // Netflix is first and keeps its own name and logo, not the ad tier's.
+        await expect(svcs.locator('.cgSvc').first()).toHaveAttribute('title', 'Netflix');
+        await expect(svcs.locator('.cgSvc').nth(1)).toHaveAttribute('title', 'Hulu');
+    });
+
+    test('a reseller channel folds into its service', async ({ page }) => {
+        await setup(page, { Availability: [offer('HBO Max Amazon Channel'), offer('HBO Max')], AvailabilityChecked: true });
+        await expect(page.locator('.cgRow').first().locator('.cgSvcs .cgSvc')).toHaveCount(1);
+        await expect(page.locator('.cgRow').first().locator('.cgSvcs .cgSvc')).toHaveAttribute('title', 'HBO Max');
+    });
+
+    test('a name that only looks related stays its own service', async ({ page }) => {
+        await setup(page, { Availability: [offer('Netflix'), offer('Netflix Kids')], AvailabilityChecked: true });
+        await expect(page.locator('.cgRow').first().locator('.cgSvcs .cgSvc')).toHaveCount(2);
+    });
+
+    test('the filter lists one entry per service, and one checkbox switches off every variant', async ({ page }) => {
+        await setup(page, { Availability: [offer('Netflix'), offer('Netflix Standard with Ads')], AvailabilityChecked: true });
+        await expect(page.locator('.cgProv')).toHaveCount(1);
+        await expect(page.locator('.cgProv')).toHaveAttribute('data-prov', 'Netflix');
+        await expect(page.locator('.cgRow').first().locator('.cgSvcs .cgSvc')).toHaveCount(1);
+
+        await page.locator('.cgProv[data-prov="Netflix"]').evaluate((el) => { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); });
+
+        await expect(page.locator('.cgRow').first().locator('.cgSvcs')).toHaveCount(0);
+    });
+
+    test('a filter list saved with the provider names as TMDB gave them is folded on load', async ({ page }) => {
+        await page.addInitScript(() => {
+            localStorage.setItem('mindthegaps.filters', JSON.stringify({
+                knownProviders: ['Netflix', 'Netflix Standard with Ads', 'HBO Max', 'HBO Max Amazon Channel'],
+                disabledProviders: {}
+            }));
+        });
+        await setup(page, {});
+        await expect(page.locator('.cgProv')).toHaveCount(2);
+        await expect(page.locator('.cgProv[data-prov="Netflix"]')).toHaveCount(1);
+        await expect(page.locator('.cgProv[data-prov="HBO Max"]')).toHaveCount(1);
+    });
+});

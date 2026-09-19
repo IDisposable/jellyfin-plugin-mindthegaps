@@ -134,3 +134,18 @@ test('the person section and the related row do not collide on the same page ins
     await expect(page.locator('#mtgRelatedMissing')).toBeVisible();
     await expect(page.locator('#mtgPersonMissing')).toHaveCount(0);
 });
+
+// jellyfin-web's own rows on the item page sit inside .detailVerticalSection, which already pads the left
+// edge, so its scrollers take no-padding. Without it the cards start a full padding further in than the
+// row above them.
+test('the related row uses the item page markup: no-padding on the scroller, title padded on the right', async ({ page }) => {
+    const related = {
+        ItemId: 'movie-1', ItemName: 'A Movie', CanSend: true, Reason: null,
+        Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, TmdbId: 2, ImageUrl: null, Upcoming: false }]
+    };
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, related));
+
+    const section = page.locator('#mtgRelatedMissing');
+    await expect(section.locator('[is="emby-scroller"]')).toHaveClass(/no-padding/);
+    await expect(section.locator('h2.sectionTitle')).toHaveClass(/padded-right/);
+});

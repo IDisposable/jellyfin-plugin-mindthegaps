@@ -424,6 +424,19 @@
     margin: .15em 0;
 }
 
+/* Inside the detail the <details> carries the tile margin (above), so its summary takes none of its own
+    (it would add the same margin a second time and sit lower than the buttons beside it), and it lays out
+    and sizes its icon exactly as a .cgLink does. */
+.cgTitleDetail .cgPopNested>summary {
+    display: inline-block;
+    margin: 0;
+}
+
+.cgTitleDetail .cgPopNested>summary .material-icons {
+    font-size: 1.05em;
+    vertical-align: middle;
+}
+
 .cgPopNested .cgPopBody {
     margin-top: .2em;
     border: none;

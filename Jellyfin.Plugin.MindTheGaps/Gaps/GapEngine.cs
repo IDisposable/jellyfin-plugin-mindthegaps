@@ -10,6 +10,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services;
+using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
@@ -36,6 +37,7 @@ public sealed class GapEngine
     private readonly Services.Webhook.WebhookNotifier _webhook;
     private readonly ResolutionStore _resolutions;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
+    private readonly TmdbProviderLogos _providerLogos;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -49,6 +51,7 @@ public sealed class GapEngine
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="resolutions">Holds dismissals, including whole-creator dismissals not to carry forward.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned library for the sources to check candidates against.</param>
+    /// <param name="providerLogos">Supplies streaming-provider logos for offers carried forward without one.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
@@ -59,6 +62,7 @@ public sealed class GapEngine
         Services.Webhook.WebhookNotifier webhook,
         ResolutionStore resolutions,
         OwnershipIndexBuilder ownershipIndexBuilder,
+        TmdbProviderLogos providerLogos,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
@@ -69,6 +73,7 @@ public sealed class GapEngine
         _webhook = webhook;
         _resolutions = resolutions;
         _ownershipIndexBuilder = ownershipIndexBuilder;
+        _providerLogos = providerLogos;
         _logger = logger;
     }
 
@@ -182,6 +187,7 @@ public sealed class GapEngine
             });
 
             var produced = 0;
+            var started = Stopwatch.GetTimestamp();
 
             // A discovery source's own kind is counted separately: one source can straddle both patterns
             // (curated sets emit studios and keywords as well as TMDB lists), and what the Discover tab
@@ -219,7 +225,9 @@ public sealed class GapEngine
                     runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
                 }
 
-                _logger.LogInformation("Gap source {Source} produced {Count} gaps", source.Name, produced);
+                // The sources run concurrently, so the scan ends with the slowest one and the progress bar
+                // creeps once only the rate-paced sources are left. The time names which one held it up.
+                _logger.LogInformation("Gap source {Source} produced {Count} gaps in {Seconds:F0}s", source.Name, produced, Stopwatch.GetElapsedTime(started).TotalSeconds);
             }
         }
 
@@ -317,6 +325,15 @@ public sealed class GapEngine
             {
                 byId.Remove(id);
             }
+        }
+
+        // A carried-forward gap keeps the offers it was stored with, and the availability pass skips a gap it
+        // has already checked, so an offer stored without its provider's logo would never get one from a
+        // lookup. Fill it in from the provider catalog, which is one cached read for every gap.
+        if (config.IncludeAvailability)
+        {
+            var logos = await _providerLogos.GetAsync(config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+            AvailabilityLogos.Fill(gaps, logos);
         }
 
         // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from

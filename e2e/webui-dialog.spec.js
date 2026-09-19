@@ -341,3 +341,36 @@ test('closing without Back (the close button) pops the pushed history entry rath
     const after = await page.evaluate(() => history.state);
     expect(after).toEqual(before);
 });
+
+test('the close button is a round icon button with its cross centered by geometry', async ({ page }) => {
+    await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, missingWith({})));
+    await page.locator('[data-gapid="filmography:movie:1"]').click();
+
+    const close = page.locator('.mtgDialogClose');
+    await expect(close).toHaveClass(/paper-icon-button-light/);
+    await expect(close).toHaveText('');
+
+    const boxes = await close.evaluate((el) => {
+        const b = el.getBoundingClientRect();
+        const s = el.querySelector('svg').getBoundingClientRect();
+        return { bx: b.x + b.width / 2, by: b.y + b.height / 2, sx: s.x + s.width / 2, sy: s.y + s.height / 2, w: b.width, h: b.height };
+    });
+    expect(Math.abs(boxes.bx - boxes.sx)).toBeLessThan(1);
+    expect(Math.abs(boxes.by - boxes.sy)).toBeLessThan(1);
+    expect(Math.abs(boxes.w - boxes.h)).toBeLessThan(1);
+});
+
+// A link and a button in the dialog share one class list, so they take the same box model. The elements are
+// created with createElement and never upgraded to emby-button, so the class is the only thing that gives
+// an anchor the padding and weight a button gets.
+test('every dialog button and link carries the same button classes', async ({ page }) => {
+    await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, missingWith({})));
+    await page.locator('[data-gapid="filmography:movie:1"]').click();
+
+    const classes = await page.locator('.mtgDialogLinks a, .mtgDialogActions button').evaluateAll(
+        (els) => els.map((e) => e.className.split(/\s+/).filter((c) => /^(emby-button|raised|raised-mini|mtgActionButton)$/.test(c)).sort().join(' '))
+    );
+    expect(classes.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(classes).size).toBe(1);
+    expect(classes[0]).toBe('emby-button mtgActionButton raised raised-mini');
+});

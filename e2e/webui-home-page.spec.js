@@ -138,3 +138,20 @@ test('the row surviving its own re-insertion does not retrigger a reload loop', 
     await page.waitForTimeout(400);
     await expect(page.locator('#mtgHomeDiscover')).toHaveCount(1);
 });
+
+// A home section is not padded by its parent: jellyfin-web wraps its title in a padded-left container, and
+// the scroller supplies the cards' own offset. A bare title sits at the page edge, left of every other
+// section's.
+test('the discover row uses the home markup: title in a padded-left container, scroller without no-padding', async ({ page }) => {
+    const discover = {
+        CanSendMovies: true, CanSendSeries: false,
+        Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, Because: 'Because you have Fargo', TmdbId: 1, ImageUrl: null, Upcoming: false }]
+    };
+    await openHomePage(page, buildWebUiHomeHarness(discover));
+    await simulateJellyfinsOwnSections(page);
+
+    const row = page.locator('#mtgHomeDiscover');
+    await expect(row).toBeVisible({ timeout: 2000 });
+    await expect(row.locator('.sectionTitleContainer.sectionTitleContainer-cards.padded-left h2.sectionTitle')).toHaveText('Discover: not in your library');
+    await expect(row.locator('[is="emby-scroller"]')).not.toHaveClass(/no-padding/);
+});

@@ -20,6 +20,11 @@
     var PERSON_ID = 'mtgPersonMissing';
     var RELATED_ID = 'mtgRelatedMissing';
     var HOME_ID = 'mtgHomeDiscover';
+
+    // The classes every dialog button and link carries, so a link and a button look the same. .emby-button is
+    // jellyfin-web's own box model (padding, weight, line height) as plain CSS, which is all that is needed:
+    // the custom element only adds that class when it connects, and these are not upgraded.
+    var ACTION_BUTTON = 'emby-button raised raised-mini mtgActionButton';
     var pending = 0;
     var homeObserver = null;
 
@@ -195,7 +200,12 @@
         backdrop.addEventListener('click', function (e) { if (e.target === backdrop) { closeDialog(); } });
         var dialog = h('div', { 'class': 'mtgDialog', 'role': 'dialog', 'aria-modal': 'true' });
         dialog.addEventListener('keydown', onDialogKeydown);
-        var closeBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'mtgDialogClose', 'aria-label': 'Close' }, '\u2715');
+        // An inline SVG rather than a text glyph, so the cross is centered by geometry and not by a font's
+        // metrics. The class is jellyfin-web's own for a round icon button; the elements this script builds are
+        // never upgraded to emby-button (they are created with createElement, then given an is attribute), so
+        // the styling has to come from the classes.
+        var closeBtn = h('button', { 'type': 'button', 'class': 'paper-icon-button-light mtgDialogClose', 'aria-label': 'Close' });
+        closeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="1.3em" height="1.3em" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
         closeBtn.addEventListener('click', closeDialog);
         dialog.appendChild(closeBtn);
         backdrop.appendChild(dialog);
@@ -228,7 +238,7 @@
         if (resolveCanSend(canSend, item)) {
             var select = h('select', { 'is': 'emby-select', 'class': 'selectSmall mtgProfileSelect' });
             select.style.display = 'none';
-            var sendBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgSendButton' }, 'Download Now');
+            var sendBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgSendButton' }, 'Download Now');
             sendBtn.addEventListener('click', function () {
                 var profileId = select.value ? parseInt(select.value, 10) : null;
                 send(ctx, item, sendBtn, profileId);
@@ -245,7 +255,7 @@
                 select.style.display = '';
             }, function () { /* leave it hidden; Send still uses the configured default profile */ });
         } else if (ctx.canTodo) {
-            var todoBtn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'raised raised-mini mtgActionButton mtgTodoButton' }, 'Add to TODO');
+            var todoBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgTodoButton' }, 'Add to TODO');
             todoBtn.addEventListener('click', function () { addToTodo(ctx, item, todoBtn); });
             actionsEl.appendChild(todoBtn);
         }
@@ -282,14 +292,14 @@
         refs.info.insertBefore(extra, refs.links);
 
         if (detail.ImdbUrl) {
-            refs.links.appendChild(h('a', { 'href': detail.ImdbUrl, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': 'raised raised-mini mtgActionButton' }, 'View on IMDb'));
+            refs.links.appendChild(h('a', { 'href': detail.ImdbUrl, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on IMDb'));
         }
         if (detail.YoutubeTrailerKey) {
             refs.links.appendChild(h('a', {
                 'href': 'https://www.youtube.com/watch?v=' + encodeURIComponent(detail.YoutubeTrailerKey),
                 'target': '_blank',
                 'rel': 'noopener noreferrer',
-                'class': 'raised raised-mini mtgActionButton'
+                'class': ACTION_BUTTON
             }, 'Watch trailer'));
         }
     }
@@ -313,7 +323,7 @@
         info.appendChild(loading);
 
         var links = h('div', { 'class': 'mtgDialogLinks' });
-        links.appendChild(h('a', { 'href': tmdbUrl(item), 'target': '_blank', 'rel': 'noopener noreferrer', 'class': 'raised raised-mini mtgActionButton' }, 'View on TMDB'));
+        links.appendChild(h('a', { 'href': tmdbUrl(item), 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on TMDB'));
         info.appendChild(links);
 
         var actions = h('div', { 'class': 'mtgDialogActions' });
@@ -465,11 +475,20 @@
         return section;
     }
 
-    // A horizontal scroller of cards, the markup jellyfin-web uses for "More Like This" (the item page row).
-    function scroller(ctx, canSend, name, items) {
+    // A horizontal scroller of cards, in the markup jellyfin-web uses for its own rows, which differs by page.
+    // On the item page the row sits in .detailVerticalSection, which already pads the left edge, so the
+    // scroller takes no-padding of its own and the title goes straight in. A home section is not padded by its
+    // parent: its title sits in a padded-left container and the scroller supplies the cards' own offset.
+    function scroller(ctx, canSend, name, items, onHome) {
         var section = h('div', { 'class': 'verticalSection' });
-        section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name));
-        var scrollerEl = h('div', { 'is': 'emby-scroller', 'class': 'padded-top-focusscale padded-bottom-focusscale', 'data-centerfocus': 'true' });
+        if (onHome) {
+            var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left' });
+            head.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name));
+            section.appendChild(head);
+        } else {
+            section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards padded-right' }, name));
+        }
+        var scrollerEl = h('div', { 'is': 'emby-scroller', 'class': 'padded-top-focusscale padded-bottom-focusscale' + (onHome ? '' : ' no-padding'), 'data-centerfocus': 'true' });
         var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer scrollSlider focuscontainer-x' });
         items.forEach(function (item) { container.appendChild(card(ctx, canSend, item)); });
         wireCardNavigation(container);
@@ -536,7 +555,7 @@
 
         var ctx = { kind: 'Home', id: '', canTodo: !!data.CanTodo };
         var canSend = function (item) { return item.Kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries; };
-        var section = scroller(ctx, canSend, 'Discover: not in your library', data.Titles);
+        var section = scroller(ctx, canSend, 'Discover: not in your library', data.Titles, true);
         section.id = HOME_ID;
         sectionsEl.appendChild(section);
     }
@@ -621,7 +640,9 @@
         '.mtgDialogBackdrop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:2em;overflow-y:auto}' +
         '.mtgDialogBackdrop.mtgDialogOpen{display:flex}' +
         '.mtgDialog{position:relative;max-width:56em;width:100%;max-height:90vh;overflow-y:auto;background:#101010;border-radius:.5em;box-shadow:0 1em 3em rgba(0,0,0,.6)}' +
-        '.mtgDialogClose{position:absolute;top:.5em;right:.5em;z-index:2;width:2.2em;height:2.2em;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:120%;line-height:1;text-align:center}' +
+        // Two classes, so these win over jellyfin-web's own padding and margin on .paper-icon-button-light and
+        // .emby-button whatever order the stylesheets load in.
+        '.mtgDialog .mtgDialogClose{position:absolute;top:.5em;right:.5em;z-index:2;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:2.4em;height:2.4em;margin:0;padding:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff}' +
         '.mtgDialogBackdropImage{width:100%;padding-top:33%;background-size:cover;background-position:center;background-color:#1c1c1c}' +
         '.mtgDialogContent{display:flex;flex-wrap:wrap;gap:1.5em;padding:1.5em}' +
         '.mtgDialogPoster{flex:0 0 10em;width:10em;height:15em;background-size:cover;background-position:center;background-color:#2b2b2b;border-radius:.3em}' +
@@ -631,7 +652,7 @@
         '.mtgDialogMeta,.mtgDialogGenres{opacity:.8;margin:.3em 0}' +
         '.mtgDialogOverview{margin:.6em 0}' +
         '.mtgDialogLinks,.mtgDialogActions{display:flex;flex-wrap:wrap;align-items:center;gap:.5em;margin-top:1em}' +
-        '.mtgDialog a.mtgActionButton{text-decoration:none;display:inline-block}' +
+        '.mtgDialog .mtgActionButton{margin:0}' +
         '.mtgActionButton.mtgSent{opacity:.6}' +
         '.mtgProfileSelect{max-width:12em}' +
         // Plain :focus, not :focus-visible: a TV has no mouse to distinguish from, and an older TV

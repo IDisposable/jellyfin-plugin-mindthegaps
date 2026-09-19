@@ -34,6 +34,7 @@ public sealed class AvailabilityRunner
     private readonly AvailabilityService _availabilityService;
     private readonly TmdbClient _tmdb;
     private readonly ExternalLinkEnricher _externalLinks;
+    private readonly TmdbProviderLogos _providerLogos;
     private readonly Webhook.WebhookNotifier _webhook;
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<AvailabilityRunner> _logger;
@@ -61,15 +62,17 @@ public sealed class AvailabilityRunner
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="tmdb">The TMDB client (used to resolve external ids).</param>
     /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
+    /// <param name="providerLogos">Supplies the logo for an offer that was stored without one.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="lifetime">The plugin-lifetime cancellation, so a pass stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, Webhook.WebhookNotifier webhook, PluginLifetime lifetime, ILogger<AvailabilityRunner> logger)
+    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, TmdbProviderLogos providerLogos, Webhook.WebhookNotifier webhook, PluginLifetime lifetime, ILogger<AvailabilityRunner> logger)
     {
         _store = store;
         _availabilityService = availabilityService;
         _tmdb = tmdb;
         _externalLinks = externalLinks;
+        _providerLogos = providerLogos;
         _webhook = webhook;
         _lifetime = lifetime;
         _logger = logger;
@@ -247,6 +250,7 @@ public sealed class AvailabilityRunner
 
             var config = Plugin.RequireConfiguration();
             var report = _store.Load();
+            await BackfillLogosAsync(report, config, ct).ConfigureAwait(false);
             var groups = report.Items.Where(NeedsLookup).GroupBy(WatchKey).ToList();
 
             if (groups.Count == 0)
@@ -297,6 +301,7 @@ public sealed class AvailabilityRunner
         {
             var config = Plugin.RequireConfiguration();
             var report = _store.Load();
+            await BackfillLogosAsync(report, config, ct).ConfigureAwait(false);
             var pending = report.Items.Where(NeedsLookup).ToList();
 
             // Group by the watch target so every episode of a series shares a single lookup, and the
@@ -500,6 +505,23 @@ public sealed class AvailabilityRunner
         // let the host's providers contribute (and win) on top.
         gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
         _externalLinks.Enrich(new[] { gap });
+    }
+
+    // A gap that was already checked is never looked up again, so an offer stored before logos existed would
+    // stay a letter forever. Give it its provider's logo from the catalog. This runs before the early exit for
+    // "nothing pending", since that is exactly when the backfill is all a pass has to do.
+    private async Task BackfillLogosAsync(GapReport report, PluginConfiguration config, CancellationToken cancellationToken)
+    {
+        if (!config.IncludeAvailability)
+        {
+            return;
+        }
+
+        var logos = await _providerLogos.GetAsync(config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
+        if (AvailabilityLogos.Fill(report.Items, logos) > 0)
+        {
+            _store.SaveAvailabilityMerge(report, throttle: false);
+        }
     }
 
     private void SetMessage(string message)

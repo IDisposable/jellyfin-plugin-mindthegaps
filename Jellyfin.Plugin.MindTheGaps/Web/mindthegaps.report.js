@@ -255,7 +255,25 @@ function monAllowed(type) {
     return !cb || cb.checked;
 }
 
-function providerAllowed(name) { return !disabledProviders[name]; }
+// TMDB lists a service's tiers and the channels its resellers carry as separate providers ("Netflix
+// Standard with Ads", "HBO Max Amazon Channel"). To the person reading the list they are one service, so a
+// row shows it once and the filter has one entry for it. Only these well-known suffixes are folded: a name
+// that merely looks related ("Netflix Kids", "Paramount Plus Premium") is a different offering.
+var PROVIDER_VARIANT = / (?:Standard )?with Ads$| Amazon Channel$| Apple TV [Cc]hannel$| Roku Premium Channel$/;
+
+function providerFamily(name) { return name ? name.replace(PROVIDER_VARIANT, '') : name; }
+
+// The distinct service names behind a list of provider names, sorted.
+function providerFamilies(names) {
+    var seen = {};
+    return names.map(providerFamily).filter(function (n) {
+        if (!n || seen[n]) { return false; }
+        seen[n] = true;
+        return true;
+    }).sort();
+}
+
+function providerAllowed(name) { return !disabledProviders[providerFamily(name)]; }
 
 function filterOffers(offers) {
     return (offers || []).filter(function (o) {
@@ -295,7 +313,8 @@ function renderProviderFilter(page) {
 function noteProviders(page, offers) {
     var added = false;
     (offers || []).forEach(function (o) {
-        if (o.Provider && knownProviders.indexOf(o.Provider) === -1) { knownProviders.push(o.Provider); added = true; }
+        var service = providerFamily(o.Provider);
+        if (service && knownProviders.indexOf(service) === -1) { knownProviders.push(service); added = true; }
     });
     if (added) { knownProviders.sort(); renderProviderFilter(page); saveFilters(page); }
 }
@@ -549,19 +568,28 @@ function serviceIcons(item) {
     if (!offers.length) { return ''; }
     var ranked = offers.map(function (o, i) { return { o: o, i: i, r: OFFER_ORDER[o.MonetizationType] === undefined ? 5 : OFFER_ORDER[o.MonetizationType] }; })
         .sort(function (a, b) { return a.r - b.r || a.i - b.i; });
-    var seen = {};
+    // One icon per service (see providerFamily), wearing the base service's own logo when the title has it,
+    // else the first variant's.
+    var indexOf = {};
     var services = [];
     ranked.forEach(function (x) {
-        if (x.o.Provider && !seen[x.o.Provider]) { seen[x.o.Provider] = true; services.push(x.o); }
+        var service = providerFamily(x.o.Provider);
+        if (!service) { return; }
+        if (indexOf[service] === undefined) {
+            indexOf[service] = services.length;
+            services.push({ name: service, offer: x.o });
+        } else if (x.o.Provider === service && services[indexOf[service]].offer.Provider !== service) {
+            services[indexOf[service]].offer = x.o;
+        }
     });
-    var shown = services.slice(0, SERVICE_ICON_LIMIT).map(function (o) {
-        return o.LogoUrl
-            ? h('img', { src: o.LogoUrl, alt: o.Provider, title: o.Provider, loading: 'lazy', 'class': 'cgSvc' }).outerHTML
-            : h('span', { 'class': 'cgSvc cgSvcText', title: o.Provider }, o.Provider.charAt(0).toUpperCase()).outerHTML;
+    var shown = services.slice(0, SERVICE_ICON_LIMIT).map(function (s) {
+        return s.offer.LogoUrl
+            ? h('img', { src: s.offer.LogoUrl, alt: s.name, title: s.name, loading: 'lazy', 'class': 'cgSvc' }).outerHTML
+            : h('span', { 'class': 'cgSvc cgSvcText', title: s.name }, s.name.charAt(0).toUpperCase()).outerHTML;
     });
     var rest = services.slice(SERVICE_ICON_LIMIT);
     if (rest.length) {
-        shown.push(h('span', { 'class': 'cgSvcMore', title: rest.map(function (o) { return o.Provider; }).join(', ') }, '+' + rest.length).outerHTML);
+        shown.push(h('span', { 'class': 'cgSvcMore', title: rest.map(function (s) { return s.name; }).join(', ') }, '+' + rest.length).outerHTML);
     }
     return wrap('span', { 'class': 'cgSvcs' }, shown.join(''));
 }
@@ -2260,7 +2288,8 @@ function restoreFilters(page) {
             if (state.mon[k] != null) { cbs[i].checked = !!state.mon[k]; }
         }
     }
-    knownProviders = Array.isArray(state.knownProviders) ? state.knownProviders : [];
+    // A list saved by a browser that held provider names as TMDB gave them is folded to services too.
+    knownProviders = Array.isArray(state.knownProviders) ? providerFamilies(state.knownProviders) : [];
     disabledProviders = state.disabledProviders || {};
     providersExpanded = !!state.providersExpanded;
     renderProviderFilter(page);
