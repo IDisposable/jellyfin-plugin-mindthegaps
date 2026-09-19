@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.8.1"
+version: "10.11.8.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,19 +20,12 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.8.1 (beta) - An experimental, opt-in Web UI adds Mind the Gaps sections to Jellyfin's own pages:
-  a person's page lists what they made that you do not own, a movie or series page suggests titles like
-  it that you are missing, and the home page gets a Discover row of the recommendations your scans found.
-  A master switch and one toggle per surface in settings control them, all off by default. Click a card
-  for a detail dialog with TMDB's synopsis, genres, runtime, rating, and a trailer link, then send it to
-  Radarr or Sonarr with the quality profile you pick, or add it to your TODO list; the dialog and the card
-  grids can be driven from a keyboard or a TV remote. The Gaps Report loads faster: it fetches one tab at
-  a time as slim rows, fetches a row's overview, links, and where-to-watch details only when you open it,
-  and revalidates what it already holds instead of downloading it again, and both dashboard pages load
-  their script and stylesheet as separately cached files. A row shows up to two streaming-service icons
-  on its collapsed line, following your provider and monetization filters; logos appear after the next
-  where-to-watch lookup, and until then a service shows its initial. Gaps left behind by a source you
-  have since removed or turned off, such as a dropped keyword or a disabled watchlist, are now pruned on
-  every scan, and a Prune stale gaps button under Maintenance does it right away. The saved report is now
-  stored as one file per domain, so a Verify or a Send rewrites only the domain it touched; an existing
-  report is converted automatically the next time it is saved.
+  10.11.8.2 (beta) - Streaming-service icons on a report row now show the service's logo for every title, not
+  only ones looked up recently: the logos are filled in from TMDB's provider list on the next scan or "where
+  to watch" pass, and a service TMDB has no logo for shows its initial. A service that TMDB lists as several
+  providers, such as a "with Ads" tier or a reseller's channel, now shows as one icon and has one entry in
+  the provider filter instead of several. In the Web UI, the detail dialog's close button is centered and its
+  View on TMDB, View on IMDb, and Watch trailer links match the other buttons; the "More like this you don't
+  have" row on a movie or series page lines up with the row above it; and the home Discover row's title
+  lines up with the other sections. The Resolve button in a row's expanded detail lines up with the buttons
+  beside it. The scan log now says how long each source took, which shows which one is holding up a slow scan.
