@@ -209,6 +209,13 @@ flowchart TD
   **Clear explorations** removes them again.
 - **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
   when a scan or the "where to watch" pass finishes.
+- **Web UI on Jellyfin's own pages** (experimental, opt-in): a "Missing from your library" section on a
+  person's page, a "More like this you don't have" row on a movie or series page, and a "Discover" row on
+  the home screen, each with its own switch. Click a card for a detail dialog (TMDB's synopsis, genres,
+  runtime, rating, trailer), then send the title to Radarr or Sonarr with the quality profile you pick, or
+  add it to your TODO list. It works from a keyboard or a TV remote. The data behind each surface is served
+  by the plugin's API to any signed-in user whether or not the script is added to Jellyfin Web, so another
+  client can use it; see the [configuration reference](docs/configuration.md#web-ui-experimental).
 - **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place,
   the way a missing episode renders inside a series. See below.
 
@@ -281,6 +288,7 @@ For every setting, what it does, and what changes when you set or clear it, see 
 | TMDB discover feeds | Four independent toggles (Top Rated, Popular, Upcoming, Now Playing); each surfaces its unowned movies on Discover. |
 | Availability | Turns "Where to watch" on or off (the per-item lookups and the background pass). |
 | Acquisition stack | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action. |
+| Web UI surfaces | Four off-by-default switches (show the surfaces in Jellyfin Web, person pages, movie/series pages, home row) plus the home row's size. Each surface's data is available to other clients when its own switch is on. |
 | Webhook URL | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes. |
 | Detailed API logging | Off by default; turn it on to log every external API request and response (the sources, the acquisition sends, TMDB, and the webhook) to the server log while debugging a misbehaving target, then turn it back off. |
 | Trakt client id | Enables the opt-in Trakt filmography cross-check. |

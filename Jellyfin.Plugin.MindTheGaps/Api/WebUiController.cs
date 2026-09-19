@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
@@ -32,9 +30,8 @@ public class WebUiController : ControllerBase
 
     private const string ClientScriptResource = "Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.webui.js";
 
-    // The script's ETag is its content hash, not the plugin version: two builds of the same version (a dev
-    // loop, a hotfix) must not leave a browser holding the older script on a 304.
-    private static readonly Lazy<(byte[] Bytes, EntityTagHeaderValue ETag)?> _clientScript = new(LoadClientScript);
+    private static readonly Lazy<EmbeddedAsset?> _clientScript = new(
+        () => EmbeddedAsset.Load(typeof(WebUiController).Assembly, ClientScriptResource, "application/javascript"));
 
     private readonly PersonMissingService _person;
     private readonly RelatedMissingService _related;
@@ -62,13 +59,13 @@ public class WebUiController : ControllerBase
         _tmdb = tmdb;
     }
 
-    private static bool WebUiEnabled => Plugin.Instance?.Configuration.WebUiEnabled == true;
+    private static bool ScriptEnabled => WebUiGate.ScriptInjected(Plugin.Instance?.Configuration);
 
-    private static bool PersonPageEnabled => WebUiEnabled && Plugin.Instance?.Configuration.PersonPageEnabled == true;
+    private static bool PersonPageEnabled => WebUiGate.PersonPage(Plugin.Instance?.Configuration);
 
-    private static bool ItemPageEnabled => WebUiEnabled && Plugin.Instance?.Configuration.ItemPageEnabled == true;
+    private static bool ItemPageEnabled => WebUiGate.ItemPage(Plugin.Instance?.Configuration);
 
-    private static bool HomeRowEnabled => WebUiEnabled && Plugin.Instance?.Configuration.HomeRowEnabled == true;
+    private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
 
     private bool IsAdministrator => User.IsInRole("Administrator");
 
@@ -77,7 +74,7 @@ public class WebUiController : ControllerBase
     /// sign-in; it carries no data and calls the authenticated endpoints below through the web client's own
     /// session.
     /// </summary>
-    /// <returns>The script, or 404 while every surface is off.</returns>
+    /// <returns>The script, or 404 while the master switch is off.</returns>
     [HttpGet("WebUi/client.js")]
     [AllowAnonymous]
     [Produces("application/javascript")]
@@ -85,7 +82,7 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetClientScript()
     {
-        if (!WebUiEnabled)
+        if (!ScriptEnabled)
         {
             return NotFound();
         }
@@ -97,8 +94,9 @@ public class WebUiController : ControllerBase
         }
 
         // Revalidate on every load (a plugin update must not be masked by a cached copy) but answer 304 cheaply.
-        Response.Headers[HeaderNames.CacheControl] = "no-cache";
-        return File(script.Value.Bytes, "application/javascript", lastModified: null, entityTag: script.Value.ETag);
+        // Public: it is the same script for everyone and carries nothing private, so a CDN may hold it too.
+        Response.Headers[HeaderNames.CacheControl] = "public, no-cache";
+        return File(script.Bytes, script.ContentType, script.LastModified, script.ETag);
     }
 
     /// <summary>
@@ -309,8 +307,7 @@ public class WebUiController : ControllerBase
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="kind">The title's kind, <c>Movie</c> or <c>Series</c>.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The detail, or 404 when the web UI is off, the kind is not recognized, or TMDB has nothing
-    /// for that id.</returns>
+    /// <returns>The detail, or 404 when the kind is not recognized or TMDB has nothing for that id.</returns>
     [HttpGet("WebUi/Detail")]
     [Authorize]
     [Produces("application/json")]
@@ -318,11 +315,6 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MissingTitleDetail>> GetDetail([FromQuery] int tmdbId, [FromQuery] string? kind, CancellationToken cancellationToken)
     {
-        if (!WebUiEnabled)
-        {
-            return NotFound();
-        }
-
         var config = Plugin.RequireConfiguration();
         if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
         {
@@ -344,8 +336,8 @@ public class WebUiController : ControllerBase
     /// </summary>
     /// <param name="kind">The title's kind, <c>Movie</c> (Radarr) or <c>Series</c> (Sonarr).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The profiles, empty when the matching arr is not configured; 404 when the web UI is off or
-    /// the kind is not recognized.</returns>
+    /// <returns>The profiles, empty when the matching arr is not configured; 404 when the kind is not
+    /// recognized.</returns>
     [HttpGet("WebUi/Profiles")]
     [Authorize(Policy = "RequiresElevation")]
     [Produces("application/json")]
@@ -353,11 +345,6 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<QualityProfilesResult>> GetProfiles([FromQuery] string? kind, CancellationToken cancellationToken)
     {
-        if (!WebUiEnabled)
-        {
-            return NotFound();
-        }
-
         var config = Plugin.RequireConfiguration();
         if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
         {
@@ -422,19 +409,4 @@ public class WebUiController : ControllerBase
             Failed = result.Success ? 0 : 1,
             Message = result.Message
         };
-
-    private static (byte[] Bytes, EntityTagHeaderValue ETag)? LoadClientScript()
-    {
-        using var stream = typeof(WebUiController).Assembly.GetManifestResourceStream(ClientScriptResource);
-        if (stream is null)
-        {
-            return null;
-        }
-
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
-        var bytes = buffer.ToArray();
-        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
-        return (bytes, new EntityTagHeaderValue(string.Concat("\"", hash, "\"")));
-    }
 }

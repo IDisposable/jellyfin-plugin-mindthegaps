@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Api;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +25,7 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 public sealed class WebUiScriptInjection : IStartupFilter
 {
     private readonly ILogger<WebUiScriptInjection> _logger;
+    private readonly Func<bool> _enabled;
     private int _announced;
 
     /// <summary>
@@ -30,8 +33,20 @@ public sealed class WebUiScriptInjection : IStartupFilter
     /// </summary>
     /// <param name="logger">The logger.</param>
     public WebUiScriptInjection(ILogger<WebUiScriptInjection> logger)
+        : this(logger, () => WebUiGate.ScriptInjected(Plugin.Instance?.Configuration))
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WebUiScriptInjection"/> class with an explicit toggle.
+    /// Test seam: the toggle otherwise comes from the plugin configuration, which a test has no instance of.
+    /// </summary>
+    /// <param name="logger">The logger.</param>
+    /// <param name="enabled">Reports whether the web UI is switched on, read per request.</param>
+    internal WebUiScriptInjection(ILogger<WebUiScriptInjection> logger, Func<bool> enabled)
     {
         _logger = logger;
+        _enabled = enabled;
     }
 
     /// <inheritdoc />
@@ -67,11 +82,17 @@ public sealed class WebUiScriptInjection : IStartupFilter
             || path.EndsWith("/web", StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task InvokeAsync(HttpContext context, Func<Task> next)
+    /// <summary>
+    /// Serves index.html with the client script added, or passes the request through untouched.
+    /// </summary>
+    /// <param name="context">The request.</param>
+    /// <param name="next">The rest of the pipeline.</param>
+    /// <returns>A task that completes when the response is written.</returns>
+    internal async Task InvokeAsync(HttpContext context, Func<Task> next)
     {
         if (!HttpMethods.IsGet(context.Request.Method)
             || !IsIndexRequest(context.Request.Path.Value)
-            || Plugin.Instance?.Configuration.WebUiEnabled != true)
+            || !_enabled())
         {
             await next().ConfigureAwait(false);
             return;
@@ -82,6 +103,15 @@ public sealed class WebUiScriptInjection : IStartupFilter
         context.Request.Headers.Remove(HeaderNames.AcceptEncoding);
         context.Request.Headers.Remove(HeaderNames.Range);
         context.Request.Headers.Remove(HeaderNames.IfRange);
+
+        // The client's validators name the rewritten document, which the host has never seen, so they are
+        // held back from it: it would compare them with the file's own and could answer 304 for a copy that
+        // predates the last plugin update. The answer is decided below against the document that is served.
+        var requestHeaders = context.Request.GetTypedHeaders();
+        var ifNoneMatch = requestHeaders.IfNoneMatch;
+        var ifModifiedSince = requestHeaders.IfModifiedSince;
+        context.Request.Headers.Remove(HeaderNames.IfNoneMatch);
+        context.Request.Headers.Remove(HeaderNames.IfModifiedSince);
 
         var original = context.Response.Body;
         using var buffer = new MemoryStream();
@@ -132,13 +162,34 @@ public sealed class WebUiScriptInjection : IStartupFilter
         }
 
         var bytes = Encoding.UTF8.GetBytes(html);
+
+        // The host's validators describe its file, not this document. The tag is the served bytes' own hash,
+        // so it moves when the file, the injected tag or its version, or the toggle does. The date is the
+        // later of the file's and this plugin's, the two things that can change what is served.
+        var etag = new EntityTagHeaderValue("\"" + Convert.ToHexStringLower(SHA256.HashData(bytes)) + "\"");
+        var responseHeaders = context.Response.GetTypedHeaders();
+        var lastModified = Latest(responseHeaders.LastModified, EmbeddedAsset.WriteTime(typeof(WebUiScriptInjection).Assembly));
+        responseHeaders.ETag = etag;
+        responseHeaders.LastModified = lastModified;
+        context.Response.Headers.Remove(HeaderNames.AcceptRanges);
+        if (!context.Response.Headers.ContainsKey(HeaderNames.CacheControl))
+        {
+            responseHeaders.CacheControl = new CacheControlHeaderValue { NoCache = true };
+        }
+
+        if (ConditionalGet.IsCurrent(ifNoneMatch, ifModifiedSince, etag, lastModified))
+        {
+            context.Response.StatusCode = StatusCodes.Status304NotModified;
+            context.Response.ContentLength = null;
+            context.Response.Headers.Remove(HeaderNames.ContentType);
+            return;
+        }
+
         context.Response.ContentType = "text/html; charset=utf-8";
         context.Response.ContentLength = bytes.Length;
-
-        // The body changed, so the static handler's validators no longer describe it.
-        context.Response.Headers.Remove(HeaderNames.ETag);
-        context.Response.Headers.Remove(HeaderNames.LastModified);
-        context.Response.Headers.Remove(HeaderNames.AcceptRanges);
         await original.WriteAsync(bytes, context.RequestAborted).ConfigureAwait(false);
     }
+
+    private static DateTimeOffset? Latest(DateTimeOffset? a, DateTimeOffset? b)
+        => a is null ? b : b is null ? a : (a > b ? a : b);
 }

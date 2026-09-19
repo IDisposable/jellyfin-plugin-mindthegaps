@@ -57,6 +57,18 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public static PluginConfiguration RequireConfiguration()
         => Instance?.Configuration ?? throw new InvalidOperationException("Mind the Gaps is not initialized.");
 
+    /// <summary>
+    /// Saves the configuration and records that it changed. Both the host's settings save
+    /// (<see cref="BasePlugin{T}.UpdateConfiguration"/> calls this) and this plugin's own direct saves come
+    /// through here, which the host's <c>ConfigurationChanged</c> callback does not cover.
+    /// </summary>
+    /// <param name="config">The configuration to save.</param>
+    public override void SaveConfiguration(PluginConfiguration config)
+    {
+        base.SaveConfiguration(config);
+        ConfigurationGeneration.Bump();
+    }
+
     /// <inheritdoc />
     public IEnumerable<PluginPageInfo> GetPages()
     {

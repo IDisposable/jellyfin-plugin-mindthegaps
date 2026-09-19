@@ -38,6 +38,13 @@ public sealed class AvailabilityRunner
     private readonly PluginLifetime _lifetime;
     private readonly ILogger<AvailabilityRunner> _logger;
     private readonly object _lock = new();
+
+    // Memoizes GetPendingTitleCount by the store's generation, the same technique GapStore uses for its own
+    // derived reads: GetSummary calls this on every page load and after every scan/mint/verify/pass, not
+    // just once per actual change to the report. The generation rather than the report reference, since
+    // this pass itself enriches the cached report in place. Lock-free, so no lock is held across the scan.
+    private readonly GenerationMemo<int> _pendingCount = new();
+
     // The run claim is a lock-free flag (0 = idle, 1 = running): TryStart claims it with a single atomic
     // compare-and-set. The remaining status fields stay under _lock so a status read is one consistent
     // snapshot (and _progress is a double, which is not guaranteed atomic without it).
@@ -46,12 +53,6 @@ public sealed class AvailabilityRunner
     private int _processed;
     private int _total;
     private string? _lastMessage;
-
-    // Memoizes GetPendingTitleCount by report generation, the same technique GapStore uses for its own
-    // derived reads: GetSummary calls this on every page load and after every scan/mint/verify/pass, not
-    // just once per actual change to the report.
-    private GapReport? _pendingCountSource;
-    private int _pendingCount;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AvailabilityRunner"/> class.
@@ -163,17 +164,8 @@ public sealed class AvailabilityRunner
     /// <returns>The number of distinct unchecked watch targets in the current report.</returns>
     public int GetPendingTitleCount()
     {
-        var report = _store.Load();
-        lock (_lock)
-        {
-            if (!ReferenceEquals(_pendingCountSource, report))
-            {
-                _pendingCount = PendingTitleCount(report);
-                _pendingCountSource = report;
-            }
-
-            return _pendingCount;
-        }
+        var (report, generation) = _store.LoadWithGeneration();
+        return _pendingCount.GetOrCompute(generation, () => PendingTitleCount(report));
     }
 
     /// <summary>

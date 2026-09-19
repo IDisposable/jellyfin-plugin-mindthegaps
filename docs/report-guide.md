@@ -136,6 +136,13 @@ Each gap row carries a title, and hovering or focusing it reveals its overview (
 what else recommended it) without leaving the list. Links and actions live behind three icon popovers;
 which items appear inside each depends on the gap's kind and your settings.
 
+Once where-to-watch has been looked up, a row also shows up to two small streaming-service icons on its
+collapsed line, with a `+N` for the rest (their names are in its tooltip). They follow the provider and
+monetization filters, so a service you have switched off never takes one of the two slots, and
+subscription, free, and ad-supported services come before rent or buy. A service with no logo yet shows its
+initial until the next where-to-watch lookup. The list itself loads a row's overview, links, and offer links
+only when you open it, which is what keeps a large tab quick.
+
 - **Watch**: streaming-availability offers, if any have been looked up; otherwise a **Look up where to
   watch** button that fetches them on demand (the toolbar's background pass does many at once). A movie or
   series also gets a **Search JustWatch** link alongside whatever offers are resolved.

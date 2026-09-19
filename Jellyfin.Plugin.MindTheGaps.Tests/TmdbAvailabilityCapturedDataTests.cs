@@ -26,6 +26,7 @@ public class TmdbAvailabilityCapturedDataTests
         Assert.Contains(offers, o => o.MonetizationType == "rent");
         Assert.Contains(offers, o => o.MonetizationType == "buy");
         Assert.All(offers, o => Assert.Contains("locale=AE", o.Url!, System.StringComparison.Ordinal));
+        Assert.All(offers, o => Assert.StartsWith("https://image.tmdb.org/t/p/w45/", o.LogoUrl!, System.StringComparison.Ordinal));
     }
 
     [Fact]

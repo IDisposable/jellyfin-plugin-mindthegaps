@@ -39,6 +39,7 @@ public sealed class TmdbClient : IDisposable
     private const string PosterSize = "w500";
     private const string BackdropSize = "w1280";
     private const string StillSize = "w300";
+    private const string LogoSize = "w45";
 
     private readonly IMemoryCache _cache;
     private readonly ILogger<TmdbClient>? _logger;
@@ -805,6 +806,14 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The absolute URL, or <see langword="null"/>.</returns>
     public string? GetStillUrl(string? stillPath)
         => string.IsNullOrEmpty(stillPath) ? null : ImageBaseUrl + StillSize + stillPath;
+
+    /// <summary>
+    /// Resolves a streaming provider logo path to a URL, at the small size a service icon is drawn.
+    /// </summary>
+    /// <param name="logoPath">The relative logo path.</param>
+    /// <returns>The absolute URL, or <see langword="null"/>.</returns>
+    internal static string? BuildLogoUrl(string? logoPath)
+        => string.IsNullOrEmpty(logoPath) ? null : ImageBaseUrl + LogoSize + logoPath;
 
     /// <inheritdoc />
     public void Dispose()

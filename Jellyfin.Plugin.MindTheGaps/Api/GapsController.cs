@@ -64,37 +64,77 @@ public class GapsController : ControllerBase
     /// <summary>
     /// Gets the latest gap report (todo list), optionally narrowed to a single pattern and/or domain so the
     /// dashboard can load one tab, or one domain within a tab, at a time instead of shipping the whole report.
+    /// By default the items are <see cref="GapRow"/>s, which leave off what only an opened row shows (see
+    /// <see cref="GetGapDetail"/>); <paramref name="full"/> returns every field, for the export.
     /// </summary>
     /// <param name="pattern">An optional pattern name (for example SetCompletion); omitted returns all.</param>
     /// <param name="domain">An optional domain name (for example Movies); omitted returns all.</param>
+    /// <param name="full">Whether to return complete gaps instead of list rows.</param>
     /// <returns>The latest report, filtered to the pattern and/or domain when given.</returns>
     [HttpGet("Gaps")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<GapReport> GetGaps([FromQuery] string? pattern, [FromQuery] string? domain)
+    [ProducesResponseType(typeof(GapRowReport), StatusCodes.Status200OK)]
+    public IActionResult GetGaps([FromQuery] string? pattern, [FromQuery] string? domain, [FromQuery] bool full = false)
     {
         var wantedPattern = !string.IsNullOrEmpty(pattern) && Enum.TryParse<GapPattern>(pattern, ignoreCase: true, out var p) ? p : (GapPattern?)null;
         var wantedDomain = !string.IsNullOrEmpty(domain) && Enum.TryParse<MediaDomain>(domain, ignoreCase: true, out var d) ? d : (MediaDomain?)null;
 
+        // The URL already carries pattern, domain and full, so the report's own change tag is all that has
+        // to vary. Answered before any of the work below: an unchanged report costs a header comparison.
+        var (tag, changedUtc) = _store.GetValidator();
+        if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
         // A domain is the dashboard's usual per-tab request: load just that domain's gaps (skipping the
         // rest of the report entirely) rather than the whole report filtered down after the fact.
         var report = wantedDomain is null ? _store.LoadSnapshot() : _store.LoadDomainSnapshot(wantedDomain.Value);
-        if (wantedPattern is null)
+        var items = wantedPattern is null ? report.Items : report.Items.Where(i => i.Pattern == wantedPattern).ToArray();
+
+        if (full)
         {
-            return report;
+            return Ok(new GapReport
+            {
+                GeneratedUtc = report.GeneratedUtc,
+                GeneratedVersion = report.GeneratedVersion,
+                TotalGaps = report.TotalGaps,
+                Items = items,
+                SourceRuns = report.SourceRuns
+            });
         }
 
-        return new GapReport
-        {
-            GeneratedUtc = report.GeneratedUtc,
-            GeneratedVersion = report.GeneratedVersion,
-            TotalGaps = report.TotalGaps,
-            Items = report.Items.Where(i => i.Pattern == wantedPattern).ToArray(),
+        var rows = GapRowProjector.Project(items);
+        rows.GeneratedUtc = report.GeneratedUtc;
+        rows.GeneratedVersion = report.GeneratedVersion;
+        rows.TotalGaps = report.TotalGaps;
 
-            // Carried through unfiltered: the Discover tab renders a section for a list that was read and
-            // holds nothing missing, which is exactly the case with no items to filter, and a SourceRun
-            // carries neither a pattern nor a domain to filter it by.
-            SourceRuns = report.SourceRuns
-        };
+        // Carried through unfiltered: the Discover tab renders a section for a list that was read and
+        // holds nothing missing, which is exactly the case with no items to filter, and a SourceRun
+        // carries neither a pattern nor a domain to filter it by.
+        rows.SourceRuns = report.SourceRuns;
+        return Ok(rows);
+    }
+
+    /// <summary>
+    /// Gets one gap in full, for the row the dashboard has just opened: the overview, external links and
+    /// each offer's deeplink, which the list rows leave off.
+    /// </summary>
+    /// <param name="id">The gap id.</param>
+    /// <returns>The gap, or 404 when no gap in the report has that id.</returns>
+    [HttpGet("GapDetail")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status304NotModified)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<GapItem> GetGapDetail([FromQuery] string? id)
+    {
+        var (tag, changedUtc) = _store.GetValidator();
+        if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
+        var gap = _store.FindById(id);
+        return gap is null ? NotFound() : gap;
     }
 
     /// <summary>
@@ -106,6 +146,16 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<GapSummary> GetSummary()
     {
+        // Depends on the configuration as well as the report (which sources are enabled, whether
+        // availability is on), so both generations go into the tag.
+        var (storeTag, storeChangedUtc) = _store.GetValidator();
+        var tag = string.Concat(storeTag, ".c", ConfigurationGeneration.Value.ToString(CultureInfo.InvariantCulture));
+        var changedUtc = storeChangedUtc > ConfigurationGeneration.LastChangedUtc ? storeChangedUtc : ConfigurationGeneration.LastChangedUtc;
+        if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
         var report = _store.Load();
         var (domainPatternCounts, providers) = _store.GetSummaryFacts();
 

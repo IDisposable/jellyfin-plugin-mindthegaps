@@ -674,4 +674,103 @@ public class GapStoreTests
             Directory.Delete(dir, true);
         }
     }
+
+    [Fact]
+    public void GetValidator_TagChangesOnlyWhenTheReportDoes()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("a"), Gap("b") } });
+
+            var first = store.GetValidator();
+            Assert.Equal(first.Tag, store.GetValidator().Tag);
+
+            store.RemoveGaps(new[] { "a" });
+
+            Assert.NotEqual(first.Tag, store.GetValidator().Tag);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetValidator_AnInPlaceAvailabilityMergeChangesTheTagAndTheSummaryFacts()
+    {
+        // A scan replaced the report while the pass was enriching an older copy of it, so the pass's
+        // results are folded into the cached report without replacing it. Anything derived from the report
+        // by reference would miss that; the tag and the summary's provider names must not.
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = new[] { Gap("g1") } });
+            var before = store.GetValidator().Tag;
+            Assert.Empty(store.GetSummaryFacts().Providers);
+
+            var enriched = Gap("g1");
+            enriched.AvailabilityChecked = true;
+            enriched.Availability = new[] { new AvailabilityOffer { Provider = "Netflix" } };
+            store.SaveAvailabilityMerge(new GapReport { Items = new[] { enriched } }, throttle: false);
+
+            Assert.NotEqual(before, store.GetValidator().Tag);
+            Assert.Equal(new[] { "Netflix" }, store.GetSummaryFacts().Providers);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void LoadWithGeneration_PairsTheReportWithItsGeneration()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            var first = new GapReport { Items = new[] { Gap("a") } };
+            store.Save(first);
+
+            var one = store.LoadWithGeneration();
+            Assert.Same(first, one.Report);
+            Assert.Equal(one.Generation, store.LoadWithGeneration().Generation);
+
+            var second = new GapReport { Items = new[] { Gap("a"), Gap("b") } };
+            store.Save(second);
+
+            var two = store.LoadWithGeneration();
+            Assert.Same(second, two.Report);
+            Assert.NotEqual(one.Generation, two.Generation);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void GetValidator_AfterAReloadIsDatedByTheScanThatProducedTheReport()
+    {
+        var dir = TempDir();
+        try
+        {
+            var scanned = new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+            Store(dir).Save(new GapReport { GeneratedUtc = scanned, Items = new[] { Gap("a") } });
+
+            var reloaded = Store(dir);
+            Assert.Equal(DateTime.MinValue, reloaded.GetValidator().LastChangedUtc);
+
+            reloaded.Load();
+
+            Assert.Equal(scanned, reloaded.GetValidator().LastChangedUtc);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
 }

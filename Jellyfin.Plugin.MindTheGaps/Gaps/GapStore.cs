@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging;
 
@@ -33,6 +36,15 @@ public sealed class GapStore
     private GapReport? _cached;
     private DateTime _lastWriteUtc = DateTime.MinValue;
 
+    // What a cached copy of a response is validated against (see GetValidator). _generation counts every
+    // change a reader could see, in-place merges included, which is why it cannot be inferred from the
+    // _cached reference alone. The instance token keeps a restart from reusing a number a browser still
+    // holds an ETag for. Written only under _lock, read without it: a validator check runs on every request
+    // and must not queue behind a save, which holds the lock across its disk writes.
+    private static readonly string _instanceToken = DateTime.UtcNow.Ticks.ToString("x", CultureInfo.InvariantCulture);
+    private long _generation;
+    private long _lastChangedTicks;
+
     // A derived read index, not a second source of truth: _cached is warm for the life of the process, so
     // every domain-scoped read (a tab switch, a poll) would otherwise re-copy and re-filter every item
     // across every domain on every single call. Built once per _cached generation (tracked by reference,
@@ -42,8 +54,10 @@ public sealed class GapStore
 
     // Same idea for GetSummaryFacts: the dashboard calls it on every page load and after every
     // scan/mint/verify/availability pass, and it would otherwise rescan every gap in the report each time
-    // just to produce a handful of counts and provider names.
-    private GapReport? _summaryFactsSource;
+    // just to produce a handful of counts and provider names. Keyed by _generation rather than the report
+    // reference, because the provider names change when the availability pass merges into the cached
+    // report in place.
+    private long _summaryFactsGeneration = -1;
     private (IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> DomainPatternCounts, IReadOnlyList<string> Providers)? _summaryFacts;
 
     /// <summary>
@@ -77,10 +91,11 @@ public sealed class GapStore
         }
     }
 
-    // The report used to be one gaps.json; splitting it by domain means a small, frequent update (a
-    // Verify, a Send) only has to rewrite the one domain file it actually touched instead of the whole
-    // report. SourceRuns carries no domain (a run is not scoped to one), so it lives in the shared meta
-    // file alongside the scan timestamp/version rather than being shardable itself.
+    // The report is stored one file per domain, so a small, frequent update (a Verify, a Send) only has to
+    // rewrite the one domain file it actually touched instead of the whole report. SourceRuns carries no
+    // domain (a run is not scoped to one), so it lives in the shared meta file alongside the scan
+    // timestamp/version rather than being shardable itself. A single gaps.json is the layout older installs
+    // hold, and is imported once.
     private static string LegacyFilePath(string dataFolder) => Path.Combine(dataFolder, "gaps.json");
 
     private static string MetaFilePath(string dataFolder) => Path.Combine(dataFolder, "gaps-meta.json");
@@ -96,7 +111,7 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            _cached = report;
+            Publish(report);
             Flush(report, null);
         }
     }
@@ -132,12 +147,13 @@ public sealed class GapStore
             GapReport current;
             if (_cached is null || ReferenceEquals(_cached, report))
             {
-                _cached = report;
+                Publish(report);
                 current = report;
             }
             else
             {
                 MergeAvailability(report, _cached);
+                Changed(DateTime.UtcNow);
                 current = _cached;
             }
 
@@ -162,7 +178,7 @@ public sealed class GapStore
 
         lock (_lock)
         {
-            var current = Load();
+            var current = LoadLocked();
             var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
             var order = new List<string>(current.Items.Count + toAdd.Items.Count);
             foreach (var item in current.Items)
@@ -204,7 +220,7 @@ public sealed class GapStore
                 Items = items,
                 SourceRuns = current.SourceRuns
             };
-            _cached = report;
+            Publish(report);
             Flush(report, DomainsOf(toAdd.Items));
             return added;
         }
@@ -221,7 +237,7 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            var current = Load();
+            var current = LoadLocked();
             var kept = new List<GapItem>(current.Items.Count);
             var dirtyDomains = new HashSet<MediaDomain>();
             var removed = 0;
@@ -251,7 +267,7 @@ public sealed class GapStore
                 Items = kept,
                 SourceRuns = current.SourceRuns
             };
-            _cached = report;
+            Publish(report);
             Flush(report, dirtyDomains);
             return removed;
         }
@@ -276,7 +292,7 @@ public sealed class GapStore
 
         lock (_lock)
         {
-            var current = Load();
+            var current = LoadLocked();
             var kept = new List<GapItem>(current.Items.Count);
             var dirtyDomains = new HashSet<MediaDomain>();
             var removed = 0;
@@ -305,7 +321,7 @@ public sealed class GapStore
                 Items = kept,
                 SourceRuns = current.SourceRuns
             };
-            _cached = report;
+            Publish(report);
             Flush(report, dirtyDomains);
             return removed;
         }
@@ -332,7 +348,7 @@ public sealed class GapStore
 
         lock (_lock)
         {
-            var current = Load();
+            var current = LoadLocked();
             var kept = new List<GapItem>(current.Items.Count + recheck.Items.Count);
             var dirtyDomains = new HashSet<MediaDomain>(DomainsOf(recheck.Items));
             foreach (var item in current.Items)
@@ -357,7 +373,7 @@ public sealed class GapStore
                 Items = kept,
                 SourceRuns = current.SourceRuns
             };
-            _cached = report;
+            Publish(report);
             Flush(report, dirtyDomains);
             return report;
         }
@@ -435,6 +451,7 @@ public sealed class GapStore
     // a domain's gaps. Caller holds _lock.
     private void Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
     {
+        AssertLocked();
         try
         {
             var dataFolder = DataFolder;
@@ -511,6 +528,60 @@ public sealed class GapStore
     }
 
     /// <summary>
+    /// Gets what a cached copy of anything derived from the report is validated against: a tag that changes
+    /// whenever the report a reader would see changes, and when that last happened. The tag is unique to this
+    /// process, so it cannot collide with one a browser holds from before a restart. Takes no lock and reads
+    /// nothing from disk. Read it before reading the report: a change in between then only makes the next
+    /// request miss, where the other order could pair old data with a newer tag and let a stale copy
+    /// revalidate indefinitely. Before the report has been loaded the generation is zero, and loading it counts
+    /// as a change, so a response computed across that first load is simply not matched by the next request.
+    /// </summary>
+    /// <returns>The change tag and the UTC time of the last change (the scan time, until something else changes it).</returns>
+    public (string Tag, DateTime LastChangedUtc) GetValidator()
+    {
+        var (generation, changedUtc) = GetGeneration();
+        return (string.Concat(_instanceToken, ".", generation.ToString(CultureInfo.InvariantCulture)), changedUtc);
+    }
+
+    /// <summary>
+    /// Gets the count of changes to the report, for derived reads to memoize against, with when the latest
+    /// happened. The two are read together because they only mean something as a pair.
+    /// </summary>
+    /// <returns>The generation, and the UTC time of the change that produced it (<see cref="DateTime.MinValue"/> before the report has loaded).</returns>
+    public (long Generation, DateTime ChangedUtc) GetGeneration()
+    {
+        // The count first: a change writes its time before bumping the count, so a reader that sees a
+        // count never pairs it with an older time.
+        var generation = Volatile.Read(ref _generation);
+        var ticks = Volatile.Read(ref _lastChangedTicks);
+        return (generation, ticks == 0 ? DateTime.MinValue : new DateTime(ticks, DateTimeKind.Utc));
+    }
+
+    // Replaces the served report. Caller holds _lock.
+    private void Publish(GapReport report)
+    {
+        AssertLocked();
+        _cached = report;
+        Changed(DateTime.UtcNow);
+    }
+
+    // Records a change a reader could see. The time is written first, so a reader that sees the new
+    // generation never pairs it with an older time, and it only moves forward: a cold load stamps the scan
+    // time, which must not pull it back behind a change already recorded. Caller holds _lock.
+    private void Changed(DateTime whenUtc)
+    {
+        AssertLocked();
+        Volatile.Write(ref _lastChangedTicks, Math.Max(whenUtc.Ticks, _lastChangedTicks));
+        Interlocked.Increment(ref _generation);
+    }
+
+    // The store's state is only consistent because one lock serializes every writer, and the lock-free
+    // readers rely on it. A private method whose contract is "caller holds _lock" states it here, so a new
+    // caller outside the lock fails in every Debug test run instead of racing.
+    [Conditional("DEBUG")]
+    private void AssertLocked() => Debug.Assert(Monitor.IsEntered(_lock), "The store lock must be held.");
+
+    /// <summary>
     /// Loads the latest report (from memory if available, otherwise disk).
     /// </summary>
     /// <returns>The latest report, or an empty report if none exists.</returns>
@@ -518,39 +589,66 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            if (_cached is not null)
-            {
-                return _cached;
-            }
-
-            try
-            {
-                var dataFolder = DataFolder;
-
-                // Flush always writes the meta file, on every save, unconditionally - it existing at all
-                // already means this install has converted, whether or not any domain currently has gaps
-                // (an empty domain's file is deleted, not left behind empty), so its presence alone answers
-                // the question; checking the domain files too would only repeat what it already confirms.
-                if (File.Exists(MetaFilePath(dataFolder)))
-                {
-                    _cached = LoadSplit(dataFolder);
-                }
-                else
-                {
-                    var legacy = LegacyFilePath(dataFolder);
-                    if (File.Exists(legacy))
-                    {
-                        _cached = JsonSerializer.Deserialize<GapReport>(File.ReadAllText(legacy), _jsonOptions);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to read gap report");
-            }
-
-            return _cached ?? new GapReport { GeneratedUtc = DateTime.MinValue };
+            return LoadLocked();
         }
+    }
+
+    /// <summary>
+    /// Loads the latest report together with the generation it belongs to, under one lock, for a caller that
+    /// memoizes something derived from the report. Reading the two separately takes the lock twice and lets a
+    /// change land between them, pairing a report with the wrong generation.
+    /// </summary>
+    /// <returns>The latest report (or an empty one) and its generation.</returns>
+    public (GapReport Report, long Generation) LoadWithGeneration()
+    {
+        lock (_lock)
+        {
+            var report = LoadLocked();
+            return (report, _generation);
+        }
+    }
+
+    // Load for a caller that already holds _lock.
+    private GapReport LoadLocked()
+    {
+        AssertLocked();
+        if (_cached is not null)
+        {
+            return _cached;
+        }
+
+        try
+        {
+            var dataFolder = DataFolder;
+
+            // Flush always writes the meta file, on every save, unconditionally - it existing at all
+            // already means this install has converted, whether or not any domain currently has gaps
+            // (an empty domain's file is deleted, not left behind empty), so its presence alone answers
+            // the question; checking the domain files too would only repeat what it already confirms.
+            if (File.Exists(MetaFilePath(dataFolder)))
+            {
+                _cached = LoadSplit(dataFolder);
+            }
+            else
+            {
+                var legacy = LegacyFilePath(dataFolder);
+                if (File.Exists(legacy))
+                {
+                    _cached = JsonSerializer.Deserialize<GapReport>(File.ReadAllText(legacy), _jsonOptions);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read gap report");
+        }
+
+        if (_cached is not null)
+        {
+            Changed(_cached.GeneratedUtc);
+        }
+
+        return _cached ?? new GapReport { GeneratedUtc = DateTime.MinValue };
     }
 
     // Reassembles one unified report from the per-domain files plus the shared meta file; the very next
@@ -603,7 +701,7 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            var report = Load();
+            var report = LoadLocked();
             return new GapReport
             {
                 GeneratedUtc = report.GeneratedUtc,
@@ -627,7 +725,7 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            var report = Load();
+            var report = LoadLocked();
             if (_domainIndex is null || !ReferenceEquals(_domainIndexSource, report))
             {
                 var byDomain = new Dictionary<MediaDomain, List<GapItem>>();
@@ -670,8 +768,8 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            var report = Load();
-            if (_summaryFacts is null || !ReferenceEquals(_summaryFactsSource, report))
+            var report = LoadLocked();
+            if (_summaryFacts is null || _summaryFactsGeneration != _generation)
             {
                 var patternCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
                 var providers = new SortedSet<string>(StringComparer.Ordinal);
@@ -698,7 +796,7 @@ public sealed class GapStore
                 _summaryFacts = (
                     patternCounts.ToDictionary(kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value, StringComparer.Ordinal),
                     providers.ToArray());
-                _summaryFactsSource = report;
+                _summaryFactsGeneration = _generation;
             }
 
             return _summaryFacts.Value;
@@ -720,7 +818,7 @@ public sealed class GapStore
 
         lock (_lock)
         {
-            return Load().Items.FirstOrDefault(i => string.Equals(i.Id, id, StringComparison.Ordinal));
+            return LoadLocked().Items.FirstOrDefault(i => string.Equals(i.Id, id, StringComparison.Ordinal));
         }
     }
 }

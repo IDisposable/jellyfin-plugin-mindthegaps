@@ -1,5 +1,7 @@
 // Builds a standalone HTML page for the report dashboard, the same way the .csproj's
-// ConcatDashboard task builds the real one (splice css/common/body/js into the shell), but with
+// BuildDashboard task builds the real one (splice the body into the shell, wrap common + page js in one
+// scope), but inlining the stylesheet and the script bundle in place of the tags that reference them by
+// URL, since the served files are not reachable from a file:// page, and with
 // ApiClient/Dashboard replaced by an in-page mock so a spec can drive the real report.js/report.css
 // against fake gap data without a Jellyfin server. This is what caught the CSS containment bug
 // (jellyfin-web's div.page.mainAnimatedPage sets "contain: size style", which per spec makes it the
@@ -24,15 +26,75 @@ window.addEventListener('error', function (e) { window.__uiTestErrors.push(Strin
 
 var __SUMMARY__ = ${JSON.stringify(summary)};
 var __ITEMS_BY_DOMAIN__ = ${JSON.stringify(itemsByDomain)};
+window.__detailCalls = [];
+window.__gapsCalls = [];
+
+function leanReport(items) {
+    var sets = [];
+    var setIndex = {};
+    var kinds = [];
+    var shared = function (field) { return items.length > 0 && items.every(function (i) { return i[field] === items[0][field]; }); };
+    var samePattern = shared('PatternName');
+    var sameDomain = shared('DomainName');
+    var rows = items.map(function (it) {
+        var row = Object.assign({}, it);
+        var k = kinds.indexOf(it.TargetKindName);
+        if (k === -1) { k = kinds.push(it.TargetKindName) - 1; }
+        row.TargetKindRef = k;
+        delete row.TargetKindName;
+        if (samePattern) { delete row.PatternName; }
+        if (sameDomain) { delete row.DomainName; }
+        delete row.Overview;
+        delete row.Links;
+        delete row.SourceLinks;
+        row.HasOverview = !!it.Overview;
+        if (it.SourceLinks && it.SourceLinks.length) {
+            var key = JSON.stringify(it.SourceLinks);
+            if (setIndex[key] === undefined) { setIndex[key] = sets.length; sets.push(it.SourceLinks); }
+            row.SourceLinksRef = setIndex[key];
+        }
+        if (it.Availability && it.Availability.length) {
+            row.Availability = it.Availability.map(function (o) { return { Provider: o.Provider, MonetizationType: o.MonetizationType, LogoUrl: o.LogoUrl }; });
+        } else {
+            delete row.Availability;
+        }
+        return row;
+    });
+    return {
+        Items: rows,
+        SourceLinkSets: sets,
+        TargetKinds: kinds,
+        PatternName: samePattern ? items[0].PatternName : undefined,
+        DomainName: sameDomain ? items[0].DomainName : undefined,
+        SourceRuns: []
+    };
+}
 
 window.ApiClient = {
     ajax: function (opts) {
         var url = opts.url || '';
         if (url.indexOf('MindTheGaps/Summary') !== -1) { return Promise.resolve(__SUMMARY__); }
+        if (url.indexOf('MindTheGaps/GapDetail') !== -1) {
+            window.__detailCalls.push(url);
+            var wantedId = decodeURIComponent((url.match(/id=([^&]+)/) || [])[1] || '');
+            var found = null;
+            Object.keys(__ITEMS_BY_DOMAIN__).forEach(function (d) {
+                (__ITEMS_BY_DOMAIN__[d] || []).forEach(function (it) { if (it.Id === wantedId) { found = it; } });
+            });
+            return found ? Promise.resolve(found) : Promise.reject({ status: 404 });
+        }
         if (url.indexOf('MindTheGaps/Gaps') !== -1) {
             var domain = decodeURIComponent((url.match(/domain=([^&]+)/) || [])[1] || '');
             var items = __ITEMS_BY_DOMAIN__[domain] || [];
-            return Promise.resolve({ Items: items, GeneratedUtc: '2026-01-01T00:00:00Z', GeneratedVersion: __SUMMARY__.GeneratedVersion });
+            var fullRequested = /[?&]full=true/.test(url);
+            window.__gapsCalls.push(url);
+            // The real server returns list rows (Model/GapRow.cs): no overview, no external links, no
+            // offer deeplinks, and a set's source links once in SourceLinkSets. Serving full fixtures
+            // instead would let the page read a field the list does not carry without a test noticing.
+            var body = fullRequested
+                ? { Items: items, SourceRuns: [] }
+                : leanReport(items);
+            return Promise.resolve(Object.assign(body, { GeneratedUtc: '2026-01-01T00:00:00Z', GeneratedVersion: __SUMMARY__.GeneratedVersion }));
         }
         if (url.indexOf('MindTheGaps/Resolutions') !== -1) { return Promise.resolve({}); }
         if (url.indexOf('MindTheGaps/AcquisitionConfig') !== -1) { return Promise.resolve({}); }
@@ -68,11 +130,14 @@ function buildHarness(summary, itemsByDomain) {
     const shell = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.html'), 'utf8');
     const body = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.body.html'), 'utf8');
 
+    const bundle = '(function () {\n' + common + '\n' + reportJs + '\n})();\n';
     let page = shell
-        .replace('@@MTG_CSS@@', css)
-        .replace('@@MTG_BODY@@', body)
-        .replace('@@MTG_COMMON@@', common)
-        .replace('@@MTG_JS@@', reportJs);
+        .replace('@@MTG_BODY@@', () => body)
+        .replace(/<link rel="stylesheet" href="[^"]*mindthegaps\.css[^"]*"\s*\/?>/, () => '<style>' + css + '</style>')
+        .replace(/<script type="text\/javascript" src="[^"]*report\.js[^"]*"><\/script>/, () => '<script type="text/javascript">' + bundle + '</script>');
+    if (page.includes('@@MTG_') || !page.includes('function wrap(tag, attrs, innerHtml)')) {
+        throw new Error('the report shell does not match what the harness expects: update build-harness.js alongside mindthegaps.report.html');
+    }
 
     // Wrap in jellyfin-web's real page wrapper, containment declaration and all: see the module
     // comment above for why this specific div is the point of the harness.

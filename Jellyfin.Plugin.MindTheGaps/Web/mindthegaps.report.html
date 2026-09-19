@@ -8,9 +8,7 @@
 
 <body>
     <div id="MindTheGapsPage" data-role="page" class="page type-interior" data-require="emby-button,emby-input,emby-select,emby-checkbox,emby-linkbutton,paper-icon-button-light">
-        <style>
-            @@MTG_CSS@@
-        </style>
+        <link rel="stylesheet" href="../MindTheGaps/Dashboard/mindthegaps.css?v=@@MTG_CSS_HASH@@" />
         <div data-role="content">
             <div class="content-primary">
                 <div class="sectionTitleContainer flex align-items-center">
@@ -19,9 +17,7 @@
                     <button is="paper-icon-button-light" type="button" id="cgSettings" title="Plugin settings" aria-label="Plugin settings">
                         <span class="material-icons" aria-hidden="true">settings</span>
                     </button>
-                </div>
-                @@MTG_BODY@@
-                <div id="cgDiagModal" role="dialog" aria-modal="true" aria-labelledby="cgDiagTitle"
+                </div> @@MTG_BODY@@ <div id="cgDiagModal" role="dialog" aria-modal="true" aria-labelledby="cgDiagTitle"
                      style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
                     <div style="background:#101418;color:#eee;max-width:580px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
                         <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
@@ -96,12 +92,7 @@
                         </div>
                     </div>
                 </div>
-                <script type="text/javascript">
-                    (function () {
-                        @@MTG_COMMON@@
-                        @@MTG_JS@@
-                    })();
-                </script>
+                <script type="text/javascript" src="../MindTheGaps/Dashboard/report.js?v=@@MTG_JS_HASH@@"></script>
             </div>
         </div>
     </div>
