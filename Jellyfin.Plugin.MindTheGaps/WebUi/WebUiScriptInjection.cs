@@ -27,6 +27,7 @@ public sealed class WebUiScriptInjection : IStartupFilter
     private readonly ILogger<WebUiScriptInjection> _logger;
     private readonly Func<bool> _enabled;
     private int _announced;
+    private int _warnedNoBody;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiScriptInjection"/> class.
@@ -152,6 +153,12 @@ public sealed class WebUiScriptInjection : IStartupFilter
             if (!ReferenceEquals(injected, html) && Interlocked.Exchange(ref _announced, 1) == 0)
             {
                 _logger.LogInformation("Web UI: client script added to index.html at request time.");
+            }
+            else if (ReferenceEquals(injected, html) && !IndexHtmlInjector.HasScript(html) && Interlocked.Exchange(ref _warnedNoBody, 1) == 0)
+            {
+                // Nothing to insert before: a theme or proxy has reshaped the page. Without this the surfaces
+                // would just never appear, with no trace of why.
+                _logger.LogWarning("Web UI: index.html has no closing body tag, so the client script was not added and the surfaces will not appear.");
             }
 
             html = injected;

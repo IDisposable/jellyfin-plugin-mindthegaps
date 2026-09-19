@@ -24,6 +24,18 @@ internal static class IndexHtmlInjector
             $"<script {Marker} src=\"../{Api.WebUiController.ClientScriptPath}?v={Uri.EscapeDataString(version)}\" defer></script>");
 
     /// <summary>
+    /// Determines whether a document already carries the script tag.
+    /// </summary>
+    /// <param name="html">The index.html contents.</param>
+    /// <returns><see langword="true"/> when the tag is present.</returns>
+    public static bool HasScript(string html)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+
+        return html.Contains(Marker, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Inserts the script tag before the closing body tag, once.
     /// </summary>
     /// <param name="html">The index.html contents.</param>
@@ -33,7 +45,7 @@ internal static class IndexHtmlInjector
     {
         ArgumentNullException.ThrowIfNull(html);
 
-        if (html.Contains(Marker, StringComparison.Ordinal))
+        if (HasScript(html))
         {
             return html;
         }

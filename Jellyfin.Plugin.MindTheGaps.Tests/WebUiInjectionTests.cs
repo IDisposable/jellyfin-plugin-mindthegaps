@@ -23,6 +23,24 @@ public class WebUiInjectionTests
     }
 
     [Fact]
+    public void HasScript_IsTrueOnlyOnceTheTagIsThere()
+    {
+        Assert.False(IndexHtmlInjector.HasScript(Index));
+        Assert.True(IndexHtmlInjector.HasScript(IndexHtmlInjector.Inject(Index, "1.0")));
+    }
+
+    [Fact]
+    public void Inject_WithNoClosingBody_LeavesThePageAsItWasAndHasNoScript()
+    {
+        const string noBody = "<html><body><h1>x</h1>";
+
+        var result = IndexHtmlInjector.Inject(noBody, "1.0");
+
+        Assert.Same(noBody, result);
+        Assert.False(IndexHtmlInjector.HasScript(result));
+    }
+
+    [Fact]
     public void Inject_SrcIsRelativeToTheWebFolder_SoABaseUrlPrefixResolves()
     {
         var tag = IndexHtmlInjector.ScriptTag("1.0");

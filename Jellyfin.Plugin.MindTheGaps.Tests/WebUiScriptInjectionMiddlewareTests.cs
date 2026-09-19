@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -185,6 +188,49 @@ public class WebUiScriptInjectionMiddlewareTests
     }
 
     [Fact]
+    public async Task WithNoClosingBodyTag_TheOperatorIsToldOnce_AndThePageIsServedUnchanged()
+    {
+        const string noBody = "<html><body><h1>jellyfin</h1>";
+        var logger = new ListLogger();
+        var middleware = new WebUiScriptInjection(logger, () => true);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var context = Request();
+            await middleware.InvokeAsync(context, () => Host(context, noBody));
+
+            Assert.Equal(noBody, Body(context));
+        }
+
+        var warning = Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains("closing body tag", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WhenTheScriptIsAlreadyThere_NothingIsWarnedAbout()
+    {
+        const string tagged = "<html><body><script data-mtg-webui src=\"x\"></script></body></html>";
+        var logger = new ListLogger();
+        var context = Request();
+
+        await new WebUiScriptInjection(logger, () => true).InvokeAsync(context, () => Host(context, tagged));
+
+        Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task ASuccessfulInjection_IsAnnouncedNotWarnedAbout()
+    {
+        var logger = new ListLogger();
+        var context = Request();
+
+        await new WebUiScriptInjection(logger, () => true).InvokeAsync(context, () => Host(context));
+
+        Assert.Single(logger.Entries, e => e.Level == LogLevel.Information);
+        Assert.DoesNotContain(logger.Entries, e => e.Level == LogLevel.Warning);
+    }
+
+    [Fact]
     public async Task ARequestForSomethingElse_IsNotTouched()
     {
         var context = Request(path: "/web/main.bundle.js", ifNoneMatch: "\"host-tag\"");
@@ -198,5 +244,18 @@ public class WebUiScriptInjectionMiddlewareTests
 
         Assert.True(sawTag);
         Assert.Equal("console.log(1)", Body(context));
+    }
+
+    private sealed class ListLogger : ILogger<WebUiScriptInjection>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
     }
 }

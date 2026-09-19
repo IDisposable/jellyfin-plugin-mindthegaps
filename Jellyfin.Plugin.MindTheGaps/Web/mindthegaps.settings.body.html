@@ -414,6 +414,7 @@
             <h2 class="sectionTitle">Web UI (experimental)</h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page
                 load. Each surface below has its own switch. Turning one on also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
+            <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Not filtered by who is asking.</strong> What a surface shows is not limited by the signed-in user's library access or parental rating, and the home Discover row can include titles that came from your personal lists (watchlists and the lists you follow). Keep that in mind before turning a surface on for a server with restricted accounts.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="WebUiEnabled" name="WebUiEnabled" type="checkbox" is="emby-checkbox" />
