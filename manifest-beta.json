@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.8.2",
+                "changelog": "10.11.8.2 (beta) - Streaming-service icons on a report row now show the service's logo for every title, not only ones looked up recently: the logos are filled in from TMDB's provider list on the next scan or \"where to watch\" pass, and a service TMDB has no logo for shows its initial. A service that TMDB lists as several providers, such as a \"with Ads\" tier or a reseller's channel, now shows as one icon and has one entry in the provider filter instead of several. In the Web UI, the detail dialog's close button is centered and its View on TMDB, View on IMDb, and Watch trailer links match the other buttons; the \"More like this you don't have\" row on a movie or series page lines up with the row above it; and the home Discover row's title lines up with the other sections. The Resolve button in a row's expanded detail lines up with the buttons beside it. The scan log now says how long each source took, which shows which one is holding up a slow scan.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.2/mind-the-gaps_12.0.8.2.zip",
+                "checksum": "5d3084a54792a7a33945575c2aa8d328",
+                "timestamp": "2026-09-19T14:09:14Z"
+            },
+            {
                 "version": "12.0.8.1",
                 "changelog": "10.11.8.1 (beta) - An experimental, opt-in Web UI adds Mind the Gaps sections to Jellyfin's own pages: a person's page lists what they made that you do not own, a movie or series page suggests titles like it that you are missing, and the home page gets a Discover row of the recommendations your scans found. A master switch and one toggle per surface in settings control them, all off by default. Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, and a trailer link, then send it to Radarr or Sonarr with the quality profile you pick, or add it to your TODO list; the dialog and the card grids can be driven from a keyboard or a TV remote. The Gaps Report loads faster: it fetches one tab at a time as slim rows, fetches a row's overview, links, and where-to-watch details only when you open it, and revalidates what it already holds instead of downloading it again, and both dashboard pages load their script and stylesheet as separately cached files. A row shows up to two streaming-service icons on its collapsed line, following your provider and monetization filters; logos appear after the next where-to-watch lookup, and until then a service shows its initial. Gaps left behind by a source you have since removed or turned off, such as a dropped keyword or a disabled watchlist, are now pruned on every scan, and a Prune stale gaps button under Maintenance does it right away. The saved report is now stored as one file per domain, so a Verify or a Send rewrites only the domain it touched; an existing report is converted automatically the next time it is saved.\n",
                 "targetAbi": "12.0.0.0",
@@ -79,6 +87,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.8.2",
+                "changelog": "10.11.8.2 (beta) - Streaming-service icons on a report row now show the service's logo for every title, not only ones looked up recently: the logos are filled in from TMDB's provider list on the next scan or \"where to watch\" pass, and a service TMDB has no logo for shows its initial. A service that TMDB lists as several providers, such as a \"with Ads\" tier or a reseller's channel, now shows as one icon and has one entry in the provider filter instead of several. In the Web UI, the detail dialog's close button is centered and its View on TMDB, View on IMDb, and Watch trailer links match the other buttons; the \"More like this you don't have\" row on a movie or series page lines up with the row above it; and the home Discover row's title lines up with the other sections. The Resolve button in a row's expanded detail lines up with the buttons beside it. The scan log now says how long each source took, which shows which one is holding up a slow scan.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.2/mind-the-gaps_10.11.8.2.zip",
+                "checksum": "658a434b87e06b56175c5dcb59b4d959",
+                "timestamp": "2026-09-19T14:09:16Z"
             },
             {
                 "version": "10.11.8.1",
