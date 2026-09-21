@@ -107,6 +107,22 @@ test('an actor who is also an author gets both sections', async ({ page }) => {
     await expect(titleIn(page, '#mtgWorksMissing', 'Another Novel')).toBeVisible();
 });
 
+test('on an author page the books row takes the filmography section\'s markup, right after it', async ({ page }) => {
+    const works = { ItemId: 'person-1', ItemName: 'Both', Kind: 'Book', CanTodo: true, Reason: null, Works: [BOOK] };
+    await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, missing([movie()]), null, 1, undefined, undefined, works));
+
+    const wrap = page.locator('#mtgWorksMissing');
+    await expect(wrap).toHaveClass(/detailPageSecondaryContainer/);
+    await expect(wrap).toHaveClass(/padded-left/);
+    await expect(wrap).not.toHaveClass(/detailVerticalSection/);
+
+    const order = await page.evaluate(() => {
+        const kids = Array.prototype.slice.call(document.querySelector('.detailPageContent').children).map((e) => e.id);
+        return kids;
+    });
+    expect(order).toEqual(['mtgPersonMissing', 'mtgWorksMissing', 'similarCollapsible']);
+});
+
 test('an actor with no books gets only the filmography', async ({ page }) => {
     await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, missing([movie()])));
 

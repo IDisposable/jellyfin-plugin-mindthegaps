@@ -656,7 +656,10 @@
 
     // ---- Artist / book page ----
 
-    function renderWorks(page, itemId, data) {
+    // onPerson: an author's own page, where the row sits under the filmography section and takes that section's
+    // markup (a padded secondary container) so the two line up; on an artist or book page it is a
+    // .detailVerticalSection, like the movie and series row.
+    function renderWorks(page, itemId, data, onPerson) {
         remove(page, WORKS_ID);
         if (!data || (!data.Reason && !data.Works.length)) { return; }
 
@@ -671,12 +674,21 @@
             section.appendChild(h('p', { 'class': 'mtgNote' }, data.Reason));
         }
 
+        var anchor = page.querySelector('#similarCollapsible');
+        if (onPerson) {
+            var wrap = h('div', { 'id': WORKS_ID, 'class': 'detailPageSecondaryContainer padded-left padded-bottom-page' });
+            wrap.appendChild(section);
+            // Right after the filmography section, which went in before the same anchor, else at the end.
+            var host = anchor ? anchor.parentNode : page.querySelector('.detailPageContent') || page;
+            host.insertBefore(wrap, anchor || null);
+            return;
+        }
+
         section.id = WORKS_ID;
         section.classList.add('detailVerticalSection', 'verticalSection-extrabottompadding');
 
         // Where the movie and series row goes: after jellyfin-web's own "More Like This" when the page has
         // one, else at the end of the page's content.
-        var anchor = page.querySelector('#similarCollapsible');
         if (anchor) {
             anchor.parentNode.insertBefore(section, anchor.nextSibling);
         } else {
@@ -783,7 +795,7 @@
                     // An author has no filmography to look up, and the note that says so is noise on their page.
                     if (works && missing && missing.Reason && !missing.Movies.length && !missing.Series.length) { missing = null; }
                     renderPerson(page, item.Id, missing);
-                    renderWorks(page, item.Id, works);
+                    renderWorks(page, item.Id, works, true);
                 });
             }
 
