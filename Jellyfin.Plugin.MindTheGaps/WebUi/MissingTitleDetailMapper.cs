@@ -21,8 +21,10 @@ internal static class MissingTitleDetailMapper
     /// <param name="movie">The movie, fetched with external ids and videos.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="backdropUrl">Resolves a TMDB backdrop path to a URL.</param>
+    /// <param name="country">The region a JustWatch search is scoped to (an ISO 3166-1 alpha-2 country code).</param>
+    /// <param name="justWatchUrl">The title's own JustWatch page when the report holds one; the search is used otherwise.</param>
     /// <returns>The detail.</returns>
-    public static MissingTitleDetail FromMovie(Movie movie, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
+    public static MissingTitleDetail FromMovie(Movie movie, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl, string? country = null, string? justWatchUrl = null)
     {
         ArgumentNullException.ThrowIfNull(movie);
 
@@ -43,6 +45,7 @@ internal static class MissingTitleDetailMapper
             BackdropUrl = backdropUrl(movie.BackdropPath),
             TmdbUrl = TmdbLinks.TitleUrl(BaseItemKind.Movie, movie.Id.ToString(CultureInfo.InvariantCulture)) ?? string.Empty,
             ImdbUrl = ImdbUrl(imdbId),
+            JustWatchUrl = justWatchUrl ?? ProviderLinks.JustWatchSearchUrl(movie.Title, country),
             YoutubeTrailerKey = SelectTrailer(movie.Videos?.Results)
         };
     }
@@ -53,8 +56,10 @@ internal static class MissingTitleDetailMapper
     /// <param name="show">The series, fetched with external ids and videos.</param>
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="backdropUrl">Resolves a TMDB backdrop path to a URL.</param>
+    /// <param name="country">The region a JustWatch search is scoped to (an ISO 3166-1 alpha-2 country code).</param>
+    /// <param name="justWatchUrl">The title's own JustWatch page when the report holds one; the search is used otherwise.</param>
     /// <returns>The detail.</returns>
-    public static MissingTitleDetail FromSeries(TvShow show, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl)
+    public static MissingTitleDetail FromSeries(TvShow show, Func<string?, string?> posterUrl, Func<string?, string?> backdropUrl, string? country = null, string? justWatchUrl = null)
     {
         ArgumentNullException.ThrowIfNull(show);
 
@@ -77,6 +82,7 @@ internal static class MissingTitleDetailMapper
             BackdropUrl = backdropUrl(show.BackdropPath),
             TmdbUrl = TmdbLinks.TitleUrl(BaseItemKind.Series, show.Id.ToString(CultureInfo.InvariantCulture)) ?? string.Empty,
             ImdbUrl = ImdbUrl(show.ExternalIds?.ImdbId),
+            JustWatchUrl = justWatchUrl ?? ProviderLinks.JustWatchSearchUrl(show.Name, country),
             YoutubeTrailerKey = SelectTrailer(show.Videos?.Results)
         };
     }

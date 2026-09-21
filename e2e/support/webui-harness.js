@@ -23,6 +23,7 @@ function buildMockScript(item, missingResult, sendResult, discoverResult, todoRe
         NumberOfSeasons: null, Networks: [],
         PosterUrl: 'https://example.com/poster.jpg', BackdropUrl: 'https://example.com/backdrop.jpg',
         TmdbUrl: 'https://www.themoviedb.org/movie/603', ImdbUrl: 'https://www.imdb.com/title/tt0133093/',
+        JustWatchUrl: 'https://www.justwatch.com/us/search?q=A%20Missing%20Movie',
         YoutubeTrailerKey: 'vKQi3bBA1y8'
     };
     var defaultProfiles = { Profiles: [{ Id: 1, Name: 'HD-1080p' }, { Id: 2, Name: 'Ultra-HD' }], DefaultId: 1 };

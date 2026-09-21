@@ -294,6 +294,9 @@
         if (detail.ImdbUrl) {
             refs.links.appendChild(h('a', { 'href': detail.ImdbUrl, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on IMDb'));
         }
+        if (detail.JustWatchUrl) {
+            refs.links.appendChild(h('a', { 'href': detail.JustWatchUrl, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON, 'title': 'See which services stream it' }, 'Search JustWatch'));
+        }
         if (detail.YoutubeTrailerKey) {
             refs.links.appendChild(h('a', {
                 'href': 'https://www.youtube.com/watch?v=' + encodeURIComponent(detail.YoutubeTrailerKey),

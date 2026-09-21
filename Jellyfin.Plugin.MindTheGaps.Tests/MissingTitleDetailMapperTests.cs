@@ -221,4 +221,53 @@ public class MissingTitleDetailMapperTests
     {
         Assert.Throws<ArgumentNullException>(() => MissingTitleDetailMapper.FromSeries(null!, _ => null, _ => null));
     }
+
+    [Fact]
+    public void FromMovie_CarriesAJustWatchSearchForTheConfiguredRegion()
+    {
+        var movie = new Movie { Id = 550, Title = "Fight Club" };
+
+        var detail = MissingTitleDetailMapper.FromMovie(movie, _ => null, _ => null, "gb");
+
+        Assert.Equal("https://www.justwatch.com/gb/search?q=Fight%20Club", detail.JustWatchUrl);
+    }
+
+    [Fact]
+    public void FromSeries_CarriesAJustWatchSearchForTheConfiguredRegion()
+    {
+        var show = new TvShow { Id = 1399, Name = "Game of Thrones" };
+
+        var detail = MissingTitleDetailMapper.FromSeries(show, _ => null, _ => null, "us");
+
+        Assert.Equal("https://www.justwatch.com/us/search?q=Game%20of%20Thrones", detail.JustWatchUrl);
+    }
+
+    [Fact]
+    public void FromMovie_PrefersTheTitlesOwnJustWatchPageOverTheSearch()
+    {
+        var movie = new Movie { Id = 603, Title = "The Matrix" };
+
+        var detail = MissingTitleDetailMapper.FromMovie(movie, _ => null, _ => null, "us", "https://www.justwatch.com/us/movie/the-matrix");
+
+        Assert.Equal("https://www.justwatch.com/us/movie/the-matrix", detail.JustWatchUrl);
+    }
+
+    [Fact]
+    public void FromSeries_PrefersTheTitlesOwnJustWatchPageOverTheSearch()
+    {
+        var show = new TvShow { Id = 1399, Name = "Game of Thrones" };
+
+        var detail = MissingTitleDetailMapper.FromSeries(show, _ => null, _ => null, "us", "https://www.justwatch.com/us/tv-show/game-of-thrones");
+
+        Assert.Equal("https://www.justwatch.com/us/tv-show/game-of-thrones", detail.JustWatchUrl);
+    }
+
+    [Fact]
+    public void FromMovie_WithNoRegion_SearchesTheUsSite_AndWithNoTitle_OffersNoLink()
+    {
+        Assert.Equal(
+            "https://www.justwatch.com/us/search?q=Heat",
+            MissingTitleDetailMapper.FromMovie(new Movie { Id = 1, Title = "Heat" }, _ => null, _ => null).JustWatchUrl);
+        Assert.Null(MissingTitleDetailMapper.FromMovie(new Movie { Id = 2, Title = null }, _ => null, _ => null, "us").JustWatchUrl);
+    }
 }

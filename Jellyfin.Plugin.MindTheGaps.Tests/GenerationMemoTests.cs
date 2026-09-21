@@ -26,6 +26,21 @@ public class GenerationMemoTests
     }
 
     [Fact]
+    public void TryGet_HoldsOnlyTheGenerationItWasComputedFor()
+    {
+        var memo = new GenerationMemo<int>();
+
+        Assert.False(memo.TryGet(3, out _));
+
+        memo.GetOrCompute(3, () => 30);
+
+        Assert.True(memo.TryGet(3, out var value));
+        Assert.Equal(30, value);
+        Assert.False(memo.TryGet(4, out _));
+        Assert.False(memo.TryGet(2, out _));
+    }
+
+    [Fact]
     public void RecomputesWhenTheGenerationMoves()
     {
         var memo = new GenerationMemo<int>();

@@ -212,7 +212,7 @@ flowchart TD
 - **Web UI on Jellyfin's own pages** (experimental, opt-in): a "Missing from your library" section on a
   person's page, a "More like this you don't have" row on a movie or series page, and a "Discover" row on
   the home screen, each with its own switch. Click a card for a detail dialog (TMDB's synopsis, genres,
-  runtime, rating, trailer), then send the title to Radarr or Sonarr with the quality profile you pick, or
+  runtime, rating, trailer, a JustWatch link), then send the title to Radarr or Sonarr with the quality profile you pick, or
   add it to your TODO list. It works from a keyboard or a TV remote. The data behind each surface is served
   by the plugin's API to any signed-in user whether or not the script is added to Jellyfin Web, so another
   client can use it; see the [configuration reference](docs/configuration.md#web-ui-experimental).

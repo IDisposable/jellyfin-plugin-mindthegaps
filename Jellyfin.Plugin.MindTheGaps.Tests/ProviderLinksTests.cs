@@ -141,4 +141,35 @@ public class ProviderLinksTests
         Assert.Contains(links, l => l.Name == "TMDB");
         Assert.Contains(links, l => l.Name == "IMDb");
     }
+
+    [Theory]
+    [InlineData("Heat", "US", "https://www.justwatch.com/us/search?q=Heat")]
+    [InlineData("Heat", "gb", "https://www.justwatch.com/gb/search?q=Heat")]
+    [InlineData("  Devil in a Blue Dress ", "DE", "https://www.justwatch.com/de/search?q=Devil%20in%20a%20Blue%20Dress")]
+    [InlineData("Amelie & Co? #1", "FR", "https://www.justwatch.com/fr/search?q=Amelie%20%26%20Co%3F%20%231")]
+    public void JustWatchSearchUrl_ScopesTheSearchToTheRegionAndEscapesTheTitle(string title, string country, string expected)
+    {
+        Assert.Equal(expected, ProviderLinks.JustWatchSearchUrl(title, country));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("USA")]
+    [InlineData("U")]
+    [InlineData("1x")]
+    [InlineData("../")]
+    public void JustWatchSearchUrl_FallsBackToUsForAnythingButATwoLetterCode(string? country)
+    {
+        Assert.Equal("https://www.justwatch.com/us/search?q=Heat", ProviderLinks.JustWatchSearchUrl("Heat", country));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void JustWatchSearchUrl_HasNothingToSearchForWithoutATitle(string? title)
+    {
+        Assert.Null(ProviderLinks.JustWatchSearchUrl(title, "US"));
+    }
 }

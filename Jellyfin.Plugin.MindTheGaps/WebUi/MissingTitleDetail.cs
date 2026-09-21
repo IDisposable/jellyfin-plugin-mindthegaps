@@ -91,6 +91,12 @@ public sealed class MissingTitleDetail
     public string? ImdbUrl { get; set; }
 
     /// <summary>
+    /// Gets or sets a JustWatch search for this title in the configured region, so a viewer can see where it
+    /// streams. A search, not a title page: TMDB carries no JustWatch id.
+    /// </summary>
+    public string? JustWatchUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets a YouTube video id for the most relevant trailer (a trailer over a teaser, official
     /// breaking a tie within the same type), or null when TMDB has no usable video.
     /// </summary>

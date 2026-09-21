@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
@@ -39,6 +40,7 @@ public class WebUiController : ControllerBase
     private readonly AcquisitionService _acquisition;
     private readonly TodoStore _todo;
     private readonly TmdbClient _tmdb;
+    private readonly JustWatchLinkIndex _justWatchLinks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiController"/> class.
@@ -49,8 +51,10 @@ public class WebUiController : ControllerBase
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
     /// <param name="todo">The personal todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb)
+    /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
+    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
     {
+        _justWatchLinks = justWatchLinks;
         _person = person;
         _related = related;
         _home = home;
@@ -319,13 +323,13 @@ public class WebUiController : ControllerBase
         if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
         {
             var movie = await _tmdb.GetMovieDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-            return movie is null ? NotFound() : MissingTitleDetailMapper.FromMovie(movie, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+            return movie is null ? NotFound() : MissingTitleDetailMapper.FromMovie(movie, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl, config.MetadataCountryCode, _justWatchLinks.Find(BaseItemKind.Movie, tmdbId));
         }
 
         if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase))
         {
             var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-            return show is null ? NotFound() : MissingTitleDetailMapper.FromSeries(show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl);
+            return show is null ? NotFound() : MissingTitleDetailMapper.FromSeries(show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl, config.MetadataCountryCode, _justWatchLinks.Find(BaseItemKind.Series, tmdbId));
         }
 
         return NotFound();

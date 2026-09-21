@@ -221,7 +221,7 @@ plugin's API.
 | **Home screen** (`HomeRowEnabled`) | Off | A "Discover: not in your library" row from the recommendation gaps the last scan accumulated, ranked by how many owned titles suggest each one, then by TMDB popularity. It reads the report, so it makes no TMDB call when the home page loads. |
 | **Home Discover row: max titles** (`HomeRowSize`) | 20 | The most titles the row shows (1 to 100). |
 
-Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, and a trailer link. An
+Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, a trailer link, and JustWatch (the title's own page when a report gap carries one, else a search in your configured region). An
 administrator can **Send** the title to Radarr or Sonarr from it, choosing the quality profile, or add it to
 the TODO list. The dialog and the card grids work from a keyboard or a TV remote.
 

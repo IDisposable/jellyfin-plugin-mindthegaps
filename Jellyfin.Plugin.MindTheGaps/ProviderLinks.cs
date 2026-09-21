@@ -16,6 +16,27 @@ namespace Jellyfin.Plugin.MindTheGaps;
 internal static class ProviderLinks
 {
     /// <summary>
+    /// A JustWatch search for a title in a region, for a title that carries no JustWatch id of its own. The
+    /// region is a two-letter country code (the same <c>MetadataCountryCode</c> the availability lookups use);
+    /// anything else falls back to <c>us</c>, since JustWatch answers an unknown region with an error page.
+    /// </summary>
+    /// <param name="title">The title to search for.</param>
+    /// <param name="country">The ISO 3166-1 alpha-2 country code, or null.</param>
+    /// <returns>The search URL, or <see langword="null"/> when there is no title to search for.</returns>
+    public static string? JustWatchSearchUrl(string? title, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return null;
+        }
+
+        var region = country is { Length: 2 } && char.IsAsciiLetter(country[0]) && char.IsAsciiLetter(country[1])
+            ? country.ToLowerInvariant()
+            : "us";
+        return "https://www.justwatch.com/" + region + "/search?q=" + Uri.EscapeDataString(title.Trim());
+    }
+
+    /// <summary>
     /// Builds the external links implied by a set of provider ids.
     /// </summary>
     /// <param name="targetKind">The gap's target kind (Movie, Series, Episode, ...).</param>

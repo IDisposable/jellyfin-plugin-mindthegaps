@@ -60,12 +60,15 @@ test('the dialog fills in TMDB detail once the lookup resolves', async ({ page }
     await expect(page.locator('.mtgDialogMeta')).toContainText('TMDB 8.2/10');
 
     const links = page.locator('.mtgDialogLinks a');
-    await expect(links).toHaveCount(3);
+    await expect(links).toHaveCount(4);
     await expect(links.nth(0)).toHaveText('View on TMDB');
     await expect(links.nth(1)).toHaveText('View on IMDb');
     await expect(links.nth(1)).toHaveAttribute('href', 'https://www.imdb.com/title/tt0133093/');
-    await expect(links.nth(2)).toHaveText('Watch trailer');
-    await expect(links.nth(2)).toHaveAttribute('href', 'https://www.youtube.com/watch?v=vKQi3bBA1y8');
+    await expect(links.nth(2)).toHaveText('Search JustWatch');
+    await expect(links.nth(2)).toHaveAttribute('href', 'https://www.justwatch.com/us/search?q=A%20Missing%20Movie');
+    await expect(links.nth(2)).toHaveAttribute('target', '_blank');
+    await expect(links.nth(3)).toHaveText('Watch trailer');
+    await expect(links.nth(3)).toHaveAttribute('href', 'https://www.youtube.com/watch?v=vKQi3bBA1y8');
 
     const detailUrl = await page.evaluate(() => window.__lastDetailUrl);
     expect(detailUrl).toContain('WebUi/Detail');
@@ -265,15 +268,15 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
     await openPersonPage(page, harnessPath);
     await page.locator('[data-gapid="filmography:movie:1"]').click();
 
-    // Wait for the profile select and both extra links (IMDb, trailer) to settle in, so the order below
-    // (close, TMDB, IMDb, trailer, select, Send) is the full, final set.
+    // Wait for the profile select and the extra links (IMDb, JustWatch, trailer) to settle in, so the order
+    // below (close, TMDB, IMDb, JustWatch, trailer, select, Send) is the full, final set.
     await expect(page.locator('.mtgDialog .mtgProfileSelect')).toBeVisible();
-    await expect(page.locator('.mtgDialogLinks a')).toHaveCount(3);
+    await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
     const activeClasses = () => page.evaluate(() => document.activeElement.className);
 
     expect(await activeClasses()).toContain('mtgDialogClose');
-    for (let i = 0; i < 5; i++) { await page.keyboard.press('Tab'); }
+    for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); }
     expect(await activeClasses()).toContain('mtgSendButton');
 
     // Tab from the last control wraps back to the first.
@@ -289,7 +292,7 @@ test('ArrowRight/ArrowLeft move focus the same way Tab does', async ({ page }) =
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}));
     await openPersonPage(page, harnessPath);
     await page.locator('[data-gapid="filmography:movie:1"]').click();
-    await expect(page.locator('.mtgDialogLinks a')).toHaveCount(3);
+    await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
     await page.keyboard.press('ArrowRight');
     let active = await page.evaluate(() => document.activeElement.textContent.trim());
@@ -373,4 +376,18 @@ test('every dialog button and link carries the same button classes', async ({ pa
     expect(classes.length).toBeGreaterThanOrEqual(2);
     expect(new Set(classes).size).toBe(1);
     expect(classes[0]).toBe('emby-button mtgActionButton raised raised-mini');
+});
+
+test('no JustWatch link when the detail carries none', async ({ page }) => {
+    const detail = {
+        Title: 'A Missing Show', Kind: 'Series', TmdbId: 1399, Year: 2010,
+        Tagline: null, Overview: 'A show overview.', Genres: [], RuntimeMinutes: 60, VoteAverage: null,
+        Status: 'Ended', NumberOfSeasons: 8, Networks: [],
+        PosterUrl: null, BackdropUrl: null, TmdbUrl: 'https://www.themoviedb.org/tv/1399', ImdbUrl: null, JustWatchUrl: null, YoutubeTrailerKey: null
+    };
+    await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, missingWith({}), null, undefined, detail));
+    await page.locator('[data-gapid="filmography:movie:1"]').click();
+
+    await expect(page.locator('.mtgDialogOverview')).toHaveText('A show overview.');
+    await expect(page.locator('.mtgDialogLinks a', { hasText: 'Search JustWatch' })).toHaveCount(0);
 });

@@ -15,6 +15,26 @@ internal sealed class GenerationMemo<T>
     private Entry? _entry;
 
     /// <summary>
+    /// Gets the value the memo holds for a generation without computing anything, for a caller that would
+    /// rather not read its source at all when the answer is already here.
+    /// </summary>
+    /// <param name="generation">The generation the caller read.</param>
+    /// <param name="value">The value computed for exactly that generation.</param>
+    /// <returns><see langword="true"/> when the memo holds that generation.</returns>
+    public bool TryGet(long generation, out T value)
+    {
+        var cached = Volatile.Read(ref _entry);
+        if (cached is not null && cached.Generation == generation)
+        {
+            value = cached.Value;
+            return true;
+        }
+
+        value = default!;
+        return false;
+    }
+
+    /// <summary>
     /// Gets the value for a generation, computing it when the memo does not hold that generation.
     /// </summary>
     /// <param name="generation">The generation the caller read.</param>
