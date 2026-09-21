@@ -59,4 +59,9 @@ public sealed class MissingTitle
     /// Gets or sets a value indicating whether the title is not yet released.
     /// </summary>
     public bool Upcoming { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the title is on the signed-in user's want-to-watch list.
+    /// </summary>
+    public bool OnList { get; set; }
 }

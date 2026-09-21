@@ -1,7 +1,7 @@
 // Drives the real mindthegaps.webui.js against a fake jellyfin-web Music Artist and Book detail page,
 // the artist/book sibling of webui-item-page.spec.js. A work (an album or a book) has no TMDB id, so its
 // dialog is built from the card's own data and links and makes no detail lookup; the only action is the
-// administrator's Add to TODO.
+// signed-in user's want-to-watch button.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHarness } = require('./support/webui-harness');
 
@@ -114,26 +114,27 @@ test('a link that is not https is not offered', async ({ page }) => {
     await expect(links).toHaveText('View on Good');
 });
 
-test('an administrator can add a work to the TODO list from the dialog', async ({ page }) => {
+test('a signed-in user can put a work on their list from the dialog', async ({ page }) => {
     const works = { Kind: 'Book', CanTodo: true, Reason: null, Works: [BOOK] };
     await openItemPage(page, buildWebUiHarness(BOOK_ITEM, works, null, 1), 'book-1');
     await openCardDialog(page, BOOK.GapId);
 
-    const button = page.locator('.mtgDialog .mtgTodoButton');
+    const button = page.locator('.mtgDialog .mtgWantButton');
+    await expect(button).toHaveText('Want to read');
     await button.click();
-    await expect(button).toHaveText('Added to TODO');
+    await expect(button).toHaveText('On your list');
 
     const todoUrl = await page.evaluate(() => window.__lastTodoUrl);
     expect(todoUrl).toContain('Item/book-1/Works/Todo');
     expect(todoUrl).toContain('gapId=' + encodeURIComponent(BOOK.GapId));
 });
 
-test('no Add to TODO for a caller who is not an administrator', async ({ page }) => {
+test('no want-to-watch button when the caller cannot keep a list', async ({ page }) => {
     const works = { Kind: 'Book', CanTodo: false, Reason: null, Works: [BOOK] };
     await openItemPage(page, buildWebUiHarness(BOOK_ITEM, works), 'book-1');
     await openCardDialog(page, BOOK.GapId);
 
-    await expect(page.locator('.mtgDialog .mtgTodoButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgWantButton')).toHaveCount(0);
 });
 
 test('a reason is shown when the works could not be looked up', async ({ page }) => {

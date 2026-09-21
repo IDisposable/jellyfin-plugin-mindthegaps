@@ -45,7 +45,6 @@ public sealed class HomeDiscoverService
         {
             CanSendMovies = isAdministrator && AcquisitionService.RadarrConfigured(config),
             CanSendSeries = isAdministrator && AcquisitionService.SonarrConfigured(config),
-            CanTodo = isAdministrator,
             Titles = titles
         };
     }

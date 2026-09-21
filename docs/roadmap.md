@@ -40,9 +40,10 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Priorities (suggested, not committed)
 
-- **Want to watch, per user from the start.** A bookmark on every card, a home row, and a title search, each
-  user's own list. Plan under [Web UI](#web-ui-experimental) below.
-- **Filter what the Web UI reads by who is asking,** kept light so the surfaces stay fast; see below.
+- **Want to watch: the title search.** The bookmark on every card and the home row are built, each user's own
+  list. What is left is a search dialog over TMDB, and the optional playlist for titles the library holds. Plan
+  under [Web UI](#web-ui-experimental) below.
+- **Per-title certification filtering for restricted users,** only if someone asks; see below.
 - **Actions on a selection in the report.** The multi-select bar takes Mint, Send to (Radarr, Sonarr,
   Jellyseerr/Overseerr, or the watch list) and a bulk Resolve that asks for the reason once. The server side of
   send and resolve exists (`SendToArrBulk`, `SendToSeerrBulk`, `ResolveBatch`); the report calls none of them.
@@ -83,18 +84,18 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI (experimental)
 
-- **Want to watch, per user, without auto-removal.** Each user has their own list, stored per user. The
-  server-wide todo list (`TodoStore`) is migrated to an administrator's list and removed on upgrade; how that
-  administrator is chosen is open. Build order: (1) the per-user store, a bookmark toggle on every card and a
-  home row of the entries; (2) a title search dialog over TMDB, rehydrating a chosen card from its TMDB id;
-  (3) optionally, a per-user Jellyfin playlist for titles the library already holds, which shows in every
-  client, and a title that arrives in the library moves to that user's playlist only.
-- **Filter the surface reads by the caller.** The person, item and home reads are open to any signed-in user
-  and are not limited by that user's library access or parental rating; a title is listed if the library does
-  not hold it, for everyone. Filtering means resolving the user on each request and applying their
-  restrictions to data that is TMDB's rather than a library item's. See ADR-0019.
+- **Want to watch, without auto-removal: what is left.** Each user's own list, the bookmark on every card and
+  the home row are built. Still open: (2) a title search dialog over TMDB, rehydrating a chosen card from its
+  TMDB id, so a title no page lists can be added; (3) optionally, a per-user Jellyfin playlist for titles the
+  library already holds, which shows in every client, where a title that arrives in the library moves to that
+  user's playlist only. The home row hides a title once the library holds it; the playlist is where it would
+  show up instead.
+- **Certification filtering by the caller.** A user with a parental rating limit is shown no surface, and a
+  page is shown only to a user who can see its item. A finer filter would check each listed title's
+  certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
+  ADR-0019.
 - **More of the works surfaces.** Artist and book pages list what the owner's sources find, with links and an
-  administrator's Add to TODO. Still open: an album page (the artist's other albums, or missing tracks, for
+  a want-to-watch bookmark. Still open: an album page (the artist's other albums, or missing tracks, for
   which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
   description) fetched from MusicBrainz or OpenLibrary; a Lidarr or Readarr handoff to give these cards a
   Send; and a studio page, which needs a TMDB company id (a library studio has none, so it would resolve by

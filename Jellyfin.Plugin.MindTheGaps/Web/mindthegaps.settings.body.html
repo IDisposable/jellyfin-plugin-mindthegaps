@@ -414,7 +414,7 @@
             <h2 class="sectionTitle">Web UI (experimental)</h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page
                 load. Each surface below has its own switch. Turning one on also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
-            <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Not filtered by who is asking.</strong> What a surface shows is not limited by the signed-in user's library access or parental rating: a title is listed if the library does not hold it, for everyone. Keep that in mind before turning a surface on for a server with restricted accounts.</div>
+            <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Filtered lightly by who is asking.</strong> A user with a parental rating limit is not shown the surfaces at all, and a page is shown only to a user who can see the item it is about. Beyond that a title is listed if the library does not hold it, for everyone, whatever the signed-in user's library access, because checking each title's certification would cost a TMDB request per title.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="WebUiEnabled" name="WebUiEnabled" type="checkbox" is="emby-checkbox" />
@@ -443,6 +443,13 @@
                 </label>
                 <div class="fieldDescription">Shows the recommendations the scan has already accumulated from your owned titles, ranked by how many sources suggest each one, then by TMDB popularity. Titles from a watchlist, favorites, or an IMDb or MDBList list never appear here; titles from TMDB lists, Trakt lists and TMDB's own feeds can, and read "From" and the list's name. Unlike the person and item pages, this does not call TMDB itself, so it needs the report's own Discover
                     recommendations turned on and scanned at least once.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="WantToWatchEnabled" name="WantToWatchEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Want to watch: a bookmark on every card, and a home row</span>
+                </label>
+                <div class="fieldDescription">Lets each signed-in user keep their own list. A bookmark on every card the surfaces above show adds a title to the signed-in user's list and takes it off again, and a home row lists what is still on their list and not in the library. Every user has their own list, and an administrator can see and manage everyone's from the report's TODO button. A user with a parental rating limit does not get the surfaces above, so has no cards to bookmark from.</div>
             </div>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home Discover row: max titles</label>

@@ -115,7 +115,7 @@ test('no Send or TODO button for a non-administrator viewer, but the TMDB link s
     await openCardDialog(page, 'filmography:movie:1');
 
     await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
-    await expect(page.locator('.mtgDialog .mtgTodoButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgWantButton')).toHaveCount(0);
 
     const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveText('View on TMDB');
@@ -141,7 +141,7 @@ test('the TMDB link is present even when Send is available, and links to the rig
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/tv/1396');
 });
 
-test('an administrator with no arr configured gets an Add to TODO fallback instead of Send', async ({ page }) => {
+test('with no way to send, a signed-in user still gets the want-to-watch button', async ({ page }) => {
     const missing = {
         CanSendMovies: false,
         CanSendSeries: false,
@@ -155,18 +155,18 @@ test('an administrator with no arr configured gets an Add to TODO fallback inste
     await openCardDialog(page, 'filmography:movie:1');
 
     await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
-    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
-    await expect(todoBtn).toBeVisible();
-    await todoBtn.click();
-    await expect(todoBtn).toHaveText('Added to TODO');
-    await expect(todoBtn).toBeDisabled();
+    const wantBtn = page.locator('.mtgDialog .mtgWantButton');
+    await expect(wantBtn).toHaveText('Want to watch');
+    await wantBtn.click();
+    await expect(wantBtn).toHaveText('On your list');
+    await expect(wantBtn).toBeEnabled();
 
     const todoUrl = await page.evaluate(() => window.__lastTodoUrl);
     expect(todoUrl).toContain('Person/person-1/Todo');
     expect(todoUrl).toContain('gapId=filmography%3Amovie%3A1');
 });
 
-test('a failed Add to TODO re-enables the button', async ({ page }) => {
+test('a failed update leaves the button as it was and enabled', async ({ page }) => {
     const missing = {
         CanSendMovies: false,
         CanSendSeries: false,
@@ -175,14 +175,14 @@ test('a failed Add to TODO re-enables the button', async ({ page }) => {
         Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 2001, Role: null, Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }],
         Series: []
     };
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, null, 0);
+    const harnessPath = buildWebUiHarness(PERSON_ITEM, missing, null, 'fail');
     await openPersonPage(page, harnessPath);
     await openCardDialog(page, 'filmography:movie:1');
 
-    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
-    await todoBtn.click();
-    await expect(todoBtn).toHaveText('Add to TODO');
-    await expect(todoBtn).toBeEnabled();
+    const wantBtn = page.locator('.mtgDialog .mtgWantButton');
+    await wantBtn.click();
+    await expect(wantBtn).toHaveText('Want to watch');
+    await expect(wantBtn).toBeEnabled();
 });
 
 test('shows the reason instead of a list when the person cannot be looked up', async ({ page }) => {

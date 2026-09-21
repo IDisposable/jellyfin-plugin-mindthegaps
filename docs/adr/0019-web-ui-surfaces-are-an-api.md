@@ -22,8 +22,8 @@ place, `WebUiGate`, which reads the configuration per request so a change needs 
 without a server.
 
 `WebUi/Detail` (a proxied TMDB lookup for one title, from its id) is open to any signed-in user whatever the
-toggles say: it carries nothing about the library. The write endpoints (Send, TODO) and `WebUi/Profiles`
-stay administrators only.
+toggles say: it carries nothing about the library. Send and `WebUi/Profiles` stay administrators only; the
+todo endpoints on each surface belong to the signed-in user whose list they touch (see Consequences).
 
 The audience of the surface reads is any signed-in user. The shapes are experimental and may change; an API
 with no consumers cannot be shaped by them, so it is offered before there are any.
@@ -32,10 +32,16 @@ with no consumers cannot be shaped by them, so it is offered before there are an
 
 - A surface turned on is available to any signed-in user through the API, not only to whoever sees the
   script's sections, and the settings help and the configuration reference say so.
-- The reads are not filtered by the caller. The ownership index is one shared cache for the whole server, so a
-  title is listed if the library does not hold it, regardless of the caller's library access or parental
-  rating. Filtering by the caller means resolving the user on each request and applying their restrictions to
-  data that is TMDB's, not a library item's, and is deferred.
+- The reads are filtered lightly by the caller, using only what the server already holds in memory. A user
+  with a parental rating limit is not shown the surfaces (`WebUiAccess.MaySee`), and a page is shown only to a
+  user who can see the item it is about (`BaseItem.IsVisible`). What a page lists is TMDB's, not the library's,
+  so nothing finer is done: each title's certification would take a TMDB request, and the ownership index is one
+  shared cache for the whole server, so a title is listed if the library does not hold it, whatever the
+  caller's library access. Certification filtering for restricted users is deferred until someone asks.
+- With want to watch on, any signed-in user without a rating limit may put a title on their own todo list and
+  take it off (`POST .../Todo`, `POST .../Todo/Remove` on each surface), and read the home row of what is
+  still on it (`GET Home/Wanted`). The list is theirs alone: a request that is not a user's has none, and an
+  administrator sees and manages everyone's only through the report's todo endpoints.
 - The home Discover row shows a recommendation only when its primary source is an owned movie or series, or a
   list that is public by construction (`HomeDiscoverService.IsShownOnRow`, `SourceItemTypes.PublicListKinds`:
   TMDB lists, Trakt lists, and TMDB's own feeds, since a private list of either cannot be read with the

@@ -269,7 +269,7 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
     await page.locator('[data-gapid="filmography:movie:1"]').click();
 
     // Wait for the profile select and the extra links (IMDb, JustWatch, trailer) to settle in, so the order
-    // below (close, TMDB, IMDb, JustWatch, trailer, select, Send) is the full, final set.
+    // below (close, TMDB, IMDb, JustWatch, trailer, select, Send, want to watch) is the full, final set.
     await expect(page.locator('.mtgDialog .mtgProfileSelect')).toBeVisible();
     await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
@@ -278,6 +278,8 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
     expect(await activeClasses()).toContain('mtgDialogClose');
     for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); }
     expect(await activeClasses()).toContain('mtgSendButton');
+    await page.keyboard.press('Tab');
+    expect(await activeClasses()).toContain('mtgWantButton');
 
     // Tab from the last control wraps back to the first.
     await page.keyboard.press('Tab');
@@ -285,7 +287,7 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
 
     // Shift+Tab from the first control wraps back to the last.
     await page.keyboard.press('Shift+Tab');
-    expect(await activeClasses()).toContain('mtgSendButton');
+    expect(await activeClasses()).toContain('mtgWantButton');
 });
 
 test('ArrowRight/ArrowLeft move focus the same way Tab does', async ({ page }) => {

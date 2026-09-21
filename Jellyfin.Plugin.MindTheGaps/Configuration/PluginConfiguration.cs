@@ -64,6 +64,7 @@ public class PluginConfiguration : BasePluginConfiguration
         PersonPageEnabled = false;
         ItemPageEnabled = false;
         HomeRowEnabled = false;
+        WantToWatchEnabled = false;
         HomeRowSize = 20;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
@@ -444,6 +445,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// TMDB on demand.
     /// </summary>
     public bool HomeRowEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether users can keep their own "want to watch" list from the web UI: a
+    /// bookmark on every card the surfaces show, and a home row of what is still on their list. Each user's
+    /// list is their own; it needs a signed-in user, and a user with a parental rating limit does not get the
+    /// surfaces to bookmark from.
+    /// </summary>
+    public bool WantToWatchEnabled { get; set; }
 
     /// <summary>
     /// Gets or sets the most titles the home Discover row shows.

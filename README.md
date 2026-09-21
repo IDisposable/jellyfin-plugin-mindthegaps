@@ -34,11 +34,13 @@ More screenshots throughout the [report guide](docs/report-guide.md) and the
 The report's tabs are your **media domains** (Movies, Shows, Music, Books), each badged with its gap
 count; a **View** dropdown inside the active tab picks which of three kinds of gap you are looking at:
 
-| View               | What it finds                                              | Examples                                                                                                                                                                                                                           |
-| ------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Set completion** | a missing piece of something you partly own                | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums                                                                                                                       |
-| **Creator works**  | other work by a person or artist you own                   | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books                                                                                                                          |
-| **Discover**       | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, TMDB's own Top Rated/Popular/Upcoming/Now Playing feeds, plus the unowned titles on a TMDB, MDBList, Trakt, or IMDb list and on your JustWatch watchlist, each list shown as its own group |
+| View               | What it finds                                              | Examples                                                                                                             |
+| ------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Set completion** | a missing piece of something you partly own                | a movie missing from a collection or franchise; a missing season or episode; a music artist's missing albums         |
+| **Creator works**  | other work by a person or artist you own                   | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books            |
+| **Discover**       | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, TMDB's own feeds, and the unowned titles on a list you have added[^discover] |
+
+[^discover]: The feeds are Top Rated, Popular, Upcoming and Now Playing. A list can be a TMDB, MDBList, Trakt or IMDb list, or your own JustWatch watchlist, and each list is shown as its own group.
 
 Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
 MDBList, and JustWatch are opt-in cross-checks and sources that need their own credentials. IMDb lists are
@@ -214,11 +216,15 @@ flowchart TD
   row on a music artist's page and a "More by this author you don't have" row on a book's page, and a
   "Discover" row on the home screen. The movie, series, artist and book rows share one switch. Click a
   card for a detail dialog (TMDB's synopsis, genres, runtime, rating, trailer, a JustWatch link), then send
-  the title to Radarr or Sonarr with the quality profile you pick, or add it to your TODO list. An album
-  or book's dialog shows who it is by and links to MusicBrainz, Discogs or OpenLibrary, and adds to your
-  TODO list (there is no music or book handoff). It works from a keyboard or a TV remote. The data behind each surface is served
-  by the plugin's API to any signed-in user whether or not the script is added to Jellyfin Web, so another
-  client can use it; see the [configuration reference](docs/configuration.md#web-ui-experimental).
+  the title to Radarr or Sonarr with the quality profile you pick. An album or book's dialog shows who it is
+  by and links to MusicBrainz, Discogs or OpenLibrary (there is no music or book handoff). It works from a
+  keyboard or a TV remote. The data behind each surface is served by the plugin's API to any signed-in user
+  whether or not the script is added to Jellyfin Web, so another client can use it; see the
+  [configuration reference](docs/configuration.md#web-ui-experimental).
+- **Want to watch** (experimental, opt-in): every signed-in user keeps their own list. A bookmark on every
+  card in the Web UI puts a title on it and takes it off again, and a home row shows what is still on it and
+  not in your library. An administrator sees and manages everyone's lists from the report's **TODO** button.
+  A user with a parental rating limit is not shown the Web UI rows, so has no cards to bookmark from.
 - **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place,
   the way a missing episode renders inside a series. See below.
 
@@ -279,36 +285,52 @@ in its header. A search box above both narrows to whatever matches and opens the
 For every setting, what it does, and what changes when you set or clear it, see the
 [configuration reference](docs/configuration.md). In brief, alongside those toggles:
 
-| Setting                       | Description                                                                                                                                                                                                                                       |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metadata country / language   | Locale for TMDB lookups and availability.                                                                                                                                                                                                         |
-| Max related per item          | Caps how many "similar" titles each owned item contributes.                                                                                                                                                                                       |
-| Max creators scanned per run  | Caps the filmography scan; people are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster.                                                                                              |
-| Relevance floors              | Minimum TMDB votes for filmography and recommendation gaps (plus an optional cast-billing limit and, separately, a minimum-episode floor for a TV credit), so Creator works and Recommendations stay actionable on a large library.               |
-| Track curated sets            | Gates the studio and keyword sets (the ids below feed it).                                                                                                                                                                                        |
-| Curated studio / keyword ids  | TMDB company and keyword ids to complete, picked with a type-ahead chip picker.                                                                                                                                                                   |
-| Scan TMDB lists               | Gates the TMDB discovery lists (the list ids beside it feed it).                                                                                                                                                                                  |
-| TMDB discover feeds           | Four independent toggles (Top Rated, Popular, Upcoming, Now Playing); each surfaces its unowned movies on Discover.                                                                                                                               |
-| Availability                  | Turns "Where to watch" on or off (the per-item lookups and the background pass).                                                                                                                                                                  |
-| Acquisition stack             | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action.                                                                                                                           |
-| Web UI surfaces               | Four off-by-default switches (show the surfaces in Jellyfin Web, person pages, item pages for movies, series, artists and books, home row) plus the home row's size. Each surface's data is available to other clients when its own switch is on. |
-| Webhook URL                   | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes.                                                                                                                                                       |
-| Detailed API logging          | Off by default; turn it on to log every external API request and response (the sources, the acquisition sends, TMDB, and the webhook) to the server log while debugging a misbehaving target, then turn it back off.                              |
-| Trakt client id               | Enables the opt-in Trakt filmography cross-check.                                                                                                                                                                                                 |
-| TheTVDB API key               | Your own v4 key; enables the TheTVDB series-content cross-check.                                                                                                                                                                                  |
-| Discogs token                 | Enables the opt-in Discogs label and artist source.                                                                                                                                                                                               |
-| TMDB API key                  | Optional; falls back to the built-in public key.                                                                                                                                                                                                  |
-| MDBList API key               | Optional (free); enables MDBList community lists as a discovery source.                                                                                                                                                                           |
-| Scan IMDb lists               | Gates the IMDb discovery lists (the ur... watchlist and ls... list ids beside it feed it). Needs no key, but IMDb serves only what the account has made public.                                                                                   |
-| Follow IMDb people lists      | Reads an IMDb **people** list from the same ids as a filmography seed, so a director or actor you own nothing by still lands on Creator works. Resolves 50 people per run, stalest first, so a long list is covered over several scans.           |
-| Scan TMDB watchlist           | Your TMDB watchlist, and optionally your favorites. Needs your own TMDB API key plus a connected account (a two-step button; no callback, so the server needs no public address).                                                                 |
-| Scan Trakt watchlist          | A Trakt user's watchlist. Needs the Trakt client id and a username; the profile has to be public.                                                                                                                                                 |
-| Scan MDBList watchlist        | Your own MDBList watchlist (not a community list). The API key identifies the account, so there is nothing else to enter.                                                                                                                         |
-| Scan Discogs wantlist         | A Discogs wantlist as Music gaps. Needs the Discogs token and a username.                                                                                                                                                                         |
-| Scan OpenLibrary want to read | An OpenLibrary "Want to Read" shelf as Books gaps. Needs a username and nothing else; the shelf has to be public.                                                                                                                                 |
-| Scan TheTVDB favorites        | Your favorited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favorite is usually a show you already hold.                                                                                                           |
-| TheTVDB subscriber PIN        | Optional. Only needed to read your TheTVDB account (the favorites); the episode cross-check works without it.                                                                                                                                     |
-| JustWatch token               | Enables your own JustWatch watchlist (and, optionally, your likes) as a discovery source. JustWatch issues no api keys, so this is the bearer token from a signed-in browser session, and it expires.                                             |
+| Setting                       | Description                                                                                                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metadata country / language   | Locale for TMDB lookups and availability.                                                                                                                             |
+| Max related per item          | Caps how many "similar" titles each owned item contributes.                                                                                                           |
+| Max creators scanned per run  | Caps the filmography scan per run.[^creators]                                                                                                                         |
+| Relevance floors              | Minimum TMDB votes for filmography and recommendation gaps, so Creator works and Recommendations stay actionable on a large library.[^floors]                         |
+| Track curated sets            | Gates the studio and keyword sets (the ids below feed it).                                                                                                            |
+| Curated studio / keyword ids  | TMDB company and keyword ids to complete, picked with a type-ahead chip picker.                                                                                       |
+| Scan TMDB lists               | Gates the TMDB discovery lists (the list ids beside it feed it).                                                                                                      |
+| TMDB discover feeds           | Four independent toggles (Top Rated, Popular, Upcoming, Now Playing); each surfaces its unowned movies on Discover.                                                   |
+| Availability                  | Turns "Where to watch" on or off (the per-item lookups and the background pass).                                                                                      |
+| Acquisition stack             | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action.                                               |
+| Web UI surfaces               | Five off-by-default switches: show the surfaces in Jellyfin Web, person pages, item pages, the home row, and want to watch.[^webui]                                   |
+| Webhook URL                   | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes.                                                                           |
+| Detailed API logging          | Off by default; turn it on to log every external API request and response to the server log while debugging a misbehaving target, then turn it back off.[^apilogging] |
+| Trakt client id               | Enables the opt-in Trakt filmography cross-check.                                                                                                                     |
+| TheTVDB API key               | Your own v4 key; enables the TheTVDB series-content cross-check.                                                                                                      |
+| Discogs token                 | Enables the opt-in Discogs label and artist source.                                                                                                                   |
+| TMDB API key                  | Optional; falls back to the built-in public key.                                                                                                                      |
+| MDBList API key               | Optional (free); enables MDBList community lists as a discovery source.                                                                                               |
+| Scan IMDb lists               | Gates the IMDb discovery lists (the ur... watchlist and ls... list ids beside it feed it).[^imdblists]                                                                |
+| Follow IMDb people lists      | Reads an IMDb **people** list from the same ids as a filmography seed, so a director or actor you own nothing by still lands on Creator works.[^imdbpeople]           |
+| Scan TMDB watchlist           | Your TMDB watchlist, and optionally your favorites. Needs your own TMDB API key plus a connected account.[^tmdbaccount]                                               |
+| Scan Trakt watchlist          | A Trakt user's watchlist. Needs the Trakt client id and a username; the profile has to be public.                                                                     |
+| Scan MDBList watchlist        | Your own MDBList watchlist (not a community list). The API key identifies the account, so there is nothing else to enter.                                             |
+| Scan Discogs wantlist         | A Discogs wantlist as Music gaps. Needs the Discogs token and a username.                                                                                             |
+| Scan OpenLibrary want to read | An OpenLibrary "Want to Read" shelf as Books gaps. Needs a username and nothing else; the shelf has to be public.                                                     |
+| Scan TheTVDB favorites        | Your favorited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favorite is usually a show you already hold.                               |
+| TheTVDB subscriber PIN        | Optional. Only needed to read your TheTVDB account (the favorites); the episode cross-check works without it.                                                         |
+| JustWatch token               | Enables your own JustWatch watchlist (and, optionally, your likes) as a discovery source.[^justwatch]                                                                 |
+
+[^creators]: People are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster.
+
+[^floors]: Plus an optional cast-billing limit and, separately, a minimum-episode floor for a TV credit.
+
+[^webui]: Item pages cover movies, series, artists and books, and the home row has its own size setting. Each surface's data is available to other clients when its own switch is on. Want to watch is each signed-in user's own list: a bookmark on every card, and a home row of what is still on it.
+
+[^apilogging]: It covers the sources, the acquisition sends, TMDB, and the webhook.
+
+[^imdblists]: Needs no key, but IMDb serves only what the account has made public.
+
+[^imdbpeople]: Resolves 50 people per run, stalest first, so a long list is covered over several scans.
+
+[^tmdbaccount]: The account connects with a two-step button and no callback, so the server needs no public address.
+
+[^justwatch]: JustWatch issues no api keys, so this is the bearer token from a signed-in browser session, and it expires.
 
 ## Virtual placeholders (opt-in)
 

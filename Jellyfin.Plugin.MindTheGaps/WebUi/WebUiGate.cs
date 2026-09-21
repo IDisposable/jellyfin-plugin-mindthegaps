@@ -37,4 +37,11 @@ internal static class WebUiGate
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
     /// <returns><see langword="true"/> when the home row toggle is on.</returns>
     public static bool HomeRow(PluginConfiguration? config) => config?.HomeRowEnabled == true;
+
+    /// <summary>
+    /// Determines whether the bookmark on a card and the home screen's want-to-watch row are served.
+    /// </summary>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when the want-to-watch toggle is on.</returns>
+    public static bool WantToWatch(PluginConfiguration? config) => config?.WantToWatchEnabled == true;
 }

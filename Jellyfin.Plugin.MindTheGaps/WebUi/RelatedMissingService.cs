@@ -82,8 +82,7 @@ public sealed class RelatedMissingService
         {
             ItemId = itemId,
             ItemName = item.Name,
-            CanSend = isAdministrator && (item is Movie ? AcquisitionService.RadarrConfigured(config) : AcquisitionService.SonarrConfigured(config)),
-            CanTodo = isAdministrator
+            CanSend = isAdministrator && (item is Movie ? AcquisitionService.RadarrConfigured(config) : AcquisitionService.SonarrConfigured(config))
         };
 
         var gaps = await BuildGapsAsync(item, cancellationToken).ConfigureAwait(false);

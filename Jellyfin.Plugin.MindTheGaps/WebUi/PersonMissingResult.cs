@@ -40,10 +40,9 @@ public sealed class PersonMissingResult
     public bool CanSendSeries { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the caller may add a title to their personal todo list: an
-    /// administrator, regardless of whether Radarr/Sonarr are configured. The page falls back to this when
-    /// <see cref="CanSendMovies"/>/<see cref="CanSendSeries"/> is false, so an admin who has not set up an
-    /// arr yet still has something actionable besides the TMDB link.
+    /// Gets or sets a value indicating whether the caller may keep a want-to-watch list: want to watch is on
+    /// and the caller is a signed-in user without a parental rating limit. The page shows a bookmark on each
+    /// card when it is.
     /// </summary>
     public bool CanTodo { get; set; }
 

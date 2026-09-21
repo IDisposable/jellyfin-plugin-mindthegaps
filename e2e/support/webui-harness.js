@@ -15,7 +15,7 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // null simulates TMDB having nothing for that id; use { reject: true } to simulate the call failing).
 // profilesResult: the fake MindTheGaps/WebUi/Profiles payload (undefined defaults to two profiles; use
 // { reject: true } to simulate the call failing, which the dialog treats as "no picker, use the default").
-function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult) {
+function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult) {
     var defaultDetail = {
         Title: 'A Missing Movie', Kind: 'Movie', TmdbId: 603, Year: 1999,
         Tagline: 'Welcome to the Real World.', Overview: 'A test overview.',
@@ -36,6 +36,7 @@ window.addEventListener('error', function (e) { window.__uiTestErrors.push(Strin
 var __ITEM__ = ${JSON.stringify(item)};
 var __MISSING_RESULT__ = ${JSON.stringify(missingResult)};
 var __DISCOVER_RESULT__ = ${JSON.stringify(discoverResult)};
+var __WANTED_RESULT__ = ${JSON.stringify(wantedResult === undefined ? null : wantedResult)};
 var __SEND_RESULT__ = ${JSON.stringify(sendResult || { Success: true, Message: 'Sent 1 item(s).' })};
 var __TODO_RESULT__ = ${JSON.stringify(todoResult === undefined ? 1 : todoResult)};
 var __DETAIL_RESULT__ = ${JSON.stringify(detailResult === undefined ? defaultDetail : detailResult)};
@@ -63,12 +64,19 @@ window.ApiClient = {
         if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1 || (url.indexOf('/Works') !== -1 && url.indexOf('/Todo') === -1)) {
             return __MISSING_RESULT__ ? Promise.resolve(__MISSING_RESULT__) : Promise.reject(new Error('404'));
         }
+        if (url.indexOf('/Wanted/Remove') !== -1) {
+            window.__lastTodoUrl = url;
+            return Promise.resolve(1);
+        }
+        if (url.indexOf('/Home/Wanted') !== -1) {
+            return __WANTED_RESULT__ ? Promise.resolve(__WANTED_RESULT__) : Promise.reject(new Error('404'));
+        }
         if (url.indexOf('/Discover') !== -1) {
             return __DISCOVER_RESULT__ ? Promise.resolve(__DISCOVER_RESULT__) : Promise.reject(new Error('404'));
         }
         if (url.indexOf('/Todo') !== -1) {
             window.__lastTodoUrl = url;
-            return Promise.resolve(__TODO_RESULT__);
+            return __TODO_RESULT__ === 'fail' ? Promise.reject(new Error('500')) : Promise.resolve(__TODO_RESULT__);
         }
         if (url.indexOf('/Send') !== -1) {
             window.__lastSendUrl = url;
@@ -120,7 +128,7 @@ ${buildMockScript(item, missingResult, sendResult, null, todoResult, detailResul
 // #homeTab .sections container starts empty, the way jellyfin-web's own home view does before its
 // sections are laid out; a spec adds a child to it to simulate that happening, the same signal
 // mindthegaps.webui.js's MutationObserver waits for before inserting its own row.
-function buildWebUiHomeHarness(discoverResult, sendResult, todoResult, detailResult, profilesResult) {
+function buildWebUiHomeHarness(discoverResult, sendResult, todoResult, detailResult, profilesResult, wantedResult) {
     const webui = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.webui.js'), 'utf8');
 
     const page = `<!doctype html>
@@ -132,7 +140,7 @@ function buildWebUiHomeHarness(discoverResult, sendResult, todoResult, detailRes
         <div class="sections"></div>
     </div>
 </div>
-${buildMockScript(null, null, sendResult, discoverResult, todoResult, detailResult, profilesResult)}
+${buildMockScript(null, null, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult)}
 <script>${webui}</script>
 </body>
 </html>`;

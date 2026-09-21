@@ -77,23 +77,23 @@ test('no Send button when the caller cannot send, but the TMDB link still works'
     await openCardDialog(page, 'recommendation:movie:2');
 
     await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
-    await expect(page.locator('.mtgDialog .mtgTodoButton')).toHaveCount(0);
+    await expect(page.locator('.mtgDialog .mtgWantButton')).toHaveCount(0);
 
     const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
     await expect(tmdbLink).toHaveAttribute('target', '_blank');
 });
 
-test('an administrator with no arr configured gets an Add to TODO fallback', async ({ page }) => {
+test('a signed-in user gets a want-to-watch button that puts the title on their list', async ({ page }) => {
     const related = { CanSend: false, CanTodo: true, Reason: null, Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }] };
     const harnessPath = buildWebUiHarness(MOVIE_ITEM, related, null, 1);
     await openItemPage(page, harnessPath);
     await openCardDialog(page, 'recommendation:movie:2');
 
-    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
-    await expect(todoBtn).toBeVisible();
-    await todoBtn.click();
-    await expect(todoBtn).toHaveText('Added to TODO');
+    const wantBtn = page.locator('.mtgDialog .mtgWantButton');
+    await expect(wantBtn).toHaveText('Want to watch');
+    await wantBtn.click();
+    await expect(wantBtn).toHaveText('On your list');
 
     const todoUrl = await page.evaluate(() => window.__lastTodoUrl);
     expect(todoUrl).toContain('Item/movie-1/Todo');

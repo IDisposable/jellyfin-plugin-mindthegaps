@@ -79,6 +79,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<WorksMissingService>();
         serviceCollection.AddSingleton<HomeDiscoverService>();
         serviceCollection.AddSingleton<JustWatchLinkIndex>();
+        serviceCollection.AddSingleton<WantedRowService>();
+        serviceCollection.AddSingleton<WebUiAccess>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 
         // Availability sources + aggregator + background enrichment runner.

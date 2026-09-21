@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -40,7 +42,8 @@ public class WebUiController : ControllerBase
     private readonly HomeDiscoverService _home;
     private readonly AcquisitionService _acquisition;
     private readonly TodoStore _todo;
-    private readonly TodoOwner _owner;
+    private readonly WantedRowService _wanted;
+    private readonly WebUiAccess _access;
     private readonly TmdbClient _tmdb;
     private readonly JustWatchLinkIndex _justWatchLinks;
 
@@ -53,10 +56,11 @@ public class WebUiController : ControllerBase
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
-    /// <param name="owner">Resolves whose todo list a request is for.</param>
+    /// <param name="wanted">Builds the home screen's want-to-watch row.</param>
+    /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
     /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, WorksMissingService works, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TodoOwner owner, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
+    public WebUiController(PersonMissingService person, RelatedMissingService related, WorksMissingService works, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, WantedRowService wanted, WebUiAccess access, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
     {
         _justWatchLinks = justWatchLinks;
         _person = person;
@@ -65,7 +69,8 @@ public class WebUiController : ControllerBase
         _home = home;
         _acquisition = acquisition;
         _todo = todo;
-        _owner = owner;
+        _wanted = wanted;
+        _access = access;
         _tmdb = tmdb;
     }
 
@@ -76,6 +81,8 @@ public class WebUiController : ControllerBase
     private static bool ItemPageEnabled => WebUiGate.ItemPage(Plugin.Instance?.Configuration);
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
+
+    private static bool WantToWatchEnabled => WebUiGate.WantToWatch(Plugin.Instance?.Configuration);
 
     private bool IsAdministrator => User.IsInRole("Administrator");
 
@@ -122,13 +129,21 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PersonMissingResult>> GetPersonMissing([FromRoute] Guid personId, CancellationToken cancellationToken)
     {
-        if (!PersonPageEnabled)
+        if (!PersonPageEnabled || !_access.MaySee(User, personId))
         {
             return NotFound();
         }
 
         var result = await _person.GetAsync(personId, IsAdministrator, cancellationToken).ConfigureAwait(false);
-        return result is null ? NotFound() : result;
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        var (wantingUser, wanted) = Wanting();
+        result.CanTodo = wantingUser is not null;
+        WantedMarker.Mark(result.Movies.Concat(result.Series), wanted);
+        return result;
     }
 
     /// <summary>
@@ -166,12 +181,28 @@ public class WebUiController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The number of entries added (0 or 1), or 404 while the surface is off.</returns>
     [HttpPost("Person/{personId}/Todo")]
-    [Authorize(Policy = "RequiresElevation")]
+    [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddPersonGapToTodo([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => AddOwnedGapToTodoAsync(PersonPageEnabled, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), cancellationToken);
+        => WantOwnedGapAsync(PersonPageEnabled, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes one of a person's unowned credits off the caller's want-to-watch list, by the title the credit is
+    /// about, wherever the entry came from.
+    /// </summary>
+    /// <param name="personId">The Jellyfin person id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries removed, or 404 while the surface is off.</returns>
+    [HttpPost("Person/{personId}/Todo/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemovePersonGapFromTodo([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(PersonPageEnabled, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 
     /// <summary>
     /// Lists the titles similar to this owned movie or series that the library does not hold.
@@ -186,13 +217,21 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RelatedMissingResult>> GetItemRelated([FromRoute] Guid itemId, CancellationToken cancellationToken)
     {
-        if (!ItemPageEnabled)
+        if (!ItemPageEnabled || !_access.MaySee(User, itemId))
         {
             return NotFound();
         }
 
         var result = await _related.GetAsync(itemId, IsAdministrator, cancellationToken).ConfigureAwait(false);
-        return result is null ? NotFound() : result;
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        var (wantingUser, wanted) = Wanting();
+        result.CanTodo = wantingUser is not null;
+        WantedMarker.Mark(result.Titles, wanted);
+        return result;
     }
 
     /// <summary>
@@ -227,12 +266,27 @@ public class WebUiController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The number of entries added (0 or 1), or 404 while the surface is off.</returns>
     [HttpPost("Item/{itemId}/Todo")]
-    [Authorize(Policy = "RequiresElevation")]
+    [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddItemGapToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => AddOwnedGapToTodoAsync(ItemPageEnabled, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), cancellationToken);
+        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes one of an owned title's unowned similar titles off the caller's want-to-watch list.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries removed, or 404 while the surface is off.</returns>
+    [HttpPost("Item/{itemId}/Todo/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveItemGapFromTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 
     /// <summary>
     /// Lists the albums an owned artist made, or the other works by an owned book's author, that the library
@@ -249,13 +303,20 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<WorksMissingResult>> GetItemWorks([FromRoute] Guid itemId, CancellationToken cancellationToken)
     {
-        if (!ItemPageEnabled)
+        if (!ItemPageEnabled || !_access.MaySee(User, itemId))
         {
             return NotFound();
         }
 
-        var result = await _works.GetAsync(itemId, IsAdministrator, cancellationToken).ConfigureAwait(false);
-        return result is null ? NotFound() : result;
+        var (wantingUser, wanted) = Wanting();
+        var result = await _works.GetAsync(itemId, wanted, cancellationToken).ConfigureAwait(false);
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        result.CanTodo = wantingUser is not null;
+        return result;
     }
 
     /// <summary>
@@ -268,12 +329,27 @@ public class WebUiController : ControllerBase
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The number of entries added (0 or 1), or 404 while the surface is off.</returns>
     [HttpPost("Item/{itemId}/Works/Todo")]
-    [Authorize(Policy = "RequiresElevation")]
+    [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddItemWorkToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => AddOwnedGapToTodoAsync(ItemPageEnabled, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), cancellationToken);
+        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes one of an artist's or author's unowned works off the caller's want-to-watch list.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries removed, or 404 while the surface is off.</returns>
+    [HttpPost("Item/{itemId}/Works/Todo/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveItemWorkFromTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 
     /// <summary>
     /// The home screen's discovery row: the recommendation gaps the scan has accumulated, ranked.
@@ -287,13 +363,17 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<HomeDiscoverResult> GetHomeDiscover([FromQuery] int? limit)
     {
-        if (!HomeRowEnabled)
+        if (!HomeRowEnabled || !_access.MaySee(User))
         {
             return NotFound();
         }
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
-        return _home.Get(IsAdministrator, size);
+        var result = _home.Get(IsAdministrator, size);
+        var (wantingUser, wanted) = Wanting();
+        result.CanTodo = wantingUser is not null;
+        WantedMarker.Mark(result.Titles, wanted);
+        return result;
     }
 
     /// <summary>
@@ -329,30 +409,72 @@ public class WebUiController : ControllerBase
     }
 
     /// <summary>
-    /// Adds one of the home row's recommendations to the caller's personal todo list, rehydrated
-    /// server-side from the current report by its id.
+    /// Adds one of the home row's recommendations to the caller's want-to-watch list, rehydrated server-side
+    /// from the current report by its id.
     /// </summary>
     /// <param name="gapId">The gap id the row showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The number of entries added (0 or 1), or 404 while the surface is off.</returns>
     [HttpPost("Home/Todo")]
-    [Authorize(Policy = "RequiresElevation")]
+    [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<int> AddHomeGapToTodo([FromQuery] string? gapId)
+    public Task<ActionResult<int>> AddHomeGapToTodo([FromQuery] string? gapId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(HomeRowEnabled, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes one of the home row's recommendations off the caller's want-to-watch list.
+    /// </summary>
+    /// <param name="gapId">The gap id the row showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries removed, or 404 while the surface is off.</returns>
+    [HttpPost("Home/Todo/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveHomeGapFromTodo([FromQuery] string? gapId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(HomeRowEnabled, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: false, cancellationToken);
+
+    /// <summary>
+    /// The home screen's want-to-watch row: the movies and series on the caller's own list that are not done
+    /// and that the library does not hold yet.
+    /// </summary>
+    /// <param name="limit">The most titles to return; omitted uses the configured row size.</param>
+    /// <returns>The row, or 404 while want to watch is off or for a request that cannot keep a list.</returns>
+    [HttpGet("Home/Wanted")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<WantedRowResult> GetHomeWanted([FromQuery] int? limit)
     {
-        if (!HomeRowEnabled)
+        var (userId, _) = Wanting();
+        if (userId is not { } id)
         {
             return NotFound();
         }
 
-        if (_owner.Resolve(User, IsAdministrator) is not { } userId)
-        {
-            return Forbid();
-        }
+        var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
+        return _wanted.Get(id, size);
+    }
 
-        var gap = _home.FindGap(gapId ?? string.Empty);
-        return gap is null ? 0 : _todo.Add(userId, [gap]);
+    /// <summary>
+    /// Takes an entry off the want-to-watch row, by the id it has on the caller's own list.
+    /// </summary>
+    /// <param name="gapId">The entry id the row showed.</param>
+    /// <returns>The number of entries removed (0 or 1), or 404 while want to watch is off or for a request that
+    /// cannot keep a list.</returns>
+    [HttpPost("Home/Wanted/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<int> RemoveHomeWanted([FromQuery] string? gapId)
+    {
+        var (userId, _) = Wanting();
+        return userId is not { } id ? NotFound() : _todo.Remove(id, gapId ?? string.Empty);
     }
 
     /// <summary>
@@ -443,24 +565,49 @@ public class WebUiController : ControllerBase
         return ToSendResult(result);
     }
 
-    // The todo-list sibling of SendOwnedGapAsync: same gate and rehydration, but TodoStore.Add takes any
-    // GapItem regardless of provenance, so there is no per-surface failure message to thread through, just
-    // a plain added count (0 or 1) matching Api/TodoController's own AddTodo contract. The entry goes on the
-    // caller's own list.
-    private async Task<ActionResult<int>> AddOwnedGapToTodoAsync(bool surfaceEnabled, Func<CancellationToken, Task<GapItem?>> findGap, CancellationToken cancellationToken)
+    // The caller's own list when they may keep one (want to watch is on, and they are a signed-in user without a
+    // parental rating limit), with the identity keys of what is on it so a card can say whether its title is.
+    private (Guid? UserId, IReadOnlySet<string> Wanted) Wanting()
     {
-        if (!surfaceEnabled)
+        if (!WantToWatchEnabled || _access.WantingUser(User, IsAdministrator) is not { } userId)
+        {
+            return (null, new HashSet<string>(StringComparer.Ordinal));
+        }
+
+        return (userId, _todo.WantedKeys(userId));
+    }
+
+    // Puts a card's title on the caller's list, or takes it off. The gap is rehydrated from the same lookup the
+    // page listed it from rather than trusted from the client, so only a title the page could show can be added.
+    // A removal goes by the title, so an entry that reached the list some other way (the report, another page)
+    // comes off too, and by the id when the page does not list the gap. A plain count (0 or 1 added, or
+    // however many removed) matches Api/TodoController's own contract.
+    private async Task<ActionResult<int>> WantOwnedGapAsync(
+        bool surfaceEnabled,
+        Guid? itemId,
+        string? gapId,
+        Func<CancellationToken, Task<GapItem?>> findGap,
+        bool add,
+        CancellationToken cancellationToken)
+    {
+        if (!surfaceEnabled || !WantToWatchEnabled || !_access.MaySee(User, itemId))
         {
             return NotFound();
         }
 
-        if (_owner.Resolve(User, IsAdministrator) is not { } userId)
+        if (_access.WantingUser(User, IsAdministrator) is not { } userId)
         {
             return Forbid();
         }
 
         var gap = await findGap(cancellationToken).ConfigureAwait(false);
-        return gap is null ? 0 : _todo.Add(userId, [gap]);
+        if (add)
+        {
+            return gap is null ? 0 : _todo.Add(userId, [gap]);
+        }
+
+        var removed = gap is null ? 0 : _todo.RemoveMatching(userId, GapTargetKey.For(gap).ToList());
+        return removed > 0 ? removed : _todo.Remove(userId, gapId ?? string.Empty);
     }
 
     private static AcquisitionSendResult ToSendResult(AcquisitionResult result)

@@ -54,6 +54,11 @@ public sealed class MissingWork
     public bool Upcoming { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the work is on the signed-in user's want-to-watch list.
+    /// </summary>
+    public bool OnList { get; set; }
+
+    /// <summary>
     /// Gets or sets the links to the work on the services that know it.
     /// </summary>
     public IReadOnlyList<ExternalLink> Links { get; set; } = Array.Empty<ExternalLink>();

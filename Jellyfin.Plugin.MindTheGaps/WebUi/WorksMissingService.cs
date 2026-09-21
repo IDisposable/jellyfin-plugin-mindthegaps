@@ -59,11 +59,11 @@ public sealed class WorksMissingService
     /// Computes the works the library lacks for an owned artist or book.
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
-    /// <param name="isAdministrator">Whether the caller is an administrator, which gates the todo add.</param>
+    /// <param name="wanted">The identity keys of the titles on the caller's want-to-watch list.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or <see langword="null"/> when the id is not an artist or book, or no enabled
     /// source handles it.</returns>
-    public async Task<WorksMissingResult?> GetAsync(Guid itemId, bool isAdministrator, CancellationToken cancellationToken)
+    public async Task<WorksMissingResult?> GetAsync(Guid itemId, IReadOnlySet<string> wanted, CancellationToken cancellationToken)
     {
         var lookup = Prepare(itemId);
         if (lookup is null)
@@ -77,8 +77,7 @@ public sealed class WorksMissingService
         {
             ItemId = itemId,
             ItemName = owner.Name,
-            Kind = kind,
-            CanTodo = isAdministrator
+            Kind = kind
         };
 
         var gaps = await RunAsync(owner, claimants, cancellationToken).ConfigureAwait(false);
@@ -91,7 +90,7 @@ public sealed class WorksMissingService
         }
 
         var dismissed = _resolutions.GetAll();
-        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey);
+        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey, wanted);
         return result;
     }
 

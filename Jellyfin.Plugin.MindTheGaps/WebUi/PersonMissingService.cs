@@ -79,8 +79,7 @@ public sealed class PersonMissingService
             PersonId = personId,
             PersonName = person.Name,
             CanSendMovies = isAdministrator && AcquisitionService.RadarrConfigured(config),
-            CanSendSeries = isAdministrator && AcquisitionService.SonarrConfigured(config),
-            CanTodo = isAdministrator
+            CanSendSeries = isAdministrator && AcquisitionService.SonarrConfigured(config)
         };
         result.CanSend = result.CanSendMovies || result.CanSendSeries;
 

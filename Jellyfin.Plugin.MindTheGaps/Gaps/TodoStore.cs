@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging;
@@ -159,6 +160,62 @@ public sealed class TodoStore
         {
             // The list copy decouples callers from the live cached map (a later Add/Remove must not mutate it).
             return new List<TodoEntry>(LoadMap(userId).Values);
+        }
+    }
+
+    /// <summary>
+    /// Gets the identity keys of every title on a user's list (see <see cref="TodoKeys"/>), for asking whether a
+    /// card's title is on it without reading the list once per card.
+    /// </summary>
+    /// <param name="userId">The list's owner.</param>
+    /// <returns>The keys.</returns>
+    public IReadOnlySet<string> WantedKeys(Guid userId)
+    {
+        RequireUser(userId);
+
+        lock (_lock)
+        {
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entry in LoadMap(userId).Values)
+            {
+                keys.UnionWith(TodoKeys.For(entry));
+            }
+
+            return keys;
+        }
+    }
+
+    /// <summary>
+    /// Removes every entry on a user's list that is about one of the given titles.
+    /// </summary>
+    /// <param name="userId">The list's owner.</param>
+    /// <param name="keys">The identity keys of the title (see <see cref="GapTargetKey"/>).</param>
+    /// <returns>The number of entries removed.</returns>
+    public int RemoveMatching(Guid userId, IReadOnlyCollection<string> keys)
+    {
+        RequireUser(userId);
+        ArgumentNullException.ThrowIfNull(keys);
+
+        if (keys.Count == 0)
+        {
+            return 0;
+        }
+
+        lock (_lock)
+        {
+            var map = LoadMap(userId);
+            var gone = map.Where(pair => TodoKeys.For(pair.Value).Any(keys.Contains)).Select(pair => pair.Key).ToList();
+            foreach (var id in gone)
+            {
+                map.Remove(id);
+            }
+
+            if (gone.Count > 0)
+            {
+                Flush(userId, map);
+            }
+
+            return gone.Count;
         }
     }
 

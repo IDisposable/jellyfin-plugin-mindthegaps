@@ -69,4 +69,13 @@ public class WebUiGateTests
         Assert.False(WebUiGate.ItemPage(null));
         Assert.False(WebUiGate.HomeRow(null));
     }
+
+    [Fact]
+    public void WantToWatchIsGovernedByItsOwnToggleOnly()
+    {
+        Assert.True(WebUiGate.WantToWatch(new PluginConfiguration { WantToWatchEnabled = true }));
+        Assert.False(WebUiGate.WantToWatch(new PluginConfiguration { WebUiEnabled = true, PersonPageEnabled = true, ItemPageEnabled = true, HomeRowEnabled = true }));
+        Assert.False(WebUiGate.HomeRow(new PluginConfiguration { WantToWatchEnabled = true }));
+        Assert.False(WebUiGate.WantToWatch(null));
+    }
 }

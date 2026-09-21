@@ -6,16 +6,18 @@
 //   - on a Movie or Series page, a "More like this you don't have" row of unowned similar titles;
 //   - on a Music Artist page, an "Albums you don't have" row, and on a Book page a "More by this author you
 //     don't have" row (their cards carry their own links, since these works have no TMDB id to look up);
-//   - on the home screen, a "Discover" row of the recommendations the scan has accumulated.
+//   - on the home screen, a "Discover" row of the recommendations the scan has accumulated;
+//   - where want to watch is on, a bookmark on every card that puts the title on the signed-in user's own list
+//     and takes it off again, and a home row of what is still on that list.
 // Talks to the server only through the web client's own ApiClient, so it inherits the signed-in user's
 // session and base URL. Touches nothing but the elements it owns, and removes them again before rendering
 // a different view.
 //
-// A card carries no actions itself: clicking anywhere on it opens a detail dialog (TMDB's own synopsis,
-// genres, rating, a trailer link when TMDB has one) with the Send/Add-to-TODO button and, when sendable, a
-// quality-profile picker moved into it. The dialog is appended to document.body rather than the page, since
-// jellyfin-web's own page wrapper sets CSS containment (see CLAUDE.md's "position: fixed is not safe" note)
-// which would otherwise make it the containing block for a fixed-position overlay and misplace it.
+// A card's only control of its own is the bookmark: clicking anywhere else on it opens a detail dialog (TMDB's
+// own synopsis, genres, rating, a trailer link when TMDB has one) with the Send and want-to-watch buttons and,
+// when sendable, a quality-profile picker moved into it. The dialog is appended to document.body rather than
+// the page, since jellyfin-web's own page wrapper sets CSS containment (see CLAUDE.md's "position: fixed is not
+// safe" note) which would otherwise make it the containing block for a fixed-position overlay and misplace it.
 (function () {
     'use strict';
 
@@ -23,6 +25,7 @@
     var RELATED_ID = 'mtgRelatedMissing';
     var WORKS_ID = 'mtgWorksMissing';
     var HOME_ID = 'mtgHomeDiscover';
+    var WANTED_ID = 'mtgHomeWanted';
 
     // The classes every dialog button and link carries, so a link and a button look the same. .emby-button is
     // jellyfin-web's own box model (padding, weight, line height) as plain CSS, which is all that is needed:
@@ -108,28 +111,81 @@
         });
     }
 
-    // The fallback for an administrator with no arr configured: adds the title to the personal todo list
-    // instead of sending it anywhere. Independent of the report's own Todo/Add, which only rehydrates a
-    // gap already in the persisted scan; this rehydrates through the same on-demand lookup the card's own
-    // data came from, so it still works for a person or title the scan rotation has not reached yet.
-    function addToTodo(ctx, item, btn) {
-        btn.disabled = true;
-        var was = btn.textContent;
-        btn.textContent = 'Adding\u2026';
-        api('POST', actionUrl(ctx, 'Todo'), { gapId: item.GapId }).then(function (count) {
-            if (count > 0) {
-                btn.textContent = 'Added to TODO';
-                btn.classList.add('mtgSent');
-            } else {
-                btn.textContent = was;
-                btn.disabled = false;
-                alertUser('Could not add that to your TODO list.');
-            }
+    // ---- Want to watch ----
+    //
+    // The bookmark on a card and the button in the dialog are two views of one fact: whether the title is on the
+    // signed-in user's own list. Either one changes it and refreshWant shows the result in both. The server
+    // finds the gap again from the same lookup the card came from, and takes a title off by what it is, so an
+    // entry that reached the list some other way (the report, another page) comes off with it.
+    var BOOKMARK_OFF = '<svg viewBox="0 0 24 24" width="1.3em" height="1.3em" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15-5-2.18L7 18V5h10v13z"/></svg>';
+    var BOOKMARK_ON = '<svg viewBox="0 0 24 24" width="1.3em" height="1.3em" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+
+    function wantVerb(item) {
+        return item.Kind === 'MusicAlbum' ? 'listen' : (item.Kind === 'Book' ? 'read' : 'watch');
+    }
+
+    function removeUrl(ctx) {
+        return ctx.removeUrl || actionUrl(ctx, 'Todo/Remove');
+    }
+
+    // Puts the item on the signed-in user's list, or takes it off, and shows the result wherever it appears.
+    function setWanted(ctx, item, on, control) {
+        if (control) { control.disabled = true; }
+        return api('POST', on ? actionUrl(ctx, 'Todo') : removeUrl(ctx), { gapId: item.GapId }).then(function () {
+            item.OnList = on;
+            refreshWant(ctx, item);
         }, function () {
-            btn.textContent = was;
-            btn.disabled = false;
-            alertUser('Could not reach the server.');
+            alertUser('Could not update your list.');
+        }).then(function () {
+            // A title taken off the wanted row is gone; its button stays as it was left.
+            if (control && !(ctx.wanted && !on)) { control.disabled = false; }
         });
+    }
+
+    function paintBookmark(btn, item) {
+        var label = item.OnList ? 'Remove from your list' : 'Want to ' + wantVerb(item);
+        btn.innerHTML = item.OnList ? BOOKMARK_ON : BOOKMARK_OFF;
+        btn.setAttribute('aria-pressed', item.OnList ? 'true' : 'false');
+        btn.setAttribute('title', label);
+        btn.setAttribute('aria-label', label);
+    }
+
+    function paintWantButton(btn, item) {
+        btn.textContent = item.OnList ? 'On your list' : 'Want to ' + wantVerb(item);
+        btn.classList.toggle('mtgSent', !!item.OnList);
+    }
+
+    // Repaints every bookmark and dialog button for this item. On the home row of what is wanted, a title taken
+    // off the list leaves the row, and the row with it when it was the last.
+    function refreshWant(ctx, item) {
+        var id = item.GapId.replace(/["\\]/g, '');
+        var card = '.mtgCard[data-gapid="' + id + '"]';
+        var dialogButton = '.mtgDialog .mtgWantButton[data-want="' + id + '"]';
+        Array.prototype.forEach.call(document.querySelectorAll(card + ' .mtgWant'), function (btn) { paintBookmark(btn, item); });
+        Array.prototype.forEach.call(document.querySelectorAll(dialogButton), function (btn) { paintWantButton(btn, item); });
+        if (!ctx.wanted || item.OnList) { return; }
+        Array.prototype.forEach.call(document.querySelectorAll('#' + WANTED_ID + ' ' + card), function (cardEl) {
+            var container = cardEl.parentNode;
+            container.removeChild(cardEl);
+            if (!container.querySelector('.mtgCard')) {
+                var section = document.getElementById(WANTED_ID);
+                if (section && section.parentNode) { section.parentNode.removeChild(section); }
+            }
+        });
+        Array.prototype.forEach.call(document.querySelectorAll(dialogButton), function (btn) {
+            btn.textContent = 'Removed from your list';
+            btn.disabled = true;
+        });
+    }
+
+    function wantBookmark(ctx, item) {
+        var btn = h('button', { 'type': 'button', 'class': 'mtgWant' });
+        paintBookmark(btn, item);
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            setWanted(ctx, item, !item.OnList, btn);
+        });
+        return btn;
     }
 
     // canSend is a plain boolean for a single-kind list (a person's Movies, an item's similar titles, all
@@ -241,11 +297,11 @@
         return backdrop;
     }
 
-    // The Send/Add-to-TODO control: independent of the TMDB detail lookup below, since a gap already
-    // carries everything a send needs, so it must not wait on (or fail because of) a slow or failing TMDB
+    // The Send and want-to-watch controls: independent of the TMDB detail lookup below, since a gap already
+    // carries everything either needs, so they must not wait on (or fail because of) a slow or failing TMDB
     // call. A sendable card gets a quality-profile picker too, populated lazily and left hidden (Send
     // still works with the configured default) if that lookup fails.
-    function renderSendOrTodo(actionsEl, ctx, canSend, item) {
+    function renderActions(actionsEl, ctx, canSend, item) {
         if (resolveCanSend(canSend, item)) {
             var select = h('select', { 'is': 'emby-select', 'class': 'selectSmall mtgProfileSelect' });
             select.style.display = 'none';
@@ -265,10 +321,13 @@
                 });
                 select.style.display = '';
             }, function () { /* leave it hidden; Send still uses the configured default profile */ });
-        } else if (ctx.canTodo) {
-            var todoBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgTodoButton' }, 'Add to TODO');
-            todoBtn.addEventListener('click', function () { addToTodo(ctx, item, todoBtn); });
-            actionsEl.appendChild(todoBtn);
+        }
+
+        if (ctx.canTodo) {
+            var wantBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgWantButton', 'data-want': item.GapId });
+            paintWantButton(wantBtn, item);
+            wantBtn.addEventListener('click', function () { setWanted(ctx, item, !item.OnList, wantBtn); });
+            actionsEl.appendChild(wantBtn);
         }
     }
 
@@ -351,7 +410,7 @@
 
         var actions = h('div', { 'class': 'mtgDialogActions' });
         info.appendChild(actions);
-        renderSendOrTodo(actions, ctx, canSend, item);
+        renderActions(actions, ctx, canSend, item);
 
         content.appendChild(info);
         body.appendChild(content);
@@ -422,13 +481,17 @@
 
         var sub = item.Year ? String(item.Year) : '';
         if (item.Role) { sub = sub ? sub + ' \u00b7 ' + item.Role : item.Role; }
-        var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary', 'title': sub });
+        var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary mtgCardMeta', 'title': sub });
         secondary.appendChild(h('bdi', null, sub));
+        // In the flow of the card rather than laid over its image, like everything this script renders.
+        if (ctx.canTodo) { secondary.appendChild(wantBookmark(ctx, item)); }
         box.appendChild(secondary);
 
         el.appendChild(box);
         el.addEventListener('click', function () { openDialog(ctx, canSend, item); });
         el.addEventListener('keydown', function (e) {
+            // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
+            if (e.target !== el) { return; }
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
                 openDialog(ctx, canSend, item);
@@ -617,6 +680,19 @@
         sectionsEl.appendChild(section);
     }
 
+    // The home row of what the signed-in user still wants: the movies and series on their own list that the
+    // library does not hold. It goes ahead of the Discover row when both are there, and a title taken off the
+    // list leaves it (refreshWant).
+    function renderWanted(sectionsEl, data) {
+        remove(sectionsEl, WANTED_ID);
+        if (!data || !data.Titles.length) { return; }
+
+        var ctx = { kind: 'Home', id: '', canTodo: true, wanted: true, removeUrl: 'MindTheGaps/Home/Wanted/Remove' };
+        var section = scroller(ctx, false, 'Want to watch', data.Titles, true);
+        section.id = WANTED_ID;
+        sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID));
+    }
+
     // The home view is cached by jellyfin-web: returning to it fires viewshow without a reload, and its
     // own sections are laid out asynchronously after that (appending to this container, wiping anything
     // already there via innerHTML). A fixed delay from viewshow would be guessing whether that finished;
@@ -636,12 +712,16 @@
             if (!sectionsEl.querySelector('#' + HOME_ID)) {
                 api('GET', 'MindTheGaps/Home/Discover').then(function (data) { renderHome(sectionsEl, data); }, function () { /* off, or not signed in */ });
             }
+
+            if (!sectionsEl.querySelector('#' + WANTED_ID)) {
+                api('GET', 'MindTheGaps/Home/Wanted').then(function (data) { renderWanted(sectionsEl, data); }, function () { /* off, or not signed in */ });
+            }
         };
         var schedule = function () {
             if (timer) { clearTimeout(timer); }
             timer = setTimeout(load, 250);
         };
-        var ours = function (node) { return node.nodeType === 1 && node.id === HOME_ID; };
+        var ours = function (node) { return node.nodeType === 1 && (node.id === HOME_ID || node.id === WANTED_ID); };
         homeObserver = new MutationObserver(function (records) {
             for (var i = 0; i < records.length; i++) {
                 if (records[i].target !== sectionsEl) { continue; }
@@ -700,6 +780,9 @@
     style.textContent =
         '.mtgUpcomingBadge{position:absolute;top:.5em;left:.5em;z-index:1;padding:.2em .6em;border-radius:.3em;background:rgba(0,0,0,.75);color:#fff;font-size:75%;line-height:1.4}' +
         '.mtgNote{opacity:.8}' +
+        '.mtgCardMeta{display:flex;align-items:center;justify-content:center;gap:.3em}' +
+        '.mtgWant{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:1.9em;height:1.9em;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer;opacity:.75}' +
+        '.mtgWant:hover,.mtgWant:focus-visible,.mtgWant[aria-pressed="true"]{opacity:1}' +
         '.mtgCard{cursor:pointer}' +
         '.mtgDialogBackdrop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:2em;overflow-y:auto}' +
         '.mtgDialogBackdrop.mtgDialogOpen{display:flex}' +

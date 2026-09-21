@@ -25,8 +25,9 @@ public sealed class WorksMissingResult
     public string Kind { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the caller may add a work to their personal todo list: an
-    /// administrator. Music and books have no Radarr/Sonarr handoff, so the todo list is the only action.
+    /// Gets or sets a value indicating whether the caller may keep a want-to-watch list: want to watch is on
+    /// and the caller is a signed-in user without a parental rating limit. Music and books have no download
+    /// handoff, so the list is the only action.
     /// </summary>
     public bool CanTodo { get; set; }
 

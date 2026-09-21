@@ -89,7 +89,7 @@ test('a movie can be sent from the dialog; a series on the same row respects its
     expect(sendUrl).toContain('gapId=recommendation%3Amovie%3A1');
 });
 
-test('a card with no send flags gets a TMDB link and, for an administrator, an Add to TODO fallback', async ({ page }) => {
+test('a card with no send flags gets a TMDB link and, for a signed-in user, a want-to-watch button', async ({ page }) => {
     const discover = {
         CanSendMovies: false,
         CanSendSeries: false,
@@ -105,10 +105,10 @@ test('a card with no send flags gets a TMDB link and, for an administrator, an A
     const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
 
-    const todoBtn = page.locator('.mtgDialog .mtgTodoButton');
-    await expect(todoBtn).toBeVisible();
-    await todoBtn.click();
-    await expect(todoBtn).toHaveText('Added to TODO');
+    const wantBtn = page.locator('.mtgDialog .mtgWantButton');
+    await expect(wantBtn).toHaveText('Want to watch');
+    await wantBtn.click();
+    await expect(wantBtn).toHaveText('On your list');
     const todoUrl = await page.evaluate(() => window.__lastTodoUrl);
     expect(todoUrl).toContain('Home/Todo');
 });
