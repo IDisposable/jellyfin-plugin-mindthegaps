@@ -759,14 +759,14 @@ public sealed class GapEngine
     // Carry forward prior missing-episode gaps (SetCompletion, Episode) that no source re-emitted this run,
     // so a cross-check discovery survives runs that did not re-check its series. A carried gap drains when
     // its owning series is gone from the library, or the specific season/episode is now owned on disk.
-    // Owned-episode sets are computed lazily, once per distinct series we actually consider.
+    // The owned episodes of every series that has such a gap are read in one query, not one per series: a
+    // library with a couple of thousand of these gaps spans hundreds of series.
     private void AccumulateSeriesContent(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior)
     {
         const int maxAccumulated = 50000;
 
-        var ownedBySeries = new Dictionary<Guid, HashSet<(int Season, int Number)>>();
         var seriesExists = new Dictionary<Guid, bool>();
-        var carried = 0;
+        var candidates = new List<(GapItem Item, Guid SeriesId, int Season, int Number)>();
 
         foreach (var item in prior)
         {
@@ -790,18 +790,33 @@ public sealed class GapEngine
                 seriesExists[seriesId] = exists;
             }
 
-            if (!exists)
+            if (exists)
             {
-                continue;
+                candidates.Add((item, seriesId, season, number));
             }
+        }
 
-            if (!ownedBySeries.TryGetValue(seriesId, out var owned))
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var wanted = candidates.Select(c => c.SeriesId).ToHashSet();
+        var ownedBySeries = OwnedEpisodeIndex.BySeries(
+            _libraryManager.GetItemList(new InternalItemsQuery
             {
-                owned = OwnedEpisodeNumbers(seriesId);
-                ownedBySeries[seriesId] = owned;
-            }
+                DtoOptions = LibraryQueryOptions.Minimal(),
+                IncludeItemTypes = new[] { BaseItemKind.Episode },
+                IsVirtualItem = false,
+                Recursive = true
+            }),
+            wanted);
 
-            if (owned.Contains((season, number)))
+        var carried = 0;
+        foreach (var (item, seriesId, season, number) in candidates)
+        {
+            if (byId.ContainsKey(item.Id)
+                || (ownedBySeries.TryGetValue(seriesId, out var owned) && owned.Contains((season, number))))
             {
                 continue;
             }
@@ -885,35 +900,6 @@ public sealed class GapEngine
         {
             _logger.LogInformation("Backfill: carried {Carried} unowned set-completion gaps forward from the previous scan", carried);
         }
-    }
-
-    private HashSet<(int Season, int Number)> OwnedEpisodeNumbers(Guid seriesId)
-    {
-        var owned = new HashSet<(int Season, int Number)>();
-        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            DtoOptions = LibraryQueryOptions.Minimal(),
-            IncludeItemTypes = new[] { BaseItemKind.Episode },
-            AncestorIds = new[] { seriesId },
-            IsVirtualItem = false,
-            Recursive = true
-        }))
-        {
-            if (item is Episode episode
-                && episode.ParentIndexNumber is int s
-                && episode.IndexNumber is int n)
-            {
-                // One file can span several episodes (S01E01-E02), so own every number in the span; otherwise
-                // a carried cross-check gap for the later part never drains even though the file is on disk.
-                var last = episode.IndexNumberEnd is int end && end > n ? end : n;
-                for (var number = n; number <= last; number++)
-                {
-                    owned.Add((s, number));
-                }
-            }
-        }
-
-        return owned;
     }
 
     // Several sources can surface the same missing title, but they collapse to one gap (the id is keyed on

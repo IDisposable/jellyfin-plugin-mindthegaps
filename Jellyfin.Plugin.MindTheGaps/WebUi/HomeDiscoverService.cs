@@ -57,12 +57,29 @@ public sealed class HomeDiscoverService
     public GapItem? FindGap(string gapId)
     {
         var gap = _store.FindById(gapId);
-        return gap is { Pattern: GapPattern.Recommendation } ? gap : null;
+        return gap is { Pattern: GapPattern.Recommendation } && IsFromOwnedTitle(gap) ? gap : null;
     }
 
     /// <summary>
-    /// The pure ranking: recommendation gaps only, not dismissed, primary seed not muted, ordered by how many
-    /// owned titles suggest them and then by TMDB popularity, movies and series interleaved.
+    /// Whether a recommendation was made from a title the library owns, as opposed to coming from a list. The
+    /// row is any signed-in user's, so it is limited to what owned titles suggest: a gap from a watchlist, a
+    /// wantlist, favorites, or a list the administrator follows belongs to that account, not to the library,
+    /// and its source name would read as "Because you have" the list. A title an owned title also suggests but
+    /// that a list claimed first is left out with it, since the gap's primary source is the list.
+    /// </summary>
+    /// <param name="gap">The recommendation gap.</param>
+    /// <returns><see langword="true"/> when the gap's source is an owned movie or series.</returns>
+    public static bool IsFromOwnedTitle(GapItem gap)
+    {
+        ArgumentNullException.ThrowIfNull(gap);
+
+        return gap.SourceItemType is SourceItemTypes.Movie or SourceItemTypes.Series;
+    }
+
+    /// <summary>
+    /// The pure ranking: recommendations made from an owned title only (not a list), not dismissed, primary
+    /// seed not muted, ordered by how many owned titles suggest them and then by TMDB popularity, movies and
+    /// series interleaved.
     /// </summary>
     /// <param name="items">The report's gaps.</param>
     /// <param name="resolutions">The current dismissals, keyed by gap id or "recsource:{guid}".</param>
@@ -82,6 +99,7 @@ public sealed class HomeDiscoverService
         return items
             .Where(g => g.Pattern == GapPattern.Recommendation
                 && (g.TargetKind == BaseItemKind.Movie || g.TargetKind == BaseItemKind.Series)
+                && IsFromOwnedTitle(g)
                 && !g.Adhoc
                 && !resolutions.ContainsKey(g.Id)
                 && (g.SourceItemId is null || !muted.Contains(g.SourceItemId)))

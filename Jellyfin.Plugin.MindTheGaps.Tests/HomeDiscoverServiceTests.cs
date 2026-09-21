@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 
 public class HomeDiscoverServiceTests
 {
-    private static GapItem Rec(string id, string name, int tmdbId, double? sortScore = null, string? sourceItemId = null, int otherSources = 0, bool adhoc = false, BaseItemKind kind = BaseItemKind.Movie)
+    private static GapItem Rec(string id, string name, int tmdbId, double? sortScore = null, string? sourceItemId = null, int otherSources = 0, bool adhoc = false, BaseItemKind kind = BaseItemKind.Movie, string sourceItemType = SourceItemTypes.Movie)
     {
         var gap = new GapItem
         {
@@ -20,6 +20,7 @@ public class HomeDiscoverServiceTests
             TargetKind = kind,
             SortScore = sortScore,
             SourceItemId = sourceItemId,
+            SourceItemType = sourceItemType,
             Adhoc = adhoc,
             ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = tmdbId.ToString(CultureInfo.InvariantCulture) }
         };
@@ -111,5 +112,54 @@ public class HomeDiscoverServiceTests
         var ranked = HomeDiscoverService.Rank([gap], new Dictionary<string, GapResolution>(), 10);
 
         Assert.Contains("Seed Movie", ranked[0].Because, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(SourceItemTypes.TmdbAccountList)]
+    [InlineData(SourceItemTypes.TraktWatchlist)]
+    [InlineData(SourceItemTypes.MdbListWatchlist)]
+    [InlineData(SourceItemTypes.JustWatchList)]
+    [InlineData(SourceItemTypes.ImdbList)]
+    [InlineData(SourceItemTypes.TvdbFavorites)]
+    [InlineData(SourceItemTypes.TmdbList)]
+    [InlineData(SourceItemTypes.MdbList)]
+    [InlineData(SourceItemTypes.TraktList)]
+    [InlineData(SourceItemTypes.TmdbMovieDiscover)]
+    public void Rank_LeavesOutATitleThatCameFromAList(string listKind)
+    {
+        var fromList = Rec("list", "From A List", 1, sourceItemType: listKind);
+        var fromOwned = Rec("owned", "From An Owned Title", 2);
+
+        var ranked = HomeDiscoverService.Rank([fromList, fromOwned], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal("owned", Assert.Single(ranked).GapId);
+    }
+
+    [Fact]
+    public void Rank_KeepsATitleSuggestedByAnOwnedSeries()
+    {
+        var gap = Rec("s", "A Series", 1, kind: BaseItemKind.Series, sourceItemType: SourceItemTypes.Series);
+
+        var ranked = HomeDiscoverService.Rank([gap], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal("s", Assert.Single(ranked).GapId);
+    }
+
+    [Fact]
+    public void Rank_LeavesOutAGapWithNoSourceType()
+    {
+        var gap = Rec("a", "A", 1);
+        gap.SourceItemType = null;
+
+        Assert.Empty(HomeDiscoverService.Rank([gap], new Dictionary<string, GapResolution>(), 10));
+    }
+
+    [Fact]
+    public void IsFromOwnedTitle_IsTrueOnlyForAnOwnedMovieOrSeries()
+    {
+        Assert.True(HomeDiscoverService.IsFromOwnedTitle(Rec("a", "A", 1, sourceItemType: SourceItemTypes.Movie)));
+        Assert.True(HomeDiscoverService.IsFromOwnedTitle(Rec("b", "B", 2, sourceItemType: SourceItemTypes.Series)));
+        Assert.False(HomeDiscoverService.IsFromOwnedTitle(Rec("c", "C", 3, sourceItemType: SourceItemTypes.TraktWatchlist)));
+        Assert.Throws<ArgumentNullException>(() => HomeDiscoverService.IsFromOwnedTitle(null!));
     }
 }

@@ -180,3 +180,61 @@ test.describe('one service, however TMDB splits it', () => {
         await expect(page.locator('.cgProv[data-prov="HBO Max"]')).toHaveCount(1);
     });
 });
+
+test.describe('the service icons link to the title on TMDB', () => {
+    const WATCH = 'https://www.themoviedb.org/movie/949-heat/watch?locale=US';
+    const offer = (Provider, MonetizationType) => ({ Provider, MonetizationType, Url: WATCH });
+
+    test('the icons are one link to the TMDB watch page, in a new tab', async ({ page }) => {
+        await setup(page, { Availability: [offer('Netflix', 'flatrate'), offer('Hulu', 'flatrate'), offer('Tubi', 'free')], AvailabilityChecked: true });
+
+        const link = page.locator('.cgRow').first().locator('a.cgSvcs');
+        await expect(link).toHaveCount(1);
+        await expect(link).toHaveAttribute('href', WATCH);
+        await expect(link).toHaveAttribute('target', '_blank');
+        await expect(link).toHaveAttribute('rel', /noopener/);
+        await expect(link).toHaveAttribute('title', 'Where to watch on TMDB: Netflix, Hulu, Tubi');
+        await expect(link.locator('.cgSvc')).toHaveCount(2);
+        await expect(link.locator('.cgSvcMore')).toHaveText('+1');
+    });
+
+    test('a row whose offers do not link to TMDB shows plain icons, not a link', async ({ page }) => {
+        await setup(page, {
+            Availability: [{ Provider: 'Netflix', MonetizationType: 'flatrate', Url: 'https://example.test/watch' }],
+            AvailabilityChecked: true
+        });
+
+        const row = page.locator('.cgRow').first();
+        await expect(row.locator('.cgSvcs')).toHaveCount(1);
+        await expect(row.locator('a.cgSvcs')).toHaveCount(0);
+    });
+
+    test('clicking the icons follows the link and does not pin the row open', async ({ page }) => {
+        await setup(page, { Availability: [offer('Netflix', 'flatrate')], AvailabilityChecked: true });
+        await page.locator('a.cgSvcs').evaluate((a) => a.addEventListener('click', (e) => e.preventDefault()));
+
+        await page.locator('a.cgSvcs').click();
+
+        await expect(page.locator('.cgTitleDetail.cgPinned')).toHaveCount(0);
+    });
+});
+
+// The rest of the page carries a hand on every list item, which would put one on the empty parts of a row.
+// Only what acts on a click keeps it.
+test.describe('the pointer on a row', () => {
+    test('is a hand on the title, the service icons and the icon buttons, and not on the rest of the row', async ({ page }) => {
+        await setup(page, {
+            Availability: [{ Provider: 'Netflix', MonetizationType: 'flatrate', Url: 'https://www.themoviedb.org/movie/949/watch' }],
+            AvailabilityChecked: true
+        });
+        await page.addStyleTag({ content: '.listItem { cursor: pointer; }' });
+
+        const row = page.locator('.cgRow').first();
+        const cursor = (locator) => locator.evaluate((el) => getComputedStyle(el).cursor);
+        expect(await cursor(row)).toBe('default');
+        expect(await cursor(row.locator('.cgMeta'))).toBe('default');
+        expect(await cursor(row.locator('.cgTitle'))).toBe('pointer');
+        expect(await cursor(row.locator('a.cgSvcs'))).toBe('pointer');
+        expect(await cursor(row.locator('.cgIcons summary').first())).toBe('pointer');
+    });
+});

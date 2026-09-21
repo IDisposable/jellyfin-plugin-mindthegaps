@@ -591,6 +591,16 @@ function serviceIcons(item) {
     if (rest.length) {
         shown.push(h('span', { 'class': 'cgSvcMore', title: rest.map(function (s) { return s.name; }).join(', ') }, '+' + rest.length).outerHTML);
     }
+    // The icons are one link to the title's "where to watch" page on TMDB, which lists every service and how
+    // it is offered, so a click goes straight there. A row that carries no such page shows them as plain icons.
+    if (item.WatchUrl) {
+        var names = services.map(function (s) { return s.name; }).join(', ');
+        return wrap('a', {
+            'class': 'cgSvcs', href: item.WatchUrl, target: '_blank', rel: 'noopener noreferrer',
+            title: 'Where to watch on TMDB: ' + names, 'aria-label': 'Where to watch on TMDB: ' + names
+        }, shown.join(''));
+    }
+
     return wrap('span', { 'class': 'cgSvcs' }, shown.join(''));
 }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
@@ -68,8 +69,13 @@ internal static class GapRowProjector
         SeasonItemId = item.SeasonItemId,
         WatchTmdbId = item.WatchTmdbId,
         Availability = Badges(item.Availability),
+        WatchUrl = WatchUrl(item.Availability),
         AvailabilityChecked = item.AvailabilityChecked
     };
+
+    // The offers of one title all carry TMDB's one watch page for it, so the first usable one stands for all.
+    private static string? WatchUrl(IReadOnlyList<AvailabilityOffer> offers)
+        => offers.Select(o => o.Url).FirstOrDefault(TmdbLinks.IsWatchUrl);
 
     // Distinct by service and how it is offered: a title on Netflix in three qualities is one badge.
     private static AvailabilityBadge[]? Badges(IReadOnlyList<AvailabilityOffer> offers)

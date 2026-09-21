@@ -213,6 +213,8 @@
     gap: .5em;
     position: relative;
     padding: .35em .25em;
+    /* Only the parts of a row that act on a click show a hand (the title, the service icons, the controls). */
+    cursor: default;
 }
 
 .cgSelSpacer {
@@ -250,6 +252,7 @@
     margin: 0;
     font-size: 1.05em;
     font-weight: 500;
+    cursor: pointer;
 }
 
 .cgDimmed {
@@ -272,6 +275,12 @@
     display: inline-flex;
     align-items: center;
     gap: .25em;
+}
+
+a.cgSvcs {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .cgSvc {
@@ -870,4 +879,8 @@
 .cgProvBadgeOff {
     opacity: .55;
     background: rgba(255, 255, 255, .06);
+}
+
+.cgRow .cgSel {
+    cursor: pointer;
 }

@@ -1,3 +1,4 @@
+using System;
 using Jellyfin.Data.Enums;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
@@ -43,4 +44,16 @@ internal static class TmdbLinks
         "Series" => Base + "tv/" + id,
         _ => null
     };
+
+    /// <summary>
+    /// Whether a link is a page on themoviedb.org over https, which is what a title's "where to watch" link
+    /// from TMDB's watch/providers answer is. A link that is anything else is not passed on to a browser.
+    /// </summary>
+    /// <param name="url">The link.</param>
+    /// <returns><see langword="true"/> for an https URL on themoviedb.org.</returns>
+    public static bool IsWatchUrl(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            && uri.Scheme == Uri.UriSchemeHttps
+            && (uri.Host.Equals("themoviedb.org", StringComparison.OrdinalIgnoreCase)
+                || uri.Host.EndsWith(".themoviedb.org", StringComparison.OrdinalIgnoreCase));
 }

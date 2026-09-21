@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -173,10 +174,31 @@ internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExplor
         var done = 0;
         _logger.LogInformation("Curated sets: scanning {Companies} studios, {Keywords} keywords, and {Lists} TMDB lists", companySets.Count, keywordIds.Count, listIds.Count);
 
+        // Each studio, keyword and list is read on its own: one TMDB answers "unauthorized" for (a private
+        // list, say) is logged and skipped, and its gaps from an earlier scan are carried forward, rather
+        // than ending the source and leaving everything after it unread.
+        var attempted = 0;
+        var failed = 0;
+        Exception? lastFailure = null;
+        IAsyncEnumerable<GapItem> Guard(IAsyncEnumerable<GapItem> stream, string what)
+        {
+            attempted++;
+            return IsolatedStream.RunAsync(
+                stream,
+                ex =>
+                {
+                    failed++;
+                    lastFailure = ex;
+                    _logger.LogWarning(ex, "Curated sets: {What} could not be read; the rest are still scanned", what);
+                },
+                cancellationToken);
+        }
+
         foreach (var (companyId, label) in companySets)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await foreach (var gap in EmitCompanyAsync(context, companyId, label, cancellationToken).ConfigureAwait(false))
+            var stream = Guard(EmitCompanyAsync(context, companyId, label, cancellationToken), string.Create(CultureInfo.InvariantCulture, $"studio '{label}' ({companyId})"));
+            await foreach (var gap in stream.ConfigureAwait(false))
             {
                 yield return gap;
             }
@@ -187,7 +209,8 @@ internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExplor
         foreach (var keywordId in keywordIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await foreach (var gap in EmitKeywordAsync(context, keywordId, cancellationToken).ConfigureAwait(false))
+            var stream = Guard(EmitKeywordAsync(context, keywordId, cancellationToken), string.Create(CultureInfo.InvariantCulture, $"keyword {keywordId}"));
+            await foreach (var gap in stream.ConfigureAwait(false))
             {
                 yield return gap;
             }
@@ -198,12 +221,20 @@ internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExplor
         foreach (var listId in listIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await foreach (var gap in EmitListAsync(context, listId, cancellationToken).ConfigureAwait(false))
+            var stream = Guard(EmitListAsync(context, listId, cancellationToken), string.Create(CultureInfo.InvariantCulture, $"TMDB list {listId}"));
+            await foreach (var gap in stream.ConfigureAwait(false))
             {
                 yield return gap;
             }
 
             context.ReportProgress((double)++done / total);
+        }
+
+        // Every set failing is an outage or bad credentials, not one bad id, so the source still reads as
+        // failed and the report says it could not be read rather than that it found nothing.
+        if (attempted > 0 && failed == attempted && lastFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(lastFailure).Throw();
         }
     }
 

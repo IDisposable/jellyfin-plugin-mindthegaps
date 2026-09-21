@@ -142,7 +142,9 @@ monetization filters, so a service you have switched off never takes one of the 
 subscription, free, and ad-supported services come before rent or buy. TMDB lists a service's tiers and its
 resellers' channels as separate providers ("Netflix Standard with Ads", "HBO Max Amazon Channel"); the icons
 and the provider filter treat those as one service. Logos come from TMDB's own provider list and are filled
-in on the next scan or where-to-watch pass; a service TMDB has no logo for shows its initial. The list itself
+in on the next scan or where-to-watch pass; a service TMDB has no logo for shows its initial. The icons are
+one link: clicking them opens the title's "where to watch" page on TMDB in a new tab, which lists every service
+and how it is offered in your region. The list itself
 loads a row's overview, links, and offer links only when you open it, which is what keeps a large tab quick.
 
 - **Watch**: streaming-availability offers, if any have been looked up; otherwise a **Look up where to

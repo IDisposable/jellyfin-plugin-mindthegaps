@@ -55,6 +55,8 @@ function leanReport(items) {
         }
         if (it.Availability && it.Availability.length) {
             row.Availability = it.Availability.map(function (o) { return { Provider: o.Provider, MonetizationType: o.MonetizationType, LogoUrl: o.LogoUrl }; });
+            var watch = it.Availability.map(function (o) { return o.Url; }).find(function (u) { return (u || '').indexOf('https://www.themoviedb.org/') === 0; });
+            if (watch) { row.WatchUrl = watch; }
         } else {
             delete row.Availability;
         }

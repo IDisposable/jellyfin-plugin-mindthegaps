@@ -223,4 +223,35 @@ public class GapRowProjectorTests
         Assert.True(row.AvailabilityChecked);
         Assert.Equal("949", row.ProviderIds!["Tmdb"]);
     }
+
+    [Fact]
+    public void Project_CarriesTheTitlesWatchPageOnce()
+    {
+        var gap = Gap("g1");
+        gap.Availability = new[]
+        {
+            new AvailabilityOffer { Provider = "Netflix", Url = "https://www.themoviedb.org/movie/949-heat/watch?locale=US" },
+            new AvailabilityOffer { Provider = "Max", Url = "https://www.themoviedb.org/movie/949-heat/watch?locale=US" }
+        };
+
+        var row = GapRowProjector.Project([gap]).Items[0];
+
+        Assert.Equal("https://www.themoviedb.org/movie/949-heat/watch?locale=US", row.WatchUrl);
+    }
+
+    [Fact]
+    public void Project_SkipsAnOfferWhoseLinkIsNotOnTmdb_AndHasNoWatchPageWithoutOffers()
+    {
+        var gap = Gap("g1");
+        gap.Availability = new[]
+        {
+            new AvailabilityOffer { Provider = "A", Url = "javascript:alert(1)" },
+            new AvailabilityOffer { Provider = "B", Url = null },
+            new AvailabilityOffer { Provider = "C", Url = "https://evil.example/watch" },
+            new AvailabilityOffer { Provider = "D", Url = "https://www.themoviedb.org/movie/1/watch" }
+        };
+
+        Assert.Equal("https://www.themoviedb.org/movie/1/watch", GapRowProjector.Project([gap]).Items[0].WatchUrl);
+        Assert.Null(GapRowProjector.Project([Gap("none")]).Items[0].WatchUrl);
+    }
 }

@@ -36,10 +36,12 @@ with no consumers cannot be shaped by them, so it is offered before there are an
   title is listed if the library does not hold it, regardless of the caller's library access or parental
   rating. Filtering by the caller means resolving the user on each request and applying their restrictions to
   data that is TMDB's, not a library item's, and is deferred.
-- The home Discover row ranks every `Recommendation`-pattern gap in the report. The personal-list sources
-  (watchlists and lists from JustWatch, IMDb, MDBList, Trakt, TMDB accounts, and TheTVDB favorites) emit that
-  pattern too, so titles from them can appear. Restricting the row to the recommendation source, or letting
-  the administrator choose, is deferred.
+- The home Discover row is limited to recommendations made from an owned movie or series
+  (`HomeDiscoverService.IsFromOwnedTitle`). The personal-list sources (watchlists and lists from JustWatch,
+  IMDb, MDBList, Trakt, TMDB accounts, and TheTVDB favorites) emit the same `Recommendation` pattern, so the
+  row keys on the gap's primary source rather than the pattern: nothing an account keeps reaches a user who
+  does not own that account. A title an owned title also suggests but that a list claimed first is left out
+  with it, because the merge makes the list the gap's primary source.
 - Each read can spend a TMDB request and a library read on the server's behalf. Both are cached, and this is
   accepted.
 - Answering 404 while a surface's own toggle is off is kept, so a surface is an explicit opt-in.

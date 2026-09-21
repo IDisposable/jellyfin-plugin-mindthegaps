@@ -6,15 +6,16 @@
 
 ## Deliberate non-goals (not built, on purpose)
 
-| Capability                                                    | Why not                                                                                                                                     |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IGapSource` as a core SPI for third-party gap plugins        | Deferred by design (ADR-0002); every source ships in this plugin.                                                                           |
-| Fuzzy "treat an owned-but-mistagged item as owned" matching   | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source. |
-| Per-user display gate for minted virtual items                | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                               |
-| Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                    |
-| Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.  |
-| Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                        |
-| MusicVideos domain                                            | Enum-only; no source.                                                                                                                       |
+| Capability                                                    | Why not                                                                                                                                                    |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IGapSource` as a core SPI for third-party gap plugins        | Deferred by design (ADR-0002); every source ships in this plugin.                                                                                          |
+| Fuzzy "treat an owned-but-mistagged item as owned" matching   | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source.                |
+| Per-user display gate for minted virtual items                | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                                              |
+| Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                                   |
+| Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                 |
+| Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                       |
+| A "Fix the id" action in Diagnose                             | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it. |
+| MusicVideos domain                                            | Enum-only; no source.                                                                                                                                      |
 
 ## Upstream asks
 
@@ -38,14 +39,14 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Priorities (suggested, not committed)
 
-- **Want to watch.** A movie and series view of the todo list on the Web UI, with a bookmark on every card, a
-  home row, and a title search. Plan under [Web UI](#web-ui-experimental) below.
-- **Batch send in the dashboard.** The server side exists (`SendToArrBulk` and `SendToSeerrBulk`); nothing in
-  the report or the todo list calls it yet. A multi-select selection, or the whole todo list, handed to
-  Radarr/Sonarr/Jellyseerr in one pass, reporting per-item success the way the multi-select mint does.
-  Preferred over bulk minting in the near term: minting is held as long as possible in the hope upstream B
-  makes it native, so acquisition handoff is the better place to spend effort now.
-- **Filter what the Web UI reads by who is asking.** The largest privacy gap in the surfaces; see below.
+- **Want to watch, per user from the start.** A bookmark on every card, a home row, and a title search, each
+  user's own list. Plan under [Web UI](#web-ui-experimental) below.
+- **Filter what the Web UI reads by who is asking,** kept light so the surfaces stay fast; see below.
+- **Actions on a selection in the report.** The multi-select bar takes Mint, Send to (Radarr, Sonarr,
+  Jellyseerr/Overseerr, or the watch list) and a bulk Resolve that asks for the reason once. The server side of
+  send and resolve exists (`SendToArrBulk`, `SendToSeerrBulk`, `ResolveBatch`); the report calls none of them.
+  Acquisition handoff is preferred over bulk minting in the near term: minting is held as long as possible in
+  the hope upstream B makes it native.
 - **Upstream ask A** ([jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
 
@@ -58,23 +59,14 @@ them. Drafts in [docs/upstream/](upstream/).
   a mismatched) TMDB id is reported missing ("Jack Reacher: Never Go Back"). Not "fixed" by fuzzy
   title-and-year matching, which would mask the metadata that should be corrected; the resolution is to
   surface it via Diagnose so the user fixes the id and rescans.
-- **One TMDB list the account cannot read stops the rest of the curated sets.** `CuratedSetGapSource` reads
-  its TMDB lists in turn, and a list TMDB answers "unauthorized" for (a private list, or one the key cannot
-  see) surfaces as an exception that fails the whole source, so the lists after it are never read that scan.
-  Each list should fail on its own and be logged.
 - **A Trakt list entry that is not a real list fails quietly.** A slug such as `popular` names a Trakt
   category, not a list; the items request comes back 400, the list request fails to parse as a list, and the
   source logs a JSON error and reports a list with no items. Validating the entry when it is saved would say
   so instead.
 
-### Diagnose
-
-- **"Fix the id" action.** Diagnose is advisory; a popup button that writes the correct provider id to the
-  owned item and queues a refresh would close the loop. Mutates library metadata, so it needs a confirm.
-
 ### Sources and curated sets
 
-- **Chip pickers for the remaining list sources.** Studios, keywords, MDBList lists, and Discogs labels have a
+- **Chip pickers for the remaining list sources** (after the image cache). Studios, keywords, MDBList lists, and Discogs labels have a
   type-ahead chip picker. Three sources are still raw text fields: `CuratedTmdbListIds` (a pasted
   `themoviedb.org/list/{id}` URL or a bare id, `TmdbListInput`; TMDB has no list-search API, so a
   paste-and-confirm chip over the existing `tmdblist` `CuratedResolve` branch), `CuratedTraktListIds` (a
@@ -89,21 +81,16 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI (experimental)
 
-- **Want to watch, without auto-removal.** One list, not two: the todo list (`TodoStore`) stays the store, the
-  report's TODO tab stays its all-kinds view, and "Want to watch" is its movie and series view on
-  jellyfin-web's own pages. Build order: (1) a bookmark toggle on every card and a home row of the entries,
-  reusing the todo snapshot fields; (2) a title search dialog over TMDB, rehydrating a chosen card from its
-  TMDB id; (3) optionally, a per-user Jellyfin playlist for titles the library already holds, which shows in
-  every client. Open: the todo list is one list for the server while a playlist is per user, so a bookmark
-  needs an owner before non-administrators can add to it, and a title that arrives in the library should
-  move to a given user's playlist only for that user.
+- **Want to watch, per user, without auto-removal.** Each user has their own list, stored per user. The
+  server-wide todo list (`TodoStore`) is migrated to an administrator's list and removed on upgrade; how that
+  administrator is chosen is open. Build order: (1) the per-user store, a bookmark toggle on every card and a
+  home row of the entries; (2) a title search dialog over TMDB, rehydrating a chosen card from its TMDB id;
+  (3) optionally, a per-user Jellyfin playlist for titles the library already holds, which shows in every
+  client, and a title that arrives in the library moves to that user's playlist only.
 - **Filter the surface reads by the caller.** The person, item and home reads are open to any signed-in user
   and are not limited by that user's library access or parental rating; a title is listed if the library does
   not hold it, for everyone. Filtering means resolving the user on each request and applying their
   restrictions to data that is TMDB's rather than a library item's. See ADR-0019.
-- **Keep personal lists out of the home Discover row.** The row ranks every `Recommendation`-pattern gap, and
-  the watchlist and list sources emit that pattern too, so titles from an administrator's personal lists can
-  appear for other users. Restrict the row to the recommendation source, or let the administrator choose.
 - **More of the works surfaces.** Artist and book pages list what the owner's sources find, with links and an
   administrator's Add to TODO. Still open: an album page (the artist's other albums, or missing tracks, for
   which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
@@ -119,10 +106,6 @@ them. Drafts in [docs/upstream/](upstream/).
   other than filmography and series content were done in under 30 seconds, filmography took 110 seconds and
   series content 222, so most of the bar's time is spent in its last stretch. Weighting by expected cost, or
   reporting per-source progress, would make it honest.
-- **The series-content backfill reads the library once per series.** Carrying 1,800 prior series-content gaps
-  forward took about 27 seconds of a 254-second scan. `AccumulateSeriesContent` calls `OwnedEpisodeNumbers`
-  for each series separately, which is the likely cost; one batched read of the owned episodes would replace
-  those queries.
 
 ### Minting
 
@@ -158,8 +141,11 @@ them. Drafts in [docs/upstream/](upstream/).
 
 - **Serve provider images from a local cache.** Posters, provider logos and Cover Art Archive covers are loaded
   by each browser straight from TMDB and the other providers. A cache on the server would spare them the
-  traffic and could be served with public cache headers, since none of it is access-controlled. Needs an
-  eviction policy and a size cap.
+  traffic and could be served with public cache headers, since none of it is access-controlled. Leaning
+  towards the server's own design: files under the server's cache path named by a hash of their input (so a
+  changed source is a new file and nothing needs invalidating), where the server's daily task already deletes
+  files not written for 30 days; the server sets no size cap, so this would add one. Needs a host allowlist so
+  the route cannot fetch arbitrary URLs, and a per-file size limit.
 - **Extract the persistence and memoization helpers from `GapStore`.** It now holds the per-domain file I/O,
   the availability and additive merges, the generation counter and validator, and the domain and summary
   indexes. The comments are thorough, but the class is large; the domain-file I/O and the memoization are the

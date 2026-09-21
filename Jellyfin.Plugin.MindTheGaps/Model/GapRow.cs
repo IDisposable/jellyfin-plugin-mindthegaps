@@ -165,6 +165,14 @@ public class GapRow
     public IReadOnlyList<AvailabilityBadge>? Availability { get; set; }
 
     /// <summary>
+    /// Gets or sets the title's "where to watch" page on TMDB, which lists every service and how it is
+    /// offered in the configured region, or null when there is none. It is the same for every offer, so a row
+    /// carries it once for the service icons to link to.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WatchUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether "where to watch" has been looked up for this gap.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
