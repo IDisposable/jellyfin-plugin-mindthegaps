@@ -103,6 +103,7 @@ docs/                                   # user guides, ADRs, design notes, scree
   configuration.md                      # every setting and its implications (user guide)
   report-guide.md                       # how to read and work the report (user guide)
   roadmap.md                            # status, backlog, and what is intentionally not built
+  custom-css.md                         # targeting a provider's links from your own stylesheet
   adr/                                  # architecture decision records
   upstream/                             # drafts of the asks that would let this go fully native
   screenshots/                          # README and doc screenshots

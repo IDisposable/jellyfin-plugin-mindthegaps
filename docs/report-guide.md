@@ -50,13 +50,39 @@ by the set (the collection, the series, the studio). This is the "finish what I 
 Each row is a concrete missing title with links out (TMDB/IMDb/TheTVDB as applicable) and, for movies,
 a **Mint** action if you have enabled virtual items.
 
-The collapsed series and collections lay out in responsive columns, so a large library is not one very
-tall list; expanding one widens it to full width in place to show its seasons and episodes. On a
-collapsed series, the batch controls appear on hover.
+With **Compact view** on, the collapsed series and collections lay out in responsive columns, so a large
+library is not one very tall list; expanding one widens it to full width in place to show its seasons and
+episodes. On a collapsed series, the batch controls appear on hover.
 
-![Set completion, collapsed into columns](screenshots/report-shows-set-completion-collapsed.png)
+![Set completion, collapsed into columns (Compact view)](screenshots/report-shows-set-completion-collapsed.png)
 
-![Set completion, a series expanded to its seasons and episodes](screenshots/report-shows-set-completion-expanded.png)
+![Set completion, a series expanded to its seasons and episodes (Compact view)](screenshots/report-shows-set-completion-expanded.png)
+
+Series content is the one source that consults several providers at once, so it gets a closer look. For
+each owned series the plugin gathers every reachable provider's episode list, merges them season by season
+in your library's own provider order, and reconciles what is left against the episodes you already hold:
+
+```mermaid
+flowchart TD
+    classDef provider fill:#ede7f6,stroke:#5e35b1,color:#311b92;
+    classDef merge fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
+    classDef lib fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef out fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+
+    S["Owned series"]:::lib --> Q{"Any provider reachable? TheMovieDb/TheTVDB need credentials and the series'<br/>id, and (if the library configures a fetcher order) to be listed in it;<br/>TVmaze is keyless and always eligible, since no library can list a fetcher it doesn't have"}
+    Q -->|no| B["Surface missing episodes from the library's<br/>own virtual episodes alone"]:::lib
+    Q -->|yes| A["Ask each reachable provider for its episode list<br/>(TheMovieDb, TheTVDB, TVmaze)"]:::provider
+    A --> R["Rank by the library's fetcher order; TVmaze always ranks last,<br/>since it can never be a listed fetcher"]:::provider
+    R --> M["Merge season by season"]:::merge
+    M --> M1["The top-ranked provider owns each season it lists"]:::merge
+    M --> M2["A lower-ranked provider may add a season none above it<br/>lists, but never contradict a covered one"]:::merge
+    M1 --> L["Append the library's own virtual episodes last-chance,<br/>dropping a stale season the authority contradicts"]:::lib
+    M2 --> L
+    L --> D["Reconcile the merged list against owned episodes<br/>by air date and folded title, not just number"]:::merge
+    D --> O1["Owned, even if renumbered, reordered,<br/>or a merged two-parter"]:::out
+    D --> O2["Missing, reported as a gap"]:::out
+    B --> O2
+```
 
 With the **music** source on, an album artist you collect is a Set-completion gap too: their
 missing studio albums (a "discography").
@@ -152,7 +178,11 @@ have). Both apply to the current domain tab; filters combine (a row must pass al
 
 Each gap row carries a title, and hovering or focusing it reveals its overview (and, for a recommendation,
 what else recommended it) without leaving the list. Links and actions live behind three icon popovers;
-which items appear inside each depends on the gap's kind and your settings.
+which items appear inside each depends on the gap's kind and your settings. Clicking the title pins that
+detail open in place, and (outside Compact view) folds the Info and Actions items into it too, so everything
+about the row is in one block:
+
+![A row with its title clicked open, showing the overview, watch offers, and every link and action](screenshots/report-row-actions-expanded.png)
 
 Once where-to-watch has been looked up, a row also shows up to two small streaming-service icons on its
 collapsed line, with a `+N` for the rest (their names are in its tooltip). They follow the provider and

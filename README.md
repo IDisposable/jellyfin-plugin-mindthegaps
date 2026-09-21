@@ -60,6 +60,7 @@ flowchart LR
     cur["Curated studios and keywords"]:::movies --> SET
     ser["Series content (Jellyfin, TheMovieDb, TVmaze, TheTVDB)"]:::shows --> SET
     mbd["MusicBrainz discography, Discogs labels"]:::music --> SET
+    cbs["Curated OpenLibrary subjects"]:::books --> SET
 
     ppl["TMDB people"]:::movies --> CRE
     trk["Trakt filmography"]:::movies --> CRE
@@ -68,8 +69,10 @@ flowchart LR
     aut["OpenLibrary authors"]:::books --> CRE
 
     sim["TMDB similar titles"] --> DIS
+    tdf["TMDB's own feeds (Top Rated, Popular, Upcoming, Now Playing)"] --> DIS
     tli["TMDB lists"] --> DIS
     mli["MDBList lists"] --> DIS
+    trl["Trakt lists"] --> DIS
     ili["IMDb watchlists and lists"] --> DIS
     jwl["JustWatch watchlist"] --> DIS
     mwl["MDBList watchlist"] --> DIS
@@ -79,158 +82,42 @@ flowchart LR
     dwl["Discogs wantlist"]:::music --> DIS
     owl["OpenLibrary want to read"]:::books --> DIS
 
-    SET["Set completion<br/>Movies: Set completion<br/>Shows: Series completion<br/>Music: Discography"]
+    SET["Set completion<br/>Movies: Set completion<br/>Shows: Series completion<br/>Music: Discography<br/>Books: Bibliography"]
     CRE["Creator works<br/>Movies and Shows: Creator works<br/>Music: Artist works<br/>Books: Author works"]
     DIS["Discover<br/>related titles and curated lists"]
 ```
 
-Series content is the one source that consults several providers at once, so it gets a closer look. For
-each owned series the plugin gathers every reachable provider's episode list, merges them season by season
-in your library's own provider order, and reconciles what is left against the episodes you already hold:
-
-```mermaid
-flowchart TD
-    classDef provider fill:#ede7f6,stroke:#5e35b1,color:#311b92;
-    classDef merge fill:#e3f2fd,stroke:#1565c0,color:#0d47a1;
-    classDef lib fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
-    classDef out fill:#fff3e0,stroke:#ef6c00,color:#e65100;
-
-    S["Owned series"]:::lib --> Q{"Any provider reachable? library lists it as a<br/>fetcher, has credentials, and the series carries its id"}
-    Q -->|no| B["Surface missing episodes from the library's<br/>own virtual episodes alone"]:::lib
-    Q -->|yes| A["Ask each reachable provider for its episode list<br/>(TheMovieDb, TheTVDB, TVmaze)"]:::provider
-    A --> R["Rank by the library's fetcher order; TVmaze ranks last,<br/>and no configured order means every credentialed provider"]:::provider
-    R --> M["Merge season by season"]:::merge
-    M --> M1["The top-ranked provider owns each season it lists"]:::merge
-    M --> M2["A lower-ranked provider may add a season none above it<br/>lists, but never contradict a covered one"]:::merge
-    M1 --> L["Append the library's own virtual episodes last-chance,<br/>dropping a stale season the authority contradicts"]:::lib
-    M2 --> L
-    L --> D["Reconcile the merged list against owned episodes<br/>by air date and folded title, not just number"]:::merge
-    D --> O1["Owned, even if renumbered, reordered,<br/>or a merged two-parter"]:::out
-    D --> O2["Missing, reported as a gap"]:::out
-    B --> O2
-```
-
 ## Features
 
-- **Collection gaps**: missing movies in a partially-owned TMDB collection or BoxSet. Movie-franchise
-  only by design (TMDB collections don't model shows).
-- **Filmography gaps (TMDB)**: an owned actor or director's films and series that aren't in your library;
-  films land in the Movies domain and series in the Shows domain, both on the Creator works tab. A big cast
-  and crew is covered a bit at a time across repeated scans, so the list builds up rather than arriving all
-  at once. A relevance filter (a minimum-votes threshold, plus an optional cast-billing limit) drops obscure
-  and bit-part credits so the list stays useful on a large library.
-- **Filmography gaps (Trakt)**: an independent cross-check; opt-in (needs a Trakt client id).
-- **Filmography gaps (an IMDb people list)**: the one creator source not seeded from your library. IMDb types
-  its lists, so a list of people is read as a seed: every unowned film and series each named person made lands
-  on Creator works, which is how you follow a director you own nothing by. Opt-in, keyless, capped per scan.
-- **Series content gaps**: surfaces the missing episodes Jellyfin already tracks, and (opt-in)
-  cross-checks each owned series against **TheMovieDb**, **TVmaze**, and **TheTVDB** to catch episodes the
-  series' configured metadata provider doesn't list. TheMovieDb and TVmaze are keyless; TheTVDB needs your
-  own v4 API key. The cross-check reconciles by air date and title, not just episode number, so a season a
-  provider numbers differently from your library (a renumber, a reorder, or a two-part episode you keep as
-  one file) is recognized as owned instead of read as missing. Each provider runs when your library lists it
-  as a Shows fetcher and the series carries its id, and when more than one applies they merge in your
-  library's provider order, so your top provider (TheMovieDb for most) owns each series' episode list rather
-  than one that numbers it differently. A refresh icon on each series and season
-  re-checks just that show on the spot, so you can confirm a metadata fix without a full rescan.
-- **Curated sets (studio / keyword / label / book subject)**: complete the movies of a studio ("every A24
-  film", "every Studio Ghibli film") or a TMDB keyword, beyond what a formal BoxSet covers, a record label's
-  releases via Discogs, or the books tagged with an OpenLibrary subject. Opt-in: studios, keywords, and labels
-  use a type-ahead chip picker (search, pick a match, it becomes a removable chip, no id-hunting); OpenLibrary
-  subjects are entered as slugs (for example science_fiction).
-- **Music and books (on by default)**: complete an album artist's discography and discover a
-  track-only artist's wider catalog (MusicBrainz, with the opt-in Discogs source covering an owned artist
-  that carries a Discogs id), and surface other books in an owned author's bibliography (OpenLibrary).
-  Discogs needs a personal access token.
-- **Recommendations**: TMDB "similar" titles for what you own; opt-in. Each result lists every owned title
-  that recommends it, not just the first; a TMDB vote floor trims the obscure long tail. The Discover tab
-  groups each suggestion under the owned title that surfaced it.
-- **TMDB discover feeds**: Top Rated, Popular, Upcoming, and Now Playing, each its own toggle (no account or
-  list needed, just the TMDB API key). Unowned movies from whichever feeds you turn on land on the Discover
-  tab like any other source.
-- **Discovery lists (TMDB, MDBList, Trakt, IMDb, and JustWatch)**: point the report at a list and complete it
-  the way you complete a collection. Add a **TMDB list** (its own **Scan TMDB lists** toggle, with the list
-  ids or themoviedb.org/list URLs pasted in), an **MDBList community list** (a type-ahead chip picker: search,
-  pick a match, it becomes a removable chip), a **Trakt list** (its **Scan Trakt lists** toggle, with each
-  list's numeric id or slug entered; needs a Trakt client id), an **IMDb watchlist or list** (its **Scan IMDb
-  lists** toggle, with each ur... user id or ls... list id entered; needs no key, but the list has to be
-  public), or **your JustWatch watchlist** (its **Scan JustWatch** toggle plus your session token, since
-  JustWatch publishes no account API); the titles on it you do not own surface in the Discover tab, grouped
-  under the list's name (every one of these but TMDB can include shows as well as movies). A
-  title that is both on a curated list and recommended groups under the list, with the recommendation kept as
-  a secondary source, so the list stays its own group. Opt-in, and MDBList needs a free API key.
-- **Your own want-lists**: the strongest signal of what to acquire is the list you already keep, so the
-  plugin reads them where the service allows it: your **TMDB** watchlist and favorites (connected with a
-  two-step button that needs no callback, so your server stays private), an **IMDb** watchlist or list, a **Trakt** watchlist, your
-  **JustWatch** watchlist, your **MDBList** watchlist, a **Discogs** wantlist (Music), an **OpenLibrary**
-  "Want to Read" shelf (Books), and your **TheTVDB** favorites (Shows). Each is opt-in and its own group on
-  the Discover tab. IMDb and OpenLibrary need no key at all, just a public list; the rest reuse the credential
-  their service already has.
-- **Where to watch**: streaming availability per item (TMDB watch/providers, officially licensed),
-  looked up on demand or via a background "Look up where to watch" pass; never during the scan. For a
-  missing episode it shows where to watch the show.
-- **A usable report**: tabbed by domain (Movies/Shows/Music/Books, each badged with its gap count), with an
-  A-Z jump bar for the creator-works and Discover views and a coverage badge ("6 of 9 owned, 67%") on
-  collection groups. Each domain's data loads on demand and only the active one stays in memory. Set
-  completion lays its collapsed series and collections out in responsive columns so a big library is not one
-  very tall list; a **Compact view** toggle switches every row to a denser layout with a smaller thumbnail.
-  Every row opens its watch links, provider links, and actions from three icon popovers (Watch/Info/Actions)
-  instead of a wall of buttons, and hovering or focusing a title reveals its overview without leaving the
-  list. Filter by specials, upcoming, streamable, or dismissed; search (matches the creator/source too); save
-  named view presets or copy a shareable link to the exact view; export the current view to Markdown. Links
-  to TMDB/IMDb/TheTVDB/JustWatch (extended by any external-link provider the host has, including the
-  JustWatch plugin), an "open in Jellyfin" jump to items you already hold, and a search icon that opens a
-  scoped Jellyfin search for any title, series, collection, or creator.
-- **Diagnose why something is "missing"**: a per-gap popup explains the verdict, laying the gap beside the
-  owned items that look like it (owned under the wrong id, an owned item already holds this id, a same-named
-  reboot like V 1984 versus V 2009, or genuinely missing). A "Deeper analysis" confirms against the source
-  provider, an "Export for AI analysis" button downloads the diagnosis as a Markdown dossier (the missing
-  item, the matching rules, the plugin verdict, the owned candidates, and an analysis prompt) to hand to any
-  AI, and an identification audit runs the same check across the domain and pattern you are viewing and
-  downloads as Markdown.
-- **Clear down what you have filled**: one refresh control on every row and every heading (a domain, a set
-  kind, a group, a season) plus a **Clear what I have** button for the whole visible list. It checks your
-  library right now and drops the rows you already hold: local, instant, no provider contacted, every domain
-  and kind. A title you have acquired leaves every tab it was on at once, so one film clears out of its
-  collection, the studio set that wanted it, its director's filmography, and any list that suggested it. Anything still missing then prompts to re-check the sources it belongs to against their
-  providers, which also picks up what has been added since the last scan.
-- **Batch and whole-set dismissals**: resolve or mark "not interested" every episode under a series or
-  season at once, or dismiss a whole creator or recommendation source so it stops being scanned.
-- **Dismiss a gap**: mark it **resolved** (not really missing, for example two listed episodes that are a
-  single combined file), **not interested** (a real gap you do not want), or **snooze until release** (an
-  upcoming title, which resurfaces on its own once released). Dismissed gaps drop off the list, recoverable
-  via a "Show dismissed" filter.
-- **Send to your acquisition stack** (opt-in): hand a missing movie or series off to **Radarr**,
-  **Sonarr**, or **Jellyseerr/Overseerr** with a per-row **Send** action. Radarr takes a movie, Sonarr
-  takes the owning series (it grabs that series' missing episodes), and Jellyseerr/Overseerr requests
-  either. Configured under an "Acquisition stack" settings section (base URLs, API keys, quality profile,
-  root folder, monitor); a Send button appears only for a target you have filled in.
-- **Explore a source on demand**: an **Explore a source** button on the report toolbar opens a modal where
-  you pick a kind (studio, keyword, Discogs label, TMDB list, MDBList list) and a source, run it, and its
-  unowned titles merge into the report without a full rescan and without changing your saved settings.
-  **Clear explorations** removes them again.
-- **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
-  when a scan or the "where to watch" pass finishes.
-- **Images from your server**: posters, album and book covers, and streaming-service logos are fetched from
-  their providers once and served from the server's own cache, so your browsers do not each contact TMDB and
-  the rest, and a page of thousands of rows loads its thumbnails from one place. Opt-in, capped at 500 MB
-  (adjustable), and an image the server cannot get is loaded from the provider as before.
-- **Web UI on Jellyfin's own pages** (experimental, opt-in): a "Missing from your library" section on a
-  person's page, a "More like this you don't have" row on a movie or series page, an "Albums you don't have"
-  row on a music artist's page and a "More by this author you don't have" row on a book's page, and a
-  "Discover" row on the home screen. The movie, series, artist and book rows share one switch. Click a
-  card for a detail dialog (TMDB's synopsis, genres, runtime, rating, trailer, a JustWatch link), then send
-  the title to Radarr or Sonarr with the quality profile you pick. An album or book's dialog shows who it is
-  by and links to MusicBrainz, Discogs or OpenLibrary (there is no music or book handoff). It works from a
-  keyboard or a TV remote. The data behind each surface is served by the plugin's API to any signed-in user
-  whether or not the script is added to Jellyfin Web, so another client can use it; see the
-  [configuration reference](docs/configuration.md#web-ui-experimental).
-- **Want to watch** (experimental, opt-in): every signed-in user keeps their own list. A bookmark on every
-  card in the Web UI puts a title on it and takes it off again, and a home row shows what is still on it and
-  not in your library. An administrator sees and manages everyone's lists from the report's **TODO** button.
-  A user with a parental rating limit is not shown the Web UI rows, so has no cards to bookmark from.
-- **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place,
-  the way a missing episode renders inside a series. See below.
+- **Set completion**: missing movies in a collection/BoxSet, missing seasons and episodes in a series
+  (cross-checked against TheMovieDb/TVmaze/TheTVDB), missing entries in a curated studio, keyword, record
+  label, or book-subject set, and a collected music artist's missing discography.
+- **Creator works**: an owned actor, director, or writer's filmography (TMDB, Trakt, or an IMDb people
+  list), a music artist's wider catalog, and an author's other books.
+- **Discover** (opt-in): TMDB "similar" titles for what you own, TMDB's own feeds, any TMDB/MDBList/
+  Trakt/IMDb list or JustWatch watchlist you point it at, and your own want-lists across eight services.
+- **Where to watch**: streaming availability per item, looked up on demand or in the background, never
+  during the scan.
+- **A usable report**: tabbed by domain, filterable and searchable, saved views and shareable links,
+  Markdown export, and a per-row **Diagnose** popup that explains a false "missing" instead of just
+  flagging it.
+- **Clears itself out**: one click checks your library and drops what you now hold everywhere it appeared
+  (its collection, its studio set, its director's filmography, any list that suggested it), then offers to
+  re-check the source for whatever is still missing.
+- **Send to your acquisition stack** (opt-in): hand a gap to Radarr, Sonarr, or Jellyseerr/Overseerr with a
+  per-row **Send** action.
+- **Web UI on Jellyfin's own pages** (experimental, opt-in): the same "missing from your library" rows on
+  a person, movie, series, artist, or book page, plus a "Discover" row on the home screen and a per-user
+  **want to watch** list.
+- **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place, the way a missing
+  episode renders inside a series. Fully reversible. See below.
+
+Full detail on every source, setting, and screenshot of each: [report guide](docs/report-guide.md) and
+[configuration reference](docs/configuration.md).
+
+<p align="center">
+  <img src="docs/screenshots/webui-item-related.png" alt="The Web UI's &quot;More like this you don't have&quot; row, injected directly into a movie's own Jellyfin page" width="700">
+</p>
 
 ## Installation
 
@@ -281,74 +168,25 @@ mint, dismiss).
 
 ## Configuration
 
-In the dashboard, go to **Plugins > Mind the Gaps**. **What to scan** holds the plain toggles with no id or
-credential of their own (collections, series, filmographies, recommendations, music, books); **Sources** has
-one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary, TheTVDB, IMDb, JustWatch),
-each holding that provider's scan toggles, list/username fields, and credential together, badged on or off
-in its header. A search box above both narrows to whatever matches and opens the section it is in.
-For every setting, what it does, and what changes when you set or clear it, see the
-[configuration reference](docs/configuration.md). In brief, alongside those toggles:
+In the dashboard, go to **Plugins > Mind the Gaps**. Settings are grouped the way the data is: **What to
+scan** holds the plain toggles (collections, series, filmographies, recommendations, music, books), and
+**Sources** has one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary, TheTVDB,
+IMDb, JustWatch), each holding that provider's toggles, ids, and credential together. A search box above
+both narrows to whatever matches.
 
-| Setting                       | Description                                                                                                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Metadata country / language   | Locale for TMDB lookups and availability.                                                                                                                             |
-| Max related per item          | Caps how many "similar" titles each owned item contributes.                                                                                                           |
-| Max creators scanned per run  | Caps the filmography scan per run.[^creators]                                                                                                                         |
-| Relevance floors              | Minimum TMDB votes for filmography and recommendation gaps, so Creator works and Recommendations stay actionable on a large library.[^floors]                         |
-| Track curated sets            | Gates the studio and keyword sets (the ids below feed it).                                                                                                            |
-| Curated studio / keyword ids  | TMDB company and keyword ids to complete, picked with a type-ahead chip picker.                                                                                       |
-| Scan TMDB lists               | Gates the TMDB discovery lists (the list ids beside it feed it).                                                                                                      |
-| TMDB discover feeds           | Four independent toggles (Top Rated, Popular, Upcoming, Now Playing); each surfaces its unowned movies on Discover.                                                   |
-| Availability                  | Turns "Where to watch" on or off (the per-item lookups and the background pass).                                                                                      |
-| Acquisition stack             | Optional Radarr / Sonarr / Jellyseerr/Overseerr base URLs, keys, and add settings; enables the per-row **Send** action.                                               |
-| Web UI surfaces               | Five off-by-default switches: show the surfaces in Jellyfin Web, person pages, item pages, the home row, and want to watch.[^webui]                                   |
-| Webhook URL                   | Optional; posted to (Discord-compatible) when a scan or the "where to watch" pass finishes.                                                                           |
-| Detailed API logging          | Off by default; turn it on to log every external API request and response to the server log while debugging a misbehaving target, then turn it back off.[^apilogging] |
-| Trakt client id               | Enables the opt-in Trakt filmography cross-check.                                                                                                                     |
-| TheTVDB API key               | Your own v4 key; enables the TheTVDB series-content cross-check.                                                                                                      |
-| Discogs token                 | Enables the opt-in Discogs label and artist source.                                                                                                                   |
-| TMDB API key                  | Optional; falls back to the built-in public key.                                                                                                                      |
-| MDBList API key               | Optional (free); enables MDBList community lists as a discovery source.                                                                                               |
-| Scan IMDb lists               | Gates the IMDb discovery lists (the ur... watchlist and ls... list ids beside it feed it).[^imdblists]                                                                |
-| Follow IMDb people lists      | Reads an IMDb **people** list from the same ids as a filmography seed, so a director or actor you own nothing by still lands on Creator works.[^imdbpeople]           |
-| Scan TMDB watchlist           | Your TMDB watchlist, and optionally your favorites. Needs your own TMDB API key plus a connected account.[^tmdbaccount]                                               |
-| Scan Trakt watchlist          | A Trakt user's watchlist. Needs the Trakt client id and a username; the profile has to be public.                                                                     |
-| Scan MDBList watchlist        | Your own MDBList watchlist (not a community list). The API key identifies the account, so there is nothing else to enter.                                             |
-| Scan Discogs wantlist         | A Discogs wantlist as Music gaps. Needs the Discogs token and a username.                                                                                             |
-| Scan OpenLibrary want to read | An OpenLibrary "Want to Read" shelf as Books gaps. Needs a username and nothing else; the shelf has to be public.                                                     |
-| Scan TheTVDB favorites        | Your favorited series. Needs the TheTVDB key and the subscriber PIN. Expect few results: a favorite is usually a show you already hold.                               |
-| TheTVDB subscriber PIN        | Optional. Only needed to read your TheTVDB account (the favorites); the episode cross-check works without it.                                                         |
-| JustWatch token               | Enables your own JustWatch watchlist (and, optionally, your likes) as a discovery source.[^justwatch]                                                                 |
-
-[^creators]: People are scanned stalest-first, so coverage accumulates over runs and a higher cap covers a large cast and crew faster.
-
-[^floors]: Plus an optional cast-billing limit and, separately, a minimum-episode floor for a TV credit.
-
-[^webui]: Item pages cover movies, series, artists, books and an author's own page, and the home row has its own size setting. Each surface's data is available to other clients when its own switch is on. Want to watch is each signed-in user's own list: a bookmark on every card, and a home row of what is still on it.
-
-[^apilogging]: It covers the sources, the acquisition sends, TMDB, and the webhook.
-
-[^imdblists]: Needs no key, but IMDb serves only what the account has made public.
-
-[^imdbpeople]: Resolves 50 people per run, stalest first, so a long list is covered over several scans.
-
-[^tmdbaccount]: The account connects with a two-step button and no callback, so the server needs no public address.
-
-[^justwatch]: JustWatch issues no api keys, so this is the bearer token from a signed-in browser session, and it expires.
+Nothing is required to get a useful report: the defaults scan collections, series, filmographies, music,
+and books against the built-in TMDB key. Everything else, including the acquisition-stack handoff to
+Radarr/Sonarr/Jellyseerr and every credential-gated source, is opt-in. For every setting, what it does, and
+what changes when you set or clear it, see the [configuration reference](docs/configuration.md).
 
 ## Virtual placeholders (opt-in)
 
-Off by default, the plugin can mint pathless "virtual" placeholder items so a gap renders greyed-out in
-place. It is a stand-in for proper server support: the server does not reconcile or
-garbage-collect these, so the plugin does it itself, and everything minted is tagged and fully reversible.
-
-Minting is driven from the report, one gap at a time: each movie row has a **Mint** button, and you can
-checkbox several rows and **Mint selected**. Both run in the background with progress. A collection gap
-mints into its BoxSet; anything else mints into a catch-all "Mind the Gaps (minted)" collection, and a
-filmography gap also attaches the person so it shows on that person's page. Every minted item queues a
-metadata refresh, and at the end of every scan a reconcile pass drops any minted movie the library now
-owns for real. The settings page keeps only **Remove minted movies** (with a dry-run preview) to undo
-everything at once. Missing episodes are not minted here: the server already synthesizes those.
+Off by default. The plugin can mint pathless "virtual" placeholder items so a gap renders greyed-out in
+place, the way a missing episode does today - a stand-in for proper server support, fully reversible.
+Mint a gap from its row, or several at once from the multi-select bar; **Remove minted items** in the
+report's Maintenance section undoes everything. See the
+[virtual items section of the configuration reference](docs/configuration.md#virtual-items) for the
+mechanics.
 
 ## Works alongside your other plugins
 
@@ -358,94 +196,6 @@ emit, so TMDB and IMDb links come from core, and a **JustWatch** link lights up 
 separate [Jellyfin.Plugin.JustWatch](https://github.com/IDisposable/jellyfin-plugin-justwatch) is
 installed. For the architecture behind this, see [CONTRIBUTING](CONTRIBUTING.md).
 
-## Advanced CSS customization
-
-Every outbound link in the report (the per-row provider links, the links on a creator or set group
-header, and the ids in the Diagnose popup) is tagged so a stylesheet can target a specific service, for
-example to inject a service icon. Each link carries:
-
-- a per-provider class, `cgProvider-<service>`, with the service name lowercased and stripped to letters
-  and digits: `cgProvider-tmdb`, `cgProvider-imdb`, `cgProvider-thetvdb`, `cgProvider-tvmaze`,
-  `cgProvider-trakt`, `cgProvider-musicbrainz`, `cgProvider-discogs`, `cgProvider-openlibrary`,
-  `cgProvider-justwatch`;
-- a `data-provider` attribute with the original service name (`data-provider="TheTVDB"`), for attribute
-  selectors.
-
-Drop CSS into your server via the community
-[Custom CSS](https://github.com/sealednut/jellyfin-custom-css) or
-[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) plugins (this
-plugin ships no CSS or icons itself).
-
-Here is a ready-to-paste snippet using [Simple Icons](https://simpleicons.org) (CC0), pulled from their CDN
-at display time and masked to each link's text color, so the icons match your theme and recolor on hover.
-Simple Icons carries TMDB, IMDb, Trakt, MusicBrainz, and Discogs; it does not carry TheTVDB, TVmaze,
-OpenLibrary, or JustWatch, so those are left for you to point at your own hosted SVG.
-
-```css
-/* Mind the Gaps: provider icons. Paste into your custom CSS. */
-.cgProvider-tmdb::before,
-.cgProvider-imdb::before,
-.cgProvider-trakt::before,
-.cgProvider-musicbrainz::before,
-.cgProvider-discogs::before {
-    content: "";
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    margin-right: 0.35em;
-    vertical-align: text-bottom;
-    background-color: currentColor;
-    -webkit-mask: var(--mtg-icon) center / contain no-repeat;
-    mask: var(--mtg-icon) center / contain no-repeat;
-}
-.cgProvider-tmdb {
-    --mtg-icon: url("https://cdn.simpleicons.org/themoviedatabase");
-}
-.cgProvider-imdb {
-    --mtg-icon: url("https://cdn.simpleicons.org/imdb");
-}
-.cgProvider-trakt {
-    --mtg-icon: url("https://cdn.simpleicons.org/trakt");
-}
-.cgProvider-musicbrainz {
-    --mtg-icon: url("https://cdn.simpleicons.org/musicbrainz");
-}
-.cgProvider-discogs {
-    --mtg-icon: url("https://cdn.simpleicons.org/discogs");
-}
-
-/* Not in Simple Icons. To add one, list its ::before in the rule above and host your own SVG, e.g.:
-.cgProvider-thetvdb { --mtg-icon: url("/path/to/thetvdb.svg"); } */
-```
-
-The icons load from the Simple Icons CDN; self-host the SVGs instead if you prefer no external request. The
-logos are trademarks of their respective services, so this is your choice to display them. These class and
-attribute names are a stable contract; the link text and layout around them are not.
-
-To go icon-only (hide the text label, show just the icon), add this alongside the snippet above:
-
-```css
-.cgProvider-tmdb,
-.cgProvider-imdb,
-.cgProvider-trakt,
-.cgProvider-musicbrainz,
-.cgProvider-discogs {
-    font-size: 0; /* collapses the text label */
-}
-.cgProvider-tmdb::before,
-.cgProvider-imdb::before,
-.cgProvider-trakt::before,
-.cgProvider-musicbrainz::before,
-.cgProvider-discogs::before {
-    font-size: 1rem; /* the icon is sized in em, so give it a real size again */
-    margin-right: 0;
-    vertical-align: middle;
-}
-```
-
-Each link carries a `title` and an `aria-label` (for example "Open on TheTVDB"), so it stays labeled for
-tooltips and screen readers even when shown icon-only.
-
 ## Documentation
 
 - **[Configuration reference](docs/configuration.md)** - every setting, what it does, and what changes
@@ -453,6 +203,9 @@ tooltips and screen readers even when shown icon-only.
 - **[Report guide](docs/report-guide.md)** - the three tabs, the filters and saved views, and the per-row
   actions.
 - **[Roadmap and status](docs/roadmap.md)** - what is built, what is planned, and what is deliberately not.
+- **[Advanced CSS customization](docs/custom-css.md)** - target a provider's links with your own
+  stylesheet, plus a ready-to-paste icon snippet.
+- **[Architecture decision records](docs/adr/)** - the reasoning behind the non-obvious design choices.
 
 ## Contributing
 

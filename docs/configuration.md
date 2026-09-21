@@ -58,6 +58,55 @@ provider you already use opens on its own and its header badges whether it is on
 In each table below, clearing a toggle stops that source and clearing an id or name leaves the source with
 nothing to read. Where clearing does something more specific, the setting's footnote says so.
 
+<details>
+<summary><strong>TMDB</strong></summary>
+
+![TMDB source settings](screenshots/config-source-tmdb.png)
+
+</details>
+<details>
+<summary><strong>Trakt</strong></summary>
+
+![Trakt source settings](screenshots/config-source-trakt.png)
+
+</details>
+<details>
+<summary><strong>MDBList</strong></summary>
+
+![MDBList source settings](screenshots/config-source-mdblist.png)
+
+</details>
+<details>
+<summary><strong>Discogs</strong></summary>
+
+![Discogs source settings](screenshots/config-source-discogs.png)
+
+</details>
+<details>
+<summary><strong>OpenLibrary</strong></summary>
+
+![OpenLibrary source settings](screenshots/config-source-openlibrary.png)
+
+</details>
+<details>
+<summary><strong>TheTVDB</strong></summary>
+
+![TheTVDB source settings](screenshots/config-source-thetvdb.png)
+
+</details>
+<details>
+<summary><strong>IMDb</strong></summary>
+
+![IMDb source settings](screenshots/config-source-imdb.png)
+
+</details>
+<details>
+<summary><strong>JustWatch</strong></summary>
+
+![JustWatch source settings](screenshots/config-source-justwatch.png)
+
+</details>
+
 ### TMDB
 
 TMDB is always on for the core sources (it powers collections, people, recommendations, and
@@ -283,7 +332,7 @@ Keyless: IMDb's own API serves any list its owner has published, no credential n
 
 ## Acquisition stack (optional)
 
-![Acquisition stack settings](screenshots/config-data-sources.png)
+![Acquisition stack settings](screenshots/config-acquisition-stack.png)
 
 Hand a gap off to your downloaders. Each report row gets a **Send** action, but a button appears only for
 a target you have filled in here, one collapsible section per target. Radarr takes a movie, Sonarr takes
@@ -389,6 +438,23 @@ plugin's API.
 | **Home Discover row: max titles**     | 20      | The most titles the row shows (1 to 100).                                                                                                                                                                    |
 | **Want to watch**                     | Off     | Each signed-in user's own list: a bookmark on every card the surfaces above show, and a home row of what is still on it and not in the library.[^wanttowatch]                                                |
 
+![A person's page: "Missing from your library"](screenshots/webui-person-missing.png)
+
+![A movie's page: "More like this you don't have"](screenshots/webui-item-related.png)
+
+A series page carries the same row:
+
+![A series page: "More like this you don't have"](screenshots/webui-series-related.png)
+
+A music artist's page shows the same row as "Albums you don't have", and a book's page as "More by this
+author you don't have":
+
+![A music artist's page: "Albums you don't have"](screenshots/webui-works-missing.png)
+
+![A book's page: "More by this author you don't have"](screenshots/webui-book-works.png)
+
+![The home page's "Discover" row](screenshots/webui-home-discover.png)
+
 [^webuiscript]:
     Jellyfin Web has no plugin hook, so the script is added when the page is served. Takes effect on the next full page load. It does not affect whether a surface's
     data is served.
@@ -417,6 +483,14 @@ on the signed-in user's own list and take it off again. An album's or book's dia
 links to MusicBrainz, Discogs or OpenLibrary; there is no music or book handoff, so the list is the only
 action there. The dialog and the card grids work from a keyboard or a TV remote.
 
+![The card detail dialog](screenshots/webui-detail-dialog.png)
+
+A bookmarked card and the home page's "Want to watch" row of what is still on the list:
+
+![A card with its want-to-watch bookmark filled in](screenshots/webui-card-bookmarked.png)
+
+![The home page's "Want to watch" row](screenshots/webui-home-wanted.png)
+
 ### The data is an API
 
 Each surface's data is served by the plugin whether or not the script is added, so another client can use it:
@@ -442,15 +516,16 @@ TMDB's own feeds), never those from a watchlist, favorites, or an IMDb or MDBLis
 
 ## Virtual items
 
-![Virtual items settings](screenshots/config-actions.png)
+![The report's Maintenance section: Virtual items](screenshots/config-actions.png)
 
 Off by default and clearly marked. Lets the plugin mint pathless "virtual" placeholder items so a gap
 renders greyed-out in place, and reconcile/remove them. This is a stand-in for proper server support;
 everything minted is tagged and fully reversible. See the
 [virtual placeholders section of the README](../README.md#virtual-placeholders-opt-in)
 and [ADR-0004](adr/) for the rationale, and the [report guide](report-guide.md) for the per-row Mint
-controls. The settings page itself keeps only **Remove minted movies** (with a dry-run preview) to undo
-everything at once.
+controls. There is no setting to flip: minting acts on the library and the scan, not on configuration, so
+its one bulk control, **Remove minted items** (with a **Preview removal (dry run)** first), lives in the
+report's own **Maintenance** section alongside **Reset scan rotation** and **Prune stale gaps**.
 
 ## How settings reach a report
 
