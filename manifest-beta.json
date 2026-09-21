@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.8.5",
+                "changelog": "10.11.8.5 (beta) - The report and the Web UI can now load their posters, covers, and streaming-service logos through your server instead of each browser fetching them from TMDB and the other providers. It is off by default: turn on \"Keep the pages' images on this server\" in the new Images section of settings. The server fetches each image once, from a fixed list of provider hosts only, keeps it under its cache folder, and serves it from there. Anything it cannot serve at once, such as an image it has not fetched yet, a provider that has stopped answering it, or a full cache, sends the browser on to the provider, so an image still shows. A \"Trim the image cache\" scheduled task, run at startup and daily, keeps the cache to the size you set (500 MB by default). On an author's page, the \"More by this author you don't have\" row now lines up with the section above it.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.5/mind-the-gaps_12.0.8.5.zip",
+                "checksum": "8718e82a3c26cc051b7353fe3c16e34e",
+                "timestamp": "2026-09-21T11:41:25Z"
+            },
+            {
                 "version": "12.0.8.4",
                 "changelog": "10.11.8.4 (beta) - In the Web UI, the want-to-watch bookmark is now larger and sits in the upper right corner of a card's image, and the detail dialog has the same bookmark on its poster. A card's year is always shown, a long role, such as an actor's character, is cut with an ellipsis instead of pushing the year and bookmark out of view, and a long title or role shows in full when you hover it. An author's own page now lists the books by them that you do not have, as a book page already did, below the books you own.\n",
                 "targetAbi": "12.0.0.0",
@@ -103,6 +111,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.8.5",
+                "changelog": "10.11.8.5 (beta) - The report and the Web UI can now load their posters, covers, and streaming-service logos through your server instead of each browser fetching them from TMDB and the other providers. It is off by default: turn on \"Keep the pages' images on this server\" in the new Images section of settings. The server fetches each image once, from a fixed list of provider hosts only, keeps it under its cache folder, and serves it from there. Anything it cannot serve at once, such as an image it has not fetched yet, a provider that has stopped answering it, or a full cache, sends the browser on to the provider, so an image still shows. A \"Trim the image cache\" scheduled task, run at startup and daily, keeps the cache to the size you set (500 MB by default). On an author's page, the \"More by this author you don't have\" row now lines up with the section above it.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.5/mind-the-gaps_10.11.8.5.zip",
+                "checksum": "9deeacec22ce12a6172e708c2c2a93ab",
+                "timestamp": "2026-09-21T11:41:14Z"
             },
             {
                 "version": "10.11.8.4",
