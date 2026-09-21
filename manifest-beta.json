@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.8.4",
+                "changelog": "10.11.8.4 (beta) - In the Web UI, the want-to-watch bookmark is now larger and sits in the upper right corner of a card's image, and the detail dialog has the same bookmark on its poster. A card's year is always shown, a long role, such as an actor's character, is cut with an ellipsis instead of pushing the year and bookmark out of view, and a long title or role shows in full when you hover it. An author's own page now lists the books by them that you do not have, as a book page already did, below the books you own.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.4/mind-the-gaps_12.0.8.4.zip",
+                "checksum": "bbec11906ed983d5e783f67d0cb900dd",
+                "timestamp": "2026-09-21T10:18:01Z"
+            },
+            {
                 "version": "12.0.8.3",
                 "changelog": "10.11.8.3 (beta) - Each user now has their own want-to-watch list, kept in the plugin's data folder and removed when the user is deleted. The first administrator to open the old ToDO list after this update takes over the old shared TODO list, and an administrator can view and manage everyone's want-to-watch list. The Web UI gains a Want to watch feature, opt-in with its own toggle in settings: every card carries a bookmark that adds the title to their own list, the detail dialog has a matching button, and the home page can show a Want to watch row of what you have listed and do not yet own. Artist pages now list the albums you do not have and book pages list more by the same author, each with its own detail dialog and an administrator's add to TODO. The detail dialog links to the title's own JustWatch page when the scan found one, otherwise to the JustWatch search in your region. On the report, a row's streaming icons link to the title's TMDB watch page, and only the title is clickable, not the empty parts of the row. A user with a parental rating limit is shown none of the Web UI sections, and a page shows its section only to a user who can see that item. The home Discover row now shows recommendations made from titles you own and titles from lists that are public by nature (TMDB lists, Trakt lists, and TMDB's own feeds), it will not show recommendations from a watchlist, wantlist, favorites, or a personal list. A TMDB list that cannot be read, such as a private one, no longer stops the other lists from being scanned. Filling in a large library's series content is now done in batches.\n",
                 "targetAbi": "12.0.0.0",
@@ -95,6 +103,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.8.4",
+                "changelog": "10.11.8.4 (beta) - In the Web UI, the want-to-watch bookmark is now larger and sits in the upper right corner of a card's image, and the detail dialog has the same bookmark on its poster. A card's year is always shown, a long role, such as an actor's character, is cut with an ellipsis instead of pushing the year and bookmark out of view, and a long title or role shows in full when you hover it. An author's own page now lists the books by them that you do not have, as a book page already did, below the books you own.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.8.4/mind-the-gaps_10.11.8.4.zip",
+                "checksum": "11ebc66fa5907d5b22022aa63f2ce874",
+                "timestamp": "2026-09-21T10:17:51Z"
             },
             {
                 "version": "10.11.8.3",
