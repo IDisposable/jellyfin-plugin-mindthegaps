@@ -14,6 +14,7 @@
 | Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                                   |
 | Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                 |
 | Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                       |
+| A request and approval queue for acquisition                  | Might be a separate plugin. Here every administrator sees and manages every user's todo list, and that is the whole of it.                                 |
 | A "Fix the id" action in Diagnose                             | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it. |
 | MusicVideos domain                                            | Enum-only; no source.                                                                                                                                      |
 
@@ -72,7 +73,8 @@ them. Drafts in [docs/upstream/](upstream/).
   paste-and-confirm chip over the existing `tmdblist` `CuratedResolve` branch), `CuratedTraktListIds` (a
   numeric id or a slug; a `SearchListsAsync` over Trakt's list search would make a live type-ahead), and
   `CuratedOpenLibrarySubjects` (the curated-book source; a `CuratedSearch`/`CuratedResolve` branch plus a
-  `setupChips` instance over an OpenLibrary subject search).
+  `setupChips` instance over an OpenLibrary subject search). The chips should also record whether a list is public or private: MDBList and IMDb lists cannot be told apart
+  today, so their titles stay off the home Discover row until they can.
 
 ### Acquisition handoff
 

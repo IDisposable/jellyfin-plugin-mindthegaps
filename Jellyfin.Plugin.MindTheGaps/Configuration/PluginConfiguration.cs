@@ -438,9 +438,10 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets a value indicating whether the home screen shows a "Discover: not in your library" row
-    /// of the recommendations the scan has accumulated from owned titles (never from a list). When on, the
-    /// data is served to any signed-in user. Unlike the person and item pages, this reads the scanned report
-    /// rather than calling TMDB on demand.
+    /// of the recommendations the scan has accumulated from owned titles and from public lists (TMDB lists,
+    /// Trakt lists and TMDB's own feeds), never from a watchlist or an account. When on, the data is served to
+    /// any signed-in user. Unlike the person and item pages, this reads the scanned report rather than calling
+    /// TMDB on demand.
     /// </summary>
     public bool HomeRowEnabled { get; set; }
 

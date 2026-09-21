@@ -4,8 +4,8 @@
 // exist in the DOM (renderRow only builds a group's body when it is opened; see ensureGroupBody).
 const { buildHarness } = require('./build-harness');
 
-async function openReport(page, summary, itemsByDomain) {
-    const harnessPath = buildHarness(summary, itemsByDomain);
+async function openReport(page, summary, itemsByDomain, todo) {
+    const harnessPath = buildHarness(summary, itemsByDomain, todo);
     await page.goto('file://' + harnessPath);
     await page.evaluate(() => {
         document.querySelector('#MindTheGapsPage').dispatchEvent(new Event('pageshow'));

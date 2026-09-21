@@ -82,7 +82,8 @@ internal static class MissingTitleBuilder
 
     /// <summary>
     /// The "Because you have …" label for a recommendation: its primary seed title plus any other seeds
-    /// that suggested it, so a title several owned titles point at says so.
+    /// that suggested it, so a title several owned titles point at says so. A title that came from a list
+    /// reads "From" and the list's name instead, since the list is not something the library owns.
     /// </summary>
     /// <param name="gap">The recommendation gap.</param>
     /// <param name="shown">The number of seed titles to show before summarizing the rest.</param>
@@ -90,6 +91,12 @@ internal static class MissingTitleBuilder
     public static string? Because(GapItem gap, int shown = 2)
     {
         ArgumentNullException.ThrowIfNull(gap);
+
+        if (gap.SourceItemType is not (null or SourceItemTypes.Movie or SourceItemTypes.Series)
+            && !string.IsNullOrWhiteSpace(gap.SourceItemName))
+        {
+            return "From " + gap.SourceItemName.Trim();
+        }
 
         var names = new List<string>();
         if (!string.IsNullOrWhiteSpace(gap.SourceItemName))

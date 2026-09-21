@@ -18,7 +18,7 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // completion (summary, gaps, resolutions, plugin config, acquisition config, public system info):
 // enough surface for load()/ensureSlice() to resolve and render real rows through the real code
 // path, not so much that this drifts into re-implementing the server.
-function buildMockScript(summary, itemsByDomain) {
+function buildMockScript(summary, itemsByDomain, todo) {
     return `
 <script>
 window.__uiTestErrors = [];
@@ -26,6 +26,8 @@ window.addEventListener('error', function (e) { window.__uiTestErrors.push(Strin
 
 var __SUMMARY__ = ${JSON.stringify(summary)};
 var __ITEMS_BY_DOMAIN__ = ${JSON.stringify(itemsByDomain)};
+var __TODO__ = ${JSON.stringify(todo || null)};
+window.__todoCalls = [];
 window.__detailCalls = [];
 window.__gapsCalls = [];
 
@@ -72,6 +74,28 @@ function leanReport(items) {
     };
 }
 
+function todoCall(url) {
+    window.__todoCalls.push(url);
+    var userId = decodeURIComponent((url.match(/userId=([^&]+)/) || [])[1] || '');
+    var id = decodeURIComponent((url.match(/[?&]id=([^&]+)/) || [])[1] || '');
+    if (url.indexOf('Todo/All') !== -1) { return __TODO__ ? Promise.resolve(JSON.parse(JSON.stringify(__TODO__))) : Promise.reject({ status: 403 }); }
+    var mine = function (it) { return it.OwnerId === userId; };
+    if (url.indexOf('Todo/Remove') !== -1) {
+        __TODO__.Items = __TODO__.Items.filter(function (it) { return !(mine(it) && it.Id === id); });
+        __TODO__.Owners.forEach(function (o) { o.Count = __TODO__.Items.filter(function (it) { return it.OwnerId === o.UserId; }).length; });
+        return Promise.resolve(1);
+    }
+    if (url.indexOf('Todo/SetDone') !== -1) {
+        __TODO__.Items.forEach(function (it) { if (mine(it) && it.Id === id) { it.Done = /done=true/.test(url); } });
+        return Promise.resolve({});
+    }
+    if (url.indexOf('Todo/VerifyAll') !== -1) {
+        var count = __TODO__.Items.filter(mine).length;
+        return Promise.resolve({ Checked: count, Owned: 0, Items: [] });
+    }
+    return Promise.resolve({ Owned: false, Entry: null });
+}
+
 window.ApiClient = {
     ajax: function (opts) {
         var url = opts.url || '';
@@ -98,6 +122,7 @@ window.ApiClient = {
                 : leanReport(items);
             return Promise.resolve(Object.assign(body, { GeneratedUtc: '2026-01-01T00:00:00Z', GeneratedVersion: __SUMMARY__.GeneratedVersion }));
         }
+        if (url.indexOf('MindTheGaps/Todo') !== -1) { return todoCall(url); }
         if (url.indexOf('MindTheGaps/Resolutions') !== -1) { return Promise.resolve({}); }
         if (url.indexOf('MindTheGaps/AcquisitionConfig') !== -1) { return Promise.resolve({}); }
         if (url.indexOf('Plugins') !== -1) { return Promise.resolve([]); }
@@ -125,7 +150,7 @@ window.Dashboard = {
 // Writes the harness to a fresh temp file and returns its path (a file:// URL a spec can
 // page.goto()). summary is the MindTheGaps/Summary shape; itemsByDomain maps a domain name (as it
 // appears in summary.Domains) to the array MindTheGaps/Gaps returns for that domain.
-function buildHarness(summary, itemsByDomain) {
+function buildHarness(summary, itemsByDomain, todo) {
     const css = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.css'), 'utf8');
     const common = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.common.js'), 'utf8');
     const reportJs = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.js'), 'utf8');
@@ -148,7 +173,7 @@ function buildHarness(summary, itemsByDomain) {
         '<div class="page type-interior mainAnimatedPage" style="contain:size style;position:relative;width:100%;height:100vh;overflow:auto;">\n<div id="MindTheGapsPage"'
     );
     page = page.replace('</html>', '</div>\n</html>');
-    page = page.replace('<script type="text/javascript">', buildMockScript(summary, itemsByDomain) + '<script type="text/javascript">');
+    page = page.replace('<script type="text/javascript">', buildMockScript(summary, itemsByDomain, todo) + '<script type="text/javascript">');
 
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mtg-ui-test-'));
     const outPath = path.join(outDir, 'harness.html');

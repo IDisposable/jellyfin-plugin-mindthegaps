@@ -40,6 +40,7 @@ public class WebUiController : ControllerBase
     private readonly HomeDiscoverService _home;
     private readonly AcquisitionService _acquisition;
     private readonly TodoStore _todo;
+    private readonly TodoOwner _owner;
     private readonly TmdbClient _tmdb;
     private readonly JustWatchLinkIndex _justWatchLinks;
 
@@ -51,10 +52,11 @@ public class WebUiController : ControllerBase
     /// <param name="works">Computes an artist's unowned albums and a book's unowned works by its author.</param>
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
-    /// <param name="todo">The personal todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
+    /// <param name="todo">The per-user todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
+    /// <param name="owner">Resolves whose todo list a request is for.</param>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
     /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, WorksMissingService works, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
+    public WebUiController(PersonMissingService person, RelatedMissingService related, WorksMissingService works, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TodoOwner owner, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
     {
         _justWatchLinks = justWatchLinks;
         _person = person;
@@ -63,6 +65,7 @@ public class WebUiController : ControllerBase
         _home = home;
         _acquisition = acquisition;
         _todo = todo;
+        _owner = owner;
         _tmdb = tmdb;
     }
 
@@ -343,8 +346,13 @@ public class WebUiController : ControllerBase
             return NotFound();
         }
 
+        if (_owner.Resolve(User, IsAdministrator) is not { } userId)
+        {
+            return Forbid();
+        }
+
         var gap = _home.FindGap(gapId ?? string.Empty);
-        return gap is null ? 0 : _todo.Add([gap]);
+        return gap is null ? 0 : _todo.Add(userId, [gap]);
     }
 
     /// <summary>
@@ -437,7 +445,8 @@ public class WebUiController : ControllerBase
 
     // The todo-list sibling of SendOwnedGapAsync: same gate and rehydration, but TodoStore.Add takes any
     // GapItem regardless of provenance, so there is no per-surface failure message to thread through, just
-    // a plain added count (0 or 1) matching Api/TodoController's own AddTodo contract.
+    // a plain added count (0 or 1) matching Api/TodoController's own AddTodo contract. The entry goes on the
+    // caller's own list.
     private async Task<ActionResult<int>> AddOwnedGapToTodoAsync(bool surfaceEnabled, Func<CancellationToken, Task<GapItem?>> findGap, CancellationToken cancellationToken)
     {
         if (!surfaceEnabled)
@@ -445,8 +454,13 @@ public class WebUiController : ControllerBase
             return NotFound();
         }
 
+        if (_owner.Resolve(User, IsAdministrator) is not { } userId)
+        {
+            return Forbid();
+        }
+
         var gap = await findGap(cancellationToken).ConfigureAwait(false);
-        return gap is null ? 0 : _todo.Add([gap]);
+        return gap is null ? 0 : _todo.Add(userId, [gap]);
     }
 
     private static AcquisitionSendResult ToSendResult(AcquisitionResult result)

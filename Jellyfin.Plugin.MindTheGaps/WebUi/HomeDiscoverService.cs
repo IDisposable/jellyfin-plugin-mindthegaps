@@ -11,8 +11,9 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// The home screen's discovery row. Unlike the per-page surfaces, this one reads the scanned report rather
 /// than asking TMDB on demand: a home row is about the whole library, and the scan has already asked TMDB
-/// what is like each owned title and accumulated the answers. Ranks what several owned titles agree on
-/// first, then by TMDB popularity, and hides what the report has dismissed or muted.
+/// what is like each owned title and accumulated the answers. Ranks what several sources agree on first, then
+/// by TMDB popularity, shows only what owned titles suggest and what public lists carry, and hides what the
+/// report has dismissed or muted.
 /// </summary>
 public sealed class HomeDiscoverService
 {
@@ -57,29 +58,31 @@ public sealed class HomeDiscoverService
     public GapItem? FindGap(string gapId)
     {
         var gap = _store.FindById(gapId);
-        return gap is { Pattern: GapPattern.Recommendation } && IsFromOwnedTitle(gap) ? gap : null;
+        return gap is { Pattern: GapPattern.Recommendation } && IsShownOnRow(gap) ? gap : null;
     }
 
     /// <summary>
-    /// Whether a recommendation was made from a title the library owns, as opposed to coming from a list. The
-    /// row is any signed-in user's, so it is limited to what owned titles suggest: a gap from a watchlist, a
-    /// wantlist, favorites, or a list the administrator follows belongs to that account, not to the library,
-    /// and its source name would read as "Because you have" the list. A title an owned title also suggests but
-    /// that a list claimed first is left out with it, since the gap's primary source is the list.
+    /// Whether a recommendation may be shown on the row. The row is any signed-in user's, so it is limited to
+    /// what owned titles suggest and to lists that are public by construction
+    /// (<see cref="SourceItemTypes.PublicListKinds"/>). A gap from a watchlist, a wantlist, favorites, or a
+    /// list the plugin cannot tell is public belongs to the account that follows it. A title an owned title
+    /// also suggests but that a private list claimed first is left out with it, since the gap's primary source
+    /// is the list.
     /// </summary>
     /// <param name="gap">The recommendation gap.</param>
-    /// <returns><see langword="true"/> when the gap's source is an owned movie or series.</returns>
-    public static bool IsFromOwnedTitle(GapItem gap)
+    /// <returns><see langword="true"/> when the gap's primary source is an owned movie or series, or a public list.</returns>
+    public static bool IsShownOnRow(GapItem gap)
     {
         ArgumentNullException.ThrowIfNull(gap);
 
-        return gap.SourceItemType is SourceItemTypes.Movie or SourceItemTypes.Series;
+        return FromOwnedTitle(gap)
+            || (gap.SourceItemType is { } type && SourceItemTypes.PublicListKinds.Contains(type, StringComparer.Ordinal));
     }
 
     /// <summary>
-    /// The pure ranking: recommendations made from an owned title only (not a list), not dismissed, primary
-    /// seed not muted, ordered by how many owned titles suggest them and then by TMDB popularity, movies and
-    /// series interleaved.
+    /// The pure ranking: recommendations the row may show (<see cref="IsShownOnRow"/>), not dismissed, primary
+    /// seed not muted, ordered by how many sources agree, then owned-title recommendations before list titles,
+    /// then by TMDB popularity, movies and series interleaved.
     /// </summary>
     /// <param name="items">The report's gaps.</param>
     /// <param name="resolutions">The current dismissals, keyed by gap id or "recsource:{guid}".</param>
@@ -99,11 +102,12 @@ public sealed class HomeDiscoverService
         return items
             .Where(g => g.Pattern == GapPattern.Recommendation
                 && (g.TargetKind == BaseItemKind.Movie || g.TargetKind == BaseItemKind.Series)
-                && IsFromOwnedTitle(g)
+                && IsShownOnRow(g)
                 && !g.Adhoc
                 && !resolutions.ContainsKey(g.Id)
                 && (g.SourceItemId is null || !muted.Contains(g.SourceItemId)))
             .OrderByDescending(g => 1 + (g.OtherSources?.Count ?? 0))
+            .ThenBy(g => FromOwnedTitle(g) ? 0 : 1)
             .ThenByDescending(g => g.SortScore ?? 0)
             .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
             .Select(g => MissingTitleBuilder.ToTitle(g, null, MissingTitleBuilder.Because(g)))
@@ -112,4 +116,10 @@ public sealed class HomeDiscoverService
             .Take(Math.Max(1, limit))
             .ToList();
     }
+
+    // Owned movies and series only. The row's cards are TMDB titles, so an owned artist or book as the source of
+    // a recommendation is left out here, and Rank takes movie and series targets alone; a row that shows albums
+    // and books changes both.
+    private static bool FromOwnedTitle(GapItem gap)
+        => gap.SourceItemType is SourceItemTypes.Movie or SourceItemTypes.Series;
 }

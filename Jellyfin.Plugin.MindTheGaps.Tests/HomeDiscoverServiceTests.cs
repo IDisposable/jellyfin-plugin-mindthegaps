@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
@@ -119,13 +120,10 @@ public class HomeDiscoverServiceTests
     [InlineData(SourceItemTypes.TraktWatchlist)]
     [InlineData(SourceItemTypes.MdbListWatchlist)]
     [InlineData(SourceItemTypes.JustWatchList)]
-    [InlineData(SourceItemTypes.ImdbList)]
     [InlineData(SourceItemTypes.TvdbFavorites)]
-    [InlineData(SourceItemTypes.TmdbList)]
+    [InlineData(SourceItemTypes.ImdbList)]
     [InlineData(SourceItemTypes.MdbList)]
-    [InlineData(SourceItemTypes.TraktList)]
-    [InlineData(SourceItemTypes.TmdbMovieDiscover)]
-    public void Rank_LeavesOutATitleThatCameFromAList(string listKind)
+    public void Rank_LeavesOutATitleFromAListThatMayBePersonal(string listKind)
     {
         var fromList = Rec("list", "From A List", 1, sourceItemType: listKind);
         var fromOwned = Rec("owned", "From An Owned Title", 2);
@@ -133,6 +131,52 @@ public class HomeDiscoverServiceTests
         var ranked = HomeDiscoverService.Rank([fromList, fromOwned], new Dictionary<string, GapResolution>(), 10);
 
         Assert.Equal("owned", Assert.Single(ranked).GapId);
+    }
+
+    [Theory]
+    [InlineData(SourceItemTypes.TmdbList)]
+    [InlineData(SourceItemTypes.TraktList)]
+    [InlineData(SourceItemTypes.TmdbMovieDiscover)]
+    public void Rank_KeepsATitleFromAPublicList(string listKind)
+    {
+        var fromList = Rec("list", "From A List", 1, sourceItemType: listKind);
+
+        var ranked = HomeDiscoverService.Rank([fromList], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal("list", Assert.Single(ranked).GapId);
+    }
+
+    [Fact]
+    public void Rank_PutsAnOwnedTitleRecommendationBeforeAListTitleAtEqualAgreement_EvenIfTheListTitleIsMorePopular()
+    {
+        var popularFromList = Rec("list", "Popular", 1, sortScore: 500, sourceItemType: SourceItemTypes.TmdbMovieDiscover);
+        var quieterRecommendation = Rec("owned", "Quiet", 2, sortScore: 5);
+
+        var ranked = HomeDiscoverService.Rank([popularFromList, quieterRecommendation], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal(new[] { "owned", "list" }, ranked.Select(t => t.GapId));
+    }
+
+    [Fact]
+    public void Rank_LetsAListTitleOwnedTitlesAlsoSuggestOutrankASingleRecommendation()
+    {
+        var both = Rec("both", "Both", 1, sortScore: 1, otherSources: 2, sourceItemType: SourceItemTypes.TmdbList);
+        var single = Rec("single", "Single", 2, sortScore: 900);
+
+        var ranked = HomeDiscoverService.Rank([single, both], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal(new[] { "both", "single" }, ranked.Select(t => t.GapId));
+    }
+
+    [Fact]
+    public void Rank_LabelsAListTitleByItsList()
+    {
+        var gap = Rec("list", "From A List", 1, sourceItemType: SourceItemTypes.TmdbList);
+        gap.SourceItemName = "Best of 1995";
+
+        var ranked = HomeDiscoverService.Rank([gap], new Dictionary<string, GapResolution>(), 10);
+
+        Assert.Equal("From Best of 1995", ranked[0].Because);
     }
 
     [Fact]
@@ -155,11 +199,23 @@ public class HomeDiscoverServiceTests
     }
 
     [Fact]
-    public void IsFromOwnedTitle_IsTrueOnlyForAnOwnedMovieOrSeries()
+    public void IsShownOnRow_IsTrueForAnOwnedMovieOrSeriesAndAPublicListOnly()
     {
-        Assert.True(HomeDiscoverService.IsFromOwnedTitle(Rec("a", "A", 1, sourceItemType: SourceItemTypes.Movie)));
-        Assert.True(HomeDiscoverService.IsFromOwnedTitle(Rec("b", "B", 2, sourceItemType: SourceItemTypes.Series)));
-        Assert.False(HomeDiscoverService.IsFromOwnedTitle(Rec("c", "C", 3, sourceItemType: SourceItemTypes.TraktWatchlist)));
-        Assert.Throws<ArgumentNullException>(() => HomeDiscoverService.IsFromOwnedTitle(null!));
+        Assert.True(HomeDiscoverService.IsShownOnRow(Rec("a", "A", 1, sourceItemType: SourceItemTypes.Movie)));
+        Assert.True(HomeDiscoverService.IsShownOnRow(Rec("b", "B", 2, sourceItemType: SourceItemTypes.Series)));
+        Assert.True(HomeDiscoverService.IsShownOnRow(Rec("c", "C", 3, sourceItemType: SourceItemTypes.TraktList)));
+        Assert.False(HomeDiscoverService.IsShownOnRow(Rec("d", "D", 4, sourceItemType: SourceItemTypes.TraktWatchlist)));
+        Assert.Throws<ArgumentNullException>(() => HomeDiscoverService.IsShownOnRow(null!));
+    }
+
+    [Theory]
+    [InlineData(BaseItemKind.MusicAlbum, SourceItemTypes.MusicArtist)]
+    [InlineData(BaseItemKind.Book, SourceItemTypes.Book)]
+    public void Rank_ShowsOnlyMoviesAndSeries_NotAnAlbumOrBookEvenFromAnOwnedSource(BaseItemKind target, string source)
+    {
+        var gap = Rec("work", "A Work", 1, kind: target, sourceItemType: source);
+
+        Assert.Empty(HomeDiscoverService.Rank([gap], new Dictionary<string, GapResolution>(), 10));
+        Assert.False(HomeDiscoverService.IsShownOnRow(gap));
     }
 }

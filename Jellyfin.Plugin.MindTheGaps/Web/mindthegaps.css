@@ -884,3 +884,9 @@ a.cgSvcs {
 .cgRow .cgSel {
     cursor: pointer;
 }
+
+.cgTodoOwner {
+    display: block;
+    opacity: .7;
+    font-size: .85em;
+}

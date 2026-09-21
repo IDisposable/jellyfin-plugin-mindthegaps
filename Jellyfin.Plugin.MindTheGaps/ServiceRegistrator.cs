@@ -1,3 +1,4 @@
+using Jellyfin.Data.Events.Users;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Discogs;
@@ -26,6 +27,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Webhook;
 using Jellyfin.Plugin.MindTheGaps.VirtualItems;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +46,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GapStore>();
         serviceCollection.AddSingleton<ResolutionStore>();
         serviceCollection.AddSingleton<TodoStore>();
+        serviceCollection.AddSingleton<TodoOwner>();
+        serviceCollection.AddSingleton<IEventConsumer<UserDeletedEventArgs>>(sp => sp.GetRequiredService<TodoOwner>());
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<OwnershipIndexBuilder>();

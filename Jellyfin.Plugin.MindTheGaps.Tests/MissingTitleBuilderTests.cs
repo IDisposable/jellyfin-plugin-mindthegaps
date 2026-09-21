@@ -78,6 +78,29 @@ public class MissingTitleBuilderTests
     }
 
     [Fact]
+    public void Because_ReadsFromTheListWhenTheGapCameFromAList()
+    {
+        var gap = new GapItem
+        {
+            SourceItemName = "  Best of 1995 ",
+            SourceItemType = SourceItemTypes.TmdbList,
+            OtherSources = [new GapSourceRef { Name = "Fargo" }]
+        };
+
+        Assert.Equal("From Best of 1995", MissingTitleBuilder.Because(gap));
+    }
+
+    [Fact]
+    public void Because_KeepsTheSeedWordingForAnOwnedMovieOrSeries()
+    {
+        var movie = new GapItem { SourceItemName = "Fargo", SourceItemType = SourceItemTypes.Movie };
+        var series = new GapItem { SourceItemName = "Fargo", SourceItemType = SourceItemTypes.Series };
+
+        Assert.Equal("Because you have Fargo", MissingTitleBuilder.Because(movie));
+        Assert.Equal("Because you have Fargo", MissingTitleBuilder.Because(series));
+    }
+
+    [Fact]
     public void Because_NullWhenTheGapNamesNoSeed()
         => Assert.Null(MissingTitleBuilder.Because(new GapItem()));
 

@@ -97,6 +97,21 @@ public static class SourceItemTypes
     ];
 
     /// <summary>
+    /// Gets the list kinds whose contents are public by construction, so a title from one may be shown to
+    /// users other than the account that follows it. A private TMDB or Trakt list cannot be read with the
+    /// plugin's credentials at all, and TMDB's own feeds are public. Deliberately absent: an MDBList list
+    /// (the account's own private lists are readable with its key), an IMDb list (the same source reads the
+    /// personal watchlist), and every watchlist, wantlist, favorites and account list. A new source is absent
+    /// until someone decides it belongs here.
+    /// </summary>
+    public static IReadOnlyList<string> PublicListKinds { get; } =
+    [
+        TmdbList,
+        TraktList,
+        TmdbMovieDiscover
+    ];
+
+    /// <summary>
     /// Gets the discovery kinds in the order the dashboard sections them under Discover, most personal first:
     /// the lists you keep, then the lists you pointed it at, then what the recommender made of what you own.
     /// The two recommendation types share one section, so the order is by section and a kind may repeat a

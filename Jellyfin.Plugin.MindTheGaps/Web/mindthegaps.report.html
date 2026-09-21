@@ -84,7 +84,11 @@
                                 <span class="material-icons" aria-hidden="true">close</span>
                             </button>
                         </div>
-                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for that one, Verify all checks the lot, and Delete removes it. The list survives rescans.</p>
+                        <p id="cgTodoIntro" class="fieldDescription" style="margin:0 0 .8em 0;">Gaps you have flagged to go find. Tick a row when you have it, Verify checks your library for that one, Verify all checks the lot, and Delete removes it. The list survives rescans. Every user has their own list; as an administrator you can look at anyone's, or everyone's together, and manage what is on it.</p>
+                        <div id="cgTodoWhoRow" style="display:none;align-items:center;gap:.6em;margin:0 0 .8em 0;">
+                            <label for="cgTodoWho" class="fieldDescription" style="margin:0;">Whose list</label>
+                            <select is="emby-select" id="cgTodoWho" class="emby-select" style="width:auto;"></select>
+                        </div>
                         <div id="cgTodoBody"></div>
                         <div style="display:flex;align-items:center;gap:.6em;flex-wrap:wrap;margin-top:.9em;">
                             <button is="emby-button" type="button" id="cgTodoVerifyAll" class="raised" title="Check every entry against your library now and tick the ones you have."><span>Verify all</span></button>

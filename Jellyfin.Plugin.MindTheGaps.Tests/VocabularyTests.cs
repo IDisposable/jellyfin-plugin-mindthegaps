@@ -97,6 +97,30 @@ public class VocabularyTests
         }
     }
 
+
+    [Fact]
+    public void PublicListKinds_AreCuratedLists_AndNeverAPersonalOne()
+    {
+        var known = SourceTypeConstants();
+        string[] personal =
+        [
+            SourceItemTypes.TmdbAccountList,
+            SourceItemTypes.TraktWatchlist,
+            SourceItemTypes.MdbListWatchlist,
+            SourceItemTypes.JustWatchList,
+            SourceItemTypes.TvdbFavorites,
+            SourceItemTypes.DiscogsWantlist,
+            SourceItemTypes.OpenLibraryShelf,
+            SourceItemTypes.ImdbList,
+            SourceItemTypes.MdbList
+        ];
+
+        foreach (var kind in SourceItemTypes.PublicListKinds)
+        {
+            Assert.Contains(kind, known, StringComparer.Ordinal);
+            Assert.DoesNotContain(kind, personal);
+        }
+    }
     [Fact]
     public void EverySetKind_HasWordingInTheDashboard()
     {
