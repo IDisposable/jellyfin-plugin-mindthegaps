@@ -5,11 +5,13 @@
   "description": "Lint and UI test tooling for the Mind the Gaps dashboard JavaScript (Jellyfin.Plugin.MindTheGaps/Web).",
   "scripts": {
     "lint": "oxlint --deny-warnings Jellyfin.Plugin.MindTheGaps/Web",
+    "lint:fix": "oxlint --fix Jellyfin.Plugin.MindTheGaps/Web",
+    "format": "npx --yes prettier@3 --write \"**/*.md\" --prose-wrap preserve --ignore-path .gitignore",
     "test:ui": "playwright test",
     "test:ui:install": "playwright install --with-deps chromium"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
-    "oxlint": "1.71.0"
+    "oxlint": "1.83.0"
   }
 }
