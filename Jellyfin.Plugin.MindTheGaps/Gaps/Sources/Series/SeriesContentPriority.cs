@@ -72,4 +72,23 @@ internal static class SeriesContentPriority
 
         return order.Count;
     }
+
+    /// <summary>
+    /// Determines whether the library's fetcher order admits a provider to the series-content cross-check.
+    /// A named provider (TheMovieDb, TheTVDB) is admitted when the library lists it, or when the library
+    /// configures no order at all (nothing was excluded on purpose). A non-fetcher source (a null provider,
+    /// TVmaze) is always admitted: the order is a list of Jellyfin metadata fetchers, so it can never name a
+    /// non-fetcher source, and an empty <see cref="Rank(IReadOnlyList{KnownProvider?}, KnownProvider?)"/>
+    /// membership test would otherwise read as "the library excluded it" for every configured library, not
+    /// just the ones that actually did.
+    /// </summary>
+    /// <param name="order">The library's fetcher order, resolved to known providers.</param>
+    /// <param name="provider">The provider to check, or null for a non-fetcher source.</param>
+    /// <returns><see langword="true"/> when the provider should be asked for this library's series.</returns>
+    public static bool Uses(IReadOnlyList<KnownProvider?> order, KnownProvider? provider)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+
+        return provider is null || order.Count == 0 || Rank(order, provider) < order.Count;
+    }
 }

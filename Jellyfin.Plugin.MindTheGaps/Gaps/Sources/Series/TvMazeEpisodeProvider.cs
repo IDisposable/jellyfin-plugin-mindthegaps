@@ -28,9 +28,9 @@ internal sealed class TvMazeEpisodeProvider : ISeriesEpisodeProvider
     }
 
     /// <inheritdoc />
-    // The TVmaze plugin, when installed, registers a "TVmaze" metadata fetcher, so it ranks by its position
-    // in the library's fetcher order like the others.
-    public KnownProvider? Provider => KnownProviders.TvMaze;
+    // Jellyfin has no TVmaze metadata fetcher to list in a library's fetcher order, so this is never found
+    // there; null is what ranks it last regardless (see SeriesContentPriority.Rank/Uses).
+    public KnownProvider? Provider => null;
 
     /// <inheritdoc />
     public string ServiceName => ServiceNames.TvMaze;

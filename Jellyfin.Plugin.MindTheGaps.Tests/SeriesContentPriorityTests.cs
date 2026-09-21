@@ -47,4 +47,38 @@ public class SeriesContentPriorityTests
         Assert.Equal(0, SeriesContentPriority.Rank([], KnownProviders.Tmdb));
         Assert.Equal(int.MaxValue, SeriesContentPriority.Rank([], null));
     }
+
+    [Fact]
+    public void Uses_ListedProvider_IsUsed()
+    {
+        Assert.True(SeriesContentPriority.Uses(TmdbThenTvdb, KnownProviders.Tmdb));
+        Assert.True(SeriesContentPriority.Uses(TmdbThenTvdb, KnownProviders.Tvdb));
+    }
+
+    [Fact]
+    public void Uses_KnownProviderNotInOrder_IsNotUsed()
+    {
+        // The library configured an order and chose not to include IMDb, so it is excluded on purpose.
+        Assert.False(SeriesContentPriority.Uses(TmdbThenTvdb, KnownProviders.Imdb));
+    }
+
+    [Fact]
+    public void Uses_EmptyOrder_EveryCredentialedProviderIsUsed()
+    {
+        // A library that never configured its fetchers is still cross-checked rather than getting nothing.
+        Assert.True(SeriesContentPriority.Uses([], KnownProviders.Tmdb));
+        Assert.True(SeriesContentPriority.Uses([], KnownProviders.Imdb));
+        Assert.True(SeriesContentPriority.Uses([], null));
+    }
+
+    [Fact]
+    public void Uses_NonFetcherSource_IsAlwaysUsed()
+    {
+        // TVmaze (a null provider) is not a Jellyfin metadata fetcher, so a library's fetcher order can never
+        // name it - it must not read as "excluded" just because a configured order exists. This is the
+        // regression this test guards: before the fix, TvMazeEpisodeProvider reported a real KnownProvider
+        // that could never appear in an order, so it was silently dropped from the cross-check on any library
+        // with a configured fetcher order (which is most of them).
+        Assert.True(SeriesContentPriority.Uses(TmdbThenTvdb, null));
+    }
 }

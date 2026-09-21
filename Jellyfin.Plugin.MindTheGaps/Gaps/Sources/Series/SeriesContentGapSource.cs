@@ -93,7 +93,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         foreach (var series in allSeries)
         {
             var order = SeriesContentPriority.FetcherOrder(series, _libraryManager);
-            if (_providers.Any(p => p.CanResolve(series, context.Config) && LibraryUses(p, order)))
+            if (_providers.Any(p => p.CanResolve(series, context.Config) && SeriesContentPriority.Uses(order, p.Provider)))
             {
                 resolvable.Add((series, series.Id.ToString("N", CultureInfo.InvariantCulture)));
             }
@@ -166,7 +166,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         // The reachable providers, highest library-preference first; a service whose circuit is open is skipped.
         var order = SeriesContentPriority.FetcherOrder(series, _libraryManager);
         var providers = _providers
-            .Where(p => !ServiceCircuit.IsOpen(p.ServiceName) && p.CanResolve(series, context.Config) && LibraryUses(p, order))
+            .Where(p => !ServiceCircuit.IsOpen(p.ServiceName) && p.CanResolve(series, context.Config) && SeriesContentPriority.Uses(order, p.Provider))
             .OrderBy(p => SeriesContentPriority.Rank(order, p.Provider))
             .ToList();
 
@@ -220,12 +220,6 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
         return gaps;
     }
-
-    // A provider is one the library uses when it lists the provider as a metadata fetcher (ranked by that
-    // order). When the library lists no fetcher order at all, every credentialed provider is used, so a library
-    // that never configured its fetchers is still cross-checked rather than getting nothing.
-    private static bool LibraryUses(ISeriesEpisodeProvider provider, IReadOnlyList<KnownProvider?> order)
-        => order.Count == 0 || SeriesContentPriority.Rank(order, provider.Provider) < order.Count;
 
     // True when the owned series has a year and the provider list's lowest season aired far enough from it to
     // be a different, same-named series. Compares the lowest season's year to the start year, so it never
