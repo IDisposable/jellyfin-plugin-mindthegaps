@@ -46,8 +46,24 @@
         return el;
     }
 
-    function safeImage(url) {
-        return url && /^https:\/\//i.test(url) ? 'url("' + url.replace(/["\\]/g, '') + '")' : null;
+    function cssUrl(url) {
+        return 'url("' + url.replace(/["\\]/g, '') + '")';
+    }
+
+    // Puts a provider's image on an element as its background, loaded through the server's image cache. The server
+    // redirects a browser to the provider itself whenever it cannot serve an image, so what is left for the page is
+    // a host the route does not allow, or a server that cannot be reached. A background cannot report that it
+    // failed to load, so a probe of the same address does, and the provider's own address is used instead: the
+    // cache can only make an image arrive sooner and never make one go missing.
+    // Returns whether there was an image to show.
+    function setImage(el, url) {
+        if (!url || !/^https:\/\//i.test(url)) { return false; }
+        var cached = ApiClient.getUrl('MindTheGaps/Image', { u: url });
+        el.style.backgroundImage = cssUrl(cached);
+        var probe = new Image();
+        probe.onerror = function () { el.style.backgroundImage = cssUrl(url); };
+        probe.src = cached;
+        return true;
     }
 
     function alertUser(message) {
@@ -356,10 +372,8 @@
     // top-to-bottom: title, synopsis, then the row of links/actions.
     function fillDialogDetail(refs, detail) {
         refs.loading.remove();
-        var bg = safeImage(detail.BackdropUrl);
-        if (bg) { refs.backdropImg.style.backgroundImage = bg; }
-        var posterBg = safeImage(detail.PosterUrl);
-        if (posterBg) { refs.poster.style.backgroundImage = posterBg; }
+        setImage(refs.backdropImg, detail.BackdropUrl);
+        setImage(refs.poster, detail.PosterUrl);
 
         var extra = document.createDocumentFragment();
         if (detail.Tagline) { extra.appendChild(h('p', { 'class': 'mtgDialogTagline' }, detail.Tagline)); }
@@ -394,8 +408,7 @@
 
         var content = h('div', { 'class': 'mtgDialogContent' });
         var poster = h('div', { 'class': 'mtgDialogPoster' + (item.Kind === 'MusicAlbum' ? ' mtgDialogPosterSquare' : '') });
-        var bg = safeImage(item.ImageUrl);
-        if (bg) { poster.style.backgroundImage = bg; }
+        setImage(poster, item.ImageUrl);
         // The same bookmark, in the same corner, as on the card the dialog was opened from.
         if (ctx.canTodo) {
             var mark = wantBookmark(ctx, item);
@@ -478,10 +491,7 @@
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
         var img = h('div', { 'class': 'cardImageContainer coveredImage cardContent' });
-        var bg = safeImage(item.ImageUrl);
-        if (bg) {
-            img.style.backgroundImage = bg;
-        } else {
+        if (!setImage(img, item.ImageUrl)) {
             img.classList.add('defaultCardBackground', 'defaultCardBackground1');
             img.appendChild(h('div', { 'class': 'cardText cardDefaultText' }, item.Title));
         }

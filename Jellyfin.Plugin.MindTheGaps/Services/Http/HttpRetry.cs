@@ -151,7 +151,7 @@ internal static class HttpRetry
     // Identify the plugin (with its real version) and a contact URL to every API, unless the caller already
     // set its own User-Agent. Good API citizenship: some providers rate-limit or block blank/default agents,
     // and MusicBrainz requires a descriptive one. TMDB goes through TMDbLib, which sets its own.
-    private static void EnsureUserAgent(HttpRequestMessage request)
+    internal static void EnsureUserAgent(HttpRequestMessage request)
     {
         if (request.Headers.UserAgent.Count > 0)
         {

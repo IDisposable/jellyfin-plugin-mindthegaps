@@ -252,6 +252,25 @@ Keyless: IMDb's own API serves any list its owner has published, no credential n
     A stale result is still served instantly while a refresh runs in the background, so this only trades how current the data is against how often TMDB is hit,
     never responsiveness. Used only when availability is on.
 
+## Images
+
+| Setting                                   | Default | Effect                                                                                                                                                    |
+| ----------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Keep the pages' images on this server** | Off     | Posters, album and book covers, and streaming-service logos are fetched from their providers once and served from the server's cache folder.[^imagecache] |
+| **Image cache size (MB)**                 | 500     | The most the image cache may hold. A scheduled task deletes the oldest images once it is over.[^imagesize]                                                |
+
+[^imagecache]:
+    Only images from the providers the plugin reads are kept (TMDB, Cover Art Archive, OpenLibrary, JustWatch, IMDb, Discogs, TheTVDB, TVmaze and MDBList), only real JPEG, PNG, GIF, WebP or AVIF files, and each is limited to 5 MB. The route that serves
+    them is open to anyone who can reach the server, since an image tag cannot sign in, so it will not fetch from any other address. Serving an image never waits on anything but its own fetch: when the server cannot have an image at once (it is not held
+    and the fetch fails, the provider has been refusing the server, or six fetches are already running) the browser is sent on to the provider with a temporary redirect, so an image still shows for any browser that can reach the provider. A provider that
+    fails five fetches in a row is left alone for ten minutes; that list is kept in memory and starts empty after a restart. Off, browsers load every image from its provider directly.
+
+[^imagesize]:
+    The images are stored under the server's cache folder, in `mindthegaps/images`. The **Trim the image cache** task, under **Dashboard > Scheduled Tasks**, runs when the server starts and once a day, and deletes the oldest images down to nine tenths of
+    this size. Between runs the cache can grow past it; once it is at twice this size nothing more is fetched until the next run. The server's own daily cache task also deletes any file not written for 30 days. Serving an image does not change
+    its age, so an image is deleted about a month after it was fetched and the next request fetches it again, which is how a cover the provider has replaced gets picked up. An image whose provider says it is not to be stored (`Cache-Control: no-store` or
+    `private`) is never kept.
+
 ## Diagnostics
 
 | Setting                  | Default | Effect                                                                                                                                                                       |
@@ -465,11 +484,13 @@ The key each setting has in the plugin's configuration file, sorted by setting n
 | Follow IMDb people lists                                       | `ScanImdbPeopleLists`        | [IMDb](#imdb)                                    |
 | Home Discover row: max titles                                  | `HomeRowSize`                | [Web UI](#web-ui-experimental)                   |
 | Home screen                                                    | `HomeRowEnabled`             | [Web UI](#web-ui-experimental)                   |
+| Image cache size (MB)                                          | `ImageCacheMaxMegabytes`     | [Images](#images)                                |
 | IMDb watchlists and lists                                      | `ImdbListIds`                | [IMDb](#imdb)                                    |
 | Item pages                                                     | `ItemPageEnabled`            | [Web UI](#web-ui-experimental)                   |
 | Jellyseerr/Overseerr API key                                   | `SeerrApiKey`                | [Acquisition stack](#acquisition-stack-optional) |
 | Jellyseerr/Overseerr URL                                       | `SeerrUrl`                   | [Acquisition stack](#acquisition-stack-optional) |
 | JustWatch token                                                | `JustWatchToken`             | [JustWatch](#justwatch)                          |
+| Keep the pages' images on this server                          | `ImageCacheEnabled`          | [Images](#images)                                |
 | Keywords                                                       | `CuratedKeywordIds`          | [TMDB](#tmdb)                                    |
 | Language                                                       | `MetadataLanguage`           | [Region](#region)                                |
 | Max creators scanned per run                                   | `MaxFilmographyPeople`       | [Limits](#limits)                                |

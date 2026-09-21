@@ -3,24 +3,25 @@
 Short records of the decisions that shaped Mind the Gaps, newest concerns last. Each one captures the
 context, the decision, and what it costs, so the reasoning survives the code.
 
-| #                                                         | Decision                                                                  |
-| --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [0001](0001-domain-agnostic-gap-model.md)                 | Gaps are 3 patterns across N media domains                                |
-| [0002](0002-gap-sources-live-in-the-plugin.md)            | Gap sources live in the plugin (no plugin-to-plugin SPI)                  |
-| [0003](0003-self-contained-tmdb-client.md)                | Self-contained TMDB client (no MediaBrowser.Providers)                    |
-| [0004](0004-experimental-virtual-item-minting.md)         | Virtual-item minting is experimental, opt-in, reversible                  |
-| [0005](0005-name-and-terminology.md)                      | Name "Mind the Gaps"; Shows vs Live TV terminology                        |
-| [0006](0006-captured-data-testing.md)                     | Test parsers against real captured API responses                          |
-| [0007](0007-library-aligned-media-domains.md)             | Library-aligned media domains (and why not CollectionType)                |
-| [0008](0008-stable-gap-ids.md)                            | Gap ids are stable, derived from durable keys, and a persistence contract |
-| [0009](0009-hand-gaps-to-an-acquisition-stack.md)         | Hand a gap off to an external acquisition stack (Radarr/Sonarr/Seerr)     |
-| [0010](0010-self-describing-explore-kinds.md)             | Explore kinds self-describe via IExploreSource                            |
-| [0011](0011-series-content-eras-and-episode-identity.md)  | Series-content gaps respect eras and verify episode identity              |
-| [0012](0012-additive-completeness-passes.md)              | Completeness passes are additive and freeze the contracted ids            |
-| [0013](0013-recheck-one-series.md)                        | Re-check one series in place, without a full rescan                       |
-| [0014](0014-tmdb-episode-source-and-provider-priority.md) | A TheMovieDb episode source, and honor the library's provider priority    |
-| [0015](0015-merge-episodes-per-season-library-driven.md)  | Merge every provider's episodes per season; the library drives which run  |
-| [0016](0016-verify-first-clear-down.md)                   | Clear down a filled gap anywhere: verify first, re-check on request       |
-| [0017](0017-serve-the-dashboard-vocabulary.md)            | Serve the dashboard's vocabulary and policy instead of restating them     |
-| [0018](0018-personal-watchlists-over-site-apis.md)        | Read personal watchlists over the sites' own APIs (IMDb, JustWatch)       |
-| [0019](0019-web-ui-surfaces-are-an-api.md)                | The web UI surfaces are an API, and the script is one client of it        |
+| #                                                         | Decision                                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [0001](0001-domain-agnostic-gap-model.md)                 | Gaps are 3 patterns across N media domains                                 |
+| [0002](0002-gap-sources-live-in-the-plugin.md)            | Gap sources live in the plugin (no plugin-to-plugin SPI)                   |
+| [0003](0003-self-contained-tmdb-client.md)                | Self-contained TMDB client (no MediaBrowser.Providers)                     |
+| [0004](0004-experimental-virtual-item-minting.md)         | Virtual-item minting is experimental, opt-in, reversible                   |
+| [0005](0005-name-and-terminology.md)                      | Name "Mind the Gaps"; Shows vs Live TV terminology                         |
+| [0006](0006-captured-data-testing.md)                     | Test parsers against real captured API responses                           |
+| [0007](0007-library-aligned-media-domains.md)             | Library-aligned media domains (and why not CollectionType)                 |
+| [0008](0008-stable-gap-ids.md)                            | Gap ids are stable, derived from durable keys, and a persistence contract  |
+| [0009](0009-hand-gaps-to-an-acquisition-stack.md)         | Hand a gap off to an external acquisition stack (Radarr/Sonarr/Seerr)      |
+| [0010](0010-self-describing-explore-kinds.md)             | Explore kinds self-describe via IExploreSource                             |
+| [0011](0011-series-content-eras-and-episode-identity.md)  | Series-content gaps respect eras and verify episode identity               |
+| [0012](0012-additive-completeness-passes.md)              | Completeness passes are additive and freeze the contracted ids             |
+| [0013](0013-recheck-one-series.md)                        | Re-check one series in place, without a full rescan                        |
+| [0014](0014-tmdb-episode-source-and-provider-priority.md) | A TheMovieDb episode source, and honor the library's provider priority     |
+| [0015](0015-merge-episodes-per-season-library-driven.md)  | Merge every provider's episodes per season; the library drives which run   |
+| [0016](0016-verify-first-clear-down.md)                   | Clear down a filled gap anywhere: verify first, re-check on request        |
+| [0017](0017-serve-the-dashboard-vocabulary.md)            | Serve the dashboard's vocabulary and policy instead of restating them      |
+| [0018](0018-personal-watchlists-over-site-apis.md)        | Read personal watchlists over the sites' own APIs (IMDb, JustWatch)        |
+| [0019](0019-web-ui-surfaces-are-an-api.md)                | The web UI surfaces are an API, and the script is one client of it         |
+| [0020](0020-serve-provider-images-from-a-cache.md)        | Serve provider images from a cache on the server, behind a fixed allowlist |

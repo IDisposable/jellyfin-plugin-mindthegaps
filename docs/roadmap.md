@@ -68,7 +68,7 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **Chip pickers for the remaining list sources** (after the image cache). Studios, keywords, MDBList lists, and Discogs labels have a
+- **Chip pickers for the remaining list sources.** Studios, keywords, MDBList lists, and Discogs labels have a
   type-ahead chip picker. Three sources are still raw text fields: `CuratedTmdbListIds` (a pasted
   `themoviedb.org/list/{id}` URL or a bare id, `TmdbListInput`; TMDB has no list-search API, so a
   paste-and-confirm chip over the existing `tmdblist` `CuratedResolve` branch), `CuratedTraktListIds` (a
@@ -142,13 +142,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Scale and architecture
 
-- **Serve provider images from a local cache.** Posters, provider logos and Cover Art Archive covers are loaded
-  by each browser straight from TMDB and the other providers. A cache on the server would spare them the
-  traffic and could be served with public cache headers, since none of it is access-controlled. Leaning
-  towards the server's own design: files under the server's cache path named by a hash of their input (so a
-  changed source is a new file and nothing needs invalidating), where the server's daily task already deletes
-  files not written for 30 days; the server sets no size cap, so this would add one. Needs a host allowlist so
-  the route cannot fetch arbitrary URLs, and a per-file size limit.
 - **Extract the persistence and memoization helpers from `GapStore`.** It now holds the per-domain file I/O,
   the availability and additive merges, the generation counter and validator, and the domain and summary
   indexes. The comments are thorough, but the class is large; the domain-file I/O and the memoization are the

@@ -101,6 +101,8 @@ function loadConfig(page, config) {
     page.querySelector('#JustWatchToken').value = config.JustWatchToken || '';
     page.querySelector('#IncludeAvailability').checked = config.IncludeAvailability;
     page.querySelector('#AvailabilityCacheHours').value = config.AvailabilityCacheHours;
+    page.querySelector('#ImageCacheEnabled').checked = config.ImageCacheEnabled;
+    page.querySelector('#ImageCacheMaxMegabytes').value = config.ImageCacheMaxMegabytes;
     page.querySelector('#TraktEnabled').checked = config.TraktEnabled;
     page.querySelector('#TraktClientId').value = config.TraktClientId || '';
     page.querySelector('#TvdbApiKey').value = config.TvdbApiKey || '';
@@ -199,6 +201,8 @@ function saveConfig(page, e) {
         config.JustWatchToken = form.querySelector('#JustWatchToken').value.trim();
         config.IncludeAvailability = form.querySelector('#IncludeAvailability').checked;
         config.AvailabilityCacheHours = parseInt(form.querySelector('#AvailabilityCacheHours').value || '24', 10);
+        config.ImageCacheEnabled = form.querySelector('#ImageCacheEnabled').checked;
+        config.ImageCacheMaxMegabytes = parseInt(form.querySelector('#ImageCacheMaxMegabytes').value || '500', 10);
         config.TraktEnabled = form.querySelector('#TraktEnabled').checked;
         config.TraktClientId = form.querySelector('#TraktClientId').value;
         config.TvdbApiKey = form.querySelector('#TvdbApiKey').value;

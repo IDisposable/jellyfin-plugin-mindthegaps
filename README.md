@@ -211,6 +211,10 @@ flowchart TD
   **Clear explorations** removes them again.
 - **Webhook**: optionally post a summary to a webhook URL (Discord-compatible, carries the server name)
   when a scan or the "where to watch" pass finishes.
+- **Images from your server**: posters, album and book covers, and streaming-service logos are fetched from
+  their providers once and served from the server's own cache, so your browsers do not each contact TMDB and
+  the rest, and a page of thousands of rows loads its thumbnails from one place. Opt-in, capped at 500 MB
+  (adjustable), and an image the server cannot get is loaded from the provider as before.
 - **Web UI on Jellyfin's own pages** (experimental, opt-in): a "Missing from your library" section on a
   person's page, a "More like this you don't have" row on a movie or series page, an "Albums you don't have"
   row on a music artist's page and a "More by this author you don't have" row on a book's page, and a

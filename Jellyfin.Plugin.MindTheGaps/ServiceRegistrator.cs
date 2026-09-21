@@ -14,6 +14,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 using Jellyfin.Plugin.MindTheGaps.Services.Discogs;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
+using Jellyfin.Plugin.MindTheGaps.Services.Images;
 using Jellyfin.Plugin.MindTheGaps.Services.Imdb;
 using Jellyfin.Plugin.MindTheGaps.Services.JustWatch;
 using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
@@ -81,6 +82,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<JustWatchLinkIndex>();
         serviceCollection.AddSingleton<WantedRowService>();
         serviceCollection.AddSingleton<WebUiAccess>();
+        serviceCollection.AddSingleton<ImageCache>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
 
         // Availability sources + aggregator + background enrichment runner.

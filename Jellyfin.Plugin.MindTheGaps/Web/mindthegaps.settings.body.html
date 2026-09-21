@@ -401,6 +401,21 @@
             </div>
         </div>
         <div class="verticalSection">
+            <h2 class="sectionTitle">Images</h2>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="ImageCacheEnabled" name="ImageCacheEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Keep the pages' images on this server</span>
+                </label>
+                <div class="fieldDescription">Posters, album and book covers, and streaming-service logos are fetched from their providers once and served from the server's cache folder, which spares the providers the traffic and keeps your browsers from contacting them. Only images from the providers the plugin reads are kept, and each is limited to 5 MB. An image the server cannot get at once is loaded by the browser from the provider instead. Off, browsers load them from the providers directly. Off by default.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="ImageCacheMaxMegabytes">Image cache size (MB)</label>
+                <input id="ImageCacheMaxMegabytes" name="ImageCacheMaxMegabytes" type="number" is="emby-input" min="10" max="100000" />
+                <div class="fieldDescription">The most the image cache may hold. The "Trim the image cache" scheduled task (at startup and daily) deletes the oldest images once it is over, and nothing more is fetched between runs if it reaches twice this size. The server's own daily cache task also removes any image not used for 30 days. Default 500.</div>
+            </div>
+        </div>
+        <div class="verticalSection">
             <h2 class="sectionTitle">Diagnostics</h2>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">

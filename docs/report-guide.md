@@ -29,7 +29,7 @@ A scan runs in the background with live progress:
 
 ![A scan in progress](screenshots/report-scanning.png)
 
-Scans also run on a schedule, alongside a "Refresh where to watch" pass, under **Dashboard > Scheduled Tasks**:
+Scans also run on a schedule, alongside a "Refresh where to watch" pass and a "Trim the image cache" pass, under **Dashboard > Scheduled Tasks**:
 
 ![The plugin's scheduled tasks](screenshots/scheduled-tasks.png)
 

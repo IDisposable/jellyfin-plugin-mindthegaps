@@ -58,6 +58,8 @@ public class PluginConfiguration : BasePluginConfiguration
         JustWatchToken = string.Empty;
         IncludeAvailability = true;
         AvailabilityCacheHours = 24;
+        ImageCacheEnabled = false;
+        ImageCacheMaxMegabytes = 500;
         MaxRelatedPerItem = 20;
         MinRecommendationVotes = 100;
         WebUiEnabled = false;
@@ -399,6 +401,18 @@ public class PluginConfiguration : BasePluginConfiguration
     /// how current the data is against how often TMDB is hit, never against responsiveness. Minimum 1.
     /// </summary>
     public int AvailabilityCacheHours { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the pages' images (posters, cover art, service logos) are
+    /// fetched by the server once and served from its cache folder, instead of each browser loading them from
+    /// the provider. Off, the image route sends the browser to the provider.
+    /// </summary>
+    public bool ImageCacheEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most the image cache may hold, in megabytes. Past it the oldest images are deleted.
+    /// </summary>
+    public int ImageCacheMaxMegabytes { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of related titles to surface per source item.

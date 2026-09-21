@@ -563,6 +563,16 @@ function populatePopover(page, det) {
 var SERVICE_ICON_LIMIT = 2;
 var OFFER_ORDER = { flatrate: 0, free: 1, ads: 2, rent: 3, buy: 4 };
 
+// An <img> for a provider's image, loaded through the server's own image cache. The server redirects a browser
+// to the provider itself whenever it cannot serve an image, so the provider's address rides along in
+// data-direct only for what a redirect cannot cover (a host the route does not allow, or a server that cannot
+// be reached): the error handler on #cgList loads that instead, so the cache can only ever make an image arrive
+// sooner and never make one go missing.
+function cachedImage(attrs, url) {
+    var viaServer = /^https:\/\//i.test(url) ? ApiClient.getUrl('MindTheGaps/Image', { u: url }) : url;
+    return h('img', Object.assign({ src: viaServer, 'data-direct': url, loading: 'lazy' }, attrs)).outerHTML;
+}
+
 function serviceIcons(item) {
     var offers = filterOffers(item.Availability);
     if (!offers.length) { return ''; }
@@ -584,7 +594,7 @@ function serviceIcons(item) {
     });
     var shown = services.slice(0, SERVICE_ICON_LIMIT).map(function (s) {
         return s.offer.LogoUrl
-            ? h('img', { src: s.offer.LogoUrl, alt: s.name, title: s.name, loading: 'lazy', 'class': 'cgSvc' }).outerHTML
+            ? cachedImage({ alt: s.name, title: s.name, 'class': 'cgSvc' }, s.offer.LogoUrl)
             : h('span', { 'class': 'cgSvc cgSvcText', title: s.name }, s.name.charAt(0).toUpperCase()).outerHTML;
     });
     var rest = services.slice(SERVICE_ICON_LIMIT);
@@ -612,7 +622,7 @@ function renderRow(item) {
         : h('span', { 'class': 'cgSelSpacer' }).outerHTML;
 
     var thumb = item.ImageUrl
-        ? h('img', { src: item.ImageUrl, loading: 'lazy', 'class': 'cgThumb' }).outerHTML
+        ? cachedImage({ 'class': 'cgThumb' }, item.ImageUrl)
         : h('span', { 'class': 'cgThumb cgThumbEmpty' }).outerHTML;
 
     // Meta: the year as a <time> (a real point in time), the target kind, and an upcoming/announced
@@ -3916,6 +3926,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // capture phase to see it via delegation, the same reason 'toggle' does above.
     page.querySelector('#cgList').addEventListener('error', function (e) {
         var img = e.target;
+        // The server's route did not answer with an image (or a redirect to one): try the provider directly
+        // before giving up on the image.
+        var direct = img.getAttribute && img.getAttribute('data-direct');
+        if (direct && img.getAttribute('src') !== direct) {
+            img.setAttribute('src', direct);
+            return;
+        }
         if (img.matches && img.matches('img.cgSvc')) {
             // A service logo that will not load falls back to the service's initial, like an absent one.
             var initial = document.createElement('span');
