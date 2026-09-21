@@ -6,13 +6,13 @@ schedule. The plugin does not depend on any of them; they are progressive enhanc
 
 ## The pieces
 
-| # | Where | Needs discussion? | What |
-|---|---|---|---|
-| A | jellyfin-web | No | Relax the "Missing" indicator so virtual items render in more contexts than just episodes. Filed as [jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094), which replaced the closed #8049. |
-| B | jellyfin (server) | Yes | Mint virtual items for any type, not just show seasons/episodes, with reconciliation. See [discussion-mint-virtual-items.md](discussion-mint-virtual-items.md). |
-| C | jellyfin (server) | Yes | Expose the TMDB client and key from the published NuGet so plugins reuse the shared cache and key. See [discussion-tmdb-nuget-surface.md](discussion-tmdb-nuget-surface.md). |
-| D | jellyfin (server) | No | Give `Episode.IndexNumberEnd` a database column so it survives `SkipDeserialization` and can be queried. See [pr-indexnumberend-column.md](pr-indexnumberend-column.md). |
-| Plugin | new repo | No | The gap-finder plugin itself, standalone. Build/release like jellyfin-plugin-justwatch. Path to standalone: [../standard-plugin.md](../standard-plugin.md). |
+| #      | Where             | Needs discussion? | What                                                                                                                                                                                                           |
+| ------ | ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A      | jellyfin-web      | No                | Relax the "Missing" indicator so virtual items render in more contexts than just episodes. Filed as [jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094), which replaced the closed #8049. |
+| B      | jellyfin (server) | Yes               | Mint virtual items for any type, not just show seasons/episodes, with reconciliation. See [discussion-mint-virtual-items.md](discussion-mint-virtual-items.md).                                                |
+| C      | jellyfin (server) | Yes               | Expose the TMDB client and key from the published NuGet so plugins reuse the shared cache and key. See [discussion-tmdb-nuget-surface.md](discussion-tmdb-nuget-surface.md).                                   |
+| D      | jellyfin (server) | No                | Give `Episode.IndexNumberEnd` a database column so it survives `SkipDeserialization` and can be queried. See [pr-indexnumberend-column.md](pr-indexnumberend-column.md).                                       |
+| Plugin | new repo          | No                | The gap-finder plugin itself, standalone. Build/release like jellyfin-plugin-justwatch. Path to standalone: [../standard-plugin.md](../standard-plugin.md).                                                    |
 
 ## Dependency order
 

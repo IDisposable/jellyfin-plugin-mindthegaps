@@ -128,7 +128,9 @@ The greyed/"Missing" treatment is two one-line conditionals, both gating on `Typ
 - `src/components/indicators/useIndicator.tsx` (React `getMissingIndicator`)
 
 ```js
-if (item.Type === 'Episode' && item.LocationType === 'Virtual') { /* Missing / Unaired pill */ }
+if (item.Type === "Episode" && item.LocationType === "Virtual") {
+    /* Missing / Unaired pill */
+}
 ```
 
 Broadening these (include `'Movie'`, or drop the type check and rely on `LocationType`) is the
@@ -157,21 +159,21 @@ through; it just lacks the badge until the two lines change.
 
 ## Summary table
 
-| Mechanism | Generic (any `BaseItem`) | Shows-only (needs work for Movies) |
-|---|---|---|
-| `IsVirtualItem` data model | yes, `BaseItem.cs` | |
-| `LocationType == Virtual` (Path null) | yes, `BaseItem.cs` | |
-| `IsUnaired` | yes, `BaseItem.cs` | |
-| "missing" accessor | | `Episode.IsMissingEpisode` (redundant w/ `LocationType`) |
-| DB column + indexes | yes, `BaseItemEntity` / `BaseItemConfiguration` | |
-| Query translation | yes, `BaseItemRepository.TranslateQuery` | |
-| Creation of virtual items | only LiveTv | seasons/episodes only; no Movie path |
-| Container virtual-reconciliation | | `SeasonMetadataService.SaveIsVirtualItem` (Season) |
-| Display gate | | `User.DisplayMissingEpisodes` (episode-scoped) |
-| Scan cleanup / orphan GC | | `SeriesMetadataService.RemoveObsolete*` |
-| DTO to client (`LocationType`) | yes, `BaseItemDto` / `DtoService` | |
-| BoxSet membership (LinkedChild by Id) | yes, `Folder.ResolveLinkedChildren` | |
-| Web "Missing" badge | | 2 one-line gates (`indicators.js`, `useIndicator.tsx`) |
+| Mechanism                             | Generic (any `BaseItem`)                        | Shows-only (needs work for Movies)                       |
+| ------------------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| `IsVirtualItem` data model            | yes, `BaseItem.cs`                              |                                                          |
+| `LocationType == Virtual` (Path null) | yes, `BaseItem.cs`                              |                                                          |
+| `IsUnaired`                           | yes, `BaseItem.cs`                              |                                                          |
+| "missing" accessor                    |                                                 | `Episode.IsMissingEpisode` (redundant w/ `LocationType`) |
+| DB column + indexes                   | yes, `BaseItemEntity` / `BaseItemConfiguration` |                                                          |
+| Query translation                     | yes, `BaseItemRepository.TranslateQuery`        |                                                          |
+| Creation of virtual items             | only LiveTv                                     | seasons/episodes only; no Movie path                     |
+| Container virtual-reconciliation      |                                                 | `SeasonMetadataService.SaveIsVirtualItem` (Season)       |
+| Display gate                          |                                                 | `User.DisplayMissingEpisodes` (episode-scoped)           |
+| Scan cleanup / orphan GC              |                                                 | `SeriesMetadataService.RemoveObsolete*`                  |
+| DTO to client (`LocationType`)        | yes, `BaseItemDto` / `DtoService`               |                                                          |
+| BoxSet membership (LinkedChild by Id) | yes, `Folder.ResolveLinkedChildren`             |                                                          |
+| Web "Missing" badge                   |                                                 | 2 one-line gates (`indicators.js`, `useIndicator.tsx`)   |
 
 ## What Virtual Movies would require (concrete)
 

@@ -54,7 +54,7 @@ only in a live install.
   property when Tests' `ProjectReference` asks the plugin project for its compatible framework, which would
   silently revert it to `Directory.Build.props`'s default. `JellyfinVersion`, not being that property,
   survives the same query and re-derives the same framework on both sides. The `Package` step's `jprm plugin
-  build` runs its own internal `dotnet build` of the whole solution this same way, driven only by the
+build` runs its own internal `dotnet build` of the whole solution this same way, driven only by the
   `JellyfinVersion` environment variable it's given, for the same reason.
 
 The full standalone build-and-package pattern is written up in
@@ -77,14 +77,14 @@ the manifest update, which the catalog serves over its raw URL and clients pick 
 There are two catalog manifests: `manifest.json` (stable) and `manifest-beta.json` (beta). The release's
 GitHub **pre-release** flag routes which gets the new version:
 
-- **Stable release** (pre-release unticked): added to *both* manifests.
+- **Stable release** (pre-release unticked): added to _both_ manifests.
 - **Pre-release**: added to `manifest-beta.json` only.
 
 So the beta channel is a superset (every release); the stable channel carries only stable releases.
 
 **Version convention (important).** Plugin versions are 4-part numeric (`10.11.B.R`), and Jellyfin always
 offers the highest version it sees, so the channels must stay strictly ordered. A **stable** release uses
-revision `.0` (`10.11.1.0`); a **beta** uses a non-zero revision building toward the *next* stable's `.0`
+revision `.0` (`10.11.1.0`); a **beta** uses a non-zero revision building toward the _next_ stable's `.0`
 (betas `10.11.1.1`, `10.11.1.2`, ... lead to stable `10.11.2.0`). That way each stable supersedes the betas
 before it, and each beta supersedes the last stable. CI guards both halves: the tag must match
 `build.yaml`'s `version`, a stable release must be a `.0` revision, and a pre-release must not be.

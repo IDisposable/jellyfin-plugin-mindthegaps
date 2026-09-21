@@ -35,9 +35,9 @@ Scans also run on a schedule, alongside a "Refresh where to watch" pass, under *
 
 ## Domains and patterns (the two axes)
 
-The report is split first by *domain* (**Movies**, **Shows**, **Music**, **Books**), the report's tabs;
+The report is split first by _domain_ (**Movies**, **Shows**, **Music**, **Books**), the report's tabs;
 only its data is loaded and kept in memory while you view it. Within a domain, the **View** dropdown
-picks the *pattern*, the kind of gap: Set completion, Creator works, or Discover. Switching domains
+picks the _pattern_, the kind of gap: Set completion, Creator works, or Discover. Switching domains
 remembers the pattern you last viewed there, so going from Movies > Discover to Shows and back returns you
 to Discover, not back to Set completion.
 
@@ -111,17 +111,17 @@ have). Both apply to the current domain tab; filters combine (a row must pass al
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **View** (pattern)             | Pick the pattern to view within the active domain tab: Set completion, Creator works, or Discover, each badged with its gap count in this domain, listed only when it actually has gaps. The domain tabs above it are the primary selector; this dropdown scopes within whichever one is active. Switching domains remembers the pattern last viewed there.                                                                                                                                                                                                                                                                          |
 | **Sort**                       | Reorder rows (for example by title or year).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Compact view**               | Switches every row to a denser layout: a smaller thumbnail, and the same watch links, provider links, and actions collapsed into three icon popovers instead of a longer row (this is the default look for every row; Compact view only shrinks the thumbnail and tightens spacing). Off by default; persisted like the other filters. |
+| **Compact view**               | Switches every row to a denser layout: a smaller thumbnail, and the same watch links, provider links, and actions collapsed into three icon popovers instead of a longer row (this is the default look for every row; Compact view only shrinks the thumbnail and tightens spacing). Off by default; persisted like the other filters.                                                                                                                                                                                                                                                                                               |
 | **Hide specials**              | Drop season-0 / special episodes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **Hide upcoming**              | Drop gaps that are not out yet, so not yet acquirable: a release date in the future, or, for a movie, series, or episode, no release date at all. TMDB and the episode providers date anything that has actually been released, so an undated title there is announced but unscheduled (a "Bond 26") and is badged **Announced**. Music and books are exempt, since a sparse Discogs, MusicBrainz, or OpenLibrary entry for a decades-old release often carries no date and is a genuine gap. Whether something counts as upcoming is worked out afresh on every scan, so a title stops being upcoming once its release date passes. |
 | **Show dismissed**             | Reveal gaps you dismissed; each appears greyed with its status (resolved / not interested / snoozed) and a **Clear** button. Off by default, so dismissed rows stay hidden.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Hide items with no sources** | Hide gaps with no "where to watch" match for your provider filter. Needs availability data first (see below).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Look up where to watch**     | Kicks off the background availability pass: fetches streaming providers for the gaps that do not have them yet, in batches, filling in as it goes. Grouped by watch target, so every episode of a series shares one lookup. The button shows how many titles still need a lookup ("Look up where to watch (N)"), reports live progress while running ("Looking up... 45/320"), and reads "Where to watch: all checked" (disabled) once the backlog is cleared. Requires **Availability** enabled in settings.                                                                                                                        |
 | **Provider filter**            | When availability data is present, filter to specific streaming providers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Export Markdown**            | Check the rows it is about to write against your library, drop the ones you now hold, then download the current view as filtered as a Markdown file with links. Exporting therefore clears what you already have, and says how many; the file is a list of what you still need rather than a snapshot of what the last scan believed. If the check fails, it exports the list as it stands and tells you so.                                                                                                                                                                                                                          |
+| **Export Markdown**            | Check the rows it is about to write against your library, drop the ones you now hold, then download the current view as filtered as a Markdown file with links. Exporting therefore clears what you already have, and says how many; the file is a list of what you still need rather than a snapshot of what the last scan believed. If the check fails, it exports the list as it stands and tells you so.                                                                                                                                                                                                                         |
 | **Search**                     | Free-text filter on the title.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Saved views**                | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Copy link**                  | Copy a URL that re-opens this exact view (active domain and pattern plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser.                                                                                                                                                                                                                                                                                                                   |
+| **Copy link**                  | Copy a URL that re-opens this exact view (active domain and pattern plus every filter) when pasted into another browser or shared. Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser.                                                                                                                                                                                                                                                                                                    |
 | **My TODO list**               | Open your personal pick-list of gaps to go find, built with the per-row **TODO** button or the multi-select bar. It survives rescans, groups by domain, and each entry has a done tick, links, a **Verify** that checks your library for that one title, and **Delete**. **Verify all** checks every entry at once and ticks what you now hold (and un-ticks anything that has left the library). **Export Markdown** runs that same check first, then downloads the list as a checklist, so the ticks in the file are true as of the download.                                                                                      |
 | **Explore a source**           | Open a modal that pulls the unowned titles from one source right now and merges them into the report, without a full rescan and without changing your saved settings. See [Explore a source on demand](#explore-a-source-on-demand).                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Clear what I have**          | The widest scope of the clear-down described under [Per-row actions](#per-row-actions): checks every row currently shown against your library, drops the ones you now hold, then offers a provider re-check for what is left. Confirms the count first.                                                                                                                                                                                                                                                                                                                                                                              |
@@ -154,23 +154,23 @@ loads a row's overview, links, and offer links only when you open it, which is w
   the item in your library where one exists, for example the owning series of a missing episode), and a
   **clear** icon that clears any dismissal on the row.
 - **Actions**: whichever of these apply to the row:
-  - **Diagnose** (movie and show rows): explains why the row is reported missing, most often an owned copy
-    under the wrong id. See [Diagnose](#diagnose-is-it-really-missing) below.
-  - **Radarr** / **Sonarr** / **Request** (when an acquisition target is configured): hands the gap off to
-    your downloaders. Radarr sends a missing movie, Sonarr sends the owning series of a missing series or
-    episode (it grabs that series' missing episodes), and Request hands either off to Jellyseerr/Overseerr.
-    An item appears only for a target you filled in under the
-    [Acquisition stack settings](configuration.md#acquisition-stack-optional); the plugin holds the keys
-    and makes the call, so they never reach the browser.
-  - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
-    the gap shows greyed in place. Fully reversible; a later scan drops it once you own the real file. See
-    the [README's virtual-placeholders section](../README.md#virtual-placeholders-opt-in).
-  - **TODO**: adds the gap to your personal TODO list.
-  - **Resolve** (a nested popover; so a gap stops cluttering the list, surviving rescans): **Mark
-    resolved** ("not really missing," with an optional note), **Not interested** (a real gap you do not
-    want), or, for an upcoming item, **Snooze until release** (hide until the release date). Once
-    dismissed, this popover instead shows the dismissal's note and a **Clear** button to undo it (also
-    reachable via **Show dismissed**).
+    - **Diagnose** (movie and show rows): explains why the row is reported missing, most often an owned copy
+      under the wrong id. See [Diagnose](#diagnose-is-it-really-missing) below.
+    - **Radarr** / **Sonarr** / **Request** (when an acquisition target is configured): hands the gap off to
+      your downloaders. Radarr sends a missing movie, Sonarr sends the owning series of a missing series or
+      episode (it grabs that series' missing episodes), and Request hands either off to Jellyseerr/Overseerr.
+      An item appears only for a target you filled in under the
+      [Acquisition stack settings](configuration.md#acquisition-stack-optional); the plugin holds the keys
+      and makes the call, so they never reach the browser.
+    - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so
+      the gap shows greyed in place. Fully reversible; a later scan drops it once you own the real file. See
+      the [README's virtual-placeholders section](../README.md#virtual-placeholders-opt-in).
+    - **TODO**: adds the gap to your personal TODO list.
+    - **Resolve** (a nested popover; so a gap stops cluttering the list, surviving rescans): **Mark
+      resolved** ("not really missing," with an optional note), **Not interested** (a real gap you do not
+      want), or, for an upcoming item, **Snooze until release** (hide until the release date). Once
+      dismissed, this popover instead shows the dismissal's note and a **Clear** button to undo it (also
+      reachable via **Show dismissed**).
 - **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group
   header carries **Resolve all** / **Not interested in all**, which dismiss every listed episode under that
   group in one step (after a confirm). They act on the episodes currently shown, so any filter applies.
@@ -184,26 +184,26 @@ loads a row's overview, links, and offer links only when you open it, which is w
   added since the last scan. That second step is always a prompt, so the everyday case (I filled these,
   clear them) stays one click and never spends a provider call.
 
-  The scopes, widest first:
+    The scopes, widest first:
 
-  | Where                                                                                                                | Covers                          |
-  | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-  | The rollup line ("Shows: 679 gaps across 17 sets")                                                                   | every row shown for that domain |
-  | A Set completion kind heading (Collections and franchises, Studios, Keywords, Discography, Record labels)            | every row under that kind       |
-  | Any group header (a collection, studio, keyword, series, artist, author, creator, curated list, recommendation seed) | every row listed under it       |
-  | A season header                                                                                                      | that season's episodes          |
-  | Any row                                                                                                              | that one title                  |
-  | **Clear what I have** in the toolbar                                                                                 | the whole filtered view          |
+    | Where                                                                                                                | Covers                          |
+    | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+    | The rollup line ("Shows: 679 gaps across 17 sets")                                                                   | every row shown for that domain |
+    | A Set completion kind heading (Collections and franchises, Studios, Keywords, Discography, Record labels)            | every row under that kind       |
+    | Any group header (a collection, studio, keyword, series, artist, author, creator, curated list, recommendation seed) | every row listed under it       |
+    | A season header                                                                                                      | that season's episodes          |
+    | Any row                                                                                                              | that one title                  |
+    | **Clear what I have** in the toolbar                                                                                 | the whole filtered view         |
 
-  Kind headings only render when a domain's Set completion holds more than one kind, so **Shows** has none;
-  its rollup line is the level above the series groups. **Creator works** and **Discover** group straight by
-  source and have no kind level at all, so the same applies there.
+    Kind headings only render when a domain's Set completion holds more than one kind, so **Shows** has none;
+    its rollup line is the level above the series groups. **Creator works** and **Discover** group straight by
+    source and have no kind level at all, so the same applies there.
 
-  The re-check half is offered only for sources the server can re-run per item: a movie collection, a music
-  artist, a book author, and a series. A studio, keyword, Discogs label, or curated list is keyed to a
-  synthetic id rather than a library item, and a film filmography or recommendation seed would need a
-  library-wide ownership pass, so those get the library check alone. A re-check covering more than one
-  source runs in the background with progress and saves each one as it finishes.
+    The re-check half is offered only for sources the server can re-run per item: a movie collection, a music
+    artist, a book author, and a series. A studio, keyword, Discogs label, or curated list is keyed to a
+    synthetic id rather than a library item, and a film filmography or recommendation seed would need a
+    library-wide ownership pass, so those get the library check alone. A re-check covering more than one
+    source runs in the background with progress and saves each one as it finishes.
 
 Resolving a gap can carry an optional note (for example why it is not really missing):
 

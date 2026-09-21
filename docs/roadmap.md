@@ -6,15 +6,15 @@
 
 ## Deliberate non-goals (not built, on purpose)
 
-| Capability | Why not |
-|---|---|
-| `IGapSource` as a core SPI for third-party gap plugins | Deferred by design (ADR-0002); every source ships in this plugin. |
-| Fuzzy "treat an owned-but-mistagged item as owned" matching | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source. |
-| Per-user display gate for minted virtual items | Not possible from a plugin; minted items show for everyone. Needs upstream B. |
-| Greyed "Missing" badge on minted items | Needs upstream A merged. |
-| Symmetric **book series** as Set completion | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete. |
-| Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it. |
-| MusicVideos domain | Enum-only; no source. |
+| Capability                                                    | Why not                                                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IGapSource` as a core SPI for third-party gap plugins        | Deferred by design (ADR-0002); every source ships in this plugin.                                                                           |
+| Fuzzy "treat an owned-but-mistagged item as owned" matching   | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source. |
+| Per-user display gate for minted virtual items                | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                               |
+| Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                    |
+| Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.  |
+| Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                        |
+| MusicVideos domain                                            | Enum-only; no source.                                                                                                                       |
 
 ## Upstream asks
 

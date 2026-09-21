@@ -48,14 +48,14 @@ all apply unchanged. It has its own toggle because one people list is many filmo
 Once IMDb and JustWatch were in, the same question was worth asking of every service the plugin already talks
 to. Probing each with a real credential settled it:
 
-| Service | Want-list | Credential | Built |
-|---|---|---|---|
-| OpenLibrary | "Want to Read" shelf | none, public shelf | yes |
-| Discogs | wantlist | the existing token, plus a username | yes |
-| MDBList | account watchlist | the existing API key | yes |
-| TheTVDB | favorite series | the existing key, plus a subscriber PIN | yes |
-| Trakt | watchlist | the existing client id, plus a username | yes |
-| TMDB | watchlist and favorites | the user's **own** api key, plus a session | yes |
+| Service     | Want-list               | Credential                                 | Built |
+| ----------- | ----------------------- | ------------------------------------------ | ----- |
+| OpenLibrary | "Want to Read" shelf    | none, public shelf                         | yes   |
+| Discogs     | wantlist                | the existing token, plus a username        | yes   |
+| MDBList     | account watchlist       | the existing API key                       | yes   |
+| TheTVDB     | favorite series         | the existing key, plus a subscriber PIN    | yes   |
+| Trakt       | watchlist               | the existing client id, plus a username    | yes   |
+| TMDB        | watchlist and favorites | the user's **own** api key, plus a session | yes   |
 
 TheTVDB was the surprise: `/user/favorites` is account data and a key-only token is refused, but a token minted
 with a subscriber PIN reads it, and the same token still serves the catalog, so one login path covers both.
