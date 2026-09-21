@@ -36,6 +36,7 @@ public class WebUiController : ControllerBase
 
     private readonly PersonMissingService _person;
     private readonly RelatedMissingService _related;
+    private readonly WorksMissingService _works;
     private readonly HomeDiscoverService _home;
     private readonly AcquisitionService _acquisition;
     private readonly TodoStore _todo;
@@ -47,16 +48,18 @@ public class WebUiController : ControllerBase
     /// </summary>
     /// <param name="person">Computes a person's unowned filmography.</param>
     /// <param name="related">Computes a title's unowned similar titles.</param>
+    /// <param name="works">Computes an artist's unowned albums and a book's unowned works by its author.</param>
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
     /// <param name="todo">The personal todo-list store, for the "Add to TODO" fallback when no arr is set up.</param>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
     /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
-    public WebUiController(PersonMissingService person, RelatedMissingService related, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
+    public WebUiController(PersonMissingService person, RelatedMissingService related, WorksMissingService works, HomeDiscoverService home, AcquisitionService acquisition, TodoStore todo, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
     {
         _justWatchLinks = justWatchLinks;
         _person = person;
         _related = related;
+        _works = works;
         _home = home;
         _acquisition = acquisition;
         _todo = todo;
@@ -227,6 +230,47 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddItemGapToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
         => AddOwnedGapToTodoAsync(ItemPageEnabled, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), cancellationToken);
+
+    /// <summary>
+    /// Lists the albums an owned artist made, or the other works by an owned book's author, that the library
+    /// does not hold.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The list, or 404 for an id that is not an artist or book, when no enabled source handles it,
+    /// or while the item page surface is off.</returns>
+    [HttpGet("Item/{itemId}/Works")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<WorksMissingResult>> GetItemWorks([FromRoute] Guid itemId, CancellationToken cancellationToken)
+    {
+        if (!ItemPageEnabled)
+        {
+            return NotFound();
+        }
+
+        var result = await _works.GetAsync(itemId, IsAdministrator, cancellationToken).ConfigureAwait(false);
+        return result is null ? NotFound() : result;
+    }
+
+    /// <summary>
+    /// Adds one of an artist's or author's unowned works to the caller's personal todo list, rehydrated
+    /// server-side from the same lookup the page listed. Music and books have no Radarr/Sonarr handoff, so
+    /// there is no Send counterpart.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries added (0 or 1), or 404 while the surface is off.</returns>
+    [HttpPost("Item/{itemId}/Works/Todo")]
+    [Authorize(Policy = "RequiresElevation")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddItemWorkToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => AddOwnedGapToTodoAsync(ItemPageEnabled, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), cancellationToken);
 
     /// <summary>
     /// The home screen's discovery row: the recommendation gaps the scan has accumulated, ranked.

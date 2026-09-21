@@ -60,7 +60,7 @@ window.ApiClient = {
             window.__lastProfilesUrl = url;
             return __PROFILES_RESULT__ && __PROFILES_RESULT__.reject ? Promise.reject(new Error('arr down')) : Promise.resolve(__PROFILES_RESULT__);
         }
-        if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1) {
+        if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1 || (url.indexOf('/Works') !== -1 && url.indexOf('/Todo') === -1)) {
             return __MISSING_RESULT__ ? Promise.resolve(__MISSING_RESULT__) : Promise.reject(new Error('404'));
         }
         if (url.indexOf('/Discover') !== -1) {
@@ -90,7 +90,7 @@ window.Dashboard = {
 }
 
 // item: the fake ApiClient.getItem() result (null to simulate an id the item lookup fails for).
-// missingResult: the fake MindTheGaps/Person/{id}/Missing (or Item/.../Related) payload (null for the
+// missingResult: the fake MindTheGaps/Person/{id}/Missing (or Item/.../Related, or Item/.../Works) payload (null for the
 // surface being off). todoResult: the fake MindTheGaps/.../Todo payload (an int; defaults to 1).
 // detailResult/profilesResult: the dialog's own lookups, see buildMockScript's header for the defaults.
 function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailResult, profilesResult) {

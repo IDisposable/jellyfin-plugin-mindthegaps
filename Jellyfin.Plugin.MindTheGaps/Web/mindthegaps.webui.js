@@ -4,6 +4,8 @@
 // where the matching surface is switched on in the plugin settings:
 //   - on a Person page, a "Missing from your library" section of the person's unowned movies and shows;
 //   - on a Movie or Series page, a "More like this you don't have" row of unowned similar titles;
+//   - on a Music Artist page, an "Albums you don't have" row, and on a Book page a "More by this author you
+//     don't have" row (their cards carry their own links, since these works have no TMDB id to look up);
 //   - on the home screen, a "Discover" row of the recommendations the scan has accumulated.
 // Talks to the server only through the web client's own ApiClient, so it inherits the signed-in user's
 // session and base URL. Touches nothing but the elements it owns, and removes them again before rendering
@@ -19,6 +21,7 @@
 
     var PERSON_ID = 'mtgPersonMissing';
     var RELATED_ID = 'mtgRelatedMissing';
+    var WORKS_ID = 'mtgWorksMissing';
     var HOME_ID = 'mtgHomeDiscover';
 
     // The classes every dialog button and link carries, so a link and a button look the same. .emby-button is
@@ -64,9 +67,17 @@
         if (old) { old.parentNode.removeChild(old); }
     }
 
-    // ctx: { kind: 'Person'|'Item'|'Home', id: the owning page's Jellyfin id (empty for Home), canTodo }.
+    // ctx: { kind: 'Person'|'Item'|'Home', id: the owning page's Jellyfin id (empty for Home), canTodo, scope }.
+    // scope is an extra path segment before the action, for a page whose actions live under their own route
+    // (an artist's or book's works).
     function actionUrl(ctx, action) {
-        return ctx.id ? 'MindTheGaps/' + ctx.kind + '/' + ctx.id + '/' + action : 'MindTheGaps/' + ctx.kind + '/' + action;
+        var path = 'MindTheGaps/' + ctx.kind + '/' + (ctx.id ? ctx.id + '/' : '') + (ctx.scope ? ctx.scope + '/' : '');
+        return path + action;
+    }
+
+    // A work (an album or a book) carries its own links and has no TMDB id; a title carries a TMDB id.
+    function isWork(item) {
+        return item.Kind === 'MusicAlbum' || item.Kind === 'Book';
     }
 
     // The TMDB page for a card: always available, so a card is still actionable with no arr configured
@@ -315,18 +326,27 @@
         body.appendChild(backdropImg);
 
         var content = h('div', { 'class': 'mtgDialogContent' });
-        var poster = h('div', { 'class': 'mtgDialogPoster' });
+        var poster = h('div', { 'class': 'mtgDialogPoster' + (item.Kind === 'MusicAlbum' ? ' mtgDialogPosterSquare' : '') });
         var bg = safeImage(item.ImageUrl);
         if (bg) { poster.style.backgroundImage = bg; }
         content.appendChild(poster);
 
         var info = h('div', { 'class': 'mtgDialogInfo' });
         info.appendChild(h('h2', { 'class': 'mtgDialogTitle' }, item.Title + (item.Year ? ' (' + item.Year + ')' : '')));
-        var loading = h('p', { 'class': 'mtgNote' }, 'Loading details\u2026');
-        info.appendChild(loading);
-
+        var loading = null;
         var links = h('div', { 'class': 'mtgDialogLinks' });
-        links.appendChild(h('a', { 'href': tmdbUrl(item), 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on TMDB'));
+        if (isWork(item)) {
+            // Everything a work has is on the card already: who it is by, and where to read about it.
+            if (item.Creator) { info.appendChild(h('p', { 'class': 'mtgDialogMeta' }, (item.Kind === 'Book' ? 'By ' : 'Album by ') + item.Creator)); }
+            (item.Links || []).forEach(function (link) {
+                if (!link || !link.Url || !/^https:\/\//i.test(link.Url)) { return; }
+                links.appendChild(h('a', { 'href': link.Url, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on ' + link.Name));
+            });
+        } else {
+            loading = h('p', { 'class': 'mtgNote' }, 'Loading details\u2026');
+            info.appendChild(loading);
+            links.appendChild(h('a', { 'href': tmdbUrl(item), 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on TMDB'));
+        }
         info.appendChild(links);
 
         var actions = h('div', { 'class': 'mtgDialogActions' });
@@ -358,6 +378,8 @@
         // not risk triggering an action before the title has even loaded.
         dialogCloseBtn.focus();
 
+        if (isWork(item)) { return; }
+
         api('GET', 'MindTheGaps/WebUi/Detail', { tmdbId: item.TmdbId, kind: item.Kind }).then(function (detail) {
             if (token !== dialogToken) { return; }
             if (detail) { fillDialogDetail(refs, detail); } else { refs.loading.textContent = 'No further details available.'; }
@@ -375,10 +397,12 @@
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
     function card(ctx, canSend, item) {
-        var el = h('div', { 'class': 'card portraitCard mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
+        // An album cover is square; a poster or a book cover is portrait.
+        var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
+        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
-        scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-portrait' }));
+        scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
         var img = h('div', { 'class': 'cardImageContainer coveredImage cardContent' });
         var bg = safeImage(item.ImageUrl);
         if (bg) {
@@ -550,6 +574,36 @@
         }
     }
 
+    // ---- Artist / book page ----
+
+    function renderWorks(page, itemId, data) {
+        remove(page, WORKS_ID);
+        if (!data || (!data.Reason && !data.Works.length)) { return; }
+
+        var heading = data.Kind === 'Book' ? "More by this author you don't have" : "Albums you don't have";
+        var ctx = { kind: 'Item', id: itemId, canTodo: !!data.CanTodo, scope: 'Works' };
+        var section;
+        if (data.Works.length) {
+            section = scroller(ctx, false, heading, data.Works);
+        } else {
+            section = h('div', { 'class': 'verticalSection' });
+            section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, heading));
+            section.appendChild(h('p', { 'class': 'mtgNote' }, data.Reason));
+        }
+
+        section.id = WORKS_ID;
+        section.classList.add('detailVerticalSection', 'verticalSection-extrabottompadding');
+
+        // Where the movie and series row goes: after jellyfin-web's own "More Like This" when the page has
+        // one, else at the end of the page's content.
+        var anchor = page.querySelector('#similarCollapsible');
+        if (anchor) {
+            anchor.parentNode.insertBefore(section, anchor.nextSibling);
+        } else {
+            (page.querySelector('.detailPageContent') || page).appendChild(section);
+        }
+    }
+
     // ---- Home ----
 
     function renderHome(sectionsEl, data) {
@@ -610,13 +664,14 @@
         }
 
         var itemId = itemIdFromLocation();
-        if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); return; }
+        if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); return; }
 
         var token = ++pending;
         Promise.resolve(ApiClient.getItem(ApiClient.getCurrentUserId(), itemId)).then(function (item) {
             if (token !== pending) { return; }
             remove(page, PERSON_ID);
             remove(page, RELATED_ID);
+            remove(page, WORKS_ID);
             if (!item) { return; }
             if (item.Type === 'Person') {
                 return api('GET', 'MindTheGaps/Person/' + item.Id + '/Missing').then(function (data) {
@@ -629,9 +684,15 @@
                     if (token === pending) { renderRelated(page, item.Id, data); }
                 });
             }
+
+            if (item.Type === 'MusicArtist' || item.Type === 'Book') {
+                return api('GET', 'MindTheGaps/Item/' + item.Id + '/Works').then(function (data) {
+                    if (token === pending) { renderWorks(page, item.Id, data); }
+                });
+            }
         }).catch(function () {
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
-            if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); }
+            if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); }
         });
     }
 
@@ -649,6 +710,7 @@
         '.mtgDialogBackdropImage{width:100%;padding-top:33%;background-size:cover;background-position:center;background-color:#1c1c1c}' +
         '.mtgDialogContent{display:flex;flex-wrap:wrap;gap:1.5em;padding:1.5em}' +
         '.mtgDialogPoster{flex:0 0 10em;width:10em;height:15em;background-size:cover;background-position:center;background-color:#2b2b2b;border-radius:.3em}' +
+        '.mtgDialogPosterSquare{height:10em}' +
         '.mtgDialogInfo{flex:1 1 16em;min-width:0}' +
         '.mtgDialogTitle{margin:0 0 .3em}' +
         '.mtgDialogTagline{font-style:italic;opacity:.8;margin:.3em 0}' +

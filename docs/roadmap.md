@@ -104,6 +104,13 @@ them. Drafts in [docs/upstream/](upstream/).
 - **Keep personal lists out of the home Discover row.** The row ranks every `Recommendation`-pattern gap, and
   the watchlist and list sources emit that pattern too, so titles from an administrator's personal lists can
   appear for other users. Restrict the row to the recommendation source, or let the administrator choose.
+- **More of the works surfaces.** Artist and book pages list what the owner's sources find, with links and an
+  administrator's Add to TODO. Still open: an album page (the artist's other albums, or missing tracks, for
+  which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
+  description) fetched from MusicBrainz or OpenLibrary; a Lidarr or Readarr handoff to give these cards a
+  Send; and a studio page, which needs a TMDB company id (a library studio has none, so it would resolve by
+  name, as auto-seed does) and a cap on a large catalogue, and depends on jellyfin-web having a page to add
+  it to.
 
 ### Scan performance
 

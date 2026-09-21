@@ -428,9 +428,11 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Gets or sets a value indicating whether an owned movie or series page shows a "More like this you
-    /// don't have" row of TMDB's recommendations for it. When on, the data is served to every signed-in
+    /// don't have" row of TMDB's recommendations for it. When on, the data is served to any signed-in
     /// user. Uses the same <see cref="MaxRelatedPerItem"/>/<see cref="MinRecommendationVotes"/> limits the
-    /// scan's own recommendations source does.
+    /// scan's own recommendations source does. An artist page lists the albums the library lacks, and a book
+    /// page the other works by its author, through the same sources the report's re-check runs, so they
+    /// also need the Music and Books scans on.
     /// </summary>
     public bool ItemPageEnabled { get; set; }
 
