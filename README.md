@@ -320,7 +320,7 @@ For every setting, what it does, and what changes when you set or clear it, see 
 
 [^floors]: Plus an optional cast-billing limit and, separately, a minimum-episode floor for a TV credit.
 
-[^webui]: Item pages cover movies, series, artists and books, and the home row has its own size setting. Each surface's data is available to other clients when its own switch is on. Want to watch is each signed-in user's own list: a bookmark on every card, and a home row of what is still on it.
+[^webui]: Item pages cover movies, series, artists, books and an author's own page, and the home row has its own size setting. Each surface's data is available to other clients when its own switch is on. Want to watch is each signed-in user's own list: a bookmark on every card, and a home row of what is still on it.
 
 [^apilogging]: It covers the sources, the acquisition sends, TMDB, and the webhook.
 

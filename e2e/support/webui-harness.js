@@ -15,7 +15,9 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // null simulates TMDB having nothing for that id; use { reject: true } to simulate the call failing).
 // profilesResult: the fake MindTheGaps/WebUi/Profiles payload (undefined defaults to two profiles; use
 // { reject: true } to simulate the call failing, which the dialog treats as "no picker, use the default").
-function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult) {
+// worksResult: the fake MindTheGaps/Item/{id}/Works payload for a Person page, where the Missing payload is the
+// filmography and not the works (undefined and null both mean the person has no books).
+function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult, worksResult) {
     var defaultDetail = {
         Title: 'A Missing Movie', Kind: 'Movie', TmdbId: 603, Year: 1999,
         Tagline: 'Welcome to the Real World.', Overview: 'A test overview.',
@@ -35,6 +37,7 @@ window.addEventListener('error', function (e) { window.__uiTestErrors.push(Strin
 
 var __ITEM__ = ${JSON.stringify(item)};
 var __MISSING_RESULT__ = ${JSON.stringify(missingResult)};
+var __WORKS_RESULT__ = ${JSON.stringify(item && item.Type === 'Person' ? (worksResult || null) : missingResult)};
 var __DISCOVER_RESULT__ = ${JSON.stringify(discoverResult)};
 var __WANTED_RESULT__ = ${JSON.stringify(wantedResult === undefined ? null : wantedResult)};
 var __SEND_RESULT__ = ${JSON.stringify(sendResult || { Success: true, Message: 'Sent 1 item(s).' })};
@@ -61,7 +64,10 @@ window.ApiClient = {
             window.__lastProfilesUrl = url;
             return __PROFILES_RESULT__ && __PROFILES_RESULT__.reject ? Promise.reject(new Error('arr down')) : Promise.resolve(__PROFILES_RESULT__);
         }
-        if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1 || (url.indexOf('/Works') !== -1 && url.indexOf('/Todo') === -1)) {
+        if (url.indexOf('/Works') !== -1 && url.indexOf('/Todo') === -1) {
+            return __WORKS_RESULT__ ? Promise.resolve(__WORKS_RESULT__) : Promise.reject(new Error('404'));
+        }
+        if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1) {
             return __MISSING_RESULT__ ? Promise.resolve(__MISSING_RESULT__) : Promise.reject(new Error('404'));
         }
         if (url.indexOf('/Wanted/Remove') !== -1) {
@@ -101,7 +107,8 @@ window.Dashboard = {
 // missingResult: the fake MindTheGaps/Person/{id}/Missing (or Item/.../Related, or Item/.../Works) payload (null for the
 // surface being off). todoResult: the fake MindTheGaps/.../Todo payload (an int; defaults to 1).
 // detailResult/profilesResult: the dialog's own lookups, see buildMockScript's header for the defaults.
-function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailResult, profilesResult) {
+// worksResult: for a Person, the Item/{id}/Works payload of an author (see buildMockScript).
+function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailResult, profilesResult, worksResult) {
     const webui = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.webui.js'), 'utf8');
 
     const page = `<!doctype html>
@@ -113,7 +120,7 @@ function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailRe
         <div id="similarCollapsible"></div>
     </div>
 </div>
-${buildMockScript(item, missingResult, sendResult, null, todoResult, detailResult, profilesResult)}
+${buildMockScript(item, missingResult, sendResult, null, todoResult, detailResult, profilesResult, undefined, worksResult)}
 <script>${webui}</script>
 </body>
 </html>`;

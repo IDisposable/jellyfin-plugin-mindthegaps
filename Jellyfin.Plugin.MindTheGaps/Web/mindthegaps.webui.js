@@ -4,10 +4,11 @@
 // where the matching surface is switched on in the plugin settings:
 //   - on a Person page, a "Missing from your library" section of the person's unowned movies and shows;
 //   - on a Movie or Series page, a "More like this you don't have" row of unowned similar titles;
-//   - on a Music Artist page, an "Albums you don't have" row, and on a Book page a "More by this author you
-//     don't have" row (their cards carry their own links, since these works have no TMDB id to look up);
+//   - on a Music Artist page, an "Albums you don't have" row, and on a Book page or an author's own page a
+//     "More by this author you don't have" row (their cards carry their own links, since these works have no
+//     TMDB id to look up);
 //   - on the home screen, a "Discover" row of the recommendations the scan has accumulated;
-//   - where want to watch is on, a bookmark on every card that puts the title on the signed-in user's own list
+//   - where want to watch is on, a bookmark on every card's image that puts the title on the signed-in user's own list
 //     and takes it off again, and a home row of what is still on that list.
 // Talks to the server only through the web client's own ApiClient, so it inherits the signed-in user's
 // session and base URL. Touches nothing but the elements it owns, and removes them again before rendering
@@ -63,6 +64,11 @@
         var q = hash.indexOf('?');
         if (hash.indexOf('/details') < 0 || q < 0) { return null; }
         return new URLSearchParams(hash.slice(q + 1)).get('id');
+    }
+
+    // The result of a call that may legitimately answer 404 (a surface that is off, or a page it has nothing for).
+    function quietly(promise) {
+        return promise.then(function (data) { return data; }, function () { return null; });
     }
 
     function remove(page, id) {
@@ -161,7 +167,8 @@
         var id = item.GapId.replace(/["\\]/g, '');
         var card = '.mtgCard[data-gapid="' + id + '"]';
         var dialogButton = '.mtgDialog .mtgWantButton[data-want="' + id + '"]';
-        Array.prototype.forEach.call(document.querySelectorAll(card + ' .mtgWant'), function (btn) { paintBookmark(btn, item); });
+        var dialogBookmark = '.mtgDialog .mtgWant[data-want="' + id + '"]';
+        Array.prototype.forEach.call(document.querySelectorAll(card + ' .mtgWant, ' + dialogBookmark), function (btn) { paintBookmark(btn, item); });
         Array.prototype.forEach.call(document.querySelectorAll(dialogButton), function (btn) { paintWantButton(btn, item); });
         if (!ctx.wanted || item.OnList) { return; }
         Array.prototype.forEach.call(document.querySelectorAll('#' + WANTED_ID + ' ' + card), function (cardEl) {
@@ -176,6 +183,7 @@
             btn.textContent = 'Removed from your list';
             btn.disabled = true;
         });
+        Array.prototype.forEach.call(document.querySelectorAll(dialogBookmark), function (btn) { btn.disabled = true; });
     }
 
     function wantBookmark(ctx, item) {
@@ -388,6 +396,13 @@
         var poster = h('div', { 'class': 'mtgDialogPoster' + (item.Kind === 'MusicAlbum' ? ' mtgDialogPosterSquare' : '') });
         var bg = safeImage(item.ImageUrl);
         if (bg) { poster.style.backgroundImage = bg; }
+        // The same bookmark, in the same corner, as on the card the dialog was opened from.
+        if (ctx.canTodo) {
+            var mark = wantBookmark(ctx, item);
+            mark.setAttribute('data-want', item.GapId);
+            poster.appendChild(mark);
+        }
+
         content.appendChild(poster);
 
         var info = h('div', { 'class': 'mtgDialogInfo' });
@@ -448,10 +463,10 @@
         });
     }
 
-    // A plain card: image, title, year/role. No actions of its own (unlike the report page's own rows,
-    // this renders inside jellyfin-web's native page, which also sets the CSS containment that makes
-    // position:fixed/absolute land in the wrong place, which is also why the dialog itself is appended to
-    // document.body rather than here); clicking anywhere on it, or pressing Enter/Space while it has
+    // A plain card: image, title, year/role, and the want-to-watch bookmark in the image's upper right corner
+    // (absolutely placed inside the card's own image box, which is safe under the page's CSS containment
+    // where a fixed overlay is not; that containment is also why the dialog itself is appended to
+    // document.body rather than here). Clicking anywhere else on it, or pressing Enter/Space while it has
     // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
@@ -473,18 +488,20 @@
 
         if (item.Upcoming) { img.appendChild(h('div', { 'class': 'mtgUpcomingBadge' }, 'Upcoming')); }
         scalable.appendChild(img);
+        if (ctx.canTodo) { scalable.appendChild(wantBookmark(ctx, item)); }
         box.appendChild(scalable);
 
-        var title = h('div', { 'class': 'cardText cardTextCentered cardText-first' });
+        // The full title on hover, since a long one is cut to the card's width.
+        var title = h('div', { 'class': 'cardText cardTextCentered cardText-first', 'title': item.Title });
         title.appendChild(h('bdi', null, item.Title));
         box.appendChild(title);
 
+        // The year is never cut; a long role gives way to an ellipsis, with the whole line on hover.
         var sub = item.Year ? String(item.Year) : '';
         if (item.Role) { sub = sub ? sub + ' \u00b7 ' + item.Role : item.Role; }
         var secondary = h('div', { 'class': 'cardText cardTextCentered cardText-secondary mtgCardMeta', 'title': sub });
-        secondary.appendChild(h('bdi', null, sub));
-        // In the flow of the card rather than laid over its image, like everything this script renders.
-        if (ctx.canTodo) { secondary.appendChild(wantBookmark(ctx, item)); }
+        if (item.Year) { secondary.appendChild(h('span', { 'class': 'mtgCardYear' }, String(item.Year) + (item.Role ? ' \u00b7' : ''))); }
+        if (item.Role) { secondary.appendChild(h('span', { 'class': 'mtgCardRole' }, item.Role)); }
         box.appendChild(secondary);
 
         el.appendChild(box);
@@ -754,8 +771,19 @@
             remove(page, WORKS_ID);
             if (!item) { return; }
             if (item.Type === 'Person') {
-                return api('GET', 'MindTheGaps/Person/' + item.Id + '/Missing').then(function (data) {
-                    if (token === pending) { renderPerson(page, item.Id, data); }
+                // A person may be an actor, an author, or both: ask for the filmography and for the books, each
+                // answering 404 when it has nothing to say about them.
+                return Promise.all([
+                    quietly(api('GET', 'MindTheGaps/Person/' + item.Id + '/Missing')),
+                    quietly(api('GET', 'MindTheGaps/Item/' + item.Id + '/Works'))
+                ]).then(function (results) {
+                    if (token !== pending) { return; }
+                    var missing = results[0];
+                    var works = results[1];
+                    // An author has no filmography to look up, and the note that says so is noise on their page.
+                    if (works && missing && missing.Reason && !missing.Movies.length && !missing.Series.length) { missing = null; }
+                    renderPerson(page, item.Id, missing);
+                    renderWorks(page, item.Id, works);
                 });
             }
 
@@ -780,9 +808,16 @@
     style.textContent =
         '.mtgUpcomingBadge{position:absolute;top:.5em;left:.5em;z-index:1;padding:.2em .6em;border-radius:.3em;background:rgba(0,0,0,.75);color:#fff;font-size:75%;line-height:1.4}' +
         '.mtgNote{opacity:.8}' +
-        '.mtgCardMeta{display:flex;align-items:center;justify-content:center;gap:.3em}' +
-        '.mtgWant{display:inline-flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;width:1.9em;height:1.9em;margin:0;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer;opacity:.75}' +
-        '.mtgWant:hover,.mtgWant:focus-visible,.mtgWant[aria-pressed="true"]{opacity:1}' +
+        '.mtgCardMeta{display:flex;align-items:baseline;justify-content:center;gap:.3em}' +
+        '.mtgCardYear{flex:none}' +
+        '.mtgCardRole{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+        // The bookmark sits in the upper right corner of an image (a card's, or the dialog's poster), over a dark
+        // disc so it reads on any artwork. Absolute inside the image's own box, never fixed.
+        '.mtgCard .cardScalable,.mtgDialogPoster{position:relative}' +
+        '.mtgWant{position:absolute;top:.4em;right:.4em;z-index:1;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:2.4em;height:2.4em;margin:0;padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;opacity:.85}' +
+        '.mtgWant svg{width:1.5em;height:1.5em}' +
+        '.mtgWant:hover,.mtgWant:focus,.mtgWant[aria-pressed="true"]{opacity:1}' +
+        '.mtgWant:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
         '.mtgCard{cursor:pointer}' +
         '.mtgDialogBackdrop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:2em;overflow-y:auto}' +
         '.mtgDialogBackdrop.mtgDialogOpen{display:flex}' +

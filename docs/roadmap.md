@@ -94,8 +94,8 @@ them. Drafts in [docs/upstream/](upstream/).
   page is shown only to a user who can see its item. A finer filter would check each listed title's
   certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
   ADR-0019.
-- **More of the works surfaces.** Artist and book pages list what the owner's sources find, with links and an
-  a want-to-watch bookmark. Still open: an album page (the artist's other albums, or missing tracks, for
+- **More of the works surfaces.** Artist, book and author pages list what the owner's sources find, with links
+  and a want-to-watch bookmark. Still open: an album page (the artist's other albums, or missing tracks, for
   which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
   description) fetched from MusicBrainz or OpenLibrary; a Lidarr or Readarr handoff to give these cards a
   Send; and a studio page, which needs a TMDB company id (a library studio has none, so it would resolve by

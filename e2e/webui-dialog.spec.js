@@ -269,13 +269,15 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
     await page.locator('[data-gapid="filmography:movie:1"]').click();
 
     // Wait for the profile select and the extra links (IMDb, JustWatch, trailer) to settle in, so the order
-    // below (close, TMDB, IMDb, JustWatch, trailer, select, Send, want to watch) is the full, final set.
+    // below (close, bookmark, TMDB, IMDb, JustWatch, trailer, select, Send, want to watch) is the full, final set.
     await expect(page.locator('.mtgDialog .mtgProfileSelect')).toBeVisible();
     await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
     const activeClasses = () => page.evaluate(() => document.activeElement.className);
 
     expect(await activeClasses()).toContain('mtgDialogClose');
+    await page.keyboard.press('Tab');
+    expect(await activeClasses()).toContain('mtgWant');
     for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); }
     expect(await activeClasses()).toContain('mtgSendButton');
     await page.keyboard.press('Tab');
@@ -297,9 +299,13 @@ test('ArrowRight/ArrowLeft move focus the same way Tab does', async ({ page }) =
     await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
     await page.keyboard.press('ArrowRight');
-    let active = await page.evaluate(() => document.activeElement.textContent.trim());
+    expect(await page.evaluate(() => document.activeElement.classList.contains('mtgWant'))).toBe(true);
+
+    await page.keyboard.press('ArrowRight');
+    const active = await page.evaluate(() => document.activeElement.textContent.trim());
     expect(active).toBe('View on TMDB');
 
+    await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');
     const activeIsClose = await page.evaluate(() => document.activeElement.classList.contains('mtgDialogClose'));
     expect(activeIsClose).toBe(true);

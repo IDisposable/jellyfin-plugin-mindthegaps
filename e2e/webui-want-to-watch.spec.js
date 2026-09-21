@@ -62,12 +62,32 @@ test('there is no bookmark, and no dialog button, when the caller cannot keep a 
     await expect(page.locator('.mtgDialog .mtgWantButton')).toHaveCount(0);
 });
 
-test('the bookmark is in the flow of the card, never laid over it', async ({ page }) => {
+test('the bookmark is in the upper right corner of the card image, and nothing is fixed', async ({ page }) => {
     await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, person()));
 
     const positions = await page.locator('#mtgPersonMissing').evaluate((el) => [el, ...el.querySelectorAll('*')].map((e) => getComputedStyle(e).position));
     expect(positions).not.toContain('fixed');
-    expect(positions).not.toContain('absolute');
+
+    const image = await card(page, 'filmography:movie:1').locator('.cardScalable').boundingBox();
+    const mark = await bookmark(page, 'filmography:movie:1').boundingBox();
+    expect(mark.x + mark.width).toBeLessThanOrEqual(image.x + image.width);
+    expect(mark.x + mark.width).toBeGreaterThan(image.x + image.width - mark.width);
+    expect(mark.y).toBeGreaterThanOrEqual(image.y);
+    expect(mark.y).toBeLessThan(image.y + mark.height);
+    expect(mark.width).toBeGreaterThanOrEqual(32);
+});
+
+test('the dialog carries the same bookmark on its poster, and it is the same state', async ({ page }) => {
+    await openPersonPage(page, buildWebUiHarness(PERSON_ITEM, person(), null, 1));
+
+    await card(page, 'filmography:movie:1').click();
+    const mark = page.locator('.mtgDialog .mtgDialogPoster .mtgWant');
+    await expect(mark).toHaveAttribute('aria-pressed', 'false');
+    await mark.click();
+
+    await expect(mark).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.mtgDialog .mtgWantButton')).toHaveText('On your list');
+    await expect(bookmark(page, 'filmography:movie:1')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('clicking the bookmark puts the title on the list and does not open the dialog', async ({ page }) => {

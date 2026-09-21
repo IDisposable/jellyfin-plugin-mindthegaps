@@ -4,8 +4,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -15,8 +18,8 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
-/// Answers "what else did this artist or author make that I don't have?" for one owned artist or book on
-/// demand. It runs the same per-owner sources the report's re-check runs (the music discography and works
+/// Answers "what else did this artist or author make that I don't have?" for one owned artist, book or author
+/// on demand. It runs the same per-owner sources the report's re-check runs (the music discography and works
 /// sources, the Discogs artist source, the book bibliography) against a fresh ownership index of the kind
 /// they diff, and drops what the report has dismissed. Nothing is written to the report, so it is independent
 /// of the scan and identical to what a scan or re-check would have produced for that owner.
@@ -56,13 +59,13 @@ public sealed class WorksMissingService
     }
 
     /// <summary>
-    /// Computes the works the library lacks for an owned artist or book.
+    /// Computes the works the library lacks for an owned artist, book, or an author with an owned book.
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
     /// <param name="wanted">The identity keys of the titles on the caller's want-to-watch list.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The result, or <see langword="null"/> when the id is not an artist or book, or no enabled
-    /// source handles it.</returns>
+    /// <returns>The result, or <see langword="null"/> when the id is not an artist, a book, or an author, or no
+    /// enabled source handles it.</returns>
     public async Task<WorksMissingResult?> GetAsync(Guid itemId, IReadOnlySet<string> wanted, CancellationToken cancellationToken)
     {
         var lookup = Prepare(itemId);
@@ -76,7 +79,7 @@ public sealed class WorksMissingService
         var result = new WorksMissingResult
         {
             ItemId = itemId,
-            ItemName = owner.Name,
+            ItemName = _libraryManager.GetItemById(itemId)?.Name ?? owner.Name,
             Kind = kind
         };
 
@@ -115,22 +118,50 @@ public sealed class WorksMissingService
         return gaps?.FirstOrDefault(g => string.Equals(g.Id, gapId, StringComparison.Ordinal));
     }
 
-    // The owner and the enabled sources that produce gaps for it, or null when the id is not an artist or a
-    // book or no enabled source claims it. Only these two kinds: the same claim test also matches a BoxSet,
-    // which the collection sources own and this surface does not present.
+    // The owner and the enabled sources that produce gaps for it, or null when the id is not an artist, a book
+    // or an author, or no enabled source claims it. Only these kinds: the same claim test also matches a
+    // BoxSet, which the collection sources own and this surface does not present.
     private (BaseItem Owner, List<ISetContentSource> Claimants)? Prepare(Guid itemId)
     {
-        if (_libraryManager.GetItemById(itemId) is not BaseItem owner
-            || owner.GetBaseItemKind() is not (BaseItemKind.MusicArtist or BaseItemKind.Book))
+        var config = Plugin.RequireConfiguration();
+        var owner = _libraryManager.GetItemById(itemId) switch
+        {
+            Person person => AuthoredBook(person, config),
+            BaseItem item when item.GetBaseItemKind() is BaseItemKind.MusicArtist or BaseItemKind.Book => item,
+            _ => null
+        };
+        if (owner is null)
         {
             return null;
         }
 
-        var config = Plugin.RequireConfiguration();
         var claimants = _sources.OfType<ISetContentSource>()
             .Where(s => ((IGapSource)s).IsEnabled(config) && s.Claims(owner))
             .ToList();
         return claimants.Count == 0 ? null : (owner, claimants);
+    }
+
+    // An author's page is read through one of their owned books, the way a scan reads an author: the
+    // bibliography source diffs the author of the book it is handed. A co-authored book is read for its first
+    // author, so only a book this person is that author of stands in for them. Looked for only when a book
+    // source is on, since every actor's page asks too.
+    private BaseItem? AuthoredBook(Person person, PluginConfiguration config)
+    {
+        var booksOn = _sources.OfType<ISetContentSource>()
+            .Any(s => ((IGapSource)s).IsEnabled(config) && ((IGapSource)s).OwnedKinds.Contains(BaseItemKind.Book));
+        if (!booksOn)
+        {
+            return null;
+        }
+
+        var books = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            DtoOptions = LibraryQueryOptions.WithProviderIds(),
+            IncludeItemTypes = new[] { BaseItemKind.Book },
+            PersonIds = new[] { person.Id },
+            Recursive = true
+        });
+        return books.FirstOrDefault(b => string.Equals(BookAuthor.Resolve(_libraryManager.GetPeople(b)), person.Name, StringComparison.OrdinalIgnoreCase));
     }
 
     // Runs every claiming source and merges by gap id. Null when none of them could determine an answer, so

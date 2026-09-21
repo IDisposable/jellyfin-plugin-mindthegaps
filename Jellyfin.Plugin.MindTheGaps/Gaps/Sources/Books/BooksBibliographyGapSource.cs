@@ -181,27 +181,5 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
             ? id
             : null;
 
-    private string? ResolveAuthorName(BaseItem book)
-    {
-        // Books in Jellyfin carry their author as a Person with type "Author"; fall back to the first
-        // listed person when the role is unset.
-        var people = _libraryManager.GetPeople(book);
-        string? firstPerson = null;
-        foreach (var person in people)
-        {
-            if (string.IsNullOrEmpty(person.Name))
-            {
-                continue;
-            }
-
-            firstPerson ??= person.Name;
-            if (person.Type == PersonKind.Author
-                || string.Equals(person.Role, "Author", StringComparison.OrdinalIgnoreCase))
-            {
-                return person.Name;
-            }
-        }
-
-        return firstPerson;
-    }
+    private string? ResolveAuthorName(BaseItem book) => BookAuthor.Resolve(_libraryManager.GetPeople(book));
 }
