@@ -96,7 +96,13 @@ test('a re-render (Show fulfilled) does not look a title up twice', async ({ pag
 });
 
 test('an empty queue says so', async ({ page }) => {
-    await open(page, { Items: [], SearchUrlTemplate: '', GeneratedUtc: '2026-01-01T00:00:00Z' });
+    // Not the shared open() helper: it waits for a .cgTodoRow to appear, which an empty queue never has.
+    const summary = baseSummary({ DomainPatternCounts: { Movies: { Recommendation: 1 }, Shows: {}, Music: {}, Books: {} }, TotalGaps: 1 });
+    await openReport(page, summary, { Movies: [movieItem()] }, null, null, { Items: [], SearchUrlTemplate: '', GeneratedUtc: '2026-01-01T00:00:00Z' });
+    await page.locator('#cgFulfillBtn').click();
+    await expect(page.locator('#cgFulfillModal')).toBeVisible();
+
+    await expect(page.locator('#cgFulfillBody .cgTodoEmpty')).toHaveText('Nobody has anything on their TODO list yet.');
 });
 
 test('an empty queue with only fulfilled titles distinguishes the two empty states', async ({ page }) => {
