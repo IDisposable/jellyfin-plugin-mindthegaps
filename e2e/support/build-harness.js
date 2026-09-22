@@ -18,7 +18,7 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // completion (summary, gaps, resolutions, plugin config, acquisition config, public system info):
 // enough surface for load()/ensureSlice() to resolve and render real rows through the real code
 // path, not so much that this drifts into re-implementing the server.
-function buildMockScript(summary, itemsByDomain, todo) {
+function buildMockScript(summary, itemsByDomain, todo, demand) {
     return `
 <script>
 window.__uiTestErrors = [];
@@ -27,9 +27,12 @@ window.addEventListener('error', function (e) { window.__uiTestErrors.push(Strin
 var __SUMMARY__ = ${JSON.stringify(summary)};
 var __ITEMS_BY_DOMAIN__ = ${JSON.stringify(itemsByDomain)};
 var __TODO__ = ${JSON.stringify(todo || null)};
+var __DEMAND__ = ${JSON.stringify(demand || null)};
 window.__todoCalls = [];
 window.__detailCalls = [];
 window.__gapsCalls = [];
+window.__markFetchedCalls = [];
+window.__availabilityCalls = [];
 
 function leanReport(items) {
     var sets = [];
@@ -96,6 +99,20 @@ function todoCall(url) {
     return Promise.resolve({ Owned: false, Entry: null });
 }
 
+// Marking a row fetched flips the matching entries in __DEMAND__ itself (a real MarkFetched moves a
+// title's OpenCount to 0), so a spec can reload/re-render and see the row actually close out, the same
+// way todoCall mutates __TODO__ in place for Remove/SetDone.
+function markFetchedCall(url, body) {
+    var refs = JSON.parse(body || '[]');
+    window.__markFetchedCalls.push(refs);
+    var updated = 0;
+    (__DEMAND__ ? __DEMAND__.Items : []).forEach(function (row) {
+        var hit = refs.some(function (r) { return (row.Entries || []).some(function (e) { return e.OwnerId === r.OwnerId && e.GapId === r.GapId; }); });
+        if (hit) { row.OpenCount = 0; updated += refs.length; }
+    });
+    return Promise.resolve({ Requested: refs.length, Updated: updated });
+}
+
 window.ApiClient = {
     ajax: function (opts) {
         var url = opts.url || '';
@@ -122,7 +139,15 @@ window.ApiClient = {
                 : leanReport(items);
             return Promise.resolve(Object.assign(body, { GeneratedUtc: '2026-01-01T00:00:00Z', GeneratedVersion: __SUMMARY__.GeneratedVersion }));
         }
+        if (url.indexOf('MindTheGaps/Todo/Demand/MarkFetched') !== -1) { return markFetchedCall(url, opts.data); }
+        if (url.indexOf('MindTheGaps/Todo/Demand') !== -1) {
+            return __DEMAND__ ? Promise.resolve(JSON.parse(JSON.stringify(__DEMAND__))) : Promise.reject({ status: 403 });
+        }
         if (url.indexOf('MindTheGaps/Todo') !== -1) { return todoCall(url); }
+        if (url.indexOf('MindTheGaps/Availability') !== -1) {
+            window.__availabilityCalls.push(url);
+            return Promise.resolve([{ Provider: 'Netflix', MonetizationType: 'flatrate', LogoUrl: null, Url: 'https://www.themoviedb.org/movie/1/watch' }]);
+        }
         if (url.indexOf('MindTheGaps/Resolutions') !== -1) { return Promise.resolve({}); }
         if (url.indexOf('MindTheGaps/AcquisitionConfig') !== -1) { return Promise.resolve({}); }
         if (url.indexOf('Plugins') !== -1) { return Promise.resolve([]); }
@@ -150,7 +175,7 @@ window.Dashboard = {
 // Writes the harness to a fresh temp file and returns its path (a file:// URL a spec can
 // page.goto()). summary is the MindTheGaps/Summary shape; itemsByDomain maps a domain name (as it
 // appears in summary.Domains) to the array MindTheGaps/Gaps returns for that domain.
-function buildHarness(summary, itemsByDomain, todo) {
+function buildHarness(summary, itemsByDomain, todo, demand) {
     const css = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.css'), 'utf8');
     const common = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.common.js'), 'utf8');
     const reportJs = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.js'), 'utf8');
@@ -173,7 +198,7 @@ function buildHarness(summary, itemsByDomain, todo) {
         '<div class="page type-interior mainAnimatedPage" style="contain:size style;position:relative;width:100%;height:100vh;overflow:auto;">\n<div id="MindTheGapsPage"'
     );
     page = page.replace('</html>', '</div>\n</html>');
-    page = page.replace('<script type="text/javascript">', buildMockScript(summary, itemsByDomain, todo) + '<script type="text/javascript">');
+    page = page.replace('<script type="text/javascript">', buildMockScript(summary, itemsByDomain, todo, demand) + '<script type="text/javascript">');
 
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mtg-ui-test-'));
     const outPath = path.join(outDir, 'harness.html');

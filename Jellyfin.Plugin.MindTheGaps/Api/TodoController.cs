@@ -82,6 +82,70 @@ public class TodoController : ControllerBase
             return Forbid();
         }
 
+        var (owners, items) = LoadEveryonesEntries(caller);
+        var config = Plugin.Instance?.Configuration;
+        return new TodoEveryone
+        {
+            CallerId = caller,
+            Owners = owners.OrderBy(o => o.UserId == caller ? 0 : 1).ThenBy(o => o.UserName, StringComparer.OrdinalIgnoreCase).ToList(),
+            Items = items,
+            SearchUrlTemplate = config?.SearchUrlTemplate ?? new PluginConfiguration().SearchUrlTemplate,
+            GeneratedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+        };
+    }
+
+    /// <summary>
+    /// Gets the fulfillment queue: every title on any user's todo list, folded to one row per title (the same
+    /// title added from two different gaps still folds into one row) and sorted by outstanding demand. Built
+    /// for an administrator who fetches titles by hand (no Radarr/Sonarr/Jellyseerr configured) and wants to
+    /// know what is actually wanted across every user before going to find it.
+    /// </summary>
+    /// <returns>The queue.</returns>
+    [HttpGet("Todo/Demand")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<TodoDemandList> GetTodoDemand()
+    {
+        if (!TryOwner(out var caller))
+        {
+            return Forbid();
+        }
+
+        var (_, items) = LoadEveryonesEntries(caller);
+        var config = Plugin.Instance?.Configuration;
+        return new TodoDemandList
+        {
+            Items = TodoDemandAggregator.Build(items),
+            SearchUrlTemplate = config?.SearchUrlTemplate ?? new PluginConfiguration().SearchUrlTemplate,
+            GeneratedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
+        };
+    }
+
+    /// <summary>
+    /// Marks a fulfillment queue row fetched: sets every named requester's entry done in one call, for when
+    /// the administrator found the title themselves (through StreamFab or otherwise) rather than the library
+    /// picking it up on its own. An entry whose user or id no longer exists is skipped, not an error.
+    /// </summary>
+    /// <param name="entries">The row's member entries, from <see cref="TodoDemandRow.Entries"/>.</param>
+    /// <returns>How many entries were named and how many were actually found and flipped.</returns>
+    [HttpPost("Todo/Demand/MarkFetched")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<TodoMarkFetchedResult> MarkFetched([FromBody] IReadOnlyList<TodoDemandEntryRef> entries)
+    {
+        if (!TryOwner(out _))
+        {
+            return Forbid();
+        }
+
+        var refs = entries ?? [];
+        var updated = refs.Count(r => _owner.Exists(r.OwnerId) && _todo.SetDone(r.OwnerId, r.GapId, true));
+        return new TodoMarkFetchedResult { Requested = refs.Count, Updated = updated };
+    }
+
+    // The flattened entries behind both Todo/All and Todo/Demand: every existing owner's list plus the
+    // caller's own (added even when empty, so an administrator with nothing on their own list still sees it
+    // among the owners), each entry tagged with its owner.
+    private (List<TodoOwnerSummary> Owners, List<OwnedTodoEntry> Items) LoadEveryonesEntries(Guid caller)
+    {
         var ids = _todo.ListOwners().Where(_owner.Exists).ToList();
         if (!ids.Contains(caller))
         {
@@ -98,15 +162,7 @@ public class TodoController : ControllerBase
             items.AddRange(entries.Select(e => OwnedTodoEntry.From(e, id, name)));
         }
 
-        var config = Plugin.Instance?.Configuration;
-        return new TodoEveryone
-        {
-            CallerId = caller,
-            Owners = owners.OrderBy(o => o.UserId == caller ? 0 : 1).ThenBy(o => o.UserName, StringComparer.OrdinalIgnoreCase).ToList(),
-            Items = items,
-            SearchUrlTemplate = config?.SearchUrlTemplate ?? new PluginConfiguration().SearchUrlTemplate,
-            GeneratedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)
-        };
+        return (owners, items);
     }
 
     /// <summary>

@@ -6,8 +6,8 @@ const { buildHarness } = require('./build-harness');
 
 // beforeShow: an optional async function(page) run after the harness loads and before the page shows, for a spec
 // that has to change the page's environment first.
-async function openReport(page, summary, itemsByDomain, todo, beforeShow) {
-    const harnessPath = buildHarness(summary, itemsByDomain, todo);
+async function openReport(page, summary, itemsByDomain, todo, beforeShow, demand) {
+    const harnessPath = buildHarness(summary, itemsByDomain, todo, demand);
     await page.goto('file://' + harnessPath);
     if (beforeShow) { await beforeShow(page); }
     await page.evaluate(() => {

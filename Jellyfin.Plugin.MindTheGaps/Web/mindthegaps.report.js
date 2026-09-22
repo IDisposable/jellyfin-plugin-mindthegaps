@@ -319,6 +319,32 @@ function noteProviders(page, offers) {
     if (added) { knownProviders.sort(); renderProviderFilter(page); saveFilters(page); }
 }
 
+// The lazy "Where to watch" lookup: fetches offers for the button's title and replaces it with the
+// result. Shared by the report list's own delegated click handler and the fulfillment queue's, since
+// a demand row has no live report row to key off, only a bare TMDB id and kind.
+function handleWatchClick(page, watchBtn) {
+    watchBtn.textContent = 'Loading…';
+    watchBtn.disabled = true;
+    ApiClient.ajax({
+        type: 'GET',
+        url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: watchBtn.getAttribute('data-tmdb'), targetKind: watchBtn.getAttribute('data-type') }),
+        dataType: 'json'
+    }).then(function (offers) {
+        noteProviders(page, offers);
+        var note = document.createElement('div');
+        note.className = 'fieldDescription cgAvail';
+        note.style.marginTop = '.2em';
+        note._offers = offers || [];
+        renderAvail(note);
+        var linksRow = watchBtn.closest('.cgLinks');
+        if (linksRow) { linksRow.insertAdjacentElement('afterend', note); } else { watchBtn.parentNode.appendChild(note); }
+        watchBtn.remove();
+    }).catch(function () {
+        watchBtn.textContent = 'Where to watch';
+        watchBtn.disabled = false;
+    });
+}
+
 // Render an availability note from the full offer set it stashed, applying the current filters.
 function renderAvail(note) {
     var shown = filterOffers(note._offers);
@@ -3339,6 +3365,94 @@ function closeTodo() {
     }
 }
 
+// One fulfillment queue row: title/year, who still wants it, the links a todo row would show plus a
+// where-to-watch lookup (buildWatchPopoverBody works unchanged here: a row carries ProviderIds and
+// TargetKindName the same way a report item does, and simply has no Availability yet, which is exactly
+// what makes that function offer the lazy "Look up where to watch" button instead of a resolved list),
+// and a Mark fetched action that closes the title out for every requester at once.
+function demandRowHtml(row, template) {
+    var titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
+    var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
+    var who = wrap('span', { 'class': 'cgTodoOwner' },
+        esc('Wanted by ' + (row.RequestedBy || []).join(', ') + ' (' + row.OpenCount + ' of ' + row.RequestCount + ' still open)'));
+    var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, todoSourceCell(row) + who);
+
+    var links = todoLinks(row, template).map(function (l) {
+        return l.Provider
+            ? providerLink(l)
+            : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
+    });
+    // No .cgLinks wrapper here (that marker only matters inside a popover; handleWatchClick falls
+    // back to appending next to the button itself, which is exactly right inside a table cell).
+    var linksCell = wrap('td', null, wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + buildWatchPopoverBody(row));
+
+    var fulfilled = row.OpenCount === 0;
+    var actions = fulfilled
+        ? wrap('span', { 'class': 'cgTodoNote' }, 'Fulfilled')
+        : actionBtn('cgFulfillDone', { 'data-rowid': row.Id, title: 'Mark this title fetched for everyone who wants it' }, 'Mark fetched');
+    var actionsCell = wrap('td', { 'class': 'cgTodoActions' }, actions);
+
+    return wrap('tr', { 'class': 'cgTodoRow' + (fulfilled ? ' cgTodoDone' : ''), 'data-rowid': row.Id },
+        titleCell + creatorCell + linksCell + actionsCell);
+}
+
+// Render the loaded queue, grouped into per-domain sections like the TODO modal. Fully fulfilled rows
+// (nobody still waiting) are hidden unless "Show fulfilled" is ticked, the same convention as the
+// report's own "Show dismissed" filter.
+function renderFulfillment(modal) {
+    var body = document.getElementById('cgFulfillBody');
+    var showDone = document.getElementById('cgFulfillShowDone').checked;
+    var items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
+    if (!items.length) {
+        body.innerHTML = h('div', { 'class': 'cgTodoEmpty' },
+            (modal._data && modal._data.Items && modal._data.Items.length)
+                ? 'Nothing outstanding; everything on a TODO list has been marked fetched.'
+                : 'Nobody has anything on their TODO list yet.').outerHTML;
+        return;
+    }
+    var template = modal._template || '';
+    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
+    byDomain.order.sort(function (a, b) {
+        var ra = todoDomainRank(a), rb = todoDomainRank(b);
+        return ra !== rb ? ra - rb : ci(a, b);
+    });
+    var html = '';
+    byDomain.order.forEach(function (domain) {
+        html += h('div', { 'class': 'cgTodoSection' }, domain).outerHTML;
+        var rows = byDomain.map[domain].map(function (r) { return demandRowHtml(r, template); }).join('');
+        html += wrap('table', { 'class': 'cgTodoTable' }, wrap('tbody', null, rows));
+    });
+    body.innerHTML = html;
+}
+
+function loadFulfillment(modal) {
+    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Todo/Demand'), dataType: 'json' })
+        .then(function (data) {
+            modal._data = data || { Items: [] };
+            modal._template = (data && data.SearchUrlTemplate) || '';
+            renderFulfillment(modal);
+        });
+}
+
+function openFulfillment() {
+    var modal = document.getElementById('cgFulfillModal');
+    var body = document.getElementById('cgFulfillBody');
+    body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Loading the fulfillment queue...').outerHTML;
+    modal.style.display = 'flex';
+    loadFulfillment(modal)
+        .catch(function () {
+            body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not load the fulfillment queue. Check the server logs.').outerHTML;
+        });
+}
+
+function closeFulfillment() {
+    var modal = document.getElementById('cgFulfillModal');
+    if (modal && modal.style.display !== 'none') {
+        modal.style.display = 'none';
+        document.getElementById('cgFulfillBody').innerHTML = '';
+    }
+}
+
 // Find a stored TODO entry by id and owner (the in-modal data the render used), so a row update keeps the
 // section ordering and the export in step without a reload. The same gap can be on several users' lists.
 function todoEntryById(modal, id, owner) {
@@ -3451,6 +3565,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
                 btn.disabled = false;
             });
     });
+    page.querySelector('#cgFulfillBtn').addEventListener('click', openFulfillment);
     page.querySelector('#ResetRotation').addEventListener('click', function () {
         if (!window.confirm('Forget which items were scanned recently and start a fresh coverage cycle on the next scan?')) { return; }
         Dashboard.showLoadingMsg();
@@ -3495,7 +3610,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             if (dx) { downloadText(diagFilename(dx, this._name), buildDiagnosisMarkdown(dx, this._name)); }
         }
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); closeTodo(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); closeTodo(); closeFulfillment(); } });
     // Explore a source popup: the modal handles its own close button, backdrop click, kind
     // selector, source picker, Run, and Clear. The toolbar button opens it.
     setupExploreModal(page);
@@ -3586,6 +3701,49 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             }).catch(function () {
                 delBtn.disabled = false;
                 Dashboard.alert('Could not remove that item. Check the server logs.');
+            });
+        }
+    });
+    // Fulfillment queue popup: close via the button, a backdrop click, or Escape (below). "Show
+    // fulfilled" just re-renders from what is already loaded; Mark fetched and the where-to-watch
+    // lookup are handled by delegation since a queue row has no live report item to key off.
+    document.getElementById('cgFulfillClose').addEventListener('click', closeFulfillment);
+    document.getElementById('cgFulfillModal').addEventListener('click', function (e) {
+        if (e.target === this) { closeFulfillment(); }
+    });
+    document.getElementById('cgFulfillShowDone').addEventListener('change', function () {
+        var modal = document.getElementById('cgFulfillModal');
+        if (modal._data) { renderFulfillment(modal); }
+    });
+    document.getElementById('cgFulfillBody').addEventListener('click', function (e) {
+        if (!e.target.closest) { return; }
+        if (e.target.closest('a[href]')) { return; }
+        var watchBtn = e.target.closest('.cgWatch');
+        if (watchBtn) {
+            handleWatchClick(page, watchBtn);
+            return;
+        }
+        var doneBtn = e.target.closest('.cgFulfillDone');
+        if (doneBtn) {
+            var modal = document.getElementById('cgFulfillModal');
+            var rowId = doneBtn.getAttribute('data-rowid');
+            var items = (modal._data && modal._data.Items) || [];
+            var row = items.filter(function (r) { return r.Id === rowId; })[0];
+            if (!row) { return; }
+            doneBtn.disabled = true;
+            ApiClient.ajax({
+                type: 'POST',
+                url: ApiClient.getUrl('MindTheGaps/Todo/Demand/MarkFetched'),
+                contentType: 'application/json',
+                data: JSON.stringify(row.Entries || []),
+                dataType: 'json'
+            }).then(function (res) {
+                row.OpenCount = 0;
+                renderFulfillment(modal);
+                Dashboard.alert('Marked fetched for ' + ((res && res.Updated) || 0) + ' user(s).');
+            }).catch(function () {
+                doneBtn.disabled = false;
+                Dashboard.alert('Could not mark that title fetched. Check the server logs.');
             });
         }
     });
@@ -4205,26 +4363,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
 
         var watchBtn = e.target.closest('.cgWatch');
         if (watchBtn) {
-            watchBtn.textContent = 'Loading…';
-            watchBtn.disabled = true;
-            ApiClient.ajax({
-                type: 'GET',
-                url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: watchBtn.getAttribute('data-tmdb'), targetKind: watchBtn.getAttribute('data-type') }),
-                dataType: 'json'
-            }).then(function (offers) {
-                noteProviders(page, offers);
-                var note = document.createElement('div');
-                note.className = 'fieldDescription cgAvail';
-                note.style.marginTop = '.2em';
-                note._offers = offers || [];
-                renderAvail(note);
-                var linksRow = watchBtn.closest('.cgLinks');
-                if (linksRow) { linksRow.insertAdjacentElement('afterend', note); } else { watchBtn.parentNode.appendChild(note); }
-                watchBtn.remove();
-            }).catch(function () {
-                watchBtn.textContent = 'Where to watch';
-                watchBtn.disabled = false;
-            });
+            handleWatchClick(page, watchBtn);
             return;
         }
 

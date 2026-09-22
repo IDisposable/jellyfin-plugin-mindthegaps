@@ -475,6 +475,90 @@ public class TodoControllerTests
         }
     }
 
+    [Fact]
+    public void GetTodoDemand_FoldsDifferentUsersTitlesIntoOneRow()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var reportStore = new GapStore(NullLogger<GapStore>.Instance, root + "-report");
+            var todoStore = new TodoStore(NullLogger<TodoStore>.Instance, root + "-todo");
+            todoStore.Add(Viewer, [Gap("v:1", "Shared Title", "76341"), Gap("v:2", "Solo Title", "2")]);
+            todoStore.Add(Admin, [Gap("a:1", "Shared Title", "76341")]);
+            var controller = Controller(reportStore, todoStore, user: Admin);
+
+            var queue = controller.GetTodoDemand().Value!;
+
+            Assert.Equal(2, queue.Items.Count);
+            var shared = queue.Items.Single(r => r.Name == "Shared Title");
+            Assert.Equal(2, shared.RequestCount);
+            Assert.Equal(2, shared.OpenCount);
+            Assert.Equal(new[] { "Ann", "Vic" }, shared.RequestedBy);
+            Assert.Equal(2, shared.Entries.Count);
+            var solo = queue.Items.Single(r => r.Name == "Solo Title");
+            Assert.Equal(1, solo.RequestCount);
+        }
+        finally
+        {
+            Delete(root + "-report");
+            Delete(root + "-todo");
+        }
+    }
+
+    [Fact]
+    public void GetTodoDemand_WithoutAnOwnerIsForbidden()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var reportStore = new GapStore(NullLogger<GapStore>.Instance, root + "-report");
+            var todoStore = new TodoStore(NullLogger<TodoStore>.Instance, root + "-todo");
+            var controller = Controller(reportStore, todoStore);
+            controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, "Administrator")], "ApiKey"));
+
+            Assert.IsType<ForbidResult>(controller.GetTodoDemand().Result);
+            Assert.IsType<ForbidResult>(controller.MarkFetched([]).Result);
+        }
+        finally
+        {
+            Delete(root + "-report");
+            Delete(root + "-todo");
+        }
+    }
+
+    [Fact]
+    public void MarkFetched_SetsEveryNamedRequestersEntryDone_AndSkipsAStrangerOrRemovedEntry()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var reportStore = new GapStore(NullLogger<GapStore>.Instance, root + "-report");
+            var todoStore = new TodoStore(NullLogger<TodoStore>.Instance, root + "-todo");
+            todoStore.Add(Viewer, [Gap("v:1", "Shared Title", "76341")]);
+            todoStore.Add(Admin, [Gap("a:1", "Shared Title", "76341")]);
+            var controller = Controller(reportStore, todoStore, user: Admin);
+            var stranger = Guid.NewGuid();
+
+            var result = controller.MarkFetched(
+            [
+                new TodoDemandEntryRef { OwnerId = Viewer, GapId = "v:1" },
+                new TodoDemandEntryRef { OwnerId = Admin, GapId = "a:1" },
+                new TodoDemandEntryRef { OwnerId = stranger, GapId = "x" },
+                new TodoDemandEntryRef { OwnerId = Admin, GapId = "no-such-entry" }
+            ]).Value!;
+
+            Assert.Equal(4, result.Requested);
+            Assert.Equal(2, result.Updated);
+            Assert.True(todoStore.Load(Viewer).Single().Done);
+            Assert.True(todoStore.Load(Admin).Single().Done);
+        }
+        finally
+        {
+            Delete(root + "-report");
+            Delete(root + "-todo");
+        }
+    }
+
     private static GapItem Gap(string id, string name, string tmdbId)
         => new()
         {

@@ -96,6 +96,23 @@
                         </div>
                     </div>
                 </div>
+                <div id="cgFulfillModal" role="dialog" aria-modal="true" aria-labelledby="cgFulfillTitle"
+                     style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+                    <div style="background:#101418;color:#eee;max-width:840px;width:94%;max-height:86vh;overflow:auto;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.6);padding:1.1em 1.3em;">
+                        <div style="display:flex;align-items:center;gap:.4em;margin-bottom:.5em;">
+                            <span class="material-icons" aria-hidden="true">local_shipping</span>
+                            <h2 id="cgFulfillTitle" style="margin:0;font-size:1.15em;flex:1;min-width:0;">Fulfillment queue</h2>
+                            <button is="paper-icon-button-light" type="button" id="cgFulfillClose" title="Close" aria-label="Close">
+                                <span class="material-icons" aria-hidden="true">close</span>
+                            </button>
+                        </div>
+                        <p class="fieldDescription" style="margin:0 0 .8em 0;">Every title on any user's TODO list, one row per title, sorted by how many people still want it. Look up where it is streaming, then find it however you fetch things and hit Mark fetched to close it out for everyone who asked.</p>
+                        <label style="display:inline-flex;align-items:center;gap:.4em;margin:0 0 .6em 0;">
+                            <input type="checkbox" id="cgFulfillShowDone" />Show fulfilled
+                        </label>
+                        <div id="cgFulfillBody"></div>
+                    </div>
+                </div>
                 <script type="text/javascript" src="../MindTheGaps/Dashboard/report.js?v=@@MTG_JS_HASH@@"></script>
             </div>
         </div>
