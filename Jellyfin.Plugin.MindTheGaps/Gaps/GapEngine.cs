@@ -4,31 +4,27 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
-using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Orchestrates a gap scan: builds a library snapshot, runs every enabled source,
-/// de-duplicates, and persists the resulting todo list.
+/// Orchestrates a gap scan: runs every enabled source (via <see cref="GapScanPipeline"/>), backfills what a
+/// capped or config-scoped source did not re-emit this run (via <see cref="GapBackfill"/> and its own
+/// series-content pass), prunes what fell out of scope, enriches, and persists the resulting report. Ad-hoc
+/// explore runs and on-demand re-checks (via <see cref="GapRecheckCoordinator"/>) share the same
+/// carry-forward and link-enrichment steps as a full scan.
 /// </summary>
 public sealed class GapEngine
 {
-    // Every series-content gap carries this prefix, so a series re-check swaps exactly those and leaves a
-    // recommendation the series happens to seed alone.
-    private static readonly string[] SeriesPrefixes = ["seriescontent:"];
-
     private readonly ILibraryManager _libraryManager;
     private readonly IEnumerable<IGapSource> _sources;
     private readonly ExploreRegistry _explore;
@@ -38,6 +34,8 @@ public sealed class GapEngine
     private readonly ResolutionStore _resolutions;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
     private readonly TmdbProviderLogos _providerLogos;
+    private readonly GapScanPipeline _scanPipeline;
+    private readonly GapRecheckCoordinator _recheck;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -52,6 +50,8 @@ public sealed class GapEngine
     /// <param name="resolutions">Holds dismissals, including whole-creator dismissals not to carry forward.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned library for the sources to check candidates against.</param>
     /// <param name="providerLogos">Supplies streaming-provider logos for offers carried forward without one.</param>
+    /// <param name="scanPipeline">Runs the enabled sources concurrently for a full scan.</param>
+    /// <param name="recheck">Re-checks one or many owning items on demand, outside a full scan.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
@@ -63,6 +63,8 @@ public sealed class GapEngine
         ResolutionStore resolutions,
         OwnershipIndexBuilder ownershipIndexBuilder,
         TmdbProviderLogos providerLogos,
+        GapScanPipeline scanPipeline,
+        GapRecheckCoordinator recheck,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
@@ -74,6 +76,8 @@ public sealed class GapEngine
         _resolutions = resolutions;
         _ownershipIndexBuilder = ownershipIndexBuilder;
         _providerLogos = providerLogos;
+        _scanPipeline = scanPipeline;
+        _recheck = recheck;
         _logger = logger;
     }
 
@@ -98,190 +102,18 @@ public sealed class GapEngine
         var priorReport = _store.Load();
         var priorIds = new HashSet<string>(priorReport.Items.Select(i => i.Id), StringComparer.Ordinal);
 
-        var gaps = new List<GapItem>();
-        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
-
-        var total = enabled.Count;
-
-        // Persist progress mid-scan so a crash or shutdown does not lose the batch. A checkpoint is the prior
-        // report overlaid with the fresh gaps found so far (so it never drops gaps the report already had),
-        // written to disk only (the cache stays the prior report for carry-forward). It is throttled, except
-        // when forced after each source or when a service's circuit trips (an out-of-band "we gave up" save).
-        var lastCheckpoint = stopwatch.Elapsed;
-        void Checkpoint(bool force)
+        var scanResult = await _scanPipeline.RunAsync(enabled, config, context.Ownership, priorReport, progress, cancellationToken).ConfigureAwait(false);
+        var gaps = scanResult.Gaps.ToList();
+        var byId = new Dictionary<string, GapItem>(gaps.Count, StringComparer.Ordinal);
+        foreach (var gap in gaps)
         {
-            if (!force && stopwatch.Elapsed - lastCheckpoint < TimeSpan.FromSeconds(5))
-            {
-                return;
-            }
-
-            lastCheckpoint = stopwatch.Elapsed;
-            var merged = new Dictionary<string, GapItem>(StringComparer.Ordinal);
-            foreach (var item in priorReport.Items)
-            {
-                merged[item.Id] = item;
-            }
-
-            foreach (var fresh in gaps)
-            {
-                merged[fresh.Id] = fresh;
-            }
-
-            _store.SaveCheckpoint(new GapReport
-            {
-                GeneratedUtc = priorReport.GeneratedUtc,
-                GeneratedVersion = priorReport.GeneratedVersion,
-                TotalGaps = merged.Count,
-                Items = merged.Values.ToList(),
-
-                // The run in progress has not finished telling us what it read, so a checkpoint keeps the
-                // last completed scan's account rather than blanking the Discover sections mid-scan.
-                SourceRuns = priorReport.SourceRuns
-            });
-        }
-
-        // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
-        ServiceCircuit.ResetAll();
-
-        // When a service's circuit trips mid-scan, flush the gaps found so far out of band rather than waiting
-        // on the throttle. The trip fires on whichever producer thread gave up, so it only flags the consumer
-        // (which owns the gap list); the consumer takes the actual checkpoint on its next turn.
-        var forceCheckpoint = 0;
-        ServiceCircuit.OnTrip = _ => Interlocked.Exchange(ref forceCheckpoint, 1);
-
-        // Run the sources concurrently so a slow, rate-paced provider (MusicBrainz, Discogs at one request a
-        // second) does not hold up the fast ones: the scan takes about as long as the slowest service rather
-        // than the sum of them all. Each source produces its gaps into a channel as it resolves each item, and
-        // this thread is the single consumer that merges, de-dups, and checkpoints, so a gap lands in the
-        // report within the checkpoint throttle of its item being resolved rather than waiting for the whole
-        // source to finish. Safe because only the consumer touches the shared report state, same-service calls
-        // still serialize through ServicePacer, and the cache/circuit and ownership index are thread-safe or
-        // read-only. De-dup is order-tolerant (MergeDuplicateSource only unions recommendation source-refs,
-        // which come from a single source), so the streamed, completion-order merge is fine.
-        var fractions = new double[Math.Max(1, total)];
-
-        // Per slot, so each producer writes its own and no lock is needed.
-        var runs = new SourceRun?[Math.Max(1, total)];
-        void ReportAggregate()
-        {
-            double sum = 0;
-            foreach (var f in fractions)
-            {
-                sum += f;
-            }
-
-            progress?.Report(sum / Math.Max(1, total) * 100.0);
-        }
-
-        var channel = Channel.CreateUnbounded<GapItem>(new UnboundedChannelOptions { SingleReader = true });
-
-        async Task ProduceAsync(IGapSource source, int slot)
-        {
-            // Each source gets its own context (sharing the read-only config and ownership index) so its
-            // progress reporting does not race the others'.
-            var sourceContext = new GapScanContext(config, context.Ownership);
-            sourceContext.SetProgressSink(f =>
-            {
-                fractions[slot] = Math.Clamp(f, 0.0, 1.0);
-                ReportAggregate();
-            });
-
-            var produced = 0;
-            var started = Stopwatch.GetTimestamp();
-
-            // A discovery source's own kind is counted separately: one source can straddle both patterns
-            // (curated sets emit studios and keywords as well as TMDB lists), and what the Discover tab
-            // needs to know is how many gaps arrived for the section, not how many the source produced.
-            var discovered = 0;
-            var discoverKind = (source as IDiscoverSource)?.DiscoverKind;
-            var failed = false;
-            try
-            {
-                await foreach (var gap in source.FindGapsAsync(sourceContext, cancellationToken).ConfigureAwait(false))
-                {
-                    await channel.Writer.WriteAsync(gap, cancellationToken).ConfigureAwait(false);
-                    produced++;
-                    if (discoverKind is not null && string.Equals(gap.SourceItemType, discoverKind, StringComparison.Ordinal))
-                    {
-                        discovered++;
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                failed = true;
-                _logger.LogError(ex, "Gap source {Source} failed", source.Name);
-            }
-            finally
-            {
-                fractions[slot] = 1.0;
-                ReportAggregate();
-                if (discoverKind is not null)
-                {
-                    runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
-                }
-
-                // The sources run concurrently, so the scan ends with the slowest one and the progress bar
-                // creeps once only the rate-paced sources are left. The time names which one held it up.
-                _logger.LogInformation("Gap source {Source} produced {Count} gaps in {Seconds:F0}s", source.Name, produced, Stopwatch.GetElapsedTime(started).TotalSeconds);
-            }
-        }
-
-        var producers = enabled.Select((source, i) => ProduceAsync(source, i)).ToList();
-
-        // Close the channel once every source has finished producing, so the consumer loop ends.
-        async Task DrainProducersAsync()
-        {
-            try
-            {
-                await Task.WhenAll(producers).ConfigureAwait(false);
-            }
-            finally
-            {
-                channel.Writer.Complete();
-            }
-        }
-
-        var draining = DrainProducersAsync();
-        try
-        {
-            // Consume as each item resolves: merge, de-dup, and checkpoint (throttled) so the report grows
-            // incrementally rather than in per-source batches.
-            await foreach (var gap in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (byId.TryGetValue(gap.Id, out var existing))
-                {
-                    MergeDuplicateSource(existing, gap);
-                }
-                else
-                {
-                    byId[gap.Id] = gap;
-                    gaps.Add(gap);
-                }
-
-                Checkpoint(force: Interlocked.Exchange(ref forceCheckpoint, 0) == 1);
-            }
-
-            // Flush the complete scan results before the (in-memory) enrichment phase.
-            Checkpoint(force: true);
-        }
-        finally
-        {
-            // The producers are done, so no further trip can fire; stop forcing checkpoints for this run.
-            ServiceCircuit.OnTrip = null;
-
-            // Observe producer completion: propagates cancellation; per-source failures were already logged.
-            await draining.ConfigureAwait(false);
+            byId[gap.Id] = gap;
         }
 
         // Carry the previous report's enrichment forward by id (resolved external ids and "where to
         // watch") so a rescan does not throw away what the background pass found; it only needs to look
         // up genuinely new gaps. Do this before the host link pass so carried ids produce their links.
-        CarryForward(gaps);
+        GapBackfill.CarryForward(gaps, priorReport.Items);
 
         // Backfill: filmography and recommendations only scan a slice of their seeds each run, so carry
         // forward prior gaps of those patterns that were not re-emitted this run and are still unowned.
@@ -289,12 +121,16 @@ public sealed class GapEngine
         // the relevant source being enabled, so disabling it lets the accumulation drain on the next scan.
         if (config.ScanPeople || config.TraktEnabled)
         {
-            AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.CreatorWorks, GapResolution.CreatorPrefix);
+            LogBackfill(
+                "CreatorWorks",
+                GapBackfill.AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.CreatorWorks, DismissedSourceItemIds(GapResolution.CreatorPrefix)));
         }
 
         if (config.ScanRecommendations)
         {
-            AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, GapResolution.RecSourcePrefix);
+            LogBackfill(
+                "Recommendation",
+                GapBackfill.AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, DismissedSourceItemIds(GapResolution.RecSourcePrefix)));
         }
 
         // The provider cross-checks scan only a slice of provider-resolvable series each run, so an episode
@@ -309,7 +145,9 @@ public sealed class GapEngine
         // The collection and discography sources scan everything each run rather than rotating a slice, so
         // they are carried forward only to survive a source that failed mid-scan (a TMDB or music-provider
         // blip that would otherwise blank a collection or discography from the saved report).
-        AccumulateSetCompletion(gaps, byId, priorReport.Items, context.Ownership, config);
+        LogBackfill(
+            "set completion",
+            GapBackfill.AccumulateSetCompletion(gaps, byId, priorReport.Items, context.Ownership, SetCompletionDomains(config)));
 
         // A non-rotating, config-scoped source (a keyword id removed, a whole watchlist source disabled)
         // fully re-derives its scope every run, unlike the accumulate passes above: "I did not produce
@@ -352,7 +190,7 @@ public sealed class GapEngine
             GeneratedVersion = Plugin.Instance?.Version?.ToString() ?? string.Empty,
             TotalGaps = gaps.Count,
             Items = gaps,
-            SourceRuns = runs.Where(r => r is not null).Select(r => r!).ToList()
+            SourceRuns = scanResult.Runs
         };
 
         _store.Save(report);
@@ -426,7 +264,7 @@ public sealed class GapEngine
         _logger.LogInformation("Ad-hoc explore: running {Kind} source {Source} for {Count} id(s)", kind, descriptor.Source.Name, ids.Count);
 
         // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
-        ServiceCircuit.ResetAll();
+        Services.Http.ServiceCircuit.ResetAll();
 
         var gaps = new List<GapItem>();
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
@@ -436,7 +274,7 @@ public sealed class GapEngine
             gap.Adhoc = true;
             if (byId.TryGetValue(gap.Id, out var existing))
             {
-                MergeDuplicateSource(existing, gap);
+                GapSourceMerge.Merge(existing, gap);
             }
             else
             {
@@ -447,7 +285,7 @@ public sealed class GapEngine
 
         // Re-adopt any external ids and "where to watch" the background pass resolved for these gaps before,
         // and rebuild the links those ids imply, so an explore run does not throw away that enrichment.
-        CarryForward(gaps);
+        GapBackfill.CarryForward(gaps, _store.Load().Items);
 
         // Let the host's external-url providers contribute links, as a full scan does.
         _externalLinks.Enrich(gaps);
@@ -473,70 +311,8 @@ public sealed class GapEngine
     /// <param name="progress">Progress sink (0-100).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>How many owning items were actually re-checked (those with no claiming source are skipped).</returns>
-    public async Task<int> RecheckManyAsync(IReadOnlyList<Guid> ownerIds, IProgress<double>? progress, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(ownerIds);
-
-        var config = Plugin.RequireConfiguration();
-
-        // Resolve and claim first, so the one ownership index covers every kind the batch will diff against.
-        // A series is claimed by no set source; it goes through the series-content sources instead, so a
-        // "re-check everything under this heading" works on the Shows tab as well as the Movies one.
-        var work = new List<(BaseItem Owner, List<ISetContentSource> Claimants)>(ownerIds.Count);
-        foreach (var ownerId in ownerIds)
-        {
-            var owner = _libraryManager.GetItemById(ownerId);
-            if (owner is null)
-            {
-                continue;
-            }
-
-            var claimants = Claimants(owner, config);
-            if (claimants.Count > 0 || owner.GetBaseItemKind() == BaseItemKind.Series)
-            {
-                work.Add((owner, claimants));
-            }
-        }
-
-        if (work.Count == 0)
-        {
-            _logger.LogInformation("Bulk re-check: nothing to do; no enabled source claims any of the {Count} item(s)", ownerIds.Count);
-            return 0;
-        }
-
-        var context = new GapScanContext(config, _ownershipIndexBuilder.Build(OwnedKindsOf(work.SelectMany(w => w.Claimants))));
-
-        var done = 0;
-        foreach (var (owner, claimants) in work)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            List<GapItem> gaps;
-            IReadOnlyCollection<string> prefixes;
-            if (claimants.Count > 0)
-            {
-                (gaps, prefixes) = await RunClaimantsAsync(owner, claimants, context, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                gaps = await RunSeriesSourcesAsync(owner, config, context, cancellationToken).ConfigureAwait(false);
-                prefixes = SeriesPrefixes;
-            }
-
-            // Swap each item in as it finishes rather than at the end, so a cancelled or failed batch still
-            // leaves the items it got through up to date.
-            _store.ReplaceSourceGaps(
-                owner.Id.ToString("N", CultureInfo.InvariantCulture),
-                prefixes,
-                new GapReport { TotalGaps = gaps.Count, Items = gaps });
-
-            done++;
-            progress?.Report((double)done / work.Count * 100.0);
-        }
-
-        _logger.LogInformation("Bulk re-check: re-checked {Done} of {Asked} item(s)", done, ownerIds.Count);
-        return done;
-    }
+    public Task<int> RecheckManyAsync(IReadOnlyList<Guid> ownerIds, IProgress<double>? progress, CancellationToken cancellationToken)
+        => _recheck.RecheckManyAsync(ownerIds, progress, cancellationToken);
 
     /// <summary>
     /// Gets the gap-id prefixes whose owning item can be re-checked on its own right now, which is what the
@@ -545,169 +321,23 @@ public sealed class GapEngine
     /// pass this would then skip.
     /// </summary>
     /// <returns>The re-checkable gap-id prefixes.</returns>
-    public IReadOnlyList<string> RecheckablePrefixes()
+    public IReadOnlyList<string> RecheckablePrefixes() => _recheck.RecheckablePrefixes();
+
+    private void LogBackfill(string pattern, GapBackfill.BackfillResult result)
     {
-        var config = Plugin.RequireConfiguration();
-        var prefixes = new List<string>();
-
-        foreach (var source in _sources.OfType<ISetContentSource>())
+        if (result.Carried > 0)
         {
-            if (((IGapSource)source).IsEnabled(config))
-            {
-                prefixes.Add(source.GapIdPrefix);
-            }
+            _logger.LogInformation("Backfill: carried {Carried} unowned {Pattern} gaps forward from the previous scan", result.Carried, pattern);
         }
 
-        // Series are re-checked through the series-content sources rather than a set source, so their
-        // prefix is added on the same terms: only when something is enabled to answer for them.
-        if (_sources.OfType<ISeriesContentSource>().Any(s => ((IGapSource)s).IsEnabled(config)))
+        if (result.CappedOut)
         {
-            prefixes.AddRange(SeriesPrefixes);
+            _logger.LogInformation("Backfill: reached the accumulated cap for {Pattern}; older gaps not carried", pattern);
         }
-
-        return prefixes;
     }
 
-    // The enabled set sources that produce gaps for this owning item. Empty for an item no source handles
-    // (a Person filmography, a recommendation seed), which is what makes a mis-aimed re-check a no-op
-    // rather than a swap that wipes the item's gaps.
-    private List<ISetContentSource> Claimants(BaseItem? owner, PluginConfiguration config)
-        => owner is null
-            ? []
-            : _sources.OfType<ISetContentSource>()
-                .Where(s => ((IGapSource)s).IsEnabled(config) && s.Claims(owner))
-                .ToList();
-
-    private static BaseItemKind[] OwnedKindsOf(IEnumerable<ISetContentSource> sources)
-        => sources.SelectMany(s => ((IGapSource)s).OwnedKinds).Distinct().ToArray();
-
-    // Runs the enabled series-content sources for one owned series, de-duping across them and carrying prior
-    // enrichment forward. Shared by the single-series re-check and the bulk one.
-    private async Task<List<GapItem>> RunSeriesSourcesAsync(
-        BaseItem series,
-        PluginConfiguration config,
-        GapScanContext context,
-        CancellationToken cancellationToken)
+    private HashSet<string> DismissedSourceItemIds(string dismissedPrefix)
     {
-        var gaps = new List<GapItem>();
-        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
-
-        foreach (var source in _sources.OfType<ISeriesContentSource>())
-        {
-            if (!((IGapSource)source).IsEnabled(config))
-            {
-                continue;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            IReadOnlyList<GapItem> found;
-            try
-            {
-                found = await source.CheckSeriesAsync(series, context, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // One cross-check being unreachable must not abort the re-check; the others still count.
-                _logger.LogWarning(ex, "Re-check: {Source} failed for {Series}", ((IGapSource)source).Name, series.Name);
-                continue;
-            }
-
-            foreach (var gap in found)
-            {
-                if (byId.TryGetValue(gap.Id, out var existing))
-                {
-                    MergeDuplicateSource(existing, gap);
-                }
-                else
-                {
-                    byId[gap.Id] = gap;
-                    gaps.Add(gap);
-                }
-            }
-        }
-
-        // Re-adopt the external ids and "where to watch" a prior pass resolved for these gaps, and let the
-        // host's external-url providers contribute links, exactly as a full scan and an explore do.
-        CarryForward(gaps);
-        _externalLinks.Enrich(gaps);
-
-        _logger.LogInformation("Re-check: {Series} has {Count} missing-episode gap(s)", series.Name, gaps.Count);
-        return gaps;
-    }
-
-    // Runs every claiming source for one owning item, de-duping across them and carrying prior enrichment
-    // forward, exactly as a scan and an explore do. Returns the gaps and the id prefixes to swap out.
-    private async Task<(List<GapItem> Gaps, HashSet<string> Prefixes)> RunClaimantsAsync(
-        BaseItem owner,
-        List<ISetContentSource> claimants,
-        GapScanContext context,
-        CancellationToken cancellationToken)
-    {
-        var gaps = new List<GapItem>();
-        var prefixes = new HashSet<string>(StringComparer.Ordinal);
-        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
-
-        foreach (var source in claimants)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            IReadOnlyList<GapItem>? found;
-            try
-            {
-                found = await source.CheckOneAsync(owner, context, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // One provider being unreachable must not abort the re-check; the others still count.
-                _logger.LogWarning(ex, "Re-check: {Source} failed for {Owner}", ((IGapSource)source).Name, owner.Name);
-                found = null;
-            }
-
-            // A source only claims its prefix when it actually answered. Claiming it after a failure would
-            // hand ReplaceSourceGaps an empty result to swap in, deleting this owner's real gaps because a
-            // provider happened to be down.
-            if (found is null)
-            {
-                _logger.LogInformation(
-                    "Re-check: {Source} could not determine {Owner}; leaving its existing gaps in place",
-                    ((IGapSource)source).Name,
-                    owner.Name);
-                continue;
-            }
-
-            prefixes.Add(source.GapIdPrefix);
-
-            foreach (var gap in found)
-            {
-                if (byId.TryGetValue(gap.Id, out var existing))
-                {
-                    MergeDuplicateSource(existing, gap);
-                }
-                else
-                {
-                    byId[gap.Id] = gap;
-                    gaps.Add(gap);
-                }
-            }
-        }
-
-        CarryForward(gaps);
-        _externalLinks.Enrich(gaps);
-
-        _logger.LogInformation("Re-check: {Owner} has {Count} gap(s) across {Sources} source(s)", owner.Name, gaps.Count, claimants.Count);
-        return (gaps, prefixes);
-    }
-
-    // Carry prior gaps of one capped pattern forward across scans so its coverage accumulates: a gap that
-    // was found before, is still not owned, and was not re-found this run (its seed was not in this run's
-    // batch) is kept rather than dropped. Gaps whose source the user dismissed wholesale (creator or
-    // recommendation source, per dismissedPrefix) drain away. Bounded so a huge library cannot grow the
-    // report without limit. The carried gap object keeps its prior enrichment (availability, resolved ids).
-    private void AccumulateUnowned(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership, GapPattern pattern, string dismissedPrefix)
-    {
-        const int maxAccumulated = 50000;
-
         var dismissed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in _resolutions.GetAll().Keys)
         {
@@ -717,50 +347,32 @@ public sealed class GapEngine
             }
         }
 
-        var count = gaps.Count(g => g.Pattern == pattern);
-        var carried = 0;
-        foreach (var item in prior)
+        return dismissed;
+    }
+
+    private static HashSet<MediaDomain> SetCompletionDomains(PluginConfiguration config)
+    {
+        var domains = new HashSet<MediaDomain>();
+        if (config.ScanCollections)
         {
-            // Ad-hoc "explore" gaps are deliberately not carried forward: a scheduled scan clears any
-            // exploration the user did not keep in config (a kept source re-produces them as permanent).
-            if (item.Pattern != pattern || byId.ContainsKey(item.Id) || item.Adhoc)
-            {
-                continue;
-            }
-
-            if (item.SourceItemId is not null && dismissed.Contains(item.SourceItemId))
-            {
-                continue;
-            }
-
-            if (ownership.OwnsAny(item.TargetKind, item.ProviderIds))
-            {
-                continue;
-            }
-
-            if (count >= maxAccumulated)
-            {
-                _logger.LogInformation("Backfill: reached the {Max} accumulated cap for {Pattern}; older gaps not carried", maxAccumulated, pattern);
-                break;
-            }
-
-            byId[item.Id] = item;
-            gaps.Add(item);
-            count++;
-            carried++;
+            domains.Add(MediaDomain.Movies);
         }
 
-        if (carried > 0)
+        if (config.ScanMusic || config.ScanDiscogs)
         {
-            _logger.LogInformation("Backfill: carried {Carried} unowned {Pattern} gaps forward from the previous scan", carried, pattern);
+            domains.Add(MediaDomain.Music);
         }
+
+        return domains;
     }
 
     // Carry forward prior missing-episode gaps (SetCompletion, Episode) that no source re-emitted this run,
     // so a cross-check discovery survives runs that did not re-check its series. A carried gap drains when
     // its owning series is gone from the library, or the specific season/episode is now owned on disk.
     // The owned episodes of every series that has such a gap are read in one query, not one per series: a
-    // library with a couple of thousand of these gaps spans hundreds of series.
+    // library with a couple of thousand of these gaps spans hundreds of series. Stays here rather than in
+    // GapBackfill because, unlike every other accumulate pass, it needs the library itself, not just config
+    // and ownership.
     private void AccumulateSeriesContent(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior)
     {
         const int maxAccumulated = 50000;
@@ -835,136 +447,6 @@ public sealed class GapEngine
         if (carried > 0)
         {
             _logger.LogInformation("Backfill: carried {Carried} unowned series-content gaps forward from the previous scan", carried);
-        }
-    }
-
-    // Carry forward prior set-completion gaps (collections, discographies) that this run did not re-emit and
-    // are still unowned, so a transient upstream failure mid-scan does not blank them from the saved report.
-    // These sources scan everything each run, so a clean run re-emits the live set (nothing extra is carried)
-    // and a later clean run drops anything truly resolved. Gated per domain on that domain's source still being
-    // enabled, so turning a source off lets its accumulation drain. Episode set-completion gaps are excluded:
-    // AccumulateSeriesContent carries those, checking the library on disk directly.
-    private void AccumulateSetCompletion(List<GapItem> gaps, Dictionary<string, GapItem> byId, IReadOnlyList<GapItem> prior, OwnershipIndex ownership, PluginConfiguration config)
-    {
-        const int maxAccumulated = 50000;
-
-        var domains = new HashSet<MediaDomain>();
-        if (config.ScanCollections)
-        {
-            domains.Add(MediaDomain.Movies);
-        }
-
-        if (config.ScanMusic || config.ScanDiscogs)
-        {
-            domains.Add(MediaDomain.Music);
-        }
-
-        if (domains.Count == 0)
-        {
-            return;
-        }
-
-        var carried = 0;
-        foreach (var item in prior)
-        {
-            if (item.Pattern != GapPattern.SetCompletion
-                || item.TargetKind == BaseItemKind.Episode
-                || item.Adhoc
-                || byId.ContainsKey(item.Id)
-                || !domains.Contains(item.Domain))
-            {
-                continue;
-            }
-
-            // Mirror how the sources decide ownership: a provider-id match, or for an album the artist-and-title
-            // name key (a release the library holds under a different provider's id), so a now-owned item is not
-            // wrongly resurrected.
-            if (ownership.OwnsAny(item.TargetKind, item.ProviderIds)
-                || (item.TargetKind == BaseItemKind.MusicAlbum && ownership.OwnsByName(item.TargetKind, item.SourceItemName, item.Name)))
-            {
-                continue;
-            }
-
-            if (carried >= maxAccumulated)
-            {
-                _logger.LogInformation("Backfill: reached the {Max} accumulated cap for set completion; older gaps not carried", maxAccumulated);
-                break;
-            }
-
-            byId[item.Id] = item;
-            gaps.Add(item);
-            carried++;
-        }
-
-        if (carried > 0)
-        {
-            _logger.LogInformation("Backfill: carried {Carried} unowned set-completion gaps forward from the previous scan", carried);
-        }
-    }
-
-    // Several sources can surface the same missing title, but they collapse to one gap (the id is keyed on
-    // the target). Instead of dropping the duplicates, fold their sources onto the surviving gap so the report
-    // can list every source; a curated list outranks a per-title recommendation for the primary, grouping
-    // source. See GapSourceMerge.
-    private static void MergeDuplicateSource(GapItem existing, GapItem duplicate)
-        => GapSourceMerge.Merge(existing, duplicate);
-
-    private void CarryForward(IReadOnlyList<GapItem> gaps)
-    {
-        var prior = _store.Load().Items;
-        if (prior.Count == 0)
-        {
-            return;
-        }
-
-        var priorById = new Dictionary<string, GapItem>(prior.Count, StringComparer.Ordinal);
-        foreach (var item in prior)
-        {
-            priorById[item.Id] = item;
-        }
-
-        foreach (var gap in gaps)
-        {
-            if (!priorById.TryGetValue(gap.Id, out var before))
-            {
-                continue;
-            }
-
-            // Re-adopt any external ids the background pass resolved last time (the sources only stamp
-            // a TMDB id), and rebuild the fallback links the added ids imply.
-            var merged = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase);
-            var added = false;
-            foreach (var pair in before.ProviderIds)
-            {
-                if (!string.IsNullOrEmpty(pair.Value) && !merged.ContainsKey(pair.Key))
-                {
-                    merged[pair.Key] = pair.Value;
-                    added = true;
-                }
-            }
-
-            if (added)
-            {
-                gap.ProviderIds = merged;
-                gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
-            }
-
-            // Carry the episode's watch target (its series' TMDB id, resolved by an earlier pass) so a
-            // rescan does not drop it and re-resolve; sources only stamp it when they can.
-            if (string.IsNullOrEmpty(gap.WatchTmdbId) && !string.IsNullOrEmpty(before.WatchTmdbId))
-            {
-                gap.WatchTmdbId = before.WatchTmdbId;
-            }
-
-            if (before.AvailabilityChecked)
-            {
-                gap.AvailabilityChecked = true;
-            }
-
-            if (gap.Availability.Count == 0 && before.Availability.Count > 0)
-            {
-                gap.Availability = before.Availability;
-            }
         }
     }
 

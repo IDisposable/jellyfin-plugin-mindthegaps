@@ -55,6 +55,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<OwnershipIndexBuilder>();
         serviceCollection.AddSingleton<LibraryVerifier>();
         serviceCollection.AddSingleton<ExploreRegistry>();
+        serviceCollection.AddSingleton<GapScanPipeline>();
+        serviceCollection.AddSingleton<GapRecheckCoordinator>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<ExploreRunner>();
