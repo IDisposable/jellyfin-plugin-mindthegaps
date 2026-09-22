@@ -13,7 +13,7 @@
   },
   "overrides": [
     {
-      "files": ["**/mindthegaps.common.js"],
+      "files": ["**/mindthegaps.common.js", "**/mindthegaps.report.*.js"],
       "rules": { "no-unused-vars": "off" }
     }
   ]

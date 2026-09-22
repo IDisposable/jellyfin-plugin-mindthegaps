@@ -26,10 +26,11 @@ npm run test:ui:install   # once, fetches Chromium
 npm run test:ui       # Playwright, see e2e/
 ```
 
-`e2e/` drives the real `mindthegaps.report.js`/`.css` against a mocked `ApiClient`/`Dashboard`
-(`e2e/support/build-harness.js`), wrapped in the same page div jellyfin-web itself uses (CSS
-containment and all, see the next section), so a dashboard interaction bug shows up here instead of
-only in a live install.
+`e2e/` drives the real report page script (`Jellyfin.Plugin.MindTheGaps/Web/mindthegaps.report.*.js`,
+split by concern and concatenated the same way the build does) and `.css` against a mocked
+`ApiClient`/`Dashboard` (`e2e/support/build-harness.js`), wrapped in the same page div jellyfin-web
+itself uses (CSS containment and all, see the next section), so a dashboard interaction bug shows up
+here instead of only in a live install.
 
 ## How the build is put together
 

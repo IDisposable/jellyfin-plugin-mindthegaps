@@ -14,6 +14,22 @@ const path = require('path');
 
 const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 'Web');
 
+// The report page's script, split by concern (see the Dashboard pages section of CLAUDE.md); mirrors
+// the $(MtgReportJs) list in the .csproj's BuildDashboard invocation, in the same order, so the harness
+// concatenates exactly what the real build embeds.
+const REPORT_JS_FILES = [
+    'mindthegaps.report.markup.js',
+    'mindthegaps.report.diagnose.js',
+    'mindthegaps.report.tree.js',
+    'mindthegaps.report.filters.js',
+    'mindthegaps.report.export.js',
+    'mindthegaps.report.actions.js',
+    'mindthegaps.report.render.js',
+    'mindthegaps.report.explore.js',
+    'mindthegaps.report.todo.js',
+    'mindthegaps.report.wiring.js'
+];
+
 // A mock ApiClient/Dashboard sufficient for the report page's own pageshow setup to run to
 // completion (summary, gaps, resolutions, plugin config, acquisition config, public system info):
 // enough surface for load()/ensureSlice() to resolve and render real rows through the real code
@@ -178,7 +194,7 @@ window.Dashboard = {
 function buildHarness(summary, itemsByDomain, todo, demand) {
     const css = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.css'), 'utf8');
     const common = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.common.js'), 'utf8');
-    const reportJs = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.js'), 'utf8');
+    const reportJs = REPORT_JS_FILES.map((f) => fs.readFileSync(path.join(WEB_DIR, f), 'utf8')).join('\n');
     const shell = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.html'), 'utf8');
     const body = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.report.body.html'), 'utf8');
 

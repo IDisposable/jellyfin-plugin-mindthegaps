@@ -32,7 +32,16 @@
     <Task>
       <Code Type="Fragment" Language="cs"><![CDATA[
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(OutShell));
-        var bundle = "(function () {\n" + System.IO.File.ReadAllText(Common) + "\n" + System.IO.File.ReadAllText(Js) + "\n})();\n";
+        // Js is one path, or several joined with ';' (MSBuild item-list style): a page's script can be
+        // split into several files by concern, each still just top-level declarations that share one
+        // scope once wrapped, so concatenating them in order is exactly the single-file bundle would be.
+        var jsText = new System.Text.StringBuilder();
+        foreach (var jsPath in Js.Split(';'))
+        {
+            jsText.Append(System.IO.File.ReadAllText(jsPath));
+        }
+
+        var bundle = "(function () {\n" + System.IO.File.ReadAllText(Common) + "\n" + jsText.ToString() + "\n})();\n";
         System.IO.File.WriteAllText(OutJs, bundle);
         var hashOf = new System.Func<string, string>(path =>
         {
@@ -59,11 +68,18 @@
     <EmbeddedResource Include="Web\mindthegaps.webui.js" LogicalName="Jellyfin.Plugin.MindTheGaps.Web.mindthegaps.webui.js" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!-- The report page's script, split by concern (see the Dashboard pages section of CLAUDE.md);
+         BuildDashboard concatenates them in this order, so it reads exactly as the single file it
+         replaced. Keep this order and the semicolons: MSBuild trims list items but not this raw string. -->
+    <MtgReportJs>Web\mindthegaps.report.markup.js;Web\mindthegaps.report.diagnose.js;Web\mindthegaps.report.tree.js;Web\mindthegaps.report.filters.js;Web\mindthegaps.report.export.js;Web\mindthegaps.report.actions.js;Web\mindthegaps.report.render.js;Web\mindthegaps.report.explore.js;Web\mindthegaps.report.todo.js;Web\mindthegaps.report.wiring.js</MtgReportJs>
+  </PropertyGroup>
+
   <Target Name="BuildDashboard"
           BeforeTargets="PrepareResources;BeforeCompile;CoreCompile"
-          Inputs="Web\mindthegaps.report.html;Web\mindthegaps.report.body.html;Web\mindthegaps.report.js;Web\mindthegaps.settings.html;Web\mindthegaps.settings.body.html;Web\mindthegaps.settings.js;Web\mindthegaps.css;Web\mindthegaps.common.js"
+          Inputs="Web\mindthegaps.report.html;Web\mindthegaps.report.body.html;$(MtgReportJs);Web\mindthegaps.settings.html;Web\mindthegaps.settings.body.html;Web\mindthegaps.settings.js;Web\mindthegaps.css;Web\mindthegaps.common.js"
           Outputs="$(IntermediateOutputPath)mindthegaps.report.generated.html;$(IntermediateOutputPath)mindthegaps.report.bundle.js;$(IntermediateOutputPath)mindthegaps.settings.generated.html;$(IntermediateOutputPath)mindthegaps.settings.bundle.js">
-    <BuildDashboard Shell="Web\mindthegaps.report.html" Body="Web\mindthegaps.report.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.report.js" OutShell="$(IntermediateOutputPath)mindthegaps.report.generated.html" OutJs="$(IntermediateOutputPath)mindthegaps.report.bundle.js" />
+    <BuildDashboard Shell="Web\mindthegaps.report.html" Body="Web\mindthegaps.report.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="$(MtgReportJs)" OutShell="$(IntermediateOutputPath)mindthegaps.report.generated.html" OutJs="$(IntermediateOutputPath)mindthegaps.report.bundle.js" />
     <BuildDashboard Shell="Web\mindthegaps.settings.html" Body="Web\mindthegaps.settings.body.html" Css="Web\mindthegaps.css" Common="Web\mindthegaps.common.js" Js="Web\mindthegaps.settings.js" OutShell="$(IntermediateOutputPath)mindthegaps.settings.generated.html" OutJs="$(IntermediateOutputPath)mindthegaps.settings.bundle.js" />
   </Target>
 
