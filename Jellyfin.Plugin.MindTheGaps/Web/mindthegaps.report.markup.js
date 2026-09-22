@@ -131,6 +131,12 @@ var cgServerName = '';
 // so no Send buttons appear.
 var acqConfig = null;
 
+// Radarr/Sonarr quality profiles for the per-row Send picker, fetched once per kind on first need and
+// cached here: {Movie: {Profiles, DefaultId}, Series: {...}}. Undefined means not yet requested; a kind
+// stays absent (and its picker hidden) when the fetch fails or the matching arr has none configured -
+// Send still uses the configured default profile either way.
+var sendProfiles = {};
+
 // Monotonic counter for per-render group body ids (aria-controls targets).
 var cgGroupSeq = 0;
 
@@ -448,6 +454,51 @@ function buildInfoPopoverBody(item) {
         + clearBtn('row', item.Id, 'this title');
 }
 
+// A quality-profile picker for a Send button, next to it: left hidden and empty until
+// primeSendProfilePickers fills it in (Send still works with the configured default profile if that
+// never happens), so a popover that is never opened never pays for the lookup.
+function sendProfileSelect(kind) {
+    return h('select', { 'is': 'emby-select', 'class': 'selectSmall cgSendProfile', 'data-kind': kind, style: 'display:none' }).outerHTML;
+}
+
+// Lazily fetches and caches a kind's quality profiles (shared by every row that asks for it), then fills
+// whichever pickers of that kind are on the page right now.
+function primeSendProfiles(kind) {
+    if (sendProfiles[kind] !== undefined) {
+        if (sendProfiles[kind]) { fillSendProfileSelects(kind, sendProfiles[kind]); }
+        return;
+    }
+
+    sendProfiles[kind] = null;
+    ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/QualityProfiles', { kind: kind }), dataType: 'json' })
+        .then(function (result) {
+            if (!result || !result.Profiles || !result.Profiles.length) { return; }
+            sendProfiles[kind] = result;
+            fillSendProfileSelects(kind, result);
+        }, function () { /* leave it unset; Send still uses the configured default profile */ });
+}
+
+function fillSendProfileSelects(kind, result) {
+    var selects = document.querySelectorAll('.cgSendProfile[data-kind="' + kind + '"]');
+    Array.prototype.forEach.call(selects, function (select) {
+        if (select.options.length) { return; }
+        result.Profiles.forEach(function (p) {
+            var opt = h('option', { value: p.Id }, p.Name);
+            if (p.Id === result.DefaultId) { opt.selected = true; }
+            select.appendChild(opt);
+        });
+        select.style.display = '';
+    });
+}
+
+// After an Actions popover or expanded detail body renders, prime whichever kind(s) of Send picker it
+// just built (a no-op wherever there is none, which is every other popover).
+function primeSendProfilePickers(body) {
+    var kinds = {};
+    Array.prototype.forEach.call(body.querySelectorAll('.cgSendProfile'), function (select) { kinds[select.getAttribute('data-kind')] = true; });
+    Object.keys(kinds).forEach(primeSendProfiles);
+}
+
 // The Actions popover's body: mint/acquisition/diagnose/todo as their own items, and a nested
 // Resolve popover for the dismissal family (Resolve/Not interested/Snooze are the same Resolve
 // call with a different canned note, so one popover, not three peers).
@@ -463,11 +514,13 @@ function buildActionsPopoverBody(item) {
 
     if (acqConfig) {
         if (acqConfig.RadarrConfigured && item.TargetKindName === 'Movie' && tmdb) {
-            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send this movie to Radarr' }, icon('movie', 'cgIconLead') + 'Radarr'));
+            actionItems.push(sendProfileSelect('Movie'));
+            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, 'data-kind': 'Movie', title: 'Send this movie to Radarr' }, icon('movie', 'cgIconLead') + 'Radarr'));
         }
 
         if (acqConfig.SonarrConfigured && (item.TargetKindName === 'Series' || item.TargetKindName === 'Episode')) {
-            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, title: 'Send the owning series to Sonarr' }, icon('live_tv', 'cgIconLead') + 'Sonarr'));
+            actionItems.push(sendProfileSelect('Series'));
+            actionItems.push(actionBtn('cgSendArr', { 'data-gapid': item.Id, 'data-kind': 'Series', title: 'Send the owning series to Sonarr' }, icon('live_tv', 'cgIconLead') + 'Sonarr'));
         }
 
         if (acqConfig.SeerrConfigured && watchTmdb) {
@@ -566,10 +619,11 @@ function populatePopover(page, det) {
             : buildActionsPopoverBody;
     if (!popoverNeedsDetail(kind, item)) {
         body.innerHTML = build(item);
+        primeSendProfilePickers(body);
         return;
     }
     body.innerHTML = wrap('div', { style: 'opacity:.7;' }, 'Loading');
-    ensureItemDetail(item).then(function (full) { body.innerHTML = build(full); });
+    ensureItemDetail(item).then(function (full) { body.innerHTML = build(full); primeSendProfilePickers(body); });
 }
 
 // One item's row: checkbox, a thumbnail, a title (an <h3>, since a row is effectively a heading

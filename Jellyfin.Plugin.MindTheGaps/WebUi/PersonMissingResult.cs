@@ -24,22 +24,6 @@ public sealed class PersonMissingResult
     public int? TmdbId { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the caller may send titles to Radarr/Sonarr: an administrator
-    /// with at least one of them configured. The page shows Send buttons only when this is true.
-    /// </summary>
-    public bool CanSend { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a movie can be sent (Radarr configured).
-    /// </summary>
-    public bool CanSendMovies { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a series can be sent (Sonarr configured).
-    /// </summary>
-    public bool CanSendSeries { get; set; }
-
-    /// <summary>
     /// Gets or sets a value indicating whether the caller may keep a want-to-watch list: want to watch is on
     /// and the caller is a signed-in user without a parental rating limit. The page shows a bookmark on each
     /// card when it is.

@@ -1,10 +1,11 @@
 // The detail dialog shared by all three web UI surfaces (person, item, home): opened by clicking a card,
-// shows TMDB's own synopsis alongside the Send/Add-to-TODO action and, when sendable, a quality-profile
-// picker. Driven here through the person-page harness (any surface wires to the same dialog code), since
-// the dialog itself does not care which surface's card opened it. Appended straight to document.body,
-// which is exactly what lets it use position:fixed safely despite jellyfin-web's page wrapper setting CSS
-// containment (see CLAUDE.md's "position: fixed is not safe" note): a fixed element inside that
-// containment would compute against the wrong box, but this dialog is not inside it.
+// shows TMDB's own synopsis alongside the Add-to-TODO (want to watch) action. There is no acquisition
+// handoff here on purpose: see CLAUDE.md's Web UI section on why. Driven here through the person-page
+// harness (any surface wires to the same dialog code), since the dialog itself does not care which
+// surface's card opened it. Appended straight to document.body, which is exactly what lets it use
+// position:fixed safely despite jellyfin-web's page wrapper setting CSS containment (see CLAUDE.md's
+// "position: fixed is not safe" note): a fixed element inside that containment would compute against the
+// wrong box, but this dialog is not inside it.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHarness } = require('./support/webui-harness');
 
@@ -12,8 +13,6 @@ const PERSON_ITEM = { Id: 'person-1', Name: 'Some Actor', Type: 'Person' };
 
 function missingWith(overrides) {
     return {
-        CanSendMovies: true,
-        CanSendSeries: true,
         CanTodo: true,
         Reason: null,
         Movies: [{ GapId: 'filmography:movie:1', Title: 'A Missing Movie', Year: 1999, Role: 'as Lead', Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }],
@@ -106,62 +105,12 @@ test('shows a message instead when TMDB has nothing for the id', async ({ page }
     await expect(page.locator('.mtgDialog .mtgNote')).toHaveText('No further details available.');
 });
 
-test('shows a message instead when the TMDB lookup fails, without breaking Send', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}), { Success: true, Message: 'Sent 1 item(s).' }, undefined, { reject: true });
+test('shows a message instead when the TMDB lookup fails', async ({ page }) => {
+    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}), null, undefined, { reject: true });
     await openPersonPage(page, harnessPath);
     await page.locator('[data-gapid="filmography:movie:1"]').click();
 
     await expect(page.locator('.mtgDialog .mtgNote')).toHaveText('Could not load details from TMDB.');
-
-    // Send does not depend on the TMDB lookup succeeding.
-    const button = page.locator('.mtgDialog .mtgSendButton');
-    await expect(button).toBeVisible();
-    await button.click();
-    await expect(button).toHaveText('Sent');
-});
-
-test('the quality profile picker is populated and preselects the configured default', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}));
-    await openPersonPage(page, harnessPath);
-    await page.locator('[data-gapid="filmography:movie:1"]').click();
-
-    const select = page.locator('.mtgDialog .mtgProfileSelect');
-    await expect(select).toBeVisible();
-    const options = await select.locator('option').allTextContents();
-    expect(options).toEqual(['HD-1080p', 'Ultra-HD']);
-    await expect(select).toHaveValue('1');
-
-    const profilesUrl = await page.evaluate(() => window.__lastProfilesUrl);
-    expect(profilesUrl).toContain('WebUi/Profiles');
-    expect(profilesUrl).toContain('kind=Movie');
-});
-
-test('sending with a chosen profile threads qualityProfileId through the Send call', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}), { Success: true, Message: 'Sent 1 item(s).' });
-    await openPersonPage(page, harnessPath);
-    await page.locator('[data-gapid="filmography:movie:1"]').click();
-
-    const select = page.locator('.mtgDialog .mtgProfileSelect');
-    await expect(select).toBeVisible();
-    await select.selectOption('2');
-    await page.locator('.mtgDialog .mtgSendButton').click();
-
-    const sendUrl = await page.evaluate(() => window.__lastSendUrl);
-    expect(sendUrl).toContain('qualityProfileId=2');
-});
-
-test('the picker stays hidden and Send still works when the profiles lookup fails', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}), { Success: true, Message: 'Sent 1 item(s).' }, undefined, undefined, { reject: true });
-    await openPersonPage(page, harnessPath);
-    await page.locator('[data-gapid="filmography:movie:1"]').click();
-
-    await expect(page.locator('.mtgDialog .mtgProfileSelect')).toBeHidden();
-    const button = page.locator('.mtgDialog .mtgSendButton');
-    await button.click();
-    await expect(button).toHaveText('Sent');
-
-    const sendUrl = await page.evaluate(() => window.__lastSendUrl);
-    expect(sendUrl).not.toContain('qualityProfileId');
 });
 
 test('closes via the close button, the backdrop, and Escape', async ({ page }) => {
@@ -264,13 +213,12 @@ test('closing the dialog restores focus to the card that opened it', async ({ pa
 });
 
 test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab reverses', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}), { Success: true, Message: 'Sent 1 item(s).' });
+    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}));
     await openPersonPage(page, harnessPath);
     await page.locator('[data-gapid="filmography:movie:1"]').click();
 
-    // Wait for the profile select and the extra links (IMDb, JustWatch, trailer) to settle in, so the order
-    // below (close, bookmark, TMDB, IMDb, JustWatch, trailer, select, Send, want to watch) is the full, final set.
-    await expect(page.locator('.mtgDialog .mtgProfileSelect')).toBeVisible();
+    // Wait for the extra links (IMDb, JustWatch, trailer) to settle in, so the order below (close,
+    // bookmark, TMDB, IMDb, JustWatch, trailer, want to watch) is the full, final set.
     await expect(page.locator('.mtgDialogLinks a')).toHaveCount(4);
 
     const activeClasses = () => page.evaluate(() => document.activeElement.className);
@@ -278,9 +226,7 @@ test('Tab cycles forward through the dialog controls and wraps around; Shift+Tab
     expect(await activeClasses()).toContain('mtgDialogClose');
     await page.keyboard.press('Tab');
     expect(await activeClasses()).toContain('mtgWant');
-    for (let i = 0; i < 6; i++) { await page.keyboard.press('Tab'); }
-    expect(await activeClasses()).toContain('mtgSendButton');
-    await page.keyboard.press('Tab');
+    for (let i = 0; i < 5; i++) { await page.keyboard.press('Tab'); }
     expect(await activeClasses()).toContain('mtgWantButton');
 
     // Tab from the last control wraps back to the first.
@@ -309,21 +255,6 @@ test('ArrowRight/ArrowLeft move focus the same way Tab does', async ({ page }) =
     await page.keyboard.press('ArrowLeft');
     const activeIsClose = await page.evaluate(() => document.activeElement.classList.contains('mtgDialogClose'));
     expect(activeIsClose).toBe(true);
-});
-
-test('arrow keys on a focused profile select change its value instead of moving focus out', async ({ page }) => {
-    const harnessPath = buildWebUiHarness(PERSON_ITEM, missingWith({}));
-    await openPersonPage(page, harnessPath);
-    await page.locator('[data-gapid="filmography:movie:1"]').click();
-
-    const select = page.locator('.mtgDialog .mtgProfileSelect');
-    await expect(select).toBeVisible();
-    await select.focus();
-    await page.keyboard.press('ArrowDown');
-
-    await expect(select).toHaveValue('2');
-    const stillOnSelect = await page.evaluate(() => document.activeElement.classList.contains('mtgProfileSelect'));
-    expect(stillOnSelect).toBe(true);
 });
 
 test('the browser Back button closes the dialog', async ({ page }) => {

@@ -10,7 +10,7 @@ const LONG_ROLE = 'as The Doctor (archive footage) and the Fourteenth Doctor';
 
 const movie = (extra) => Object.assign({ GapId: 'filmography:movie:1', Title: 'A Movie', Year: 2023, Role: null, Kind: 'Movie', TmdbId: 1, ImageUrl: null, Upcoming: false, OnList: false }, extra);
 
-const missing = (movies, extra) => Object.assign({ CanSendMovies: false, CanSendSeries: false, CanTodo: true, Reason: null, Movies: movies, Series: [] }, extra);
+const missing = (movies, extra) => Object.assign({ CanTodo: true, Reason: null, Movies: movies, Series: [] }, extra);
 
 async function openPersonPage(page, harnessPath) {
     await page.goto('file://' + harnessPath);

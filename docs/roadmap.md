@@ -6,17 +6,18 @@
 
 ## Deliberate non-goals (not built, on purpose)
 
-| Capability                                                    | Why not                                                                                                                                                                                                                                                     |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IGapSource` as a core SPI for third-party gap plugins        | Deferred by design (ADR-0002); every source ships in this plugin.                                                                                                                                                                                           |
-| Fuzzy "treat an owned-but-mistagged item as owned" matching   | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source.                                                                                                                 |
-| Per-user display gate for minted virtual items                | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                                                                                                                                               |
-| Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                                                                                                                                    |
-| Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                                                                                                                  |
-| Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                                                                                                                        |
-| A request-and-approval gate before a title is acquired        | Might be a separate plugin. The Maintenance section's Fulfillment queue folds every user's TODO list into one row per title with a Mark fetched action, but nothing approves or denies a request before it lands there; adding a title is still unmediated. |
-| A "Fix the id" action in Diagnose                             | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it.                                                                                                  |
-| MusicVideos domain                                            | Enum-only; no source.                                                                                                                                                                                                                                       |
+| Capability                                                                   | Why not                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IGapSource` as a core SPI for third-party gap plugins                       | Deferred by design (ADR-0002); every source ships in this plugin.                                                                                                                                                                                                                                                                                                                                                                         |
+| Fuzzy "treat an owned-but-mistagged item as owned" matching                  | Would mask bad/missing metadata that should be corrected. The Diagnose action surfaces the mistag instead so it can be fixed at the source.                                                                                                                                                                                                                                                                                               |
+| Per-user display gate for minted virtual items                               | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                                                                                                                                                                                                                                                                                                                             |
+| Greyed "Missing" badge on minted items                                       | Needs upstream A merged.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Symmetric **book series** as Set completion                                  | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                                                                                                                                                                                                                                                                                                |
+| Removing a title from a want-to-watch list when it is watched                | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                                                                                                                                                                                                                                                                                                      |
+| A request-and-approval gate before a title is acquired                       | Might be a separate plugin. The Maintenance section's Fulfillment queue folds every user's TODO list into one row per title with a Mark fetched action, but nothing approves or denies a request before it lands there; adding a title is still unmediated.                                                                                                                                                                               |
+| A "Fix the id" action in Diagnose                                            | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it.                                                                                                                                                                                                                                                                                |
+| MusicVideos domain                                                           | Enum-only; no source.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| An acquisition handoff (Radarr/Sonarr/Lidarr/Readarr) on the injected Web UI | Deliberately removed. Every want is already visible to an administrator through the report's own Maintenance section (the Fulfillment queue, backed by everyone's TODO list); routing acquisition through the pages injected into jellyfin-web's own UI would put arr credentials and calls behind a surface that is not the report, which is the one boundary this plugin keeps deliberately narrow. Send stays on the report page only. |
 
 ## Upstream asks
 
@@ -97,10 +98,9 @@ them. Drafts in [docs/upstream/](upstream/).
 - **More of the works surfaces.** Artist, book and author pages list what the owner's sources find, with links
   and a want-to-watch bookmark. Still open: an album page (the artist's other albums, or missing tracks, for
   which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
-  description) fetched from MusicBrainz or OpenLibrary; a Lidarr or Readarr handoff to give these cards a
-  Send; and a studio page, which needs a TMDB company id (a library studio has none, so it would resolve by
-  name, as auto-seed does) and a cap on a large catalogue, and depends on jellyfin-web having a page to add
-  it to.
+  description) fetched from MusicBrainz or OpenLibrary; and a studio page, which needs a TMDB company id (a
+  library studio has none, so it would resolve by name, as auto-seed does) and a cap on a large catalogue,
+  and depends on jellyfin-web having a page to add it to.
 
 ### Scan performance
 
@@ -142,16 +142,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Scale and architecture
 
-- **Extract the persistence and memoization helpers from `GapStore`.** It now holds the per-domain file I/O,
-  the availability and additive merges, the generation counter and validator, and the domain and summary
-  indexes. The comments are thorough, but the class is large; the domain-file I/O and the memoization are the
-  natural seams.
 - **Virtualize the dashboard render.** A group's rows are built only when it is opened and the list itself
   loads as slim rows, but a very large flat tab still renders every row it shows. Windowing would help once a
   library reaches tens of thousands of gaps in one group.
-- **Finer dashboard JS split.** The report script is about 4,100 lines, against about 470 for settings and
-  about 50 shared. Optionally split the report script into concern-grouped sections (filters/state, tree
-  render, row actions, availability, views/export) and concatenate those too; the build wraps the shared kit
-  and the page script in one scope, so extra parts share it for free and the build already absorbs extra
-  inputs. What makes it a careful, browser-tested change is that nothing but the browser proves the parts
-  still see each other.

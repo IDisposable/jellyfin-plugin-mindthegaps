@@ -214,7 +214,9 @@ links only when you open it, which is what keeps a large tab quick.
     - **Radarr** / **Sonarr** / **Request** (when an acquisition target is configured): hands the gap off to
       your downloaders. Radarr sends a missing movie, Sonarr sends the owning series of a missing series or
       episode (it grabs that series' missing episodes), and Request hands either off to Jellyseerr/Overseerr.
-      An item appears only for a target you filled in under the
+      A Radarr or Sonarr row also gets a quality-profile picker next to the button, populated from that arr's
+      own profiles and preselecting your configured default; pick a different one before sending to override
+      it just for that title. An item appears only for a target you filled in under the
       [Acquisition stack settings](configuration.md#acquisition-stack-optional); the plugin holds the keys
       and makes the call, so they never reach the browser.
     - **Mint** (movies, when virtual items are enabled): creates a tagged, pathless virtual placeholder so

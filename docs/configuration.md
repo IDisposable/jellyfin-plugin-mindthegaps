@@ -339,9 +339,11 @@ Keyless: IMDb's own API serves any list its owner has published, no credential n
 
 Hand a gap off to your downloaders. Each report row gets a **Send** action, but a button appears only for
 a target you have filled in here, one collapsible section per target. Radarr takes a movie, Sonarr takes
-the owning series (it grabs that series' missing episodes), and Jellyseerr/Overseerr requests either. Keys
-stay on the server, so the report's **Send** action posts to the plugin and the plugin calls your
-downloader. All fields are empty by default, which leaves the matching Send button off.
+the owning series (it grabs that series' missing episodes), and Jellyseerr/Overseerr requests either. A
+Radarr or Sonarr row also gets a quality-profile picker beside its Send button, populated from that arr's
+own profile list and preselecting the configured default below; picking one overrides the default for that
+one send. Keys stay on the server, so the report's **Send** action posts to the plugin and the plugin calls
+your downloader. All fields are empty by default, which leaves the matching Send button off.
 
 | Setting                                    | Effect                                                                                                                                               |
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -480,11 +482,13 @@ author you don't have":
 
 Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, a trailer link, and
 JustWatch (the title's own page when a report gap carries one, else a search in your configured region).
-An administrator can **Send** the title to Radarr or Sonarr from it, choosing the quality profile. With
-**Want to watch** on, every card also has a bookmark, and the dialog a matching button, that put the title
-on the signed-in user's own list and take it off again. An album's or book's dialog shows who it is by and
-links to MusicBrainz, Discogs or OpenLibrary; there is no music or book handoff, so the list is the only
-action there. The dialog and the card grids work from a keyboard or a TV remote.
+With **Want to watch** on, every card also has a bookmark, and the dialog a matching button, that put the
+title on the signed-in user's own list and take it off again. An album's or book's dialog shows who it is
+by and links to MusicBrainz, Discogs or OpenLibrary. There is no acquisition handoff on any of these pages,
+by design: an administrator monitors what everyone wants from the report's own **Fulfillment queue**
+(under Maintenance) and fetches it themselves, or sends it from the report's own per-row **Send** action
+(see [Acquisition stack](#acquisition-stack-optional) above), rather than this surface talking to Radarr
+or Sonarr directly. The dialog and the card grids work from a keyboard or a TV remote.
 
 ![The card detail dialog](screenshots/webui-detail-dialog.png)
 
@@ -501,8 +505,8 @@ Each surface's data is served by the plugin whether or not the script is added, 
 - `GET MindTheGaps/Person/{personId}/Missing`, `GET MindTheGaps/Item/{itemId}/Related` and
   `GET MindTheGaps/Home/Discover`, each answering 404 until its own toggle is on.
 - `GET MindTheGaps/WebUi/Detail?tmdbId=&kind=` (`kind` is `Movie` or `Series`), a proxied TMDB lookup for a
-  title, always available.
-- Sending (`POST .../Send`) and `GET MindTheGaps/WebUi/Profiles` are administrators only.
+  title, always available. There is no send-to-Radarr/Sonarr endpoint here; that stays on the report (see
+  [Acquisition stack](#acquisition-stack-optional)).
 - With **Want to watch** on, any signed-in user can put a title on their own list and take it off
   (`POST .../Todo` and `POST .../Todo/Remove` on each surface), and read the home row of what is still on it
   (`GET MindTheGaps/Home/Wanted`). A request that is not a user's, such as one made with an API key, has no

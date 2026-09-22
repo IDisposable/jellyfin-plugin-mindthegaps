@@ -15,10 +15,12 @@
 // a different view.
 //
 // A card's only control of its own is the bookmark: clicking anywhere else on it opens a detail dialog (TMDB's
-// own synopsis, genres, rating, a trailer link when TMDB has one) with the Send and want-to-watch buttons and,
-// when sendable, a quality-profile picker moved into it. The dialog is appended to document.body rather than
-// the page, since jellyfin-web's own page wrapper sets CSS containment (see CLAUDE.md's "position: fixed is not
-// safe" note) which would otherwise make it the containing block for a fixed-position overlay and misplace it.
+// own synopsis, genres, rating, a trailer link when TMDB has one) with the want-to-watch button moved into it.
+// There is no acquisition handoff here on purpose: an administrator monitors what everyone wants through the
+// report's own Maintenance section (the fulfillment queue) instead, so this surface never talks to Radarr or
+// Sonarr. The dialog is appended to document.body rather than the page, since jellyfin-web's own page wrapper
+// sets CSS containment (see CLAUDE.md's "position: fixed is not safe" note) which would otherwise make it the
+// containing block for a fixed-position overlay and misplace it.
 (function () {
     'use strict';
 
@@ -111,28 +113,6 @@
         return 'https://www.themoviedb.org/' + (item.Kind === 'Series' ? 'tv' : 'movie') + '/' + item.TmdbId;
     }
 
-    function send(ctx, item, btn, qualityProfileId) {
-        btn.disabled = true;
-        var was = btn.textContent;
-        btn.textContent = 'Sending\u2026';
-        var params = { gapId: item.GapId };
-        if (qualityProfileId) { params.qualityProfileId = qualityProfileId; }
-        api('POST', actionUrl(ctx, 'Send'), params).then(function (result) {
-            if (result && result.Success) {
-                btn.textContent = 'Sent';
-                btn.classList.add('mtgSent');
-            } else {
-                btn.textContent = was;
-                btn.disabled = false;
-                alertUser((result && result.Message) || 'Send failed.');
-            }
-        }, function () {
-            btn.textContent = was;
-            btn.disabled = false;
-            alertUser('Could not reach the server.');
-        });
-    }
-
     // ---- Want to watch ----
     //
     // The bookmark on a card and the button in the dialog are two views of one fact: whether the title is on the
@@ -210,12 +190,6 @@
             setWanted(ctx, item, !item.OnList, btn);
         });
         return btn;
-    }
-
-    // canSend is a plain boolean for a single-kind list (a person's Movies, an item's similar titles, all
-    // one kind), or a function(item) for a mixed list (the home row, movies and series interleaved).
-    function resolveCanSend(canSend, item) {
-        return typeof canSend === 'function' ? canSend(item) : !!canSend;
     }
 
     // ---- Detail dialog ----
@@ -321,32 +295,9 @@
         return backdrop;
     }
 
-    // The Send and want-to-watch controls: independent of the TMDB detail lookup below, since a gap already
-    // carries everything either needs, so they must not wait on (or fail because of) a slow or failing TMDB
-    // call. A sendable card gets a quality-profile picker too, populated lazily and left hidden (Send
-    // still works with the configured default) if that lookup fails.
-    function renderActions(actionsEl, ctx, canSend, item) {
-        if (resolveCanSend(canSend, item)) {
-            var select = h('select', { 'is': 'emby-select', 'class': 'selectSmall mtgProfileSelect' });
-            select.style.display = 'none';
-            var sendBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgSendButton' }, 'Download Now');
-            sendBtn.addEventListener('click', function () {
-                var profileId = select.value ? parseInt(select.value, 10) : null;
-                send(ctx, item, sendBtn, profileId);
-            });
-            actionsEl.appendChild(select);
-            actionsEl.appendChild(sendBtn);
-            api('GET', 'MindTheGaps/WebUi/Profiles', { kind: item.Kind }).then(function (result) {
-                if (!result || !result.Profiles || !result.Profiles.length) { return; }
-                result.Profiles.forEach(function (p) {
-                    var opt = h('option', { 'value': p.Id }, p.Name);
-                    if (p.Id === result.DefaultId) { opt.selected = true; }
-                    select.appendChild(opt);
-                });
-                select.style.display = '';
-            }, function () { /* leave it hidden; Send still uses the configured default profile */ });
-        }
-
+    // The want-to-watch control: independent of the TMDB detail lookup below, since a gap already carries
+    // everything it needs, so it must not wait on (or fail because of) a slow or failing TMDB call.
+    function renderActions(actionsEl, ctx, item) {
         if (ctx.canTodo) {
             var wantBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgWantButton', 'data-want': item.GapId });
             paintWantButton(wantBtn, item);
@@ -400,8 +351,8 @@
     }
 
     // Everything that does not need to wait on TMDB: the shell, the poster (already have its URL from
-    // the card), the TMDB link, and the Send/Add-to-TODO action.
-    function dialogBody(ctx, canSend, item) {
+    // the card), the TMDB link, and the Add-to-TODO action.
+    function dialogBody(ctx, item) {
         var body = h('div', { 'class': 'mtgDialogBody' });
         var backdropImg = h('div', { 'class': 'mtgDialogBackdropImage' });
         body.appendChild(backdropImg);
@@ -438,20 +389,20 @@
 
         var actions = h('div', { 'class': 'mtgDialogActions' });
         info.appendChild(actions);
-        renderActions(actions, ctx, canSend, item);
+        renderActions(actions, ctx, item);
 
         content.appendChild(info);
         body.appendChild(content);
         return { body: body, info: info, loading: loading, links: links, poster: poster, backdropImg: backdropImg };
     }
 
-    function openDialog(ctx, canSend, item) {
+    function openDialog(ctx, item) {
         ensureDialog();
         var wasOpen = dialogEl.classList.contains('mtgDialogOpen');
         var token = ++dialogToken;
         var old = dialogInner.querySelector('.mtgDialogBody');
         if (old) { old.remove(); }
-        var refs = dialogBody(ctx, canSend, item);
+        var refs = dialogBody(ctx, item);
         dialogInner.appendChild(refs.body);
         dialogEl.classList.add('mtgDialogOpen');
 
@@ -461,8 +412,8 @@
             dialogHistoryPushed = true;
         }
 
-        // Autofocus the close button, not the Send button: a remote's Select right after opening must
-        // not risk triggering an action before the title has even loaded.
+        // Autofocus the close button, not the want-to-watch button: a remote's Select right after opening
+        // must not risk triggering an action before the title has even loaded.
         dialogCloseBtn.focus();
 
         if (isWork(item)) { return; }
@@ -483,7 +434,7 @@
     // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
-    function card(ctx, canSend, item) {
+    function card(ctx, item) {
         // An album cover is square; a poster or a book cover is portrait.
         var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
         var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
@@ -515,13 +466,13 @@
         box.appendChild(secondary);
 
         el.appendChild(box);
-        el.addEventListener('click', function () { openDialog(ctx, canSend, item); });
+        el.addEventListener('click', function () { openDialog(ctx, item); });
         el.addEventListener('keydown', function (e) {
             // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
             if (e.target !== el) { return; }
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
-                openDialog(ctx, canSend, item);
+                openDialog(ctx, item);
             }
         });
         return el;
@@ -580,13 +531,13 @@
     }
 
     // A wrapping grid of cards (the person page).
-    function grid(ctx, canSend, name, items) {
+    function grid(ctx, name, items) {
         var section = h('div', { 'class': 'verticalSection' });
         var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards' });
         head.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name + ' (' + items.length + ')'));
         section.appendChild(head);
         var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer vertical-wrap padded-right' });
-        items.forEach(function (item) { container.appendChild(card(ctx, canSend, item)); });
+        items.forEach(function (item) { container.appendChild(card(ctx, item)); });
         wireCardNavigation(container);
         section.appendChild(container);
         return section;
@@ -596,7 +547,7 @@
     // On the item page the row sits in .detailVerticalSection, which already pads the left edge, so the
     // scroller takes no-padding of its own and the title goes straight in. A home section is not padded by its
     // parent: its title sits in a padded-left container and the scroller supplies the cards' own offset.
-    function scroller(ctx, canSend, name, items, onHome) {
+    function scroller(ctx, name, items, onHome) {
         var section = h('div', { 'class': 'verticalSection' });
         if (onHome) {
             var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left' });
@@ -607,7 +558,7 @@
         }
         var scrollerEl = h('div', { 'is': 'emby-scroller', 'class': 'padded-top-focusscale padded-bottom-focusscale' + (onHome ? '' : ' no-padding'), 'data-centerfocus': 'true' });
         var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer scrollSlider focuscontainer-x' });
-        items.forEach(function (item) { container.appendChild(card(ctx, canSend, item)); });
+        items.forEach(function (item) { container.appendChild(card(ctx, item)); });
         wireCardNavigation(container);
         scrollerEl.appendChild(container);
         section.appendChild(scrollerEl);
@@ -626,8 +577,8 @@
         lead.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, 'Missing from your library'));
         if (data.Reason) { lead.appendChild(h('p', { 'class': 'mtgNote' }, data.Reason)); }
         wrap.appendChild(lead);
-        if (data.Movies.length) { wrap.appendChild(grid(ctx, data.CanSendMovies, 'Movies', data.Movies)); }
-        if (data.Series.length) { wrap.appendChild(grid(ctx, data.CanSendSeries, 'Shows', data.Series)); }
+        if (data.Movies.length) { wrap.appendChild(grid(ctx, 'Movies', data.Movies)); }
+        if (data.Series.length) { wrap.appendChild(grid(ctx, 'Shows', data.Series)); }
 
         // Below the person's own items, above jellyfin-web's own "More Like This".
         var anchor = page.querySelector('#similarCollapsible');
@@ -644,7 +595,7 @@
         var ctx = { kind: 'Item', id: itemId, canTodo: !!data.CanTodo };
         var section;
         if (data.Titles.length) {
-            section = scroller(ctx, data.CanSend, "More like this you don't have", data.Titles);
+            section = scroller(ctx, "More like this you don't have", data.Titles);
         } else {
             section = h('div', { 'class': 'verticalSection' });
             section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, "More like this you don't have"));
@@ -677,7 +628,7 @@
         var ctx = { kind: 'Item', id: itemId, canTodo: !!data.CanTodo, scope: 'Works' };
         var section;
         if (data.Works.length) {
-            section = scroller(ctx, false, heading, data.Works);
+            section = scroller(ctx, heading, data.Works);
         } else {
             section = h('div', { 'class': 'verticalSection' });
             section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, heading));
@@ -713,8 +664,7 @@
         if (!data || !data.Titles.length) { return; }
 
         var ctx = { kind: 'Home', id: '', canTodo: !!data.CanTodo };
-        var canSend = function (item) { return item.Kind === 'Movie' ? data.CanSendMovies : data.CanSendSeries; };
-        var section = scroller(ctx, canSend, 'Discover: not in your library', data.Titles, true);
+        var section = scroller(ctx, 'Discover: not in your library', data.Titles, true);
         section.id = HOME_ID;
         sectionsEl.appendChild(section);
     }
@@ -727,7 +677,7 @@
         if (!data || !data.Titles.length) { return; }
 
         var ctx = { kind: 'Home', id: '', canTodo: true, wanted: true, removeUrl: 'MindTheGaps/Home/Wanted/Remove' };
-        var section = scroller(ctx, false, 'Want to watch', data.Titles, true);
+        var section = scroller(ctx, 'Want to watch', data.Titles, true);
         section.id = WANTED_ID;
         sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID));
     }
@@ -859,7 +809,6 @@
         '.mtgDialogLinks,.mtgDialogActions{display:flex;flex-wrap:wrap;align-items:center;gap:.5em;margin-top:1em}' +
         '.mtgDialog .mtgActionButton{margin:0}' +
         '.mtgActionButton.mtgSent{opacity:.6}' +
-        '.mtgProfileSelect{max-width:12em}' +
         // Plain :focus, not :focus-visible: a TV has no mouse to distinguish from, and an older TV
         // browser that does not recognize :focus-visible would otherwise drop the rule entirely and
         // show no focus ring at all, which matters far more here than a mouse click briefly seeing one.

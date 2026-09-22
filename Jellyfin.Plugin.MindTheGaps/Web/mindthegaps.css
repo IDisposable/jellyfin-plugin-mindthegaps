@@ -399,6 +399,13 @@ a.cgSvcs {
     margin: .15em 0;
 }
 
+/* The Send quality-profile picker sits right before its button (see buildActionsPopoverBody); a fixed
+    cap keeps a long profile name from stretching the narrow .cgPopBody or the wider .cgTitleDetail. */
+.cgSendProfile {
+    max-width: 12em;
+    margin: .15em 0;
+}
+
 /* The detail box is wide (it spans the row), so its buttons tile left to right and wrap instead of
     each forcing its own line. A stray wrapping <div> from a body-builder shared with the narrower
     .cgPopBody above (buildWatchPopoverBody's offers/button wrapper) is unwrapped so its child tiles

@@ -538,7 +538,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         var item = findRowItem(page, row.getAttribute('data-gapid'));
         if (item) {
             detailEl.innerHTML = wrap('div', { style: 'opacity:.7;' }, 'Loading');
-            ensureItemDetail(item).then(function (full) { detailEl.innerHTML = buildExpandedDetailBody(full); });
+            ensureItemDetail(item).then(function (full) { detailEl.innerHTML = buildExpandedDetailBody(full); primeSendProfilePickers(detailEl); });
         }
         return detailEl;
     };
@@ -806,12 +806,19 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             var sgid = sendBtn.getAttribute('data-gapid');
             if (!sgid) { return; }
             var sendEndpoint = sendArrBtn ? 'SendToArr' : 'SendToSeerr';
+            var sendParams = { id: sgid };
+            // The picker sits beside the button as a sibling, keyed by the same kind, and is only ever
+            // populated once its lookup resolves; an empty/hidden select just leaves the param off, and
+            // SendToArr falls back to the configured default profile.
+            var sendKind = sendArrBtn && sendArrBtn.getAttribute('data-kind');
+            var profileSelect = sendKind && sendBtn.parentNode && sendBtn.parentNode.querySelector('.cgSendProfile[data-kind="' + sendKind + '"]');
+            if (profileSelect && profileSelect.value) { sendParams.qualityProfileId = profileSelect.value; }
             var sendHtml = sendBtn.innerHTML;
             sendBtn.textContent = 'Sending…';
             sendBtn.disabled = true;
             ApiClient.ajax({
                 type: 'POST',
-                url: ApiClient.getUrl('MindTheGaps/' + sendEndpoint, { id: sgid }),
+                url: ApiClient.getUrl('MindTheGaps/' + sendEndpoint, sendParams),
                 dataType: 'json'
             }).then(function (r) {
                 Dashboard.alert((r && r.Message) ? String(r.Message) : 'Sent.');

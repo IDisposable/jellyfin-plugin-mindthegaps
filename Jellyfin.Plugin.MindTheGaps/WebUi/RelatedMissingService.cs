@@ -8,7 +8,6 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
@@ -67,22 +66,19 @@ public sealed class RelatedMissingService
     /// Computes the unowned titles similar to an owned movie or series.
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
-    /// <param name="isAdministrator">Whether the caller is an administrator, which gates the Send buttons.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or <see langword="null"/> when the id is not a library movie or series.</returns>
-    public async Task<RelatedMissingResult?> GetAsync(Guid itemId, bool isAdministrator, CancellationToken cancellationToken)
+    public async Task<RelatedMissingResult?> GetAsync(Guid itemId, CancellationToken cancellationToken)
     {
         if (_libraryManager.GetItemById(itemId) is not BaseItem item || item is not (Movie or Series))
         {
             return null;
         }
 
-        var config = Plugin.RequireConfiguration();
         var result = new RelatedMissingResult
         {
             ItemId = itemId,
-            ItemName = item.Name,
-            CanSend = isAdministrator && (item is Movie ? AcquisitionService.RadarrConfigured(config) : AcquisitionService.SonarrConfigured(config))
+            ItemName = item.Name
         };
 
         var gaps = await BuildGapsAsync(item, cancellationToken).ConfigureAwait(false);
@@ -113,8 +109,8 @@ public sealed class RelatedMissingService
     }
 
     /// <summary>
-    /// Rehydrates one of the item's related gaps by id, for a Send. Recomputed server-side from the same
-    /// inputs the page listed.
+    /// Rehydrates one of the item's related gaps by id, for a want-to-watch add or remove. Recomputed
+    /// server-side from the same inputs the page listed.
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
     /// <param name="gapId">The gap id the page showed.</param>

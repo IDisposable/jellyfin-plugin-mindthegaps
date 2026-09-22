@@ -7,7 +7,6 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -63,25 +62,20 @@ public sealed class PersonMissingService
     /// Computes the person's unowned filmography.
     /// </summary>
     /// <param name="personId">The Jellyfin person id.</param>
-    /// <param name="isAdministrator">Whether the caller is an administrator, which gates the Send buttons.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or <see langword="null"/> when the id is not a library person.</returns>
-    public async Task<PersonMissingResult?> GetAsync(Guid personId, bool isAdministrator, CancellationToken cancellationToken)
+    public async Task<PersonMissingResult?> GetAsync(Guid personId, CancellationToken cancellationToken)
     {
         if (_libraryManager.GetItemById(personId) is not Person person)
         {
             return null;
         }
 
-        var config = Plugin.RequireConfiguration();
         var result = new PersonMissingResult
         {
             PersonId = personId,
-            PersonName = person.Name,
-            CanSendMovies = isAdministrator && AcquisitionService.RadarrConfigured(config),
-            CanSendSeries = isAdministrator && AcquisitionService.SonarrConfigured(config)
+            PersonName = person.Name
         };
-        result.CanSend = result.CanSendMovies || result.CanSendSeries;
 
         var gaps = await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false);
         if (gaps.Reason is not null)
@@ -98,9 +92,9 @@ public sealed class PersonMissingService
     }
 
     /// <summary>
-    /// Rehydrates one of the person's gaps by id, for a Send. Recomputed server-side from the same inputs the
-    /// page listed, so a client can only ever send a title this person is actually credited on and the
-    /// library actually lacks.
+    /// Rehydrates one of the person's gaps by id, for a want-to-watch add or remove. Recomputed server-side
+    /// from the same inputs the page listed, so a client can only ever act on a title this person is
+    /// actually credited on and the library actually lacks.
     /// </summary>
     /// <param name="personId">The Jellyfin person id.</param>
     /// <param name="gapId">The gap id the page showed.</param>

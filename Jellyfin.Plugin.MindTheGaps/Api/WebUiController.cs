@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Microsoft.AspNetCore.Authorization;
@@ -15,10 +14,11 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 
 /// <summary>
 /// The web UI surfaces' cross-surface endpoints: the client script every surface's page loads, and the
-/// detail dialog's TMDB lookup and quality-profile picker, shared by the person/item/home surfaces
-/// (<see cref="PersonWebUiController"/>, <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>)
-/// since a TMDB id and kind is all either needs; the gap itself is rehydrated separately, by each
-/// surface's own Send.
+/// detail dialog's TMDB lookup, shared by the person/item/home surfaces (<see cref="PersonWebUiController"/>,
+/// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>) since a TMDB id and kind is all
+/// any of them needs. Deliberately carries no acquisition handoff: an administrator monitors what everyone
+/// wants through the report's own Maintenance section (the fulfillment queue) instead, so this surface
+/// never talks to Radarr or Sonarr.
 /// </summary>
 [ApiController]
 [Route("MindTheGaps")]
@@ -34,19 +34,16 @@ public class WebUiController : ControllerBase
     private static readonly Lazy<EmbeddedAsset?> _clientScript = new(
         () => EmbeddedAsset.Load(typeof(WebUiController).Assembly, ClientScriptResource, "application/javascript"));
 
-    private readonly AcquisitionService _acquisition;
     private readonly TmdbClient _tmdb;
     private readonly JustWatchLinkIndex _justWatchLinks;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiController"/> class.
     /// </summary>
-    /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr), for the quality-profile picker.</param>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
     /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
-    public WebUiController(AcquisitionService acquisition, TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
+    public WebUiController(TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
     {
-        _acquisition = acquisition;
         _tmdb = tmdb;
         _justWatchLinks = justWatchLinks;
     }
@@ -84,9 +81,8 @@ public class WebUiController : ControllerBase
     }
 
     /// <summary>
-    /// The detail dialog's TMDB lookup for one card: enough to decide whether the title is worth acquiring
-    /// before sending it anywhere. Shared by all three surfaces (person, item, home), since a TMDB id and
-    /// kind is all a lookup needs; the gap itself is rehydrated separately, by the surface-specific Send.
+    /// The detail dialog's TMDB lookup for one card. Shared by all three surfaces (person, item, home),
+    /// since a TMDB id and kind is all a lookup needs.
     /// </summary>
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="kind">The title's kind, <c>Movie</c> or <c>Series</c>.</param>
@@ -110,36 +106,6 @@ public class WebUiController : ControllerBase
         {
             var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
             return show is null ? NotFound() : MissingTitleDetailMapper.FromSeries(show, _tmdb.GetPosterUrl, _tmdb.GetBackdropUrl, config.MetadataCountryCode, _justWatchLinks.Find(BaseItemKind.Series, tmdbId));
-        }
-
-        return NotFound();
-    }
-
-    /// <summary>
-    /// The quality profiles offered for a title's kind, for the detail dialog's picker.
-    /// </summary>
-    /// <param name="kind">The title's kind, <c>Movie</c> (Radarr) or <c>Series</c> (Sonarr).</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The profiles, empty when the matching arr is not configured; 404 when the kind is not
-    /// recognized.</returns>
-    [HttpGet("WebUi/Profiles")]
-    [Authorize(Policy = "RequiresElevation")]
-    [Produces("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<QualityProfilesResult>> GetProfiles([FromQuery] string? kind, CancellationToken cancellationToken)
-    {
-        var config = Plugin.RequireConfiguration();
-        if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
-        {
-            var profiles = await _acquisition.GetRadarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
-            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.RadarrQualityProfileId };
-        }
-
-        if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase))
-        {
-            var profiles = await _acquisition.GetSonarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
-            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.SonarrQualityProfileId };
         }
 
         return NotFound();

@@ -1,9 +1,10 @@
 namespace Jellyfin.Plugin.MindTheGaps.Model;
 
 /// <summary>
-/// One quality profile an arr (Radarr or Sonarr) offers, for a per-title picker. The property names match
-/// Radarr's and Sonarr's own <c>/api/v3/qualityprofile</c> response (deserialized directly from it, case
-/// insensitively), and are also what the web UI's picker endpoint serializes back to the client.
+/// One quality profile an arr (Radarr or Sonarr) offers, for the report's per-row Send picker. The property
+/// names match Radarr's and Sonarr's own <c>/api/v3/qualityprofile</c> response (deserialized directly from
+/// it, case insensitively), and are also what <see cref="Api.AcquisitionController"/>'s picker endpoint
+/// serializes back to the client.
 /// </summary>
 public sealed class QualityProfileChoice
 {

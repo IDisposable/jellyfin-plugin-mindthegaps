@@ -9,16 +9,6 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 public sealed class HomeDiscoverResult
 {
     /// <summary>
-    /// Gets or sets a value indicating whether the caller may send a movie (administrator, Radarr configured).
-    /// </summary>
-    public bool CanSendMovies { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the caller may send a series (administrator, Sonarr configured).
-    /// </summary>
-    public bool CanSendSeries { get; set; }
-
-    /// <summary>
     /// Gets or sets a value indicating whether the caller may keep a want-to-watch list: want to watch is on
     /// and the caller is a signed-in user without a parental rating limit. The row shows a bookmark on each
     /// card when it is.

@@ -8,8 +8,6 @@ const PERSON_ITEM = { Id: 'person-1', Name: 'Some Actor', Type: 'Person' };
 const POSTER = 'https://image.tmdb.org/t/p/w500/poster.jpg';
 
 const missing = () => ({
-    CanSendMovies: false,
-    CanSendSeries: false,
     CanTodo: false,
     Reason: null,
     Movies: [{ GapId: 'filmography:movie:1', Title: 'A Movie', Year: 2001, Role: null, Kind: 'Movie', TmdbId: 1, ImageUrl: POSTER, Upcoming: false }],

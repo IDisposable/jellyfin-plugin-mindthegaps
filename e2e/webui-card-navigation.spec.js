@@ -42,7 +42,7 @@ function gapIdOfActive(page) {
 
 test('ArrowRight/ArrowLeft move between cards in a grid, and stop at the ends', async ({ page }) => {
     const missing = {
-        CanSendMovies: false, CanSendSeries: false, Reason: null,
+        Reason: null,
         Movies: [movie(1), movie(2), movie(3)], Series: []
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing);
@@ -68,7 +68,7 @@ test('ArrowRight/ArrowLeft move between cards in a grid, and stop at the ends', 
 
 test('ArrowDown/ArrowUp move to the nearest card in the row below/above a wrapping grid', async ({ page }) => {
     const missing = {
-        CanSendMovies: false, CanSendSeries: false, Reason: null,
+        Reason: null,
         Movies: [movie(1), movie(2), movie(3), movie(4)], Series: []
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing);
@@ -90,7 +90,7 @@ test('ArrowDown/ArrowUp move to the nearest card in the row below/above a wrappi
 
 test('ArrowDown at the last row and ArrowUp at the first row are no-ops', async ({ page }) => {
     const missing = {
-        CanSendMovies: false, CanSendSeries: false, Reason: null,
+        Reason: null,
         Movies: [movie(1), movie(2), movie(3)], Series: []
     };
     const harnessPath = buildWebUiHarness(PERSON_ITEM, missing);
@@ -108,7 +108,7 @@ test('ArrowDown at the last row and ArrowUp at the first row are no-ops', async 
 
 test('the two grids (Movies and Shows) navigate independently, since they are separate containers', async ({ page }) => {
     const missing = {
-        CanSendMovies: false, CanSendSeries: false, Reason: null,
+        Reason: null,
         Movies: [movie(1)],
         Series: [{ GapId: 'filmography:series:1', Title: 'A Show', Year: 2010, Role: null, Kind: 'Series', TmdbId: 9, ImageUrl: null, Upcoming: false }]
     };
@@ -127,7 +127,7 @@ test('the two grids (Movies and Shows) navigate independently, since they are se
 
 test('ArrowRight/ArrowLeft move between cards in a horizontal scroller (the item/home rows)', async ({ page }) => {
     const related = {
-        CanSend: false, Reason: null,
+        Reason: null,
         Titles: [
             { GapId: 'recommendation:movie:1', Title: 'A', Year: 2001, Kind: 'Movie', TmdbId: 1, ImageUrl: null, Upcoming: false },
             { GapId: 'recommendation:movie:2', Title: 'B', Year: 2002, Kind: 'Movie', TmdbId: 2, ImageUrl: null, Upcoming: false }
@@ -145,7 +145,7 @@ test('ArrowRight/ArrowLeft move between cards in a horizontal scroller (the item
 
 test('ArrowUp/ArrowDown are a no-op in a single-row scroller', async ({ page }) => {
     const related = {
-        CanSend: false, Reason: null,
+        Reason: null,
         Titles: [
             { GapId: 'recommendation:movie:1', Title: 'A', Year: 2001, Kind: 'Movie', TmdbId: 1, ImageUrl: null, Upcoming: false },
             { GapId: 'recommendation:movie:2', Title: 'B', Year: 2002, Kind: 'Movie', TmdbId: 2, ImageUrl: null, Upcoming: false }

@@ -61,12 +61,42 @@ public class AcquisitionController : ControllerBase
     /// Sends one gap to Radarr (a movie) or Sonarr (a series/episode), rehydrated server-side by its id.
     /// </summary>
     /// <param name="id">The stable id of the gap to send.</param>
+    /// <param name="qualityProfileId">Overrides the configured default quality profile, from the report's
+    /// per-row picker; omitted uses the configured default.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The outcome.</returns>
     [HttpPost("SendToArr")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<AcquisitionSendResult>> SendToArr([FromQuery] string? id, CancellationToken cancellationToken)
-        => await SendOneAsync(id, (gapItem, config, ct) => _acquisition.SendToArrAsync(gapItem, config, null, ct), cancellationToken).ConfigureAwait(false);
+    public async Task<ActionResult<AcquisitionSendResult>> SendToArr([FromQuery] string? id, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
+        => await SendOneAsync(id, (gapItem, config, ct) => _acquisition.SendToArrAsync(gapItem, config, qualityProfileId, ct), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// The quality profiles offered for a title's kind, for the report's per-row Send picker.
+    /// </summary>
+    /// <param name="kind">The title's kind, <c>Movie</c> (Radarr) or <c>Series</c> (Sonarr).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The profiles, empty when the matching arr is not configured; 404 when the kind is not
+    /// recognized.</returns>
+    [HttpGet("QualityProfiles")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<QualityProfilesResult>> GetQualityProfiles([FromQuery] string? kind, CancellationToken cancellationToken)
+    {
+        var config = Plugin.RequireConfiguration();
+        if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
+        {
+            var profiles = await _acquisition.GetRadarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
+            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.RadarrQualityProfileId };
+        }
+
+        if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase) || string.Equals(kind, "Episode", StringComparison.OrdinalIgnoreCase))
+        {
+            var profiles = await _acquisition.GetSonarrQualityProfilesAsync(config, cancellationToken).ConfigureAwait(false);
+            return new QualityProfilesResult { Profiles = profiles, DefaultId = config.SonarrQualityProfileId };
+        }
+
+        return NotFound();
+    }
 
     /// <summary>
     /// Sends several selected gaps to Radarr/Sonarr, rehydrated server-side by their ids. One failed send

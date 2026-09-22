@@ -97,10 +97,8 @@ test('the dialog shows who the work is by and its own links, and makes no detail
     await expect(link).toHaveAttribute('href', 'https://musicbrainz.org/release-group/rg-1');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(dialog.getByText('Loading details')).toHaveCount(0);
-    await expect(dialog.locator('.mtgSendButton')).toHaveCount(0);
 
     expect(await page.evaluate(() => window.__lastDetailUrl)).toBeNull();
-    expect(await page.evaluate(() => window.__lastProfilesUrl)).toBeNull();
 });
 
 test('a link that is not https is not offered', async ({ page }) => {

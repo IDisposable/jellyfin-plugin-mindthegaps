@@ -11,8 +11,6 @@ const ARTIST_ITEM = { Id: 'artist-1', Name: 'A Band', Type: 'MusicArtist' };
 const movie = (id, extra) => Object.assign({ GapId: 'filmography:movie:' + id, Title: 'Movie ' + id, Year: 1999, Role: null, Kind: 'Movie', TmdbId: id, ImageUrl: null, Upcoming: false, OnList: false }, extra);
 
 const person = (extra) => Object.assign({
-    CanSendMovies: false,
-    CanSendSeries: false,
     CanTodo: true,
     Reason: null,
     Movies: [movie(1), movie(2, { OnList: true })],
@@ -185,7 +183,7 @@ const wantedRow = (extra) => Object.assign({
 }, extra);
 
 test('the home screen shows the list as a Want to watch row, ahead of Discover', async ({ page }) => {
-    const discover = { CanSendMovies: false, CanSendSeries: false, CanTodo: true, Titles: [movie(1, { GapId: 'recommendation:movie:1', Because: 'Because you have Fargo' })] };
+    const discover = { CanTodo: true, Titles: [movie(1, { GapId: 'recommendation:movie:1', Because: 'Because you have Fargo' })] };
     await openHomePage(page, buildWebUiHomeHarness(discover, null, 1, undefined, undefined, wantedRow()));
 
     const row = page.locator('#mtgHomeWanted');
@@ -233,15 +231,6 @@ test('a title removed from the wanted row while its dialog is open leaves the di
     await expect(button).toHaveText('Removed from your list');
     await expect(button).toBeDisabled();
     await expect(page.locator('#mtgHomeWanted .mtgCard[data-gapid="filmography:movie:7"]')).toHaveCount(0);
-});
-
-test('the wanted row offers no download, whatever the Discover row allows', async ({ page }) => {
-    const discover = { CanSendMovies: true, CanSendSeries: true, CanTodo: true, Titles: [movie(1, { GapId: 'recommendation:movie:1' })] };
-    await openHomePage(page, buildWebUiHomeHarness(discover, null, 1, undefined, undefined, wantedRow()));
-
-    await card(page, 'filmography:movie:7').click();
-
-    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
 });
 
 test('no wanted row when want to watch is off (the endpoint 404s), and no script errors', async ({ page }) => {

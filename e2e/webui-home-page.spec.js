@@ -1,8 +1,8 @@
 // Drives the real mindthegaps.webui.js against a fake jellyfin-web home screen. This is the surface
 // with the least straightforward wiring: the home view is cached by jellyfin-web and its own sections
 // render asynchronously after viewshow fires, so the script waits for a MutationObserver signal rather
-// than inserting immediately, and must not fire again on its own row coming and going. Send/Add-to-TODO
-// live inside the detail dialog (see webui-dialog.spec.js), not on the card itself.
+// than inserting immediately, and must not fire again on its own row coming and going. Add-to-TODO lives
+// inside the detail dialog (see webui-dialog.spec.js), not on the card itself.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHomeHarness } = require('./support/webui-harness');
 
@@ -31,8 +31,6 @@ async function openCardDialog(page, gapId) {
 
 test('renders the discover row once jellyfin has laid out its own sections, in normal document flow', async ({ page }) => {
     const discover = {
-        CanSendMovies: true,
-        CanSendSeries: false,
         Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, Because: 'Because you have Fargo', TmdbId: 1, ImageUrl: 'https://example.com/p.jpg', Upcoming: false }]
     };
     const harnessPath = buildWebUiHomeHarness(discover);
@@ -58,41 +56,8 @@ test('renders the discover row once jellyfin has laid out its own sections, in n
     expect(positions).not.toContain('absolute');
 });
 
-test('a movie can be sent from the dialog; a series on the same row respects its own flag', async ({ page }) => {
+test('a card gets a TMDB link and, for a signed-in user, a want-to-watch button', async ({ page }) => {
     const discover = {
-        CanSendMovies: true,
-        CanSendSeries: false,
-        Titles: [
-            { GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, TmdbId: 1, ImageUrl: null, Upcoming: false },
-            { GapId: 'recommendation:series:2', Title: 'A Recommended Show', Kind: 'Series', Year: 2010, TmdbId: 2, ImageUrl: null, Upcoming: false }
-        ]
-    };
-    const harnessPath = buildWebUiHomeHarness(discover, { Success: true, Message: 'Sent 1 item(s).' });
-    await openHomePage(page, harnessPath);
-    await simulateJellyfinsOwnSections(page);
-    await expect(page.locator('#mtgHomeDiscover')).toBeVisible();
-
-    // The movie (CanSendMovies true) gets a Send button in its dialog; the series (CanSendSeries false)
-    // gets none.
-    await openCardDialog(page, 'recommendation:series:2');
-    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
-    await page.locator('.mtgDialogClose').click();
-    await expect(page.locator('.mtgDialogBackdrop')).not.toHaveClass(/mtgDialogOpen/);
-
-    await openCardDialog(page, 'recommendation:movie:1');
-    const button = page.locator('.mtgDialog .mtgSendButton');
-    await expect(button).toHaveCount(1);
-    await button.click();
-    await expect(button).toHaveText('Sent');
-    const sendUrl = await page.evaluate(() => window.__lastSendUrl);
-    expect(sendUrl).toContain('Home/Send');
-    expect(sendUrl).toContain('gapId=recommendation%3Amovie%3A1');
-});
-
-test('a card with no send flags gets a TMDB link and, for a signed-in user, a want-to-watch button', async ({ page }) => {
-    const discover = {
-        CanSendMovies: false,
-        CanSendSeries: false,
         CanTodo: true,
         Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, TmdbId: 603, ImageUrl: null, Upcoming: false }]
     };
@@ -101,7 +66,6 @@ test('a card with no send flags gets a TMDB link and, for a signed-in user, a wa
     await simulateJellyfinsOwnSections(page);
     await openCardDialog(page, 'recommendation:movie:1');
 
-    await expect(page.locator('.mtgDialog .mtgSendButton')).toHaveCount(0);
     const tmdbLink = page.locator('.mtgDialog .mtgDialogLinks a').first();
     await expect(tmdbLink).toHaveAttribute('href', 'https://www.themoviedb.org/movie/603');
 
@@ -125,7 +89,7 @@ test('renders nothing when the surface is off (the endpoint 404s), with no JS er
 });
 
 test('the row surviving its own re-insertion does not retrigger a reload loop', async ({ page }) => {
-    const discover = { CanSendMovies: false, CanSendSeries: false, Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, TmdbId: 1, ImageUrl: null, Upcoming: false }] };
+    const discover = { Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, TmdbId: 1, ImageUrl: null, Upcoming: false }] };
     const harnessPath = buildWebUiHomeHarness(discover);
     await openHomePage(page, harnessPath);
     await simulateJellyfinsOwnSections(page);
@@ -144,7 +108,6 @@ test('the row surviving its own re-insertion does not retrigger a reload loop', 
 // section's.
 test('the discover row uses the home markup: title in a padded-left container, scroller without no-padding', async ({ page }) => {
     const discover = {
-        CanSendMovies: true, CanSendSeries: false,
         Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, Because: 'Because you have Fargo', TmdbId: 1, ImageUrl: null, Upcoming: false }]
     };
     await openHomePage(page, buildWebUiHomeHarness(discover));

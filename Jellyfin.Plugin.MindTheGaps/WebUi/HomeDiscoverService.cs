@@ -4,7 +4,6 @@ using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 
 namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
@@ -34,19 +33,12 @@ public sealed class HomeDiscoverService
     /// <summary>
     /// Builds the row.
     /// </summary>
-    /// <param name="isAdministrator">Whether the caller is an administrator, which gates the Send buttons.</param>
     /// <param name="limit">The most titles to return.</param>
     /// <returns>The row; empty when the scan has not produced recommendations yet.</returns>
-    public HomeDiscoverResult Get(bool isAdministrator, int limit)
+    public HomeDiscoverResult Get(int limit)
     {
-        var config = Plugin.RequireConfiguration();
         var titles = Rank(_store.LoadSnapshot().Items, _resolutions.GetAll(), limit);
-        return new HomeDiscoverResult
-        {
-            CanSendMovies = isAdministrator && AcquisitionService.RadarrConfigured(config),
-            CanSendSeries = isAdministrator && AcquisitionService.SonarrConfigured(config),
-            Titles = titles
-        };
+        return new HomeDiscoverResult { Titles = titles };
     }
 
     /// <summary>

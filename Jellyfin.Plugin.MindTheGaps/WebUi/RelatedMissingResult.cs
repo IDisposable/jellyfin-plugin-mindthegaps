@@ -20,12 +20,6 @@ public sealed class RelatedMissingResult
     public string ItemName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the caller may send a title to Radarr/Sonarr for this kind of
-    /// item: an administrator with the matching target configured.
-    /// </summary>
-    public bool CanSend { get; set; }
-
-    /// <summary>
     /// Gets or sets a value indicating whether the caller may keep a want-to-watch list: want to watch is on
     /// and the caller is a signed-in user without a parental rating limit. The page shows a bookmark on each
     /// card when it is.

@@ -1,22 +1,20 @@
 using System;
 using System.Collections.Generic;
-using Jellyfin.Plugin.MindTheGaps.Model;
 
-namespace Jellyfin.Plugin.MindTheGaps.WebUi;
+namespace Jellyfin.Plugin.MindTheGaps.Model;
 
 /// <summary>
-/// The quality profiles offered for a title's kind (Radarr for a movie, Sonarr for a series), for the
-/// detail dialog's picker. Empty when the matching arr is not configured.
+/// The quality profiles offered for a title's kind, for the report's per-row Send picker.
 /// </summary>
 public sealed class QualityProfilesResult
 {
     /// <summary>
-    /// Gets or sets the profiles.
+    /// Gets or sets the profiles the target arr offers.
     /// </summary>
     public IReadOnlyList<QualityProfileChoice> Profiles { get; set; } = Array.Empty<QualityProfileChoice>();
 
     /// <summary>
     /// Gets or sets the configured default profile id, preselected in the picker.
     /// </summary>
-    public int DefaultId { get; set; }
+    public int? DefaultId { get; set; }
 }

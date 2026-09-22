@@ -2,8 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
-using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -14,9 +12,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 /// <summary>
 /// The home-screen web UI surface: the Discover row (the recommendation gaps the scan has accumulated,
 /// ranked) and the want-to-watch row (the caller's own list, filtered to what the library still lacks),
-/// plus an administrator's Send and a signed-in user's todo-list add on the Discover row's cards. Every
-/// endpoint answers 404 while its surface is off, so a toggle takes effect on the next page load without a
-/// restart.
+/// plus a signed-in user's todo-list add on the Discover row's cards. Every endpoint answers 404 while its
+/// surface is off, so a toggle takes effect on the next page load without a restart.
 /// </summary>
 [ApiController]
 [Route("MindTheGaps")]
@@ -25,23 +22,20 @@ public class HomeWebUiController : WebUiControllerBase
     private readonly HomeDiscoverService _home;
     private readonly WantedRowService _wanted;
     private readonly TodoStore _todo;
-    private readonly AcquisitionService _acquisition;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeWebUiController"/> class.
     /// </summary>
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="wanted">Builds the home screen's want-to-watch row.</param>
-    /// <param name="acquisition">The acquisition handoff service (Radarr/Sonarr).</param>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch row's removal.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, AcquisitionService acquisition, TodoStore todo, WebUiAccess access)
-        : base(acquisition, todo, access)
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, TodoStore todo, WebUiAccess access)
+        : base(todo, access)
     {
         _home = home;
         _wanted = wanted;
         _todo = todo;
-        _acquisition = acquisition;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
@@ -64,43 +58,11 @@ public class HomeWebUiController : WebUiControllerBase
         }
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
-        var result = _home.Get(IsAdministrator, size);
+        var result = _home.Get(size);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
         WantedMarker.Mark(result.Titles, wanted);
         return result;
-    }
-
-    /// <summary>
-    /// Sends one of the home row's recommendations to Radarr or Sonarr, rehydrated server-side from the
-    /// current report by its id.
-    /// </summary>
-    /// <param name="gapId">The gap id the row showed.</param>
-    /// <param name="qualityProfileId">Overrides the configured default quality profile, from the dialog's
-    /// picker; omitted uses the configured default.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The outcome, or 404 while the surface is off.</returns>
-    [HttpPost("Home/Send")]
-    [Authorize(Policy = "RequiresElevation")]
-    [Produces("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AcquisitionSendResult>> SendHomeGap([FromQuery] string? gapId, [FromQuery] int? qualityProfileId, CancellationToken cancellationToken)
-    {
-        if (!HomeRowEnabled)
-        {
-            return NotFound();
-        }
-
-        var gap = _home.FindGap(gapId ?? string.Empty);
-        if (gap is null)
-        {
-            return new AcquisitionSendResult { Success = false, Failed = 1, Message = "That title is no longer on the Discover row; refresh the page and try again." };
-        }
-
-        var config = Plugin.RequireConfiguration();
-        var result = await _acquisition.SendToArrAsync(gap, config, qualityProfileId, cancellationToken).ConfigureAwait(false);
-        return ToSendResult(result);
     }
 
     /// <summary>
