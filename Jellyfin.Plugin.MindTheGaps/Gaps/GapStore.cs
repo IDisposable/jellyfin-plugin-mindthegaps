@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging;
@@ -12,23 +11,18 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Persists the latest gap report to the plugin data folder and serves it back.
+/// Persists the latest gap report to the plugin data folder and serves it back. This is the locking and
+/// generation-counting state machine; how a report serializes to disk is <see cref="GapReportFiles"/>, and
+/// the pure editing logic behind the partial-update methods is <see cref="GapReportEdits"/> - both kept
+/// separate from the lock itself, since the store's state is only consistent because one lock serializes
+/// every writer and the lock-free readers rely on it (see <see cref="AssertLocked"/>), and neither helper
+/// touches that state.
 /// </summary>
 public sealed class GapStore
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
-
     // Coalesce the frequent checkpoint saves the background enrichment makes so a large report is not
     // fully rewritten every few lookups; the in-memory copy is always current, only the disk flush waits.
     private static readonly TimeSpan _minWriteInterval = TimeSpan.FromSeconds(5);
-
-    // The lowercase file-name segment for each domain, computed once rather than on every DomainFilePath
-    // call (a Flush touches this per domain on every save).
-    private static readonly IReadOnlyDictionary<MediaDomain, string> _domainFileNames =
-        MediaDomains.Implemented.ToDictionary(d => d, d => d.ToString().ToLowerInvariant());
 
     private readonly ILogger<GapStore> _logger;
     private readonly string? _dataFolderOverride;
@@ -91,18 +85,6 @@ public sealed class GapStore
         }
     }
 
-    // The report is stored one file per domain, so a small, frequent update (a Verify, a Send) only has to
-    // rewrite the one domain file it actually touched instead of the whole report. SourceRuns carries no
-    // domain (a run is not scoped to one), so it lives in the shared meta file alongside the scan
-    // timestamp/version rather than being shardable itself. A single gaps.json is the layout older installs
-    // hold, and is imported once.
-    private static string LegacyFilePath(string dataFolder) => Path.Combine(dataFolder, "gaps.json");
-
-    private static string MetaFilePath(string dataFolder) => Path.Combine(dataFolder, "gaps-meta.json");
-
-    private static string DomainFilePath(string dataFolder, MediaDomain domain)
-        => Path.Combine(dataFolder, string.Concat("gaps-", _domainFileNames[domain], ".json"));
-
     /// <summary>
     /// Saves the report: caches it in memory and flushes it to disk atomically.
     /// </summary>
@@ -152,7 +134,7 @@ public sealed class GapStore
             }
             else
             {
-                MergeAvailability(report, _cached);
+                GapReportEdits.MergeAvailability(report, _cached);
                 Changed(DateTime.UtcNow);
                 current = _cached;
             }
@@ -198,7 +180,7 @@ public sealed class GapStore
                     // freshly explored gap (so a curated list claims a title its recommendation already
                     // surfaced, rather than the run looking like it did nothing), and keep the gap real if the
                     // prior one was, so clearing the ad-hoc run does not drop a genuine scan gap.
-                    CarryEnrichment(prior, add);
+                    GapReportEdits.CarryEnrichment(prior, add);
                     GapSourceMerge.Merge(add, prior);
                     add.Adhoc = add.Adhoc && prior.Adhoc;
                 }
@@ -221,7 +203,7 @@ public sealed class GapStore
                 SourceRuns = current.SourceRuns
             };
             Publish(report);
-            Flush(report, DomainsOf(toAdd.Items));
+            Flush(report, GapReportEdits.DomainsOf(toAdd.Items));
             return added;
         }
     }
@@ -350,10 +332,10 @@ public sealed class GapStore
         {
             var current = LoadLocked();
             var kept = new List<GapItem>(current.Items.Count + recheck.Items.Count);
-            var dirtyDomains = new HashSet<MediaDomain>(DomainsOf(recheck.Items));
+            var dirtyDomains = new HashSet<MediaDomain>(GapReportEdits.DomainsOf(recheck.Items));
             foreach (var item in current.Items)
             {
-                if (IsReplaced(item, sourceItemId, idPrefixes))
+                if (GapReportEdits.IsReplaced(item, sourceItemId, idPrefixes))
                 {
                     dirtyDomains.Add(item.Domain);
                 }
@@ -379,152 +361,24 @@ public sealed class GapStore
         }
     }
 
-    private static bool IsReplaced(GapItem item, string sourceItemId, IReadOnlyCollection<string> idPrefixes)
-    {
-        if (!string.Equals(item.SourceItemId, sourceItemId, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        foreach (var prefix in idPrefixes)
-        {
-            if (item.Id.StartsWith(prefix, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static HashSet<MediaDomain> DomainsOf(IEnumerable<GapItem> items)
-        => new(items.Select(i => i.Domain));
-
-    // Keep an ad-hoc re-run of the same source from discarding a "where to watch" result the background
-    // pass already found for a gap (the lookup is the costly part); the rest comes fresh from the source.
-    private static void CarryEnrichment(GapItem prior, GapItem fresh)
-    {
-        if (!prior.AvailabilityChecked)
-        {
-            return;
-        }
-
-        fresh.AvailabilityChecked = true;
-        if (fresh.Availability.Count == 0 && prior.Availability.Count > 0)
-        {
-            fresh.Availability = prior.Availability;
-        }
-    }
-
-    // Copy the fields the availability pass produces from one report's items onto a (newer) report's
-    // items, matched by id. Items the newer report does not have (resolved or acquired since) are skipped;
-    // items it has that the pass did not touch keep their values.
-    private static void MergeAvailability(GapReport from, GapReport into)
-    {
-        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
-        foreach (var item in from.Items)
-        {
-            byId[item.Id] = item;
-        }
-
-        foreach (var target in into.Items)
-        {
-            if (!byId.TryGetValue(target.Id, out var source))
-            {
-                continue;
-            }
-
-            target.AvailabilityChecked = source.AvailabilityChecked;
-            if (source.Availability.Count > 0)
-            {
-                target.Availability = source.Availability;
-            }
-
-            target.ProviderIds = source.ProviderIds;
-            target.Links = source.Links;
-        }
-    }
-
-    // Writes only the domains in dirtyDomains (null means every implemented domain: a full scan or a
+    // Writes only the domains dirtyDomains names (null means every implemented domain: a full scan or a
     // multi-source pass genuinely touches all of them, so there is nothing to gain from tracking it there).
-    // Atomic per file: serialize to a temp file then replace, so a crash mid-write cannot truncate or lose
-    // a domain's gaps. Caller holds _lock.
+    // Caller holds _lock.
     private void Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
     {
         AssertLocked();
         try
         {
             var dataFolder = DataFolder;
-            var byDomain = new Dictionary<MediaDomain, List<GapItem>>();
-            foreach (var domain in MediaDomains.Implemented)
-            {
-                byDomain[domain] = new List<GapItem>();
-            }
-
-            foreach (var item in report.Items)
-            {
-                if (byDomain.TryGetValue(item.Domain, out var items))
-                {
-                    items.Add(item);
-                }
-            }
-
-            foreach (var domain in MediaDomains.Implemented)
-            {
-                if (dirtyDomains is not null && !dirtyDomains.Contains(domain))
-                {
-                    continue;
-                }
-
-                WriteDomainFile(dataFolder, domain, byDomain[domain]);
-            }
-
-            var meta = new GapReport
-            {
-                GeneratedUtc = report.GeneratedUtc,
-                GeneratedVersion = report.GeneratedVersion,
-                TotalGaps = report.TotalGaps,
-                SourceRuns = report.SourceRuns
-            };
-            WriteJson(MetaFilePath(dataFolder), meta);
-
-            // Once the split files exist, the legacy monolith is never read again; keep it from lingering
-            // as a second, increasingly stale, on-disk copy of the report.
-            var legacy = LegacyFilePath(dataFolder);
-            if (File.Exists(legacy))
-            {
-                File.Delete(legacy);
-            }
-
+            GapReportFiles.WriteDirtyDomains(dataFolder, report.Items, dirtyDomains);
+            GapReportFiles.WriteMeta(dataFolder, report);
+            GapReportFiles.DeleteLegacyIfPresent(dataFolder);
             _lastWriteUtc = DateTime.UtcNow;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist gap report");
         }
-    }
-
-    private static void WriteDomainFile(string dataFolder, MediaDomain domain, IReadOnlyList<GapItem> items)
-    {
-        var path = DomainFilePath(dataFolder, domain);
-        if (items.Count == 0)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            return;
-        }
-
-        WriteJson(path, items);
-    }
-
-    private static void WriteJson<T>(string path, T value)
-    {
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(value, _jsonOptions));
-        File.Move(tmp, path, overwrite: true);
     }
 
     /// <summary>
@@ -619,24 +473,7 @@ public sealed class GapStore
 
         try
         {
-            var dataFolder = DataFolder;
-
-            // Flush always writes the meta file, on every save, unconditionally - it existing at all
-            // already means this install has converted, whether or not any domain currently has gaps
-            // (an empty domain's file is deleted, not left behind empty), so its presence alone answers
-            // the question; checking the domain files too would only repeat what it already confirms.
-            if (File.Exists(MetaFilePath(dataFolder)))
-            {
-                _cached = LoadSplit(dataFolder);
-            }
-            else
-            {
-                var legacy = LegacyFilePath(dataFolder);
-                if (File.Exists(legacy))
-                {
-                    _cached = JsonSerializer.Deserialize<GapReport>(File.ReadAllText(legacy), _jsonOptions);
-                }
-            }
+            _cached = GapReportFiles.Load(DataFolder);
         }
         catch (Exception ex)
         {
@@ -649,44 +486,6 @@ public sealed class GapStore
         }
 
         return _cached ?? new GapReport { GeneratedUtc = DateTime.MinValue };
-    }
-
-    // Reassembles one unified report from the per-domain files plus the shared meta file; the very next
-    // Flush (from any save path) writes the split files going forward, so this only ever runs once per
-    // process against a legacy-format install, or after a legacy import.
-    private static GapReport LoadSplit(string dataFolder)
-    {
-        var meta = new GapReport();
-        var metaPath = MetaFilePath(dataFolder);
-        if (File.Exists(metaPath))
-        {
-            meta = JsonSerializer.Deserialize<GapReport>(File.ReadAllText(metaPath), _jsonOptions) ?? new GapReport();
-        }
-
-        var items = new List<GapItem>();
-        foreach (var domain in MediaDomains.Implemented)
-        {
-            var path = DomainFilePath(dataFolder, domain);
-            if (!File.Exists(path))
-            {
-                continue;
-            }
-
-            var domainItems = JsonSerializer.Deserialize<List<GapItem>>(File.ReadAllText(path), _jsonOptions);
-            if (domainItems is not null)
-            {
-                items.AddRange(domainItems);
-            }
-        }
-
-        return new GapReport
-        {
-            GeneratedUtc = meta.GeneratedUtc,
-            GeneratedVersion = meta.GeneratedVersion,
-            TotalGaps = meta.TotalGaps,
-            Items = items,
-            SourceRuns = meta.SourceRuns
-        };
     }
 
     /// <summary>
