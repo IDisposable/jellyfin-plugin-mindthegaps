@@ -75,14 +75,24 @@ test('Mark fetched closes a title out for every requester in one action', async 
     expect(await titles(page)).toEqual(['Solo Want (1999)']);
 });
 
-test('looking up where to watch uses the same lazy lookup the report list uses', async ({ page }) => {
+test('every watchable row is looked up automatically on open, with no click needed', async ({ page }) => {
     await open(page, demandData());
 
-    await page.locator('#cgFulfillBody .cgTodoRow[data-rowid="solo"] .cgWatch').click();
+    // All three rows (including the hidden "done" one) share Tmdb id 1, so priming should check each row.
+    await expect.poll(() => page.evaluate(() => window.__availabilityCalls.length)).toBe(3);
+    await expect(page.locator('#cgFulfillBody .cgTodoRow[data-rowid="solo"] .cgFulfillWatch .cgSvc[title="Netflix"]')).toBeVisible();
+    expect((await page.evaluate(() => window.__availabilityCalls))
+        .every((u) => u.includes('tmdbId=1') && u.includes('targetKind=Movie'))).toBe(true);
+});
 
-    await expect(page.locator('#cgFulfillBody .cgTodoRow[data-rowid="solo"] .cgAvail')).toContainText('Netflix');
-    const calls = await page.evaluate(() => window.__availabilityCalls);
-    expect(calls.some((u) => u.includes('tmdbId=1') && u.includes('targetKind=Movie'))).toBe(true);
+test('a re-render (Show fulfilled) does not look a title up twice', async ({ page }) => {
+    await open(page, demandData());
+    await expect.poll(() => page.evaluate(() => window.__availabilityCalls.length)).toBe(3);
+
+    await page.locator('#cgFulfillShowDone').check();
+
+    await expect(page.locator('#cgFulfillBody .cgTodoRow[data-rowid="done"] .cgFulfillWatch .cgSvc[title="Netflix"]')).toBeVisible();
+    expect(await page.evaluate(() => window.__availabilityCalls.length)).toBe(3);
 });
 
 test('an empty queue says so', async ({ page }) => {

@@ -23,5 +23,6 @@ changelog: >
   10.11.9.1 (beta) - A Maintenance section "Fulfillment queue" folds every user's TODO list into one row
   per title, sorted by how many people still want it, for an administrator who fetches things by hand
   (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is
-  still waiting and offers the same "where to watch" lookup and links a TODO row already has; Mark fetched
-  closes a title out for every requester who asked for it in one action.
+  still waiting, shows the same streaming-service icons a report row does (looked up automatically as soon
+  as the queue opens, no click needed), and carries the links a TODO row already has; Mark fetched closes a
+  title out for every requester who asked for it in one action.

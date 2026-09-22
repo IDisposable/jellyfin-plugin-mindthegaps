@@ -3365,11 +3365,30 @@ function closeTodo() {
     }
 }
 
-// One fulfillment queue row: title/year, who still wants it, the links a todo row would show plus a
-// where-to-watch lookup (buildWatchPopoverBody works unchanged here: a row carries ProviderIds and
-// TargetKindName the same way a report item does, and simply has no Availability yet, which is exactly
-// what makes that function offer the lazy "Look up where to watch" button instead of a resolved list),
-// and a Mark fetched action that closes the title out for every requester at once.
+// Whether a URL is a themoviedb.org page over https, the same rule Services/Tmdb/TmdbLinks.IsWatchUrl
+// applies server-side to pick a title's "where to watch" page out of its offers.
+function isTmdbWatchUrl(url) {
+    return typeof url === 'string' && /^https:\/\/([^/]*\.)?themoviedb\.org\//i.test(url);
+}
+
+// The row's streaming-service icons: the same compact serviceIcons() a report row shows once its
+// availability is resolved, kept live across re-renders (a "Show fulfilled" toggle re-renders the whole
+// list) since the result is cached on the row itself, not just in the DOM. Unresolved rows show a small
+// "Checking..." note rather than the report's per-row button, since fulfillmentQueue primes every
+// watchable row automatically on load (see primeFulfillmentAvailability): a household's queue is small
+// enough that there is no need to make the administrator ask for each one.
+function demandWatchCell(row) {
+    var tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
+    var watchable = !!tmdb && (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series');
+    var body = watchable
+        ? (row.AvailabilityChecked ? serviceIcons(row) : wrap('span', { 'class': 'cgDimmed' }, 'Checking...'))
+        : '';
+    return wrap('span', { 'class': 'cgFulfillWatch', 'data-rowid': row.Id }, body);
+}
+
+// One fulfillment queue row: title/year, who still wants it, the links a todo row would show plus the
+// streaming-service icons (see demandWatchCell), and a Mark fetched action that closes the title out for
+// every requester at once.
 function demandRowHtml(row, template) {
     var titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
     var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
@@ -3382,9 +3401,13 @@ function demandRowHtml(row, template) {
             ? providerLink(l)
             : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
     });
-    // No .cgLinks wrapper here (that marker only matters inside a popover; handleWatchClick falls
-    // back to appending next to the button itself, which is exactly right inside a table cell).
-    var linksCell = wrap('td', null, wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + buildWatchPopoverBody(row));
+    var jwSearch = (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series')
+        ? newTab(false, {
+            'class': 'cgLink cgPopLink emby-button', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(row.Name || ''),
+            title: 'Search JustWatch for where to watch'
+        }, 'Search JustWatch')
+        : '';
+    var linksCell = wrap('td', null, demandWatchCell(row) + wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + jwSearch);
 
     var fulfilled = row.OpenCount === 0;
     var actions = fulfilled
@@ -3434,12 +3457,45 @@ function loadFulfillment(modal) {
         });
 }
 
-function openFulfillment() {
+// Looks up "where to watch" for every watchable row that does not have it yet (everything, on first
+// load), one at a time so a large queue does not burst TMDB, and patches each row's icons in place as
+// each answer comes back rather than waiting for the whole queue or re-rendering the list. The result is
+// cached on the row itself (row.AvailabilityChecked), so a later re-render (the "Show fulfilled" toggle)
+// or a second open of the modal within the same page load does not look anything up twice.
+function primeFulfillmentAvailability(page, modal) {
+    var cssEsc = window.CSS && CSS.escape ? CSS.escape : function (s) { return s; };
+    var pending = ((modal._data && modal._data.Items) || []).filter(function (row) {
+        var tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
+        return !row.AvailabilityChecked && tmdb && (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series');
+    });
+    return pending.reduce(function (chain, row) {
+        return chain.then(function () {
+            return ApiClient.ajax({
+                type: 'GET',
+                url: ApiClient.getUrl('MindTheGaps/Availability', { tmdbId: row.ProviderIds.Tmdb, targetKind: row.TargetKindName }),
+                dataType: 'json'
+            }).then(function (offers) {
+                noteProviders(page, offers);
+                row.Availability = (offers || []).map(function (o) { return { Provider: o.Provider, MonetizationType: o.MonetizationType, LogoUrl: o.LogoUrl }; });
+                row.WatchUrl = (offers || []).map(function (o) { return o.Url; }).filter(isTmdbWatchUrl)[0];
+                row.AvailabilityChecked = true;
+            }).catch(function () {
+                // Left unchecked, so a later prime (a fresh open of the modal) tries again.
+            }).then(function () {
+                var slot = document.querySelector('#cgFulfillBody .cgFulfillWatch[data-rowid="' + cssEsc(row.Id) + '"]');
+                if (slot) { slot.outerHTML = demandWatchCell(row); }
+            });
+        });
+    }, Promise.resolve());
+}
+
+function openFulfillment(page) {
     var modal = document.getElementById('cgFulfillModal');
     var body = document.getElementById('cgFulfillBody');
     body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Loading the fulfillment queue...').outerHTML;
     modal.style.display = 'flex';
     loadFulfillment(modal)
+        .then(function () { return primeFulfillmentAvailability(page, modal); })
         .catch(function () {
             body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not load the fulfillment queue. Check the server logs.').outerHTML;
         });
@@ -3565,7 +3621,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
                 btn.disabled = false;
             });
     });
-    page.querySelector('#cgFulfillBtn').addEventListener('click', openFulfillment);
+    page.querySelector('#cgFulfillBtn').addEventListener('click', function () { openFulfillment(page); });
     page.querySelector('#ResetRotation').addEventListener('click', function () {
         if (!window.confirm('Forget which items were scanned recently and start a fresh coverage cycle on the next scan?')) { return; }
         Dashboard.showLoadingMsg();
@@ -3718,11 +3774,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     document.getElementById('cgFulfillBody').addEventListener('click', function (e) {
         if (!e.target.closest) { return; }
         if (e.target.closest('a[href]')) { return; }
-        var watchBtn = e.target.closest('.cgWatch');
-        if (watchBtn) {
-            handleWatchClick(page, watchBtn);
-            return;
-        }
         var doneBtn = e.target.closest('.cgFulfillDone');
         if (doneBtn) {
             var modal = document.getElementById('cgFulfillModal');
