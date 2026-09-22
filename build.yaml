@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.9.0"
+version: "10.11.9.1"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,33 +20,8 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.9.0 - Mind the Gaps now reaches into Jellyfin's own pages through an experimental, opt-in Web UI,
-  with a master switch and one toggle per surface in settings, all off by default. A person's page lists what
-  they made that you do not own, a movie or series page suggests titles like it that you are missing, an
-  artist's page lists the albums you do not have, and a book page or an author's own page lists more by the
-  same author. The home page can show a Discover row of the recommendations your scans found from titles you
-  own and from lists that are public by nature (TMDB lists, Trakt lists, and TMDB's own feeds), never from a
-  watchlist, wantlist, favorites, or a personal list. Click a card for a detail dialog with TMDB's synopsis,
-  genres, runtime, rating, a trailer link, and a link to the title's JustWatch page, then send it to Radarr
-  or Sonarr with the quality profile you pick; the dialog and the card grids can be driven from a keyboard
-  or a TV remote. A user with a parental rating limit is shown none of these sections. With Want to watch
-  turned on, every card carries a bookmark that adds the title to your own list, and the home page can show a
-  Want to watch row of what you have listed and do not yet own. The TODO list is now kept per user, in the
-  plugin's data folder, and removed when the user is deleted; the first administrator to open the old shared
-  list takes it over, and an administrator can switch the report's TODO to everyone's lists to see and manage
-  them. The Gaps Report loads faster: it fetches one tab at a time as slim rows, fetches a row's details only
-  when you open it, revalidates what it already holds instead of downloading it again, and loads its script
-  and stylesheet as separately cached files; the saved report is stored as one file per domain, and an
-  existing report is converted automatically. A row shows up to two streaming-service icons, following your
-  provider and monetization filters and wearing the service's logo (a service TMDB lists as several providers,
-  such as a "with Ads" tier, shows as one icon and one provider filter entry), and clicking them opens the
-  title's TMDB watch page. Gaps left behind by a source you have since removed or turned off are pruned on
-  every scan, and a Prune stale gaps button under Maintenance does it right away. A TMDB list that cannot be
-  read, such as a private one, no longer stops the other lists from being scanned, filling in a large
-  library's series content is done in batches, and the scan log says how long each source took. New, and off
-  by default: the report and the Web UI can load their posters, covers, and streaming-service logos through
-  your server instead of each browser fetching them from TMDB and the other providers. Turn on "Keep the
-  pages' images on this server" in the new Images section of settings; the server fetches each image once,
-  from a fixed list of provider hosts only, keeps it under its cache folder, and sends the browser on to the
-  provider whenever it cannot serve one, and a "Trim the image cache" scheduled task keeps the cache to the
-  size you set (500 MB by default).
+  10.11.9.1 (beta) - A Maintenance section "Fulfillment queue" folds every user's TODO list into one row
+  per title, sorted by how many people still want it, for an administrator who fetches things by hand
+  (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is
+  still waiting and offers the same "where to watch" lookup and links a TODO row already has; Mark fetched
+  closes a title out for every requester who asked for it in one action.

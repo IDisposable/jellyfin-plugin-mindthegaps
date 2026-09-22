@@ -14,7 +14,7 @@
 | Greyed "Missing" badge on minted items                        | Needs upstream A merged.                                                                                                                                   |
 | Symmetric **book series** as Set completion                   | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                 |
 | Removing a title from a want-to-watch list when it is watched | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                       |
-| A request and approval queue for acquisition                  | Might be a separate plugin. Here every administrator sees and manages every user's todo list, and that is the whole of it.                                 |
+| A request-and-approval gate before a title is acquired        | Might be a separate plugin. The Maintenance section's Fulfillment queue folds every user's TODO list into one row per title with a Mark fetched action, but nothing approves or denies a request before it lands there; adding a title is still unmediated. |
 | A "Fix the id" action in Diagnose                             | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it. |
 | MusicVideos domain                                            | Enum-only; no source.                                                                                                                                      |
 
