@@ -10,11 +10,11 @@
         "versions": [
             {
                 "version": "12.0.9.1",
-                "changelog": "10.11.9.1 (beta) - A Maintenance section \"Fulfillment queue\" folds every user's TODO list into one row per title, sorted by how many people still want it, for an administrator who fetches things by hand (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is still waiting and offers the same \"where to watch\" lookup and links a TODO row already has; Mark fetched closes a title out for every requester who asked for it in one action.\n",
+                "changelog": "10.11.9.1 (beta) - A Maintenance section \"Fulfillment queue\" folds every user's TODO list into one row per title, sorted by how many people still want it, for an administrator who fetches things by hand (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is still waiting, shows the same streaming-service icons a report row does (looked up automatically as soon as the queue opens, no click needed), and carries the links a TODO row already has; Mark fetched closes a title out for every requester who asked for it in one action.\n",
                 "targetAbi": "12.0.0.0",
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.1/mind-the-gaps_12.0.9.1.zip",
-                "checksum": "2006fb2552678181fa423fdbee435ddb",
-                "timestamp": "2026-09-22T09:44:54Z"
+                "checksum": "1ea0d75870f9e6f958014807f9a423fd",
+                "timestamp": "2026-09-22T10:12:13Z"
             },
             {
                 "version": "12.0.9.0",
@@ -130,11 +130,11 @@
             },
             {
                 "version": "10.11.9.1",
-                "changelog": "10.11.9.1 (beta) - A Maintenance section \"Fulfillment queue\" folds every user's TODO list into one row per title, sorted by how many people still want it, for an administrator who fetches things by hand (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is still waiting and offers the same \"where to watch\" lookup and links a TODO row already has; Mark fetched closes a title out for every requester who asked for it in one action.\n",
+                "changelog": "10.11.9.1 (beta) - A Maintenance section \"Fulfillment queue\" folds every user's TODO list into one row per title, sorted by how many people still want it, for an administrator who fetches things by hand (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is still waiting, shows the same streaming-service icons a report row does (looked up automatically as soon as the queue opens, no click needed), and carries the links a TODO row already has; Mark fetched closes a title out for every requester who asked for it in one action.\n",
                 "targetAbi": "10.11.0.0",
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.1/mind-the-gaps_10.11.9.1.zip",
-                "checksum": "4624aca082a50f33854597c17acff934",
-                "timestamp": "2026-09-22T09:44:21Z"
+                "checksum": "ba19d2a07897e11120d00e7ba6fa3ed5",
+                "timestamp": "2026-09-22T10:12:15Z"
             },
             {
                 "version": "10.11.9.0",
