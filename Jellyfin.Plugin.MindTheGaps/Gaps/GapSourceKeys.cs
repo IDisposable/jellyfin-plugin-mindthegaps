@@ -95,4 +95,7 @@ internal static class GapSourceKeys
 
     /// <summary>Gets the key for an unowned movie on one of TMDB's official discover feeds.</summary>
     public static GapSourceKey TmdbMovieDiscover { get; } = GapSourceKey.For("tmdbmoviediscover");
+
+    /// <summary>Gets the key for an unowned title on the union of every user's TODO list.</summary>
+    public static GapSourceKey EveryoneWatchlist { get; } = GapSourceKey.For("everyonewatchlist");
 }

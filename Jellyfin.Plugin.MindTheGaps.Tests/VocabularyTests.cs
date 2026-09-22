@@ -104,6 +104,7 @@ public class VocabularyTests
         var known = SourceTypeConstants();
         string[] personal =
         [
+            SourceItemTypes.EveryoneWatchlist,
             SourceItemTypes.TmdbAccountList,
             SourceItemTypes.TraktWatchlist,
             SourceItemTypes.MdbListWatchlist,

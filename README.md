@@ -40,7 +40,7 @@ count; a **View** dropdown inside the active tab picks which of three kinds of g
 | **Creator works**  | other work by a person or artist you own                   | a film or series an owned actor or director made; a music artist's wider catalog; an author's other books            |
 | **Discover**       | related titles worth exploring and adding (off by default) | TMDB "similar" titles for what you own, TMDB's own feeds, and the unowned titles on a list you have added[^discover] |
 
-[^discover]: The feeds are Top Rated, Popular, Upcoming and Now Playing. A list can be a TMDB, MDBList, Trakt or IMDb list, or your own JustWatch watchlist, and each list is shown as its own group.
+[^discover]: The feeds are Top Rated, Popular, Upcoming and Now Playing. A list can be a TMDB, MDBList, Trakt or IMDb list, or your own JustWatch watchlist, and each list is shown as its own group. Every user's TODO list is folded into one such group too, shown first: treat it as the household's own watchlist.
 
 Movies and shows work out of the box; music and books are on by default too. Discogs, Trakt, TheTVDB,
 MDBList, and JustWatch are opt-in cross-checks and sources that need their own credentials. IMDb lists are
@@ -68,6 +68,7 @@ flowchart LR
     art["MusicBrainz and Discogs artists"]:::music --> CRE
     aut["OpenLibrary authors"]:::books --> CRE
 
+    etw["Everyone's TODO list (household watchlist)"] --> DIS
     sim["TMDB similar titles"] --> DIS
     tdf["TMDB's own feeds (Top Rated, Popular, Upcoming, Now Playing)"] --> DIS
     tli["TMDB lists"] --> DIS
@@ -95,7 +96,8 @@ flowchart LR
 - **Creator works**: an owned actor, director, or writer's filmography (TMDB, Trakt, or an IMDb people
   list), a music artist's wider catalog, and an author's other books.
 - **Discover** (opt-in): TMDB "similar" titles for what you own, TMDB's own feeds, any TMDB/MDBList/
-  Trakt/IMDb list or JustWatch watchlist you point it at, and your own want-lists across eight services.
+  Trakt/IMDb list or JustWatch watchlist you point it at, your own want-lists across eight services, and
+  every user's TODO list folded into one household watchlist, shown first.
 - **Where to watch**: streaming availability per item, looked up on demand or in the background, never
   during the scan.
 - **A usable report**: tabbed by domain, filterable and searchable, saved views and shareable links,

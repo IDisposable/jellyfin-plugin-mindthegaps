@@ -119,6 +119,11 @@ something was suggested. A curated list or feed shows as its own group; a title 
 recommended groups under the list, with the recommendation kept as a secondary source. A seed you do not
 want suggestions from can be muted (the small x on a recommendation, or the picker described below).
 
+With **Everyone's watchlist** on, the first group here is the household's own: every user's TODO list
+folded into one row per title, the same rows the Maintenance section's Fulfillment queue shows, so what
+the household actually wants is visible without opening that popup. A title drops off once everyone who
+wanted it marks it fetched or the library picks it up on its own.
+
 ![Discover tab](screenshots/report-movie-recommendations.png)
 
 Shows work the same way:

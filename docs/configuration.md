@@ -22,14 +22,15 @@ it does not delete anything from your library. Leaving everything off produces a
 The plain toggles: no id, username, or key of their own. Every source with its own account, list, or
 credential is under [Sources](#sources) below.
 
-| Setting                                 | Default | Effect                                                                                                                   |
-| --------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Collections / franchises**            | On      | Lists the other films in a TMDB collection (box set) you own part of.[^collections]                                      |
-| **Series (missing seasons / episodes)** | On      | Lists the seasons and episodes a series should have that the library is missing, from the series' own metadata.[^series] |
-| **People (filmographies)**              | On      | Lists films and series from an owned actor, director or writer's TMDB filmography that you do not own.[^people]          |
-| **Recommendations (similar titles)**    | Off     | Lists TMDB "similar" titles for what you own, on the Discover view.[^recommendations]                                    |
-| **Music (artist discographies)**        | On      | Lists the studio albums an owned music artist has on MusicBrainz that you do not own.[^music]                            |
-| **Books (author bibliographies)**       | On      | Lists the other entries in an owned book's author's OpenLibrary bibliography.[^books]                                    |
+| Setting                                 | Default | Effect                                                                                                                                         |
+| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Collections / franchises**            | On      | Lists the other films in a TMDB collection (box set) you own part of.[^collections]                                                            |
+| **Series (missing seasons / episodes)** | On      | Lists the seasons and episodes a series should have that the library is missing, from the series' own metadata.[^series]                       |
+| **People (filmographies)**              | On      | Lists films and series from an owned actor, director or writer's TMDB filmography that you do not own.[^people]                                |
+| **Recommendations (similar titles)**    | Off     | Lists TMDB "similar" titles for what you own, on the Discover view.[^recommendations]                                                          |
+| **Music (artist discographies)**        | On      | Lists the studio albums an owned music artist has on MusicBrainz that you do not own.[^music]                                                  |
+| **Books (author bibliographies)**       | On      | Lists the other entries in an owned book's author's OpenLibrary bibliography.[^books]                                                          |
+| **Everyone's watchlist**                | Off     | Folds every user's TODO list into one row per title, shown first on the Discover view of every domain it has entries for.[^everyone-watchlist] |
 
 Clearing a setting removes its gaps from the next report.
 
@@ -48,6 +49,8 @@ Clearing a setting removes its gaps from the next report.
     (discover their wider catalog).
 
 [^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap).
+
+[^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the report's TODO popup and the Maintenance section's Fulfillment queue already show. A title drops off once every user who wanted it marks it done or the library picks it up.
 
 ## Sources
 
@@ -554,6 +557,7 @@ The key each setting has in the plugin's configuration file, sorted by setting n
 | Discogs token                                                  | `DiscogsToken`               | [Discogs](#discogs)                              |
 | Discogs username                                               | `DiscogsUsername`            | [Discogs](#discogs)                              |
 | Discover unowned movies from TMDB lists                        | `ScanTmdbLists`              | [TMDB](#tmdb)                                    |
+| Everyone's watchlist                                           | `ScanEveryoneWatchlist`      | [What to scan](#what-to-scan)                    |
 | Filmography: deepest cast billing                              | `MaxCastBillingOrder`        | [Limits](#limits)                                |
 | Filmography: minimum TMDB votes                                | `MinFilmographyVotes`        | [Limits](#limits)                                |
 | Follow IMDb people lists                                       | `ScanImdbPeopleLists`        | [IMDb](#imdb)                                    |

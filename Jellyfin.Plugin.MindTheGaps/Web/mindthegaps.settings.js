@@ -65,6 +65,7 @@ function loadConfig(page, config) {
     page.querySelector('#ScanSeries').checked = config.ScanSeries;
     page.querySelector('#ScanPeople').checked = config.ScanPeople;
     page.querySelector('#ScanRecommendations').checked = config.ScanRecommendations;
+    page.querySelector('#ScanEveryoneWatchlist').checked = config.ScanEveryoneWatchlist;
     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
     page.querySelector('#ScanTmdbLists').checked = config.ScanTmdbLists;
     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
@@ -160,6 +161,7 @@ function saveConfig(page, e) {
         config.ScanSeries = form.querySelector('#ScanSeries').checked;
         config.ScanPeople = form.querySelector('#ScanPeople').checked;
         config.ScanRecommendations = form.querySelector('#ScanRecommendations').checked;
+        config.ScanEveryoneWatchlist = form.querySelector('#ScanEveryoneWatchlist').checked;
         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
         config.ScanTmdbLists = form.querySelector('#ScanTmdbLists').checked;
         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;

@@ -77,6 +77,9 @@ public static class SourceItemTypes
     /// <summary>One of TMDB's official movie discover feeds (top rated, popular, upcoming, now playing).</summary>
     public const string TmdbMovieDiscover = "TmdbMovieDiscover";
 
+    /// <summary>The union of every user's TODO list, folded to one row per title.</summary>
+    public const string EveryoneWatchlist = "EveryoneWatchlist";
+
     /// <summary>
     /// Gets the source types that are deliberately curated lists, as opposed to a per-title recommendation.
     /// A gap surfaced by both files under the list, which is the more meaningful reason to be shown it.
@@ -113,13 +116,15 @@ public static class SourceItemTypes
 
     /// <summary>
     /// Gets the discovery kinds in the order the dashboard sections them under Discover, most personal first:
-    /// the lists you keep, then the lists you pointed it at, then what the recommender made of what you own.
-    /// The two recommendation types share one section, so the order is by section and a kind may repeat a
-    /// section's wording. Same contract as <see cref="SetKindsInOrder"/>: order is a presentation decision
-    /// that belongs with the vocabulary rather than in the dashboard.
+    /// the household's own combined want list, then the lists you keep, then the lists you pointed it at,
+    /// then what the recommender made of what you own. The two recommendation types share one section, so
+    /// the order is by section and a kind may repeat a section's wording. Same contract as
+    /// <see cref="SetKindsInOrder"/>: order is a presentation decision that belongs with the vocabulary
+    /// rather than in the dashboard.
     /// </summary>
     public static IReadOnlyList<string> DiscoverKindsInOrder { get; } =
     [
+        EveryoneWatchlist,
         TmdbAccountList,
         TraktWatchlist,
         MdbListWatchlist,

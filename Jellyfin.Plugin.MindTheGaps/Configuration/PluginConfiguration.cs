@@ -16,6 +16,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanSeries = true;
         ScanPeople = true;
         ScanRecommendations = false;
+        ScanEveryoneWatchlist = false;
         ScanCuratedSets = false;
         ScanTmdbLists = false;
         CuratedCompanyIds = string.Empty;
@@ -115,6 +116,15 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether to include TMDB recommendations/similar titles as discovery gaps.
     /// </summary>
     public bool ScanRecommendations { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the union of every user's TODO list is surfaced as its own
+    /// "Everyone's watchlist" section, first in the Discover tab of every domain it has entries for. Needs
+    /// nothing else to configure: it reads the same per-user lists the report's TODO popup and the
+    /// Maintenance section's Fulfillment queue already show. Off by default, like every other discovery
+    /// source.
+    /// </summary>
+    public bool ScanEveryoneWatchlist { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to surface missing movies from curated TMDB sets (studios

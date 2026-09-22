@@ -1228,6 +1228,7 @@ function setKindLabel(sourceItemType) {
 // recommendation kinds share one label on purpose, so per-title suggestions read as one section however
 // many owned titles are behind them.
 var DISCOVER_KIND_LABELS = {
+    EveryoneWatchlist: "Everyone's watchlist",
     TmdbAccountList: 'TMDB account lists',
     TraktWatchlist: 'Trakt watchlist',
     MdbListWatchlist: 'MDBList watchlist',

@@ -8,6 +8,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Music;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
+using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Todo;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
@@ -116,6 +117,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, TmdbAccountListGapSource>();
         serviceCollection.AddSingleton<IGapSource, TmdbMovieDiscoverGapSource>();
         serviceCollection.AddSingleton<IGapSource, JustWatchListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, EveryoneWatchlistGapSource>();
 
         // The episode providers the series-content source merges per series (not gap sources themselves).
         serviceCollection.AddSingleton<ISeriesEpisodeProvider, TmdbEpisodeProvider>();
