@@ -74,6 +74,8 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<MdbListClient>();
         serviceCollection.AddSingleton<ImdbClient>();
         serviceCollection.AddSingleton<JustWatchClient>();
+        serviceCollection.AddSingleton<MintContainerResolver>();
+        serviceCollection.AddSingleton<MintedItemPruner>();
         serviceCollection.AddSingleton<VirtualItemMinter>();
         serviceCollection.AddSingleton<MintRunner>();
         serviceCollection.AddSingleton<GapDiagnostics>();
@@ -96,6 +98,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
 
         // Gap sources. Add new IGapSource implementations here.
         serviceCollection.AddSingleton<IGapSource, CollectionGapSource>();
+        serviceCollection.AddSingleton<LibraryOnlySeriesGapFinder>();
         serviceCollection.AddSingleton<IGapSource, SeriesContentGapSource>();
         serviceCollection.AddSingleton<IGapSource, PeopleGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktFilmographyGapSource>();

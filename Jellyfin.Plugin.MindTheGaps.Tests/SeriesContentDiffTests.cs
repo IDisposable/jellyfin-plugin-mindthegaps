@@ -132,7 +132,7 @@ public class SeriesContentDiffTests
         // Owned "V" is the 1984 series; the resolved show's first season aired 2009 (the reboot).
         var canonical = new[] { EpAired(1, 1, 2009), EpAired(2, 1, 2010), EpAired(3, 1, 2011) };
 
-        Assert.True(SeriesContentGapSource.LooksLikeDifferentSeries(1984, canonical));
+        Assert.True(SeriesContentGapMapper.LooksLikeDifferentSeries(1984, canonical));
     }
 
     [Fact]
@@ -142,12 +142,12 @@ public class SeriesContentDiffTests
         // flag it (the guard compares the lowest season's year, not every episode's).
         var canonical = new[] { EpAired(1, 1, 2000), EpAired(2, 1, 2001), EpAired(10, 1, 2010) };
 
-        Assert.False(SeriesContentGapSource.LooksLikeDifferentSeries(2000, canonical));
+        Assert.False(SeriesContentGapMapper.LooksLikeDifferentSeries(2000, canonical));
     }
 
     [Fact]
     public void LooksLikeDifferentSeries_NoOwnedYear_NotFlagged()
     {
-        Assert.False(SeriesContentGapSource.LooksLikeDifferentSeries(null, new[] { EpAired(1, 1, 2009) }));
+        Assert.False(SeriesContentGapMapper.LooksLikeDifferentSeries(null, new[] { EpAired(1, 1, 2009) }));
     }
 }

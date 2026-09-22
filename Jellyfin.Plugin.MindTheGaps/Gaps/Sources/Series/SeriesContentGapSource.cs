@@ -25,22 +25,20 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 /// virtual (missing) episodes are the last-chance list for seasons no provider opined on. The merged list is
 /// reconciled against the owned episodes (by number, air date, and folded title) and the difference is
 /// reported. A missing episode the server already tracks as a virtual item is linked to it; one only a
-/// provider knows about is reported lean. Series no external provider can resolve are surfaced in bulk from
-/// their virtual episodes alone, so a large library's missing episodes appear every run regardless of the
-/// per-run cap on the providers' (rate-limited) cross-checks.
+/// provider knows about is reported lean. Series no external provider can resolve are surfaced in bulk by
+/// <see cref="LibraryOnlySeriesGapFinder"/> instead, so a large library's missing episodes appear every run
+/// regardless of the per-run cap on the providers' (rate-limited) cross-checks; both paths build their gaps
+/// through the shared, pure <see cref="SeriesContentGapMapper"/>.
 /// </summary>
 internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 {
-    // The largest plausible gap between an owned series' start year and a provider's first season for it.
-    // Beyond this the provider almost certainly resolved a same-named reboot, not the same series.
-    private const int RebootYearGap = 3;
-
     // The number of provider-resolvable series to cross-check (hit the providers' APIs for) in one run.
     private const int MaxSeries = 300;
 
     private readonly ILibraryManager _libraryManager;
     private readonly IReadOnlyList<ISeriesEpisodeProvider> _providers;
     private readonly ScanCursorStore _cursors;
+    private readonly LibraryOnlySeriesGapFinder _libraryOnly;
     private readonly ILogger<SeriesContentGapSource> _logger;
 
     /// <summary>
@@ -49,17 +47,20 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="providers">The episode providers to merge for each series.</param>
     /// <param name="cursors">Tracks which series were cross-checked, for stalest-first rotation.</param>
+    /// <param name="libraryOnly">Surfaces the missing episodes of a series no provider can resolve.</param>
     /// <param name="logger">The logger.</param>
     public SeriesContentGapSource(
         ILibraryManager libraryManager,
         IEnumerable<ISeriesEpisodeProvider> providers,
         ScanCursorStore cursors,
+        LibraryOnlySeriesGapFinder libraryOnly,
         ILogger<SeriesContentGapSource> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
         _libraryManager = libraryManager;
         _providers = providers.ToList();
         _cursors = cursors;
+        _libraryOnly = libraryOnly;
         _logger = logger;
     }
 
@@ -105,7 +106,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
         // The library-only series in one bulk pass (cheap, no API), so their missing episodes are reported
         // every run no matter how the provider batch below is capped.
-        foreach (var gap in BulkLibraryGaps(libraryOnly, context, cancellationToken))
+        foreach (var gap in _libraryOnly.FindGaps(libraryOnly, context, cancellationToken))
         {
             yield return gap;
         }
@@ -178,7 +179,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
             // Guard against a provider resolving a same-named reboot (V 1984 versus V 2009): if its lowest
             // season aired far from the owned series' year, drop its list rather than report a reboot's seasons.
-            if (list is { Count: > 0 } && !LooksLikeDifferentSeries(series.ProductionYear, list))
+            if (list is { Count: > 0 } && !SeriesContentGapMapper.LooksLikeDifferentSeries(series.ProductionYear, list))
             {
                 lists.Add(list);
             }
@@ -214,40 +215,11 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
             // Link to the server's own virtual item when it has one for this episode (so the report opens it
             // and its season directly); otherwise the episode is one only a provider knows about, reported lean.
             gaps.Add(view.VirtualByKey.TryGetValue((episode.Season, episode.Number), out var item)
-                ? BuildGap(item, series.ProductionYear, seriesTmdb, view.OwnedCount, totalCount)
-                : BuildLeanGap(series, episode, seriesTmdb, view.OwnedCount, totalCount));
+                ? SeriesContentGapMapper.BuildGap(item, series.ProductionYear, seriesTmdb, view.OwnedCount, totalCount)
+                : SeriesContentGapMapper.BuildLeanGap(series, episode, seriesTmdb, view.OwnedCount, totalCount));
         }
 
         return gaps;
-    }
-
-    // True when the owned series has a year and the provider list's lowest season aired far enough from it to
-    // be a different, same-named series. Compares the lowest season's year to the start year, so it never
-    // rejects a legitimate long run (a later season airing decades on is fine).
-    internal static bool LooksLikeDifferentSeries(int? seriesYear, IReadOnlyList<CanonicalEpisode> canonical)
-    {
-        if (seriesYear is not int year)
-        {
-            return false;
-        }
-
-        int? lowestSeasonYear = null;
-        var lowestSeason = int.MaxValue;
-        foreach (var episode in canonical)
-        {
-            if (episode.Season < 1 || episode.ReleaseDate is not { } aired)
-            {
-                continue;
-            }
-
-            if (episode.Season < lowestSeason || (episode.Season == lowestSeason && aired.Year < lowestSeasonYear))
-            {
-                lowestSeason = episode.Season;
-                lowestSeasonYear = aired.Year;
-            }
-        }
-
-        return lowestSeasonYear is int first && Math.Abs(first - year) > RebootYearGap;
     }
 
     // The owned (non-virtual) episodes reconciled against, plus the era-bounded virtual episodes as the
@@ -289,7 +261,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
 
             owned.AddTitle(season, episode.Name);
 
-            if (YearOf(episode) is { } y)
+            if (SeriesContentGapMapper.YearOf(episode) is { } y)
             {
                 ownedRange = ownedRange is { } r ? (Math.Min(r.Min, y), Math.Max(r.Max, y)) : (y, y);
             }
@@ -309,7 +281,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         (int Min, int Max)? era = null;
         if (ownedRange is { } range)
         {
-            var missingYears = virtuals.OfType<Episode>().Select(YearOf).OfType<int>().ToList();
+            var missingYears = virtuals.OfType<Episode>().Select(SeriesContentGapMapper.YearOf).OfType<int>().ToList();
             era = EpisodeEra.Expand(range, missingYears);
         }
 
@@ -320,7 +292,7 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
             if (item is not Episode episode
                 || episode.ParentIndexNumber is not int season
                 || episode.IndexNumber is not int number
-                || EpisodeEra.IsOutside(YearOf(episode), era))
+                || EpisodeEra.IsOutside(SeriesContentGapMapper.YearOf(episode), era))
             {
                 continue;
             }
@@ -333,239 +305,5 @@ internal sealed class SeriesContentGapSource : IGapSource, ISeriesContentSource
         }
 
         return (owned, ownedCount, lastChance, byKey);
-    }
-
-    // The library-only series (no external provider can resolve them) surfaced in one bulk pass from their
-    // virtual episodes, reboot outliers excluded, capped per show. Mirrors the per-series path's gaps so a
-    // series that later gains a provider id reports the same ids.
-    private List<GapItem> BulkLibraryGaps(HashSet<Guid> libraryOnly, GapScanContext context, CancellationToken cancellationToken)
-    {
-        var gaps = new List<GapItem>();
-        if (libraryOnly.Count == 0)
-        {
-            return gaps;
-        }
-
-        var missing = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            DtoOptions = LibraryQueryOptions.WithProviderIds(),
-            IncludeItemTypes = new[] { BaseItemKind.Episode },
-            IsMissing = true,
-            Recursive = true
-        });
-
-        // Owned counts and air-year range per series, from the real episodes, to seed each series' era.
-        var ownedPerSeries = new Dictionary<Guid, int>();
-        var ownedYearRange = new Dictionary<Guid, (int Min, int Max)>();
-        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            DtoOptions = LibraryQueryOptions.Minimal(),
-            IncludeItemTypes = new[] { BaseItemKind.Episode },
-            IsVirtualItem = false,
-            Recursive = true
-        }))
-        {
-            if (item is not Episode ep || !libraryOnly.Contains(ep.SeriesId))
-            {
-                continue;
-            }
-
-            ownedPerSeries.TryGetValue(ep.SeriesId, out var c);
-            ownedPerSeries[ep.SeriesId] = c + 1;
-
-            if (YearOf(ep) is { } y)
-            {
-                ownedYearRange[ep.SeriesId] = ownedYearRange.TryGetValue(ep.SeriesId, out var r)
-                    ? (Math.Min(r.Min, y), Math.Max(r.Max, y))
-                    : (y, y);
-            }
-        }
-
-        var missingYearsPerSeries = new Dictionary<Guid, List<int>>();
-        foreach (var item in missing)
-        {
-            if (item is Episode ep && libraryOnly.Contains(ep.SeriesId) && YearOf(ep) is { } y)
-            {
-                if (!missingYearsPerSeries.TryGetValue(ep.SeriesId, out var years))
-                {
-                    years = new List<int>();
-                    missingYearsPerSeries[ep.SeriesId] = years;
-                }
-
-                years.Add(y);
-            }
-        }
-
-        var seriesEra = new Dictionary<Guid, (int Min, int Max)>();
-        foreach (var (id, range) in ownedYearRange)
-        {
-            missingYearsPerSeries.TryGetValue(id, out var missingYears);
-            seriesEra[id] = EpisodeEra.Expand(range, missingYears);
-        }
-
-        var missingPerSeries = new Dictionary<Guid, int>();
-        foreach (var item in missing)
-        {
-            if (item is Episode ep && libraryOnly.Contains(ep.SeriesId) && !IsLikelyReboot(ep, seriesEra))
-            {
-                missingPerSeries.TryGetValue(ep.SeriesId, out var c);
-                missingPerSeries[ep.SeriesId] = c + 1;
-            }
-        }
-
-        var cap = context.Config.MaxMissingEpisodesPerShow <= 0 ? int.MaxValue : context.Config.MaxMissingEpisodesPerShow;
-        var perSeriesCount = new Dictionary<Guid, int>();
-        var rebootSeries = new HashSet<Guid>();
-        var cappedSeries = new HashSet<Guid>();
-        var seriesInfo = new Dictionary<Guid, (int? Year, string? Tmdb)>();
-
-        foreach (var item in missing)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (item is not Episode episode || !libraryOnly.Contains(episode.SeriesId))
-            {
-                continue;
-            }
-
-            var id = episode.SeriesId;
-            if (IsLikelyReboot(episode, seriesEra))
-            {
-                if (rebootSeries.Add(id))
-                {
-                    var era = seriesEra[id];
-                    _logger.LogInformation(
-                        "Series content: {Series} has missing episodes airing outside its episode era ({Min}-{Max}); skipping them as a likely same-named reboot",
-                        episode.SeriesName,
-                        era.Min,
-                        era.Max);
-                }
-
-                continue;
-            }
-
-            perSeriesCount.TryGetValue(id, out var count);
-            if (count >= cap)
-            {
-                if (cappedSeries.Add(id))
-                {
-                    _logger.LogInformation("Series content: {Series} has more than {Cap} missing episodes; truncated", episode.SeriesName, cap);
-                }
-
-                continue;
-            }
-
-            perSeriesCount[id] = count + 1;
-
-            if (!seriesInfo.TryGetValue(id, out var info))
-            {
-                var series = _libraryManager.GetItemById(id);
-                info = (series?.ProductionYear, series is null ? null : series.ProviderIdOrNull(ProviderIds.Tmdb));
-                seriesInfo[id] = info;
-            }
-
-            var ownedCount = ownedPerSeries.TryGetValue(id, out var oc) ? oc : 0;
-            var totalCount = ownedCount + (missingPerSeries.TryGetValue(id, out var mc) ? mc : 0);
-            gaps.Add(BuildGap(episode, info.Year, info.Tmdb, ownedCount, totalCount));
-        }
-
-        return gaps;
-    }
-
-    // A rich gap from a virtual episode the server already tracks: it carries the episode's own ids and links
-    // to the item and its season.
-    private static GapItem BuildGap(Episode episode, int? seriesYear, string? seriesTmdb, int ownedCount, int totalCount)
-    {
-        var season = episode.ParentIndexNumber;
-        var number = episode.IndexNumber;
-        string? code = null;
-        if (season.HasValue && number.HasValue)
-        {
-            var end = episode.IndexNumberEnd;
-            code = end.HasValue && end.Value > number.Value
-                ? string.Create(CultureInfo.InvariantCulture, $"S{season.Value:D2}E{number.Value:D2}-E{end.Value:D2}")
-                : string.Create(CultureInfo.InvariantCulture, $"S{season.Value:D2}E{number.Value:D2}");
-        }
-
-        var name = code is null
-            ? string.Create(CultureInfo.InvariantCulture, $"{episode.SeriesName} - {episode.Name}")
-            : string.Create(CultureInfo.InvariantCulture, $"{episode.SeriesName} {code} - {episode.Name}");
-
-        var id = season.HasValue && number.HasValue
-            ? SeriesGapKey.Episode(episode.SeriesId, season.Value, number.Value)
-            : string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.SeriesContent.GapPrefix}{episode.Id:N}");
-
-        var gap = GapItemFactory.Create(
-            id: id,
-            pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Shows,
-            targetKind: BaseItemKind.Episode,
-            name: name,
-            providerIds: new Dictionary<string, string>(episode.ProviderIds, StringComparer.OrdinalIgnoreCase),
-            sourceItemId: episode.SeriesId.ToString("N", CultureInfo.InvariantCulture),
-            sourceItemName: episode.SeriesName,
-            sourceItemType: SourceItemTypes.Series,
-            sourceProviderIds: string.IsNullOrEmpty(seriesTmdb) ? null : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = seriesTmdb },
-            releaseDate: episode.PremiereDate,
-            overview: episode.Overview,
-            season: season,
-            sourceItemYear: seriesYear,
-            setOwnedCount: ownedCount,
-            setTotalCount: totalCount);
-
-        gap.LibraryItemId = episode.Id.ToString("N", CultureInfo.InvariantCulture);
-        if (episode.SeasonId != Guid.Empty)
-        {
-            gap.SeasonItemId = episode.SeasonId.ToString("N", CultureInfo.InvariantCulture);
-        }
-
-        gap.WatchTmdbId = seriesTmdb;
-        return gap;
-    }
-
-    // A lean gap for an episode only a provider knows about (the server has no virtual item to link to).
-    private static GapItem BuildLeanGap(BaseItem series, CanonicalEpisode episode, string? seriesTmdb, int ownedCount, int totalCount)
-    {
-        var code = string.Create(CultureInfo.InvariantCulture, $"S{episode.Season:D2}E{episode.Number:D2}");
-        var name = string.IsNullOrEmpty(episode.Name)
-            ? string.Create(CultureInfo.InvariantCulture, $"{series.Name} {code}")
-            : string.Create(CultureInfo.InvariantCulture, $"{series.Name} {code} - {episode.Name}");
-
-        var gap = GapItemFactory.Create(
-            id: SeriesGapKey.Episode(series.Id, episode.Season, episode.Number),
-            pattern: GapPattern.SetCompletion,
-            domain: MediaDomain.Shows,
-            targetKind: BaseItemKind.Episode,
-            name: name,
-            providerIds: new Dictionary<string, string>(),
-            sourceItemId: series.Id.ToString("N", CultureInfo.InvariantCulture),
-            sourceItemName: series.Name,
-            sourceItemType: SourceItemTypes.Series,
-            sourceProviderIds: string.IsNullOrEmpty(seriesTmdb) ? null : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [ProviderIds.Tmdb] = seriesTmdb },
-            releaseDate: episode.ReleaseDate,
-            overview: episode.Overview,
-            season: episode.Season,
-            sourceItemYear: series.ProductionYear,
-            setOwnedCount: ownedCount,
-            setTotalCount: totalCount,
-            imageUrl: episode.ImageUrl);
-
-        gap.WatchTmdbId = seriesTmdb;
-        return gap;
-    }
-
-    private static bool IsLikelyReboot(Episode episode, IReadOnlyDictionary<Guid, (int Min, int Max)> seriesEra)
-    {
-        (int Min, int Max)? era = seriesEra.TryGetValue(episode.SeriesId, out var e) ? e : null;
-        return EpisodeEra.IsOutside(YearOf(episode), era);
-    }
-
-    private static int? YearOf(Episode episode)
-    {
-        if (episode.PremiereDate is { } date && date.Year > 1900)
-        {
-            return date.Year;
-        }
-
-        return episode.ProductionYear is { } year && year > 1900 ? year : null;
     }
 }

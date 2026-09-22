@@ -7,13 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Jellyfin.Plugin.MindTheGaps.Services;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
-using MediaBrowser.Controller.Collections;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Audio;
-using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
@@ -22,9 +18,10 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.VirtualItems;
 
 /// <summary>
-/// TEMPORARY. Mints pathless virtual items (a <see cref="Movie"/>, <see cref="Series"/>,
-/// <see cref="MusicAlbum"/>, or <see cref="Book"/>) into a container for the missing parts of an owned set,
-/// so they render greyed-out the way missing episodes do.
+/// TEMPORARY. Mints pathless virtual items (a <see cref="MediaBrowser.Controller.Entities.Movies.Movie"/>,
+/// <see cref="MediaBrowser.Controller.Entities.TV.Series"/>, <see cref="MusicAlbum"/>, or
+/// <see cref="MediaBrowser.Controller.Entities.Book"/>) into a container for the missing parts of an owned
+/// set, so they render greyed-out the way missing episodes do.
 /// <para>
 /// This deliberately does, from a plugin, something the server has no supported API for. It exists to
 /// prove out the feature and to demonstrate the friction for the upstream proposal
@@ -40,8 +37,13 @@ namespace Jellyfin.Plugin.MindTheGaps.VirtualItems;
 /// in the catch-all collection and Jellyfin does not display it ideally. That is acceptable for the
 /// experiment.
 /// </para>
+/// <para>
+/// This class is the orchestration: it decides what a gap mints as and seeds the new item, and delegates to
+/// <see cref="MintableKind"/> (the pure per-kind lookup tables), <see cref="MintContainerResolver"/> (where
+/// a minted item lands), and <see cref="MintedItemPruner"/> (finding and removing what was minted).
+/// </para>
 /// </summary>
-public sealed class VirtualItemMinter : IDisposable
+public sealed class VirtualItemMinter
 {
     /// <summary>
     /// Provider-id key stamped on every item this plugin mints, so they can be found and removed.
@@ -59,38 +61,38 @@ public sealed class VirtualItemMinter : IDisposable
     private const int MaxMintSelection = 2000;
 
     private readonly ILibraryManager _libraryManager;
-    private readonly ICollectionManager _collectionManager;
     private readonly IProviderManager _providerManager;
     private readonly IDirectoryService _directoryService;
     private readonly TmdbClient _tmdb;
+    private readonly MintContainerResolver _containers;
+    private readonly MintedItemPruner _pruner;
     private readonly ILogger<VirtualItemMinter> _logger;
-
-    // Serializes find-or-create of the catch-all collection so two concurrent mints (a per-row mint and a
-    // multi-select pass, which do not share the MintRunner) cannot both create it and leave duplicates.
-    private readonly SemaphoreSlim _catchAllGate = new(1, 1);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VirtualItemMinter"/> class.
     /// </summary>
     /// <param name="libraryManager">The library manager.</param>
-    /// <param name="collectionManager">The collection manager.</param>
     /// <param name="providerManager">The provider manager (queues metadata refreshes).</param>
     /// <param name="directoryService">The directory service (required to build refresh options).</param>
     /// <param name="tmdb">The TMDB client.</param>
+    /// <param name="containers">Resolves the container a minted item lands in.</param>
+    /// <param name="pruner">Finds and removes minted items.</param>
     /// <param name="logger">The logger.</param>
     public VirtualItemMinter(
         ILibraryManager libraryManager,
-        ICollectionManager collectionManager,
         IProviderManager providerManager,
         IDirectoryService directoryService,
         TmdbClient tmdb,
+        MintContainerResolver containers,
+        MintedItemPruner pruner,
         ILogger<VirtualItemMinter> logger)
     {
         _libraryManager = libraryManager;
-        _collectionManager = collectionManager;
         _providerManager = providerManager;
         _directoryService = directoryService;
         _tmdb = tmdb;
+        _containers = containers;
+        _pruner = pruner;
         _logger = logger;
     }
 
@@ -99,56 +101,14 @@ public sealed class VirtualItemMinter : IDisposable
     /// that kind. Served to the dashboard so a row's Mint button appears exactly when this would accept it,
     /// rather than the page keeping its own transcription of the kind switch this class keeps.
     /// </summary>
-    public static IReadOnlyDictionary<string, string> MintableKinds { get; } =
-        Enum.GetValues<BaseItemKind>()
-            .Select(kind => (Kind: kind, Provider: PrimaryProvider(kind)))
-            .Where(pair => pair.Provider is not null)
-            .ToDictionary(pair => pair.Kind.ToString(), pair => pair.Provider!, StringComparer.Ordinal);
-
-    /// <summary>
-    /// Queues a metadata + image refresh for a freshly minted item so providers fill in whatever we
-    /// could not write at insert time (overview, artwork, etc.). Fire-and-forget; runs in the host's
-    /// refresh queue. Merge mode, so the minted marker and our seeded fields are preserved.
-    /// </summary>
-    /// <param name="item">The minted item.</param>
-    private void QueueMetadataRefresh(BaseItem item)
-    {
-        try
-        {
-            _providerManager.QueueRefresh(
-                item.Id,
-                new MetadataRefreshOptions(_directoryService)
-                {
-                    MetadataRefreshMode = MetadataRefreshMode.FullRefresh,
-                    ImageRefreshMode = MetadataRefreshMode.FullRefresh,
-                    ReplaceAllMetadata = false
-                },
-                RefreshPriority.High);
-            _logger.LogDebug("Queued metadata refresh for minted item {Id} '{Name}'", item.Id, item.Name);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to queue metadata refresh for minted item {Id}", item.Id);
-        }
-    }
+    public static IReadOnlyDictionary<string, string> MintableKinds { get; } = MintableKind.All;
 
     /// <summary>
     /// Removes every virtual item this plugin has minted. The cleanup/undo for the experiment.
     /// </summary>
     /// <param name="dryRun">When true, logs what would be removed without deleting anything.</param>
     /// <returns>The number of minted items removed (or, in a dry run, that would be removed).</returns>
-    public Task<int> RemoveAllAsync(bool dryRun)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        var removed = RemoveMinted(_ => true, dryRun);
-        stopwatch.Stop();
-        _logger.LogInformation(
-            "{Verb} {Count} minted virtual items in {ElapsedMs} ms",
-            dryRun ? "Would remove" : "Removed",
-            removed,
-            stopwatch.ElapsedMilliseconds);
-        return Task.FromResult(removed);
-    }
+    public Task<int> RemoveAllAsync(bool dryRun) => Task.FromResult(_pruner.RemoveAll(dryRun));
 
     /// <summary>
     /// Removes any minted placeholder whose item the library now owns for real (the reconciliation the
@@ -156,62 +116,7 @@ public sealed class VirtualItemMinter : IDisposable
     /// Run after each scan, since the bulk-mint path that used to reconcile is gone.
     /// </summary>
     /// <returns>The number of minted placeholders reconciled away.</returns>
-    public int ReconcileMinted()
-    {
-        // Build, per kind, the set of primary ids the library now owns a real file for, so a minted
-        // placeholder can be matched against the owned item of its own kind and provider.
-        var ownedRealByKind = new Dictionary<BaseItemKind, HashSet<string>>();
-        var reconciled = RemoveMinted(item => HasOwnedRealCounterpart(item, ownedRealByKind), dryRun: false);
-        if (reconciled > 0)
-        {
-            _logger.LogInformation("Reconciled {Count} minted items the library now owns for real", reconciled);
-        }
-
-        return reconciled;
-    }
-
-    // True when the library owns a real (non-virtual) item of the minted item's own kind carrying the same
-    // primary provider id. The owned-id set per kind is built lazily and cached for the run.
-    private bool HasOwnedRealCounterpart(BaseItem mintedItem, Dictionary<BaseItemKind, HashSet<string>> ownedRealByKind)
-    {
-        var kind = mintedItem.GetBaseItemKind();
-        var provider = PrimaryProvider(kind);
-        if (provider is null
-            || !mintedItem.ProviderIds.TryGetValue(provider, out var id)
-            || string.IsNullOrEmpty(id))
-        {
-            return false;
-        }
-
-        if (!ownedRealByKind.TryGetValue(kind, out var owned))
-        {
-            owned = OwnedRealPrimaryIds(kind, provider);
-            ownedRealByKind[kind] = owned;
-        }
-
-        return owned.Contains(id);
-    }
-
-    // The primary provider ids of the real (non-virtual) items of a kind the library owns, for reconciliation.
-    private HashSet<string> OwnedRealPrimaryIds(BaseItemKind kind, string provider)
-    {
-        var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            DtoOptions = LibraryQueryOptions.WithProviderIds(),
-            IncludeItemTypes = new[] { kind },
-            IsVirtualItem = false,
-            Recursive = true
-        }))
-        {
-            if (item.ProviderIds.TryGetValue(provider, out var id) && !string.IsNullOrEmpty(id))
-            {
-                owned.Add(id);
-            }
-        }
-
-        return owned;
-    }
+    public int ReconcileMinted() => _pruner.ReconcileMinted();
 
     /// <summary>
     /// Temporary debug aid: mints a single gap from the report as the right virtual entity for its kind (a
@@ -231,7 +136,7 @@ public sealed class VirtualItemMinter : IDisposable
     {
         var stopwatch = Stopwatch.StartNew();
 
-        var provider = PrimaryProvider(gap.TargetKind);
+        var provider = MintableKind.PrimaryProvider(gap.TargetKind);
         if (provider is null)
         {
             _logger.LogInformation(
@@ -249,16 +154,16 @@ public sealed class VirtualItemMinter : IDisposable
 
         // A film or show from a filmography attaches the owned person, a book from a bibliography attaches its
         // author, and an album carries its artist through AlbumArtists below. Any other gap attaches nothing.
-        var person = PersonAttachment(gap);
+        var person = MintableKind.PersonAttachment(gap);
         var personSuffix = person.HasValue
             ? string.Create(CultureInfo.InvariantCulture, $" and attach {(person.Value.Kind == PersonKind.Author ? "author" : "person")} '{person.Value.Name}'")
             : string.Empty;
 
-        var entityType = EntityType(gap.TargetKind);
-        var itemId = _libraryManager.GetNewItemId(IdKeyPrefix(gap.TargetKind) + primaryId, entityType);
+        var entityType = MintableKind.EntityType(gap.TargetKind);
+        var itemId = _libraryManager.GetNewItemId(MintableKind.IdKeyPrefix(gap.TargetKind) + primaryId, entityType);
         var alreadyMinted = _libraryManager.GetItemById(itemId) is not null;
 
-        var container = await ResolveContainerAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
+        var container = await _containers.ResolveContainerAsync(gap, dryRun, cancellationToken).ConfigureAwait(false);
         var containerName = container?.Name ?? CatchAllCollectionName;
 
         if (dryRun)
@@ -284,7 +189,7 @@ public sealed class VirtualItemMinter : IDisposable
 
         if (alreadyMinted)
         {
-            await AddToContainerAsync(container, itemId).ConfigureAwait(false);
+            await _containers.AddToContainerAsync(container, itemId).ConfigureAwait(false);
             if (person.HasValue)
             {
                 await AttachPersonAsync(itemId, person.Value.Name, person.Value.Kind, cancellationToken).ConfigureAwait(false);
@@ -299,7 +204,7 @@ public sealed class VirtualItemMinter : IDisposable
             return string.Create(CultureInfo.InvariantCulture, $"'{gap.Name}' was already minted; ensured it is linked into '{containerName}'.");
         }
 
-        var item = CreateEntity(gap.TargetKind);
+        var item = MintableKind.CreateEntity(gap.TargetKind);
         item.Id = itemId;
         item.Name = gap.Name;
         item.Overview = gap.Overview;
@@ -318,7 +223,7 @@ public sealed class VirtualItemMinter : IDisposable
         }
 
         _libraryManager.CreateItem(item, container);
-        await AddToContainerAsync(container, item.Id).ConfigureAwait(false);
+        await _containers.AddToContainerAsync(container, item.Id).ConfigureAwait(false);
         if (person.HasValue)
         {
             await AttachPersonAsync(item.Id, person.Value.Name, person.Value.Kind, cancellationToken).ConfigureAwait(false);
@@ -373,7 +278,7 @@ public sealed class VirtualItemMinter : IDisposable
 
             // Count anything not mintable (an unmintable kind, or a mintable kind missing its primary id) as
             // skipped rather than minted, so the total reflects actual mint attempts (MintGapAsync no-ops it).
-            var provider = PrimaryProvider(gap.TargetKind);
+            var provider = MintableKind.PrimaryProvider(gap.TargetKind);
             if (provider is null
                 || !gap.ProviderIds.TryGetValue(provider, out var primaryId)
                 || string.IsNullOrEmpty(primaryId))
@@ -410,143 +315,30 @@ public sealed class VirtualItemMinter : IDisposable
             : string.Create(CultureInfo.InvariantCulture, $"{verb} {minted} item(s){skippedSuffix}, {failed} failed. Check the server logs.");
     }
 
-    // The provider-id key an item of this kind is minted under (its primary id), or null when the kind
-    // cannot be minted. Movies and series key on TMDB, albums on the MusicBrainz release-group, books on
-    // OpenLibrary (a plugin-provided key, not a core MetadataProvider enum member).
-    private static string? PrimaryProvider(BaseItemKind kind) => kind switch
+    /// <summary>
+    /// Queues a metadata + image refresh for a freshly minted item so providers fill in whatever we
+    /// could not write at insert time (overview, artwork, etc.). Fire-and-forget; runs in the host's
+    /// refresh queue. Merge mode, so the minted marker and our seeded fields are preserved.
+    /// </summary>
+    /// <param name="item">The minted item.</param>
+    private void QueueMetadataRefresh(BaseItem item)
     {
-        BaseItemKind.Movie => ProviderIds.Tmdb,
-        BaseItemKind.Series => ProviderIds.Tmdb,
-        BaseItemKind.MusicAlbum => ProviderIds.MusicBrainzReleaseGroup,
-        BaseItemKind.Book => ProviderIds.OpenLibrary,
-        _ => null
-    };
-
-    // The runtime entity type for a kind, for GetNewItemId's deterministic id derivation.
-    private static Type EntityType(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.Movie => typeof(Movie),
-        BaseItemKind.Series => typeof(Series),
-        BaseItemKind.MusicAlbum => typeof(MusicAlbum),
-        BaseItemKind.Book => typeof(Book),
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a mintable kind")
-    };
-
-    // A fresh entity instance for a kind. Kept separate from EntityType so the typed properties are set on a
-    // concrete instance the host can persist.
-    private static BaseItem CreateEntity(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.Movie => new Movie(),
-        BaseItemKind.Series => new Series(),
-        BaseItemKind.MusicAlbum => new MusicAlbum(),
-        BaseItemKind.Book => new Book(),
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a mintable kind")
-    };
-
-    // The id-key prefix that scopes a minted item's deterministic id by kind, so two kinds that happened to
-    // share a primary id value cannot collide.
-    private static string IdKeyPrefix(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.Movie => "mindthegaps-virtual-movie-",
-        BaseItemKind.Series => "mindthegaps-virtual-series-",
-        BaseItemKind.MusicAlbum => "mindthegaps-virtual-album-",
-        BaseItemKind.Book => "mindthegaps-virtual-book-",
-        _ => "mindthegaps-virtual-"
-    };
-
-    // A person is attached only for a film/show filmography gap (SourceItemType "Person"); an album or book
-    // never gets a person attached.
-    // The person to attach to a minted item, with the right role: the owned actor or director for a film or
-    // show (the filmography case), or the author for a book (the bibliography case, whose source name is the
-    // author). Null when there is no person to attach. A music album carries its artist a different way, via
-    // AlbumArtists.
-    private static (string Name, PersonKind Kind)? PersonAttachment(GapItem gap)
-    {
-        if (string.IsNullOrEmpty(gap.SourceItemName))
-        {
-            return null;
-        }
-
-        if (gap.TargetKind is BaseItemKind.Movie or BaseItemKind.Series
-            && string.Equals(gap.SourceItemType, "Person", StringComparison.Ordinal))
-        {
-            return (gap.SourceItemName, PersonKind.Actor);
-        }
-
-        if (gap.TargetKind == BaseItemKind.Book
-            && string.Equals(gap.SourceItemType, "Book", StringComparison.Ordinal))
-        {
-            return (gap.SourceItemName, PersonKind.Author);
-        }
-
-        return null;
-    }
-
-    // Add a minted item to its container. A real collection (a BoxSet) takes the item through the collection
-    // manager; a MusicArtist parent already holds the item from CreateItem, so there is nothing to add.
-    private async Task AddToContainerAsync(BaseItem container, Guid itemId)
-    {
-        if (container is MusicArtist)
-        {
-            return;
-        }
-
-        await _collectionManager.AddToCollectionAsync(container.Id, new[] { itemId }).ConfigureAwait(false);
-    }
-
-    private async Task<BaseItem?> ResolveContainerAsync(GapItem gap, bool dryRun, CancellationToken cancellationToken)
-    {
-        // A collection gap (a movie or a series in a TMDB collection) goes into its owning BoxSet.
-        if (string.Equals(gap.SourceItemType, "BoxSet", StringComparison.Ordinal)
-            && Guid.TryParse(gap.SourceItemId, out var boxSetId)
-            && _libraryManager.GetItemById(boxSetId) is BoxSet ownerBoxSet)
-        {
-            return ownerBoxSet;
-        }
-
-        // A music-album gap carries the owning artist's library id (the discography source sets SourceItemId
-        // to the artist's guid and SourceItemType to "MusicArtist"). When that resolves to a MusicArtist in
-        // the library, mint the album as a child of the artist so it lands under their discography.
-        if (gap.TargetKind == BaseItemKind.MusicAlbum
-            && Guid.TryParse(gap.SourceItemId, out var artistId)
-            && _libraryManager.GetItemById(artistId) is MusicArtist ownerArtist)
-        {
-            return ownerArtist;
-        }
-
-        // No owning container (filmography, recommendation, book, or the owner is gone): use a single
-        // catch-all collection so the virtual item has a valid parent and a place to be found/removed.
-        // Hold the gate across the lookup and the create so concurrent mints share one collection.
-        await _catchAllGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var catchAll = _libraryManager
-                .GetItemList(new InternalItemsQuery
+            _providerManager.QueueRefresh(
+                item.Id,
+                new MetadataRefreshOptions(_directoryService)
                 {
-                    DtoOptions = LibraryQueryOptions.Minimal(),
-                    IncludeItemTypes = new[] { BaseItemKind.BoxSet },
-                    Recursive = true
-                })
-                .FirstOrDefault(b => string.Equals(b.Name, CatchAllCollectionName, StringComparison.Ordinal));
-
-            if (catchAll is not null)
-            {
-                return catchAll;
-            }
-
-            if (dryRun)
-            {
-                return null;
-            }
-
-            _logger.LogInformation("Creating catch-all collection '{Name}' for one-off mints", CatchAllCollectionName);
-            return await _collectionManager
-                .CreateCollectionAsync(new CollectionCreationOptions { Name = CatchAllCollectionName })
-                .ConfigureAwait(false);
+                    MetadataRefreshMode = MetadataRefreshMode.FullRefresh,
+                    ImageRefreshMode = MetadataRefreshMode.FullRefresh,
+                    ReplaceAllMetadata = false
+                },
+                RefreshPriority.High);
+            _logger.LogDebug("Queued metadata refresh for minted item {Id} '{Name}'", item.Id, item.Name);
         }
-        finally
+        catch (Exception ex)
         {
-            _catchAllGate.Release();
+            _logger.LogWarning(ex, "Failed to queue metadata refresh for minted item {Id}", item.Id);
         }
     }
 
@@ -562,52 +354,5 @@ public sealed class VirtualItemMinter : IDisposable
             new[] { new PersonInfo { Name = personName, Type = kind } },
             cancellationToken).ConfigureAwait(false);
         _logger.LogDebug("Attached {Kind} '{Person}' to minted item {ItemId}", kind, personName, itemId);
-    }
-
-    private int RemoveMinted(Func<BaseItem, bool> predicate, bool dryRun)
-    {
-        var minted = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            DtoOptions = LibraryQueryOptions.WithProviderIds(),
-            HasAnyProviderId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [MintedMarker] = "1" },
-            Recursive = true
-        });
-        _logger.LogDebug("Found {Count} items carrying the minted marker", minted.Count);
-
-        var removed = 0;
-        foreach (var item in minted)
-        {
-            if (!predicate(item))
-            {
-                continue;
-            }
-
-            _logger.LogDebug(
-                "{Action} minted virtual item '{Name}' ({Id}, {Kind}). File deletion is disabled",
-                dryRun ? "Would remove" : "Removing",
-                item.Name,
-                item.Id,
-                item.GetBaseItemKind());
-
-            if (!dryRun)
-            {
-                // DeleteFileLocation=false is the critical safety: we only ever drop the library entry we
-                // created, never anything on disk. The marker query already scopes this to our own items.
-                _libraryManager.DeleteItem(
-                    item,
-                    new DeleteOptions { DeleteFileLocation = false, DeleteFromExternalProvider = false },
-                    notifyParentItem: true);
-            }
-
-            removed++;
-        }
-
-        return removed;
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        _catchAllGate.Dispose();
     }
 }
