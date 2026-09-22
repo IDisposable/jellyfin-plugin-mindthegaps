@@ -55,7 +55,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Heat", 1995, ("Tmdb", "949"));
         var owned = new BaseItem[] { OwnedMovie("Casino", 1995, ("Tmdb", "524")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -69,7 +69,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "The Thing", 1982, ("Tmdb", "1091"));
         var owned = new BaseItem[] { OwnedMovie("The Thing", 1982, ("Tmdb", "999999")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal("titleMatch", c.Relation);
@@ -87,7 +87,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Ocean's Eleven", 1960, ("Tmdb", "21786"));
         var owned = new BaseItem[] { OwnedMovie("Ocean's Eleven", 2001, ("Tmdb", "161")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -100,7 +100,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Home Alone", 2023, ("Tmdb", "1009408"));
         var owned = new BaseItem[] { OwnedMovie("Home Alone", 1990, ("Tmdb", "771")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -116,7 +116,7 @@ public class GapDiagnosticsTests
         gap.IsUpcoming = true;
         var owned = new BaseItem[] { OwnedMovie("Highlander", 1986, ("Tmdb", "8009"), ("Imdb", "tt0091203")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
         var c = Assert.Single(d.Candidates);
@@ -134,7 +134,7 @@ public class GapDiagnosticsTests
         gap.IsUpcoming = true;
         var owned = new BaseItem[] { OwnedMovie("Nosferatu", 2024, ("Tmdb", "999999"), ("Imdb", "tt5040012")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
         Assert.Single(d.Candidates);
@@ -148,7 +148,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Coco", 2017, ("Tmdb", "354912"));
         var owned = new BaseItem[] { OwnedMovie("Coco", 2018, ("Tmdb", "999999")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Single(d.Candidates);
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
@@ -166,7 +166,7 @@ public class GapDiagnosticsTests
             OwnedMovie("The Game", 1998, ("Tmdb", "55"))
         };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal(1997, c.Year);
@@ -194,7 +194,7 @@ public class GapDiagnosticsTests
             }
         };
 
-        GapDiagnostics.ApplyCrossProviderDisagreement(gap, diagnosis);
+        TitleIdentityDiagnosis.ApplyCrossProviderDisagreement(gap, diagnosis);
 
         Assert.Equal(DiagnosisReason.NotOwned, diagnosis.Reason);
         Assert.Contains("different films", diagnosis.Summary, StringComparison.OrdinalIgnoreCase);
@@ -221,7 +221,7 @@ public class GapDiagnosticsTests
             }
         };
 
-        GapDiagnostics.ApplyCrossProviderDisagreement(gap, diagnosis);
+        TitleIdentityDiagnosis.ApplyCrossProviderDisagreement(gap, diagnosis);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, diagnosis.Reason);
         Assert.Contains("Confirmed", diagnosis.Summary, StringComparison.Ordinal);
@@ -235,7 +235,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Dune", 2021, ("Tmdb", "438631"));
         var owned = new BaseItem[] { OwnedMovie("Dune", null, ("Tmdb", "999999")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Single(d.Candidates);
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
@@ -247,7 +247,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Solaris", 1972, ("Tmdb", "27328"));
         var owned = new BaseItem[] { OwnedMovie("Solaris", 1972) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal("titleMatch", c.Relation);
@@ -260,7 +260,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Alien", 1979, ("Tmdb", "348"));
         var owned = new BaseItem[] { OwnedMovie("Alien", 1979, ("Tmdb", "348")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal(DiagnosisReason.Stale, d.Reason);
@@ -275,7 +275,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Predator", 1987, ("Tmdb", "106"));
         var owned = new BaseItem[] { OwnedMovie("Not Predator", 1987, ("Tmdb", "106")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal("idHolder", c.Relation);
@@ -290,7 +290,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "The Wages of Fear", 1953, ("Tmdb", "1000"), ("Imdb", "tt0046268"));
         var owned = new BaseItem[] { OwnedMovie("Le salaire de la peur", 1953, ("Tmdb", "999"), ("Imdb", "tt0046268")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         var c = Assert.Single(d.Candidates);
         Assert.Equal("idMatch", c.Relation);
@@ -303,7 +303,7 @@ public class GapDiagnosticsTests
         // An IMDb person id (nm...) where a title id (tt...) belongs: the match never had a chance.
         var gap = Gap(BaseItemKind.Movie, "Whatever", 2000, ("Imdb", "nm0000123"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, []);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.WrongIdClass, d.Reason);
@@ -317,7 +317,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "WALL-E", 2008, ("Tmdb", "10681"));
         var owned = new BaseItem[] { OwnedMovie("wall e", 2008, ("Tmdb", "55")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Single(d.Candidates); // matched despite "WALL-E" vs "wall e"
     }
@@ -329,7 +329,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Movie, "Fargo", 1996, ("Tmdb", "275"));
         var owned = new BaseItem[] { OwnedSeries("Fargo", 2014, ("Tmdb", "60622")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Empty(d.Candidates);
     }
@@ -339,7 +339,7 @@ public class GapDiagnosticsTests
     {
         var gap = Gap(BaseItemKind.Series, "The Wire", 2002, ("Tmdb", "1438"), ("Imdb", "tt0306414"), ("Tvdb", "79126"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, []);
 
         Assert.NotNull(d.Target);
         Assert.Equal("tt0306414", d.Target!.ProviderIds["Imdb"]);
@@ -356,7 +356,7 @@ public class GapDiagnosticsTests
         // Episodes are not a diagnosable kind (only movies, shows, albums, and books are).
         var gap = Gap(BaseItemKind.Episode, "Pilot", 2010, ("Tmdb", "5"));
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, []);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, []);
 
         Assert.Null(d.Target);
         Assert.Contains("album, and book", d.Summary, StringComparison.OrdinalIgnoreCase);
@@ -370,7 +370,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.MusicAlbum, "Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-1"));
         var owned = new BaseItem[] { OwnedAlbum("Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-999")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Single(d.Candidates);
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
@@ -383,7 +383,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Book, "Dune Messiah", 1969, ("OpenLibrary", "OL1W"));
         var owned = new BaseItem[] { OwnedBook("Children of Dune", 1976, ("OpenLibrary", "OL2W")) };
 
-        var d = GapDiagnostics.DiagnoseAgainst(gap, owned);
+        var d = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         Assert.Empty(d.Candidates);
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -409,7 +409,7 @@ public class GapDiagnosticsTests
             OwnedSeries("Some Show", 2000, ("Tmdb", "111"))
         };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned);
 
         Assert.Equal(scan, audit.GeneratedUtc);
         Assert.Equal(2, audit.GapsChecked);
@@ -429,7 +429,7 @@ public class GapDiagnosticsTests
         var report = new GapReport { Items = new[] { upcoming } };
         var owned = new BaseItem[] { OwnedMovie("Highlander", 1986, ("Tmdb", "8009"), ("Imdb", "tt0091203")) };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned);
 
         Assert.Equal(1, audit.GapsChecked);
         Assert.Empty(audit.Mismatches);
@@ -446,7 +446,7 @@ public class GapDiagnosticsTests
             OwnedMovie("Movie C", 2003, ("Tmdb", "501"))
         };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned);
 
         var dup = Assert.Single(audit.Duplicates);
         Assert.Equal("500", dup.Id);
@@ -466,7 +466,7 @@ public class GapDiagnosticsTests
             }
         };
 
-        var audit = GapDiagnostics.AuditAgainst(report, []);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, []);
 
         Assert.Equal(2, audit.GapsChecked); // the album and movie are checked; the episode is skipped
         Assert.Empty(audit.Mismatches);
@@ -482,7 +482,7 @@ public class GapDiagnosticsTests
         };
         var owned = new BaseItem[] { OwnedAlbum("Kid A", 2000, ("MusicBrainzReleaseGroup", "rg-999")) };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned);
 
         Assert.Equal(1, audit.OwnedAlbums);
         var m = Assert.Single(audit.Mismatches);
@@ -499,7 +499,7 @@ public class GapDiagnosticsTests
             OwnedAlbum("Album B", 2002, ("MusicBrainzReleaseGroup", "rg-5")) // shares the id -> duplicate
         };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned);
 
         var dup = Assert.Single(audit.Duplicates);
         Assert.Equal(ProviderIds.MusicBrainzReleaseGroup, dup.Provider);
@@ -516,7 +516,7 @@ public class GapDiagnosticsTests
         var report = new GapReport { Items = new[] { movie, series } };
         var owned = new BaseItem[] { OwnedSeries("Some Show", 2000, ("Tmdb", "222")) };
 
-        var audit = GapDiagnostics.AuditAgainst(report, owned, MediaDomain.Shows);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned, MediaDomain.Shows);
 
         Assert.Equal(1, audit.GapsChecked); // the Movies gap is out of scope
         Assert.Equal("Shows", audit.DomainName);
@@ -527,7 +527,7 @@ public class GapDiagnosticsTests
     {
         var gap = Gap(BaseItemKind.Episode, "Some Show S02E05", 2003);
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 2000, new Dictionary<string, string> { ["Tmdb"] = "111" }, "series-guid", new[] { 2000, 2001, 2002, 2003 }, [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -541,7 +541,7 @@ public class GapDiagnosticsTests
         // the series' TheMovieDb id is surfaced as a disambiguation to check, without the verdict depending on it.
         var gap = Gap(BaseItemKind.Episode, "V S02E01", 2009);
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "V", 1984, new Dictionary<string, string> { ["Tmdb"] = "40063" }, "series-guid", new[] { 1984, 1985 }, [], []);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
@@ -558,7 +558,7 @@ public class GapDiagnosticsTests
         var gap = Gap(BaseItemKind.Episode, "Long Show S01E01", 1974);
         var missing = Enumerable.Range(1974, 34).ToArray(); // 1974..2007
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Long Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "222" }, "series-guid", new[] { 2008, 2026 }, missing, []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -573,7 +573,7 @@ public class GapDiagnosticsTests
         // An aired-1974 episode is outside the era, so it still reads as a same-named reboot.
         var gap = Gap(BaseItemKind.Episode, "Reboot Show S01E01", 1974);
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Reboot Show", 1974, new Dictionary<string, string> { ["Tmdb"] = "333" }, "series-guid", new[] { 2008, 2026 }, new[] { 1974, 1975, 1980 }, []);
 
         Assert.Equal(DiagnosisReason.OwnedUnderWrongId, d.Reason);
@@ -585,7 +585,7 @@ public class GapDiagnosticsTests
     {
         var gap = Gap(BaseItemKind.Episode, "New Show S01E01", 2020);
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "New Show", 2020, new Dictionary<string, string>(), "series-guid", [], [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -598,7 +598,7 @@ public class GapDiagnosticsTests
         // at all (stale, or the cross-check numbers it differently). The air-year heuristic alone cannot see this.
         var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Some Show S01E20", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
             new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 19, "A", 1), (1, 20, "In the Hands of the Prophets", 1), (1, 21, "B", 1) });
 
@@ -614,7 +614,7 @@ public class GapDiagnosticsTests
         // the verdict now names the episode rather than leaning on the air year alone.
         var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Some Show S01E20", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
             new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 1, "X", 1), (1, 2, "Y", 1) });
 
@@ -630,7 +630,7 @@ public class GapDiagnosticsTests
         // (two media versions), so the missing number's title matches an owned episode: a false gap, not missing.
         var gap = new GapItem { Id = "seriescontent:show:s01e20", Name = "Star Trek S01E20 - In the Hands of the Prophets", Year = 1993, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Star Trek", 1993, new Dictionary<string, string> { ["Tmdb"] = "580" }, "series-guid",
             new[] { 1993, 1999 }, [], new (int, int, string?, int)[] { (1, 18, "Duet", 1), (1, 19, "In the Hands of the Prophets, Part 1", 2) });
 
@@ -647,7 +647,7 @@ public class GapDiagnosticsTests
         // episode a genuine gap with no detail.
         var gap = new GapItem { Id = "seriescontent:show:s01e01", Name = "Highlander: The Series S01E01 - The Gathering", Year = 1992, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Highlander: The Series", 1992, new Dictionary<string, string> { ["Tmdb"] = "4414" }, "series-guid", [], [], []);
 
         Assert.Equal(DiagnosisReason.NotOwned, d.Reason);
@@ -662,7 +662,7 @@ public class GapDiagnosticsTests
         // many episodes and seasons are owned rather than the old bare "not enough dated content".
         var gap = new GapItem { Id = "seriescontent:show:s03e04", Name = "Some Show S03E04", Year = 1990, TargetKind = BaseItemKind.Episode, ProviderIds = new Dictionary<string, string>() };
 
-        var d = GapDiagnostics.DiagnoseSeriesContentAgainst(
+        var d = SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
             gap, "Some Show", 1988, new Dictionary<string, string> { ["Tmdb"] = "999" }, "series-guid",
             [], [], new (int, int, string?, int)[] { (1, 1, "A", 1), (1, 2, "B", 1), (2, 1, "C", 1) });
 
@@ -678,12 +678,12 @@ public class GapDiagnosticsTests
         // the lopsided episode counts, so this is flagged with both folders and their counts carried through.
         var seasons = new[]
         {
-            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 1, "Season 1", "/media/Highlander/Season 1", "season-a", 22),
-            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 1, "Season 01", "/media/Highlander/Season 01", "season-b", 0),
-            new GapDiagnostics.SeasonInfo("Highlander", "series-1", 2, "Season 2", "/media/Highlander/Season 2", "season-c", 22)
+            new DuplicateSeasonFinder.SeasonInfo("Highlander", "series-1", 1, "Season 1", "/media/Highlander/Season 1", "season-a", 22),
+            new DuplicateSeasonFinder.SeasonInfo("Highlander", "series-1", 1, "Season 01", "/media/Highlander/Season 01", "season-b", 0),
+            new DuplicateSeasonFinder.SeasonInfo("Highlander", "series-1", 2, "Season 2", "/media/Highlander/Season 2", "season-c", 22)
         };
 
-        var groups = GapDiagnostics.FindDuplicateSeasons(seasons);
+        var groups = DuplicateSeasonFinder.FindDuplicateSeasons(seasons);
 
         var group = Assert.Single(groups);
         Assert.Equal(1, group.SeasonNumber);
@@ -700,11 +700,11 @@ public class GapDiagnosticsTests
         // season number split across folders is wrong however the episodes fall out.
         var seasons = new[]
         {
-            new GapDiagnostics.SeasonInfo("Show", "series-1", 1, "Season 1", "/a/Season 1", "s-a", 22),
-            new GapDiagnostics.SeasonInfo("Show", "series-1", 1, "Season 1 dup", "/b/Season 1", "s-b", 22)
+            new DuplicateSeasonFinder.SeasonInfo("Show", "series-1", 1, "Season 1", "/a/Season 1", "s-a", 22),
+            new DuplicateSeasonFinder.SeasonInfo("Show", "series-1", 1, "Season 1 dup", "/b/Season 1", "s-b", 22)
         };
 
-        var group = Assert.Single(GapDiagnostics.FindDuplicateSeasons(seasons));
+        var group = Assert.Single(DuplicateSeasonFinder.FindDuplicateSeasons(seasons));
         Assert.Equal(2, group.Folders.Count);
     }
 
@@ -714,11 +714,11 @@ public class GapDiagnosticsTests
         // One folder per number, and a same-numbered season under a different series, are both fine.
         var seasons = new[]
         {
-            new GapDiagnostics.SeasonInfo("Show A", "series-1", 1, "Season 1", null, "s-a", 10),
-            new GapDiagnostics.SeasonInfo("Show A", "series-1", 2, "Season 2", null, "s-b", 10),
-            new GapDiagnostics.SeasonInfo("Show B", "series-2", 1, "Season 1", null, "s-c", 10)
+            new DuplicateSeasonFinder.SeasonInfo("Show A", "series-1", 1, "Season 1", null, "s-a", 10),
+            new DuplicateSeasonFinder.SeasonInfo("Show A", "series-1", 2, "Season 2", null, "s-b", 10),
+            new DuplicateSeasonFinder.SeasonInfo("Show B", "series-2", 1, "Season 1", null, "s-c", 10)
         };
 
-        Assert.Empty(GapDiagnostics.FindDuplicateSeasons(seasons));
+        Assert.Empty(DuplicateSeasonFinder.FindDuplicateSeasons(seasons));
     }
 }

@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
-using Jellyfin.Plugin.MindTheGaps.Gaps;
-using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 using MediaBrowser.Controller.Entities;
@@ -21,12 +19,13 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
 /// the title under a different (or absent) primary id, so the ownership diff, which matches on provider id,
 /// cannot see it. Library-only and synchronous: it builds a one-time index of the owned items in the audited
 /// domain and reads from that, so a per-gap diagnosis is one library load and a whole-library audit is one.
+/// This is the thin, library/network-touching orchestrator; the actual verdicts are pure and standalone in
+/// <see cref="TitleIdentityDiagnosis"/> (movies/shows/albums/books), <see cref="SeriesContentDiagnosis"/>
+/// (episodes/seasons), and <see cref="DuplicateSeasonFinder"/> (the season-folder structural audit), each
+/// unit-testable without a scan or a library, for the same reason <see cref="Gaps.StaleOwnerPruner"/> is.
 /// </summary>
 public sealed class GapDiagnostics
 {
-    // The secondary ids the diagnosis corroborates a gap against (the primary key stays TheMovieDb).
-    private static readonly string[] SecondaryIdProviders = { ProviderIds.Imdb, ProviderIds.Tvdb };
-
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
 
@@ -83,7 +82,7 @@ public sealed class GapDiagnostics
             };
         }
 
-        var diagnosis = DiagnoseAgainst(gap, owned);
+        var diagnosis = TitleIdentityDiagnosis.DiagnoseAgainst(gap, owned);
 
         if (deeper)
         {
@@ -101,24 +100,12 @@ public sealed class GapDiagnostics
             // Now that both sides carry resolved IMDb ids, use them to tell a real misidentification (same
             // film under the wrong TheMovieDb id) from a coincidental title clash (a different film sharing
             // the title), which a library-only, title-keyed match cannot distinguish.
-            ApplyCrossProviderDisagreement(gap, diagnosis);
+            TitleIdentityDiagnosis.ApplyCrossProviderDisagreement(gap, diagnosis);
 
             diagnosis.Deepened = true;
         }
 
         return diagnosis;
-    }
-
-    // Diagnose a gap against an explicit set of owned items: the testable seam, no library load. The public
-    // entry supplies the owned movies/shows; tests supply their own.
-    internal static GapDiagnosis DiagnoseAgainst(GapItem gap, IReadOnlyList<BaseItem> owned)
-    {
-        if (!IsDiagnosable(gap.TargetKind))
-        {
-            return new GapDiagnosis { Summary = "Identification diagnosis is available for movie, show, album, and book gaps only." };
-        }
-
-        return Evaluate(gap, BuildIndex(owned));
     }
 
     // Resolve a TheMovieDb id to its IMDb/TheTVDB ids and fill any that are missing. Returns true when it
@@ -191,555 +178,38 @@ public sealed class GapDiagnostics
         }
 
         var owned = LoadOwned(kinds);
-        var audit = AuditAgainst(report, owned, scopeDomain, scopePattern);
+        var audit = TitleIdentityDiagnosis.AuditAgainst(report, owned, scopeDomain, scopePattern);
 
         // Duplicate season folders are a Shows-only structural problem (a "Season 1" and a "Season 01" both
         // mapping to season 1), so only look when Series are in scope. It reads each series' seasons from the
-        // library, so it lives here rather than in the pure AuditAgainst seam.
+        // library, so it lives here rather than in the pure DuplicateSeasonFinder seam.
         if (kinds.Contains(BaseItemKind.Series))
         {
-            audit.DuplicateSeasons = FindDuplicateSeasons(OwnedSeasons(owned));
+            audit.DuplicateSeasons = DuplicateSeasonFinder.FindDuplicateSeasons(OwnedSeasons(owned));
         }
 
         return audit;
     }
 
-    // Audit a report against an explicit set of owned items: the testable seam, no library load.
-    internal static IdentificationAudit AuditAgainst(GapReport report, IReadOnlyList<BaseItem> owned, MediaDomain? domain = null, GapPattern? pattern = null)
-    {
-        var index = BuildIndex(owned);
-
-        var mismatches = new List<GapDiagnosis>();
-        var checkedCount = 0;
-        foreach (var gap in report.Items)
-        {
-            if (!IsDiagnosable(gap.TargetKind))
-            {
-                continue;
-            }
-
-            // Scope to the dashboard's current view, so an export from Shows is not full of movie findings.
-            if (domain is { } scopeDomain && gap.Domain != scopeDomain)
-            {
-                continue;
-            }
-
-            if (pattern is { } scopePattern && gap.Pattern != scopePattern)
-            {
-                continue;
-            }
-
-            checkedCount++;
-            var diagnosis = Evaluate(gap, index);
-
-            // The verdict already says whether this is a real misidentification (owned under the wrong id, or
-            // an owned item carrying this id under another title), so the audit just keys off it.
-            if (diagnosis.Reason is DiagnosisReason.OwnedUnderWrongId or DiagnosisReason.CarriesAnothersId)
-            {
-                mismatches.Add(diagnosis);
-            }
-        }
-
-        // Each owned item is indexed by its kind's primary id (TheMovieDb for movies/shows, MusicBrainz for
-        // albums, OpenLibrary for books), so a duplicate group's provider is the one for its kind.
-        var duplicates = new List<DuplicateIdGroup>();
-        foreach (var pair in index.ByPrimaryId)
-        {
-            if (pair.Value.Count < 2)
-            {
-                continue;
-            }
-
-            duplicates.Add(new DuplicateIdGroup
-            {
-                Provider = PrimaryProvider(pair.Key.Kind),
-                Id = pair.Key.Id,
-                TargetKind = pair.Key.Kind,
-                Items = pair.Value.Select(o => ToItem(o, "owned", null)).ToList()
-            });
-        }
-
-        return new IdentificationAudit
-        {
-            // The audit does no fresh discovery; it analyzes the report, so it carries the report's scan time.
-            GeneratedUtc = report.GeneratedUtc,
-            DomainName = domain?.ToString(),
-            PatternName = pattern?.ToString(),
-            OwnedMovies = index.All.Count(o => o.Kind == BaseItemKind.Movie),
-            OwnedShows = index.All.Count(o => o.Kind == BaseItemKind.Series),
-            OwnedAlbums = index.All.Count(o => o.Kind == BaseItemKind.MusicAlbum),
-            OwnedBooks = index.All.Count(o => o.Kind == BaseItemKind.Book),
-            GapsChecked = checkedCount,
-            Mismatches = mismatches,
-            Duplicates = duplicates
-        };
-    }
-
-    // Group the owned seasons by series and season number, and flag any number that more than one folder
-    // claims. A duplicate season number is wrong regardless of how its episodes fall out (two full copies, the
-    // episodes scattered across both folders, or one folder holding only extras), so the test is the count of
-    // folders per number, not their episodes; the episode counts ride along only so the reader can see which
-    // folder to keep. The testable seam; BuildAudit gathers the seasons from the library.
-    internal static IReadOnlyList<DuplicateSeasonGroup> FindDuplicateSeasons(IReadOnlyList<SeasonInfo> seasons)
-    {
-        var groups = new List<DuplicateSeasonGroup>();
-        foreach (var bySeries in seasons.Where(s => s.Number.HasValue).GroupBy(s => s.SeriesId, StringComparer.Ordinal))
-        {
-            foreach (var byNumber in bySeries.GroupBy(s => s.Number!.Value).OrderBy(g => g.Key))
-            {
-                var folders = byNumber.ToList();
-                if (folders.Count < 2)
-                {
-                    continue;
-                }
-
-                groups.Add(new DuplicateSeasonGroup
-                {
-                    SeriesName = folders[0].SeriesName,
-                    SeriesJellyfinItemId = folders[0].SeriesId,
-                    SeasonNumber = byNumber.Key,
-                    Folders = folders.Select(f => new DuplicateSeasonFolder
-                    {
-                        Name = f.SeasonName,
-                        Path = f.Path,
-                        JellyfinItemId = f.SeasonId,
-                        EpisodeCount = f.EpisodeCount
-                    }).ToList()
-                });
-            }
-        }
-
-        return groups;
-    }
-
-    // Diagnose an episode or season gap against the owning series, the episode numbers you own for it, and the
-    // years of the episodes you own (and are missing): the testable seam, no library load. An episode whose own
-    // number is among the owned set is not missing at all (a stale gap, or a numbering the cross-check disagrees
-    // on); the year heuristic cannot see that, so the owned numbers are checked first. For the rest, the owned
-    // run expanded through the missing years into the series' episode era tells a genuine missing piece (within
-    // that era) from content of a different same-named series (a reboot) the owning item is mis-tagged as. This
-    // is the same era the library scan uses, so the popup and the report agree. The series' ids ride along as an
-    // extra disambiguation the reader can check; the verdict does not depend on them.
-    internal static GapDiagnosis DiagnoseSeriesContentAgainst(
-        GapItem gap,
-        string? seriesName,
-        int? seriesYear,
-        IReadOnlyDictionary<string, string> seriesProviderIds,
-        string? seriesJellyfinId,
-        IReadOnlyList<int> ownedEpisodeYears,
-        IReadOnlyList<int> missingEpisodeYears,
-        IReadOnlyList<(int Season, int Number, string? Title, int Versions)> ownedEpisodes)
-    {
-        var name = string.IsNullOrEmpty(seriesName) ? "this series" : seriesName!;
-        var noun = gap.TargetKind == BaseItemKind.Season ? "season" : "episode";
-
-        var target = new DiagnosisItem
-        {
-            Relation = "target",
-            Name = gap.Name,
-            Year = gap.Year,
-            ProviderIds = gap.ProviderIds,
-            Note = "reported missing",
-            Links = ProviderLinks.Build(gap.TargetKind, gap.ProviderIds)
-        };
-
-        var candidates = new List<DiagnosisItem>();
-        if (!string.IsNullOrEmpty(seriesJellyfinId) || seriesProviderIds.Count > 0)
-        {
-            candidates.Add(new DiagnosisItem
-            {
-                Relation = "series",
-                Name = name,
-                Year = seriesYear,
-                ProviderIds = seriesProviderIds,
-                JellyfinItemId = seriesJellyfinId,
-                Note = "the owning series",
-                Links = ProviderLinks.Build(BaseItemKind.Series, seriesProviderIds)
-            });
-        }
-
-        GapDiagnosis Result(DiagnosisReason reason, string summary) => new()
-        {
-            GapId = gap.Id,
-            Summary = summary,
-            Reason = reason,
-            TargetKind = gap.TargetKind,
-            Target = target,
-            Candidates = candidates
-        };
-
-        // Identity check first: an episode whose own number is among the ones the library owns for this series
-        // is not missing at all. The year comparison below cannot tell that apart from a genuine gap, so probe
-        // the owned numbers directly. Only an episode gap carries a parseable season/number; a season gap falls
-        // through to the year logic.
-        string? episodeCode = null;
-        if (gap.TargetKind == BaseItemKind.Episode && SeriesGapKey.TryParseEpisode(gap.Id, out var season, out var number))
-        {
-            episodeCode = string.Create(CultureInfo.InvariantCulture, $"S{season:D2}E{number:D2}");
-
-            // The exact number is owned, so it is not missing (a stale gap, or a numbering the cross-check
-            // disagrees on).
-            if (ownedEpisodes.Any(e => e.Season == season && e.Number == number))
-            {
-                return Result(
-                    DiagnosisReason.OwnedUnderWrongId,
-                    string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is among the episodes you own for '{name}', so it is not actually missing. The gap is most likely stale (rescan to clear it), or the cross-check source numbers this episode differently than your library."));
-            }
-
-            // The number is absent, but an episode with the same title (ignoring a part marker like "(2)" or
-            // "Part 2") is owned at another number in the season: the content is present and the library numbers
-            // it differently than the catalog (a two-part episode, or the pilot counted as one episode here and
-            // two there), so this is a false gap rather than a missing one.
-            var titleKey = EpisodeTitleKey.Of(EpisodeTitleOf(gap.Name));
-            if (titleKey.Length > 0)
-            {
-                foreach (var owned in ownedEpisodes)
-                {
-                    if (owned.Season == season && owned.Number != number && EpisodeTitleKey.Of(owned.Title) == titleKey)
-                    {
-                        var ownedCode = string.Create(CultureInfo.InvariantCulture, $"S{owned.Season:D2}E{owned.Number:D2}");
-                        var versions = owned.Versions > 1
-                            ? string.Create(CultureInfo.InvariantCulture, $" (with {owned.Versions} versions)")
-                            : string.Empty;
-                        return Result(
-                            DiagnosisReason.OwnedUnderWrongId,
-                            string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not in your library by number, but you own an episode with the same title at {ownedCode}{versions}. Your library most likely numbers this episode differently than the catalog (a two-part episode, or the pilot counted as one episode here and two there); renumber {ownedCode} to match, or this stays a permanent false gap."));
-                    }
-                }
-            }
-        }
-
-        // No dated episode to compare against. Split the old single "not enough dated content" message by what
-        // it actually means: owning nothing on disk for the whole series is the structural footgun (an empty or
-        // duplicate season folder), not a per-episode gap; owning episodes that simply lack air dates is a
-        // metadata problem. Calling it "genuinely missing" with no detail is what hid the Highlander case, where
-        // a duplicate "Season 1" and "Season 01" left the series with no episodes the diagnosis could see.
-        if (ownedEpisodeYears.Count == 0)
-        {
-            if (ownedEpisodes.Count == 0)
-            {
-                return Result(
-                    DiagnosisReason.NotOwned,
-                    string.Create(CultureInfo.InvariantCulture, $"You own no episodes on disk for '{name}', so every episode reads as missing. That usually points to an empty or mis-structured season folder (for example a duplicate 'Season 1' and 'Season 01' where one holds only extras, so the episodes are split or hidden), not a real gap. Run the library audit to check this series' season folders, fix them, then rescan."));
-            }
-
-            var ownedSeasons = ownedEpisodes.Select(e => e.Season).Distinct().Count();
-            var ownedCount = ownedEpisodes.Select(e => (e.Season, e.Number)).Distinct().Count();
-            var subject = episodeCode ?? string.Create(CultureInfo.InvariantCulture, $"this {noun}");
-            return Result(
-                DiagnosisReason.NotOwned,
-                string.Create(CultureInfo.InvariantCulture, $"You own {ownedCount} episode(s) across {ownedSeasons} season(s) of '{name}', but none carry an air date, so {subject} cannot be placed by year. It is not among the owned episodes by number or title either, so it looks like a genuine gap; refresh the series' metadata to restore air dates if that is wrong."));
-        }
-
-        if (gap.Year is not int airedYear)
-        {
-            return Result(
-                DiagnosisReason.NotOwned,
-                string.Create(CultureInfo.InvariantCulture, $"This {noun} carries no air date to place against the run of '{name}', and it is not among the episodes you own by number or title, so it looks like a genuine gap."));
-        }
-
-        // Expand the owned run through the series' missing-episode years into its real episode era, the same
-        // way the library scan does, so an earlier or later season that bridges in episode by episode reads as
-        // genuine and only a far-separated same-named reboot is flagged.
-        var era = EpisodeEra.Expand((ownedEpisodeYears.Min(), ownedEpisodeYears.Max()), missingEpisodeYears);
-        if (!EpisodeEra.IsOutside(airedYear, era))
-        {
-            var summary = episodeCode is null
-                ? string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, within the run of '{name}' ({era.Min} to {era.Max}), so it looks like a genuine missing {noun}.")
-                : string.Create(CultureInfo.InvariantCulture, $"{episodeCode} is not among the episodes you own for '{name}', and it aired {airedYear}, within the run ({era.Min} to {era.Max}), so it is a genuine missing {noun}.");
-            return Result(DiagnosisReason.NotOwned, summary);
-        }
-
-        var idHint = seriesProviderIds.Count > 0
-            ? string.Create(CultureInfo.InvariantCulture, $" The series carries {DescribeIds(seriesProviderIds)}; confirm it points to the {era.Min}-{era.Max} series, not a {airedYear} one.")
-            : " The series carries no external id to confirm against.";
-
-        return Result(
-            DiagnosisReason.OwnedUnderWrongId,
-            string.Create(CultureInfo.InvariantCulture, $"This {noun} aired {airedYear}, but the run of '{name}' spans {era.Min} to {era.Max} with nothing bridging to {airedYear}, so it is almost certainly a different, same-named series (a reboot).{idHint}"));
-    }
-
-    // The owning series' external ids in a readable form, for the episode/season verdict's id hint.
-    private static string DescribeIds(IReadOnlyDictionary<string, string> ids)
-    {
-        var parts = new List<string>();
-        foreach (var (provider, label) in new[] { (ProviderIds.Tmdb, "TheMovieDb"), (ProviderIds.Tvdb, "TheTVDB"), (ProviderIds.Imdb, "IMDb"), (ProviderIds.TVmaze, "TVmaze") })
-        {
-            if (ids.TryGetValue(provider, out var value) && !string.IsNullOrEmpty(value))
-            {
-                parts.Add(string.Create(CultureInfo.InvariantCulture, $"{label} {value}"));
-            }
-        }
-
-        return parts.Count > 0 ? string.Join(", ", parts) : "no external ids";
-    }
-
-    // The bare episode title out of a series-content gap name, which the gap builds as "{series} {code} - {title}".
-    private static string EpisodeTitleOf(string gapName)
-    {
-        var dash = gapName.IndexOf(" - ", StringComparison.Ordinal);
-        return dash >= 0 ? gapName[(dash + 3)..] : gapName;
-    }
-
-    private static GapDiagnosis Evaluate(GapItem gap, OwnedIndex index)
-    {
-        var kind = gap.TargetKind;
-        var primaryLabel = PrimaryProviderLabel(kind);
-        gap.ProviderIds.TryGetValue(PrimaryProvider(kind), out var gapPrimary);
-        gap.ProviderIds.TryGetValue(ProviderIds.Imdb, out var gapImdb);
-        gap.ProviderIds.TryGetValue(ProviderIds.Tvdb, out var gapTvdb);
-        var wantName = TextKey.Normalize(gap.Name);
-
-        var target = new DiagnosisItem
-        {
-            Relation = "target",
-            Name = gap.Name,
-            Year = gap.Year,
-            ProviderIds = gap.ProviderIds,
-            Note = "reported missing",
-            Links = ProviderLinks.Build(kind, gap.ProviderIds)
-        };
-
-        var noun = Noun(kind);
-        var candidates = new List<DiagnosisItem>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var titleMismatch = false;
-        var titleStale = false;
-        var unreleasedLookalike = false;
-
-        if (index.ByTitle.TryGetValue((kind, wantName), out var titleHits))
-        {
-            // Honor name + year before falling back to name alone. Prefer an exact-year match: when the gap
-            // has a year and an owned item shares it exactly, treat that as the match and ignore same-title
-            // owned items whose year differs (even by one), since those are a different release sharing the
-            // title (The Game 1997 the thriller vs The Game 1998 the comedy). The one-year tolerance only
-            // applies as a fallback (release-date jitter) when nothing matches the year exactly.
-            var hasExactYear = gap.Year.HasValue && titleHits.Any(o => o.Year == gap.Year);
-            foreach (var owned in titleHits)
-            {
-                // An owned item is on disk, so it came out; an upcoming gap has not come out yet. They cannot
-                // be the same work however exactly the titles line up, and the year test alone does not catch
-                // it because an announced title usually carries no date at all (the announced "Highlander"
-                // against the 1986 one you own). Listed rather than skipped: the reader can see the same title
-                // in their library and is owed the reason it is not the match. A shared external id outranks
-                // this, since that is evidence of identity rather than of a coincidental title.
-                if (gap.IsUpcoming && owned.Year.HasValue && !SharesAnyId(owned, gap.ProviderIds, PrimaryProvider(kind)))
-                {
-                    if (seen.Add(owned.JellyfinId))
-                    {
-                        unreleasedLookalike = true;
-                        candidates.Add(ToItem(owned, "otherRelease", string.Create(CultureInfo.InvariantCulture, $"same title, but this gap is not out yet, so the {owned.Year} {noun} you own is a different release")));
-                    }
-
-                    continue;
-                }
-
-                // A same-title owned item more than a year off is always a different release (a remake), so
-                // skip it. A year missing on either side cannot rule it out, so it still matches on name (this
-                // stops owning "Ocean's Eleven" 2001 from flagging the missing 1960 original as a mismatch).
-                if (YearConflicts(gap.Year, owned.Year))
-                {
-                    continue;
-                }
-
-                // An exact-year match exists, so a same-title item that is only a year off is a different film.
-                if (hasExactYear && owned.Year.HasValue && owned.Year != gap.Year)
-                {
-                    continue;
-                }
-
-                if (!seen.Add(owned.JellyfinId))
-                {
-                    continue;
-                }
-
-                var ownedPrimary = PrimaryId(owned);
-                string note;
-                if (ownedPrimary is null)
-                {
-                    note = string.Create(CultureInfo.InvariantCulture, $"same title, no {primaryLabel} id");
-                    titleMismatch = true;
-                }
-                else if (string.Equals(ownedPrimary, gapPrimary, StringComparison.Ordinal))
-                {
-                    note = "same title and id (this gap may be stale)";
-                    titleStale = true;
-                }
-                else
-                {
-                    note = "same title, different id (probably misidentified)";
-                    titleMismatch = true;
-                }
-
-                candidates.Add(ToItem(owned, "titleMatch", note));
-            }
-        }
-
-        var idHolderMismatch = false;
-        if (!string.IsNullOrEmpty(gapPrimary) && index.ByPrimaryId.TryGetValue((kind, gapPrimary), out var idHits))
-        {
-            foreach (var owned in idHits)
-            {
-                if (!seen.Add(owned.JellyfinId))
-                {
-                    continue;
-                }
-
-                idHolderMismatch = true;
-                candidates.Add(ToItem(owned, "idHolder", "carries this id but a different title (probably misidentified)"));
-            }
-        }
-
-        // B: corroborate by a secondary id. An owned item that shares the gap's IMDb or TheTVDB id but not
-        // its TheMovieDb id is owned under the wrong TheMovieDb id, even when its title was localized and so
-        // did not match above.
-        foreach (var (provider, label, gapId) in new[] { (ProviderIds.Imdb, "IMDb", gapImdb), (ProviderIds.Tvdb, "TheTVDB", gapTvdb) })
-        {
-            if (string.IsNullOrEmpty(gapId) || !index.BySecondaryId.TryGetValue((kind, provider, gapId), out var idMatches))
-            {
-                continue;
-            }
-
-            foreach (var owned in idMatches)
-            {
-                if (!seen.Add(owned.JellyfinId))
-                {
-                    continue;
-                }
-
-                titleMismatch = true;
-                candidates.Add(ToItem(owned, "idMatch", string.Create(CultureInfo.InvariantCulture, $"matched by {label} id; TheMovieDb id differs or is missing")));
-            }
-        }
-
-        // C1: a wrong-class id on the gap itself (a typed-provider check) means the match never had a chance.
-        var wrongClass = WrongClassId(gap.ProviderIds);
-
-        string summary;
-        DiagnosisReason reason;
-        if (titleMismatch)
-        {
-            reason = DiagnosisReason.OwnedUnderWrongId;
-            summary = string.Create(CultureInfo.InvariantCulture, $"Likely a metadata mismatch: you appear to own this {noun} already, under a different or missing {primaryLabel} id. Compare the ids below, fix the owned item, and rescan.");
-        }
-        else if (idHolderMismatch)
-        {
-            reason = DiagnosisReason.CarriesAnothersId;
-            summary = "An owned item carries this title's id but looks like a different title. Check the identification of the item below.";
-        }
-        else if (titleStale)
-        {
-            reason = DiagnosisReason.Stale;
-            summary = "An owned item already has this exact title and id, so this gap looks stale. A rescan should clear it.";
-        }
-        else if (wrongClass is not null)
-        {
-            reason = DiagnosisReason.WrongIdClass;
-            summary = string.Create(CultureInfo.InvariantCulture, $"This gap cannot match because {wrongClass}. Fix that id and rescan.");
-        }
-        else if (unreleasedLookalike)
-        {
-            reason = DiagnosisReason.NotOwned;
-            summary = string.Create(CultureInfo.InvariantCulture, $"This {noun} is not out yet, so the same-titled {noun} you own is an earlier, different release. Nothing is misidentified: leave the owned item alone.");
-        }
-        else
-        {
-            reason = DiagnosisReason.NotOwned;
-            summary = string.Create(CultureInfo.InvariantCulture, $"No owned {noun} matches this by title, so it looks like a genuine gap: you do not own it.");
-        }
-
-        return new GapDiagnosis
-        {
-            GapId = gap.Id,
-            Summary = summary,
-            Reason = reason,
-            TargetKind = kind,
-            Target = target,
-            Candidates = candidates
-        };
-    }
-
-    // In the deeper pass, compare the gap's resolved IMDb id with each same-title owned candidate's resolved
-    // IMDb id. A match confirms the candidate is the same film under the wrong TheMovieDb id; a mismatch means
-    // a different film that merely shares the title. When every same-title candidate is a different film (and
-    // nothing matched by a shared id), the gap is genuinely missing after all. Does nothing without a gap IMDb
-    // id to compare, so it is safe to call whenever the deeper pass ran.
-    internal static void ApplyCrossProviderDisagreement(GapItem gap, GapDiagnosis diagnosis)
-    {
-        gap.ProviderIds.TryGetValue(ProviderIds.Imdb, out var gapImdb);
-        gap.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var gapTmdb);
-        if (string.IsNullOrEmpty(gapImdb))
-        {
-            return;
-        }
-
-        var titleMatches = diagnosis.Candidates
-            .Where(c => string.Equals(c.Relation, "titleMatch", StringComparison.Ordinal))
-            .ToList();
-        if (titleMatches.Count == 0)
-        {
-            return;
-        }
-
-        var hasSharedIdMatch = diagnosis.Candidates.Any(c => c.Relation is "idMatch" or "idHolder");
-        var confirmedSameFilm = false;
-        var allDifferentFilm = true;
-        foreach (var candidate in titleMatches)
-        {
-            candidate.ProviderIds.TryGetValue(ProviderIds.Imdb, out var candidateImdb);
-            candidate.ProviderIds.TryGetValue(ProviderIds.Tmdb, out var candidateTmdb);
-
-            if (string.IsNullOrEmpty(candidateImdb) || string.Equals(candidateTmdb, gapTmdb, StringComparison.Ordinal))
-            {
-                // No IMDb id to compare, or it already carries the gap's id: cannot call it a different film.
-                allDifferentFilm = false;
-                continue;
-            }
-
-            if (string.Equals(candidateImdb, gapImdb, StringComparison.OrdinalIgnoreCase))
-            {
-                candidate.Note = "same film, confirmed by a matching IMDb id (owned under the wrong TheMovieDb id)";
-                confirmedSameFilm = true;
-                allDifferentFilm = false;
-            }
-            else
-            {
-                candidate.Note = "a different film that shares this title (its IMDb id differs)";
-            }
-        }
-
-        var noun = gap.TargetKind == BaseItemKind.Series ? "show" : "movie";
-        if (confirmedSameFilm)
-        {
-            diagnosis.Reason = DiagnosisReason.OwnedUnderWrongId;
-            diagnosis.Summary = string.Create(CultureInfo.InvariantCulture, $"Confirmed: you own this {noun} under a different TheMovieDb id (its IMDb id matches). Fix the owned item's id and rescan.");
-        }
-        else if (allDifferentFilm && !hasSharedIdMatch && diagnosis.Reason == DiagnosisReason.OwnedUnderWrongId)
-        {
-            diagnosis.Reason = DiagnosisReason.NotOwned;
-            diagnosis.Summary = string.Create(CultureInfo.InvariantCulture, $"No owned {noun} matches once external ids are compared: the same-title items you own are different films (their IMDb ids differ), so this looks like a genuine gap.");
-        }
-    }
-
     // Diagnose an episode or season gap: load the owning series and the years of the episodes you own for it,
     // then defer to the pure verdict. The public entry; the seam takes the owned years directly so tests do
     // not need a library.
-    internal GapDiagnosis DiagnoseSeriesContent(GapItem gap)
+    private GapDiagnosis DiagnoseSeriesContent(GapItem gap)
     {
         if (Guid.TryParse(gap.SourceItemId, out var seriesId) && _libraryManager.GetItemById(seriesId) is { } series)
         {
-            return DiagnoseSeriesContentAgainst(
+            return SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(
                 gap,
                 series.Name,
                 series.ProductionYear,
-                ProviderIdsOf(series),
+                TitleIdentityDiagnosis.ProviderIdsOf(series),
                 series.Id.ToString("N", CultureInfo.InvariantCulture),
                 OwnedEpisodeYears(seriesId),
                 MissingEpisodeYears(seriesId),
                 OwnedEpisodes(seriesId));
         }
 
-        return DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], [], []);
+        return SeriesContentDiagnosis.DiagnoseSeriesContentAgainst(gap, gap.SourceItemName, null, new Dictionary<string, string>(), null, [], [], []);
     }
 
     // The air years of the episodes the library actually owns (on disk) for a series, for the era comparison.
@@ -821,9 +291,9 @@ public sealed class GapDiagnostics
     // The non-virtual (folder-backed) seasons of each owned series, with each season's path and episode count,
     // so the audit can flag a season number that more than one folder claims. Only real folders are read
     // (IsVirtualItem = false), so a virtual placeholder season is never mistaken for a duplicate folder.
-    private IReadOnlyList<SeasonInfo> OwnedSeasons(IReadOnlyList<BaseItem> owned)
+    private IReadOnlyList<DuplicateSeasonFinder.SeasonInfo> OwnedSeasons(IReadOnlyList<BaseItem> owned)
     {
-        var seasons = new List<SeasonInfo>();
+        var seasons = new List<DuplicateSeasonFinder.SeasonInfo>();
         foreach (var item in owned)
         {
             if (item is not Series series)
@@ -855,7 +325,7 @@ public sealed class GapDiagnostics
                     Recursive = true
                 }).Count;
 
-                seasons.Add(new SeasonInfo(
+                seasons.Add(new DuplicateSeasonFinder.SeasonInfo(
                     series.Name ?? string.Empty,
                     seriesId,
                     season.IndexNumber,
@@ -872,7 +342,7 @@ public sealed class GapDiagnostics
     private IReadOnlyList<BaseItem> LoadOwned(params BaseItemKind[] kinds)
     {
         // Skip the load entirely for any kind the diagnosis cannot analyze.
-        if (kinds.Any(k => !IsDiagnosable(k)))
+        if (kinds.Any(k => !TitleIdentityDiagnosis.IsDiagnosable(k)))
         {
             return [];
         }
@@ -887,173 +357,5 @@ public sealed class GapDiagnostics
             // the diagnosis diffs against what is actually in the library.
             IsVirtualItem = false
         });
-    }
-
-    private static OwnedIndex BuildIndex(IReadOnlyList<BaseItem> owned)
-    {
-        var index = new OwnedIndex();
-        foreach (var item in owned)
-        {
-            var entry = new OwnedItem(
-                item.GetBaseItemKind(),
-                item.Name ?? string.Empty,
-                TextKey.Normalize(item.Name),
-                item.ProductionYear,
-                ProviderIdsOf(item),
-                item.Id.ToString("N", CultureInfo.InvariantCulture));
-
-            index.All.Add(entry);
-            Add(index.ByTitle, (entry.Kind, entry.NormalizedName), entry);
-            var primary = PrimaryId(entry);
-            if (primary is not null)
-            {
-                Add(index.ByPrimaryId, (entry.Kind, primary), entry);
-            }
-
-            foreach (var provider in SecondaryIdProviders)
-            {
-                if (entry.ProviderIds.TryGetValue(provider, out var secondary))
-                {
-                    Add(index.BySecondaryId, (entry.Kind, provider, secondary), entry);
-                }
-            }
-        }
-
-        return index;
-    }
-
-    private static DiagnosisItem ToItem(OwnedItem owned, string relation, string? note) => new()
-    {
-        Relation = relation,
-        Name = owned.Name,
-        Year = owned.Year,
-        ProviderIds = owned.ProviderIds,
-        JellyfinItemId = owned.JellyfinId,
-        Note = note,
-        Links = ProviderLinks.Build(owned.Kind, owned.ProviderIds)
-    };
-
-    // An item's external ids as a case-insensitive map (blanks dropped), mirroring GapItem.ProviderIds so
-    // the diagnosis stays provider-agnostic and ProviderLinks covers whatever ids the item carries.
-    private static IReadOnlyDictionary<string, string> ProviderIdsOf(BaseItem item)
-    {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pair in item.ProviderIds)
-        {
-            if (!string.IsNullOrEmpty(pair.Value))
-            {
-                map[pair.Key] = pair.Value;
-            }
-        }
-
-        return map;
-    }
-
-    // The kinds the diagnosis can analyze: movies and shows (TheMovieDb-keyed), albums (MusicBrainz
-    // release-group), and books (OpenLibrary work).
-    private static bool IsDiagnosable(BaseItemKind kind)
-        => kind is BaseItemKind.Movie or BaseItemKind.Series or BaseItemKind.MusicAlbum or BaseItemKind.Book;
-
-    // The provider an item of this kind is keyed on for the id match and the ownership diff.
-    private static string PrimaryProvider(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.MusicAlbum => ProviderIds.MusicBrainzReleaseGroup,
-        BaseItemKind.Book => ProviderIds.OpenLibrary,
-        _ => ProviderIds.Tmdb
-    };
-
-    // The display name of the primary provider, for the diagnosis messages.
-    private static string PrimaryProviderLabel(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.MusicAlbum => "MusicBrainz",
-        BaseItemKind.Book => ProviderIds.OpenLibrary,
-        _ => "TheMovieDb"
-    };
-
-    // The noun for this kind, for the diagnosis messages.
-    private static string Noun(BaseItemKind kind) => kind switch
-    {
-        BaseItemKind.Series => "show",
-        BaseItemKind.MusicAlbum => "album",
-        BaseItemKind.Book => "book",
-        BaseItemKind.Movie => "movie",
-        _ => "item"
-    };
-
-    // The primary id the matching indexes on (TheMovieDb for movies/shows, MusicBrainz release-group for
-    // albums, OpenLibrary work for books); null when absent.
-    private static string? PrimaryId(OwnedItem owned)
-        => owned.ProviderIds.TryGetValue(PrimaryProvider(owned.Kind), out var id) ? id : null;
-
-    // A wrong-class id does not fit its provider slot. Only typed-id providers can be judged without a
-    // network call: IMDb here (an "nm" person id where a "tt" title belongs). Numeric TheMovieDb/TheTVDB ids
-    // are opaque, so that confirmation is left to the deeper (networked) pass. OpenLibrary keys ("...A"
-    // author, "...W" work) join this once the Books diagnosis lands.
-    private static string? WrongClassId(IReadOnlyDictionary<string, string> ids)
-    {
-        if (ids.TryGetValue(ProviderIds.Imdb, out var imdb) && imdb.StartsWith("nm", StringComparison.OrdinalIgnoreCase))
-        {
-            return "its IMDb id is a person id (nm...), not a title id (tt...)";
-        }
-
-        return null;
-    }
-
-    // Whether an owned item carries any of the gap's external ids: its kind's primary id, or one of the
-    // secondary ones the diagnosis corroborates with. That is evidence of identity, as against a title two
-    // unrelated releases happen to share.
-    private static bool SharesAnyId(OwnedItem owned, IReadOnlyDictionary<string, string> gapIds, string primaryProvider)
-    {
-        foreach (var provider in SecondaryIdProviders.Append(primaryProvider))
-        {
-            if (gapIds.TryGetValue(provider, out var gapId)
-                && !string.IsNullOrEmpty(gapId)
-                && owned.ProviderIds.TryGetValue(provider, out var ownedId)
-                && string.Equals(ownedId, gapId, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // Two known years more than a year apart mean a different release sharing the title (a remake), not the
-    // same work under the wrong id. A year missing on either side cannot rule it out. The one-year slack
-    // absorbs the usual release-date jitter between a catalog's year and the library's production year.
-    private static bool YearConflicts(int? a, int? b)
-        => a.HasValue && b.HasValue && Math.Abs(a.Value - b.Value) > 1;
-
-    private static void Add<TKey>(Dictionary<TKey, List<OwnedItem>> map, TKey key, OwnedItem value)
-        where TKey : notnull
-    {
-        if (!map.TryGetValue(key, out var list))
-        {
-            list = new List<OwnedItem>();
-            map[key] = list;
-        }
-
-        list.Add(value);
-    }
-
-    // One owned season for the duplicate-season audit: its series, its number, and the display fields the
-    // finding carries through (the season's name, folder path, id, and episode count).
-    internal readonly record struct SeasonInfo(string SeriesName, string SeriesId, int? Number, string SeasonName, string? Path, string SeasonId, int EpisodeCount);
-
-    private readonly record struct OwnedItem(BaseItemKind Kind, string Name, string NormalizedName, int? Year, IReadOnlyDictionary<string, string> ProviderIds, string JellyfinId);
-
-    private sealed class OwnedIndex
-    {
-        public List<OwnedItem> All { get; } = new();
-
-        public Dictionary<(BaseItemKind Kind, string Name), List<OwnedItem>> ByTitle { get; } = new();
-
-        // Owned items keyed by their primary id (TheMovieDb for movies/shows, MusicBrainz release-group for
-        // albums, OpenLibrary work for books), for the id match and the audit's duplicate-id detection.
-        public Dictionary<(BaseItemKind Kind, string Id), List<OwnedItem>> ByPrimaryId { get; } = new();
-
-        // Owned items keyed by a secondary id (provider + value), for corroborating a gap whose title was
-        // localized but whose IMDb/TheTVDB id still matches.
-        public Dictionary<(BaseItemKind Kind, string Provider, string Id), List<OwnedItem>> BySecondaryId { get; } = new();
     }
 }
