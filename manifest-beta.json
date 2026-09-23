@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.9.4",
+                "changelog": "10.11.9.4 (beta) - Add more detail to the book and album pages. Add studio missing works shelf\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.4/mind-the-gaps_12.0.9.4.zip",
+                "checksum": "018074b462ae714ed209a90a74b34650",
+                "timestamp": "2026-09-23T21:08:54Z"
+            },
+            {
                 "version": "12.0.9.3",
                 "changelog": "10.11.9.3 (beta) - The report's multi-select bar gained bulk Acquire/Request and a bulk Resolve, alongside Mint and Add to TODO, so a checked batch of rows can be sent to acquisitions providers or dismissed with one shared note in one action. An administrator can now manage another user's want-to-watch list, and a title that arrives (however it was fetched) can automatically move into a real, per-user Jellyfin playlist so it shows up to watch in every client, not just this plugin's pages. Amazon and web-search links for books and music now fold in the author or artist everywhere they appear (the report, the Web UI, and the Fulfillment queue), since a title alone is a weak search query when many works share a name. TMDB lists, Trakt lists, and OpenLibrary subjects are configured with the same chip-picker/search boxes the other curated sources already use, replacing raw comma-separated id fields.\n",
                 "targetAbi": "12.0.0.0",
@@ -143,6 +151,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.9.4",
+                "changelog": "10.11.9.4 (beta) - Add more detail to the book and album pages. Add studio missing works shelf\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.4/mind-the-gaps_10.11.9.4.zip",
+                "checksum": "c20efb0e9ad2405df1fd38e2de334208",
+                "timestamp": "2026-09-23T21:08:25Z"
             },
             {
                 "version": "10.11.9.3",
