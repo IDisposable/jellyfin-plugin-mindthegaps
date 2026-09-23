@@ -110,6 +110,23 @@ function updateSelection(page) {
     page.querySelector('#cgMintSelected').disabled = n === 0;
     page.querySelector('#cgTodoSelCount').textContent = n;
     page.querySelector('#cgTodoSelected').disabled = n === 0;
+
+    // Send/Request appear at all only once acqConfig says the matching target is set up (the same rule
+    // a per-row Send button already follows), and are disabled with nothing checked either way.
+    var arrBtn = page.querySelector('#cgSendArrSelected');
+    var canArr = !!(acqConfig && (acqConfig.RadarrConfigured || acqConfig.SonarrConfigured));
+    arrBtn.style.display = canArr ? '' : 'none';
+    arrBtn.disabled = n === 0;
+    page.querySelector('#cgSendArrSelCount').textContent = n;
+
+    var seerrBtn = page.querySelector('#cgSendSeerrSelected');
+    var canSeerr = !!(acqConfig && acqConfig.SeerrConfigured);
+    seerrBtn.style.display = canSeerr ? '' : 'none';
+    seerrBtn.disabled = n === 0;
+    page.querySelector('#cgSendSeerrSelCount').textContent = n;
+
+    page.querySelector('#cgResolveSelCount').textContent = n;
+    page.querySelector('#cgResolveSelected').disabled = n === 0;
 }
 
 // Show the multi-select bar once any selectable row exists. Deferred creator-works bodies have

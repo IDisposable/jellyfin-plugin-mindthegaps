@@ -46,11 +46,6 @@ them. Drafts in [docs/upstream/](upstream/).
   per-user Jellyfin playlist for titles the library already holds. Plan under [Web UI](#web-ui-experimental)
   below.
 - **Per-title certification filtering for restricted users,** only if someone asks; see below.
-- **Actions on a selection in the report.** The multi-select bar takes Mint, Send to (Radarr, Sonarr,
-  Jellyseerr/Overseerr, or the watch list) and a bulk Resolve that asks for the reason once. The server side of
-  send and resolve exists (`SendToArrBulk`, `SendToSeerrBulk`, `ResolveBatch`); the report calls none of them.
-  Acquisition handoff is preferred over bulk minting in the near term: minting is held as long as possible in
-  the hope upstream B makes it native.
 - **Upstream ask A** ([jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
 
@@ -81,8 +76,11 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Acquisition handoff
 
-- **The dashboard half of batch send.** See Priorities: the endpoints are built, the report and todo list
-  need the multi-select "Send" and a "Send all" on the todo list.
+- **A "Send all" on the Fulfillment queue.** The report's own multi-select bar now calls `SendToArrBulk`/
+  `SendToSeerrBulk` (Acquire/Request) alongside Mint and Add to TODO. The Fulfillment queue itself still has
+  no bulk send of its own, only Mark fetched and Verify all, which is deliberate for now (an administrator
+  using it is explicitly the one fetching things by hand instead of through an arr); revisit only if that
+  changes.
 
 ### Web UI (experimental)
 

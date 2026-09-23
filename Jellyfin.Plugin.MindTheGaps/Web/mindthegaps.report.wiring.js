@@ -213,6 +213,15 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     page.querySelector('#cgTodoSelected').addEventListener('click', function () {
         todoAdd(selectedGapIds(page), this);
     });
+    page.querySelector('#cgSendArrSelected').addEventListener('click', function () {
+        sendSelectedBulk(page, this, 'SendToArrBulk', 'Send');
+    });
+    page.querySelector('#cgSendSeerrSelected').addEventListener('click', function () {
+        sendSelectedBulk(page, this, 'SendToSeerrBulk', 'Request');
+    });
+    page.querySelector('#cgResolveSelected').addEventListener('click', function () {
+        resolveSelected(page, this);
+    });
     page.querySelector('#cgRescan').addEventListener('click', function () {
         startScan(page, this);
     });

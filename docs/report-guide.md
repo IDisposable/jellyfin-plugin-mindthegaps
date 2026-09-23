@@ -304,10 +304,14 @@ A section below the list, for actions that touch the library or the scan rather 
 
 [^fulfillment]: There is no per-user "my list" view on this page: the queue already includes your own entries, folded in with everyone else's, so a separate view of just your own would only duplicate it. Add to your own list with the per-row **TODO** button or the multi-select bar.
 
-## Minting several at once
+## Acting on several at once
 
-When virtual items are enabled, a select bar lets you checkbox multiple movie rows and **Mint selected**
-in one background pass with progress. **Select all** / **Clear** operate on the current filtered view.
+A select bar lets you checkbox several rows and act on all of them together: **Mint selected** (when
+virtual items are enabled, a background pass with progress), **Add to TODO**, **Acquire selected** and
+**Request selected** (each appearing only once you have the matching acquisition target configured, the
+same rule the per-row Send button follows), and **Resolve selected** (marks every checked row not really
+missing, asking for one shared note rather than one per row). **Select all** / **Clear** operate on the
+current filtered view.
 
 ## Muting a whole creator or source
 

@@ -5,9 +5,11 @@
 const { buildHarness } = require('./build-harness');
 
 // beforeShow: an optional async function(page) run after the harness loads and before the page shows, for a spec
-// that has to change the page's environment first.
-async function openReport(page, summary, itemsByDomain, todo, beforeShow, demand) {
-    const harnessPath = buildHarness(summary, itemsByDomain, todo, demand);
+// that has to change the page's environment first. acqConfig: the fake MindTheGaps/AcquisitionConfig payload
+// (undefined means nothing configured, matching the real default), for a spec exercising the multi-select
+// bar's acquisition actions, which only appear once their target is configured.
+async function openReport(page, summary, itemsByDomain, todo, beforeShow, demand, acqConfig) {
+    const harnessPath = buildHarness(summary, itemsByDomain, todo, demand, acqConfig);
     await page.goto('file://' + harnessPath);
     if (beforeShow) { await beforeShow(page); }
     await page.evaluate(() => {

@@ -1,5 +1,5 @@
-// Report page, part 6: the A-Z letter bar and rollup line, plus the Maintenance actions: verify,
-// clear-down, and bulk re-check.
+// Report page, part 6: the A-Z letter bar and rollup line, the Maintenance actions (verify,
+// clear-down, and bulk re-check), and the multi-select bar's Send/Request/Resolve actions.
 
 // The A-Z selector: one entry per letter present, plus a leading "*" for all. Clicking a letter
 // renders only that letter's entities (so a huge tab does not render at once); "*" renders the
@@ -80,6 +80,59 @@ function refreshAcqConfig(page) {
             acqConfig = c || null;
             if (page && page._report) { applyAndRender(page); }
         }, function () { acqConfig = null; });
+}
+
+// The multi-select bar's Send/Request: every checked row's gap, rehydrated server-side by id
+// (never shipped from the client), through the same bulk endpoints a per-row Send already calls
+// one at a time. SendToArrBulk dispatches each gap to Radarr or Sonarr by its own kind, so one
+// button covers a selection mixing movies and series.
+function sendSelectedBulk(page, btn, endpoint, verb) {
+    var ids = selectedGapIds(page);
+    if (!ids.length) { return; }
+    if (!window.confirm(verb + ' ' + ids.length + ' selected item(s)?')) { return; }
+    var html = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = verb + '…';
+    ApiClient.ajax({
+        type: 'POST',
+        url: ApiClient.getUrl('MindTheGaps/' + endpoint),
+        contentType: 'application/json',
+        data: JSON.stringify(ids),
+        dataType: 'json'
+    }).then(function (r) {
+        btn.innerHTML = html;
+        btn.disabled = false;
+        Dashboard.alert((r && r.Message) ? String(r.Message) : 'Done.');
+    }).catch(function () {
+        btn.innerHTML = html;
+        btn.disabled = false;
+        Dashboard.alert((verb === 'Request' ? 'Request' : 'Send') + ' failed. Check the server logs.');
+    });
+}
+
+// The multi-select bar's Resolve: one note applies to every checked row at once (ResolveBatch),
+// the same "ask once" shape the per-group batch-resolve button already uses.
+function resolveSelected(page, btn) {
+    var ids = selectedGapIds(page);
+    if (!ids.length) { return; }
+    var note = window.prompt('Resolve ' + ids.length + ' selected item(s) (not really missing).\nOptional note (e.g. why):', '');
+    if (note === null) { return; }
+    var html = btn.innerHTML;
+    btn.disabled = true;
+    ApiClient.ajax({
+        type: 'POST',
+        url: ApiClient.getUrl('MindTheGaps/ResolveBatch'),
+        contentType: 'application/json',
+        data: JSON.stringify({ Ids: ids, Kind: null, Note: note })
+    }).then(function () {
+        btn.innerHTML = html;
+        btn.disabled = false;
+        fetchResolved().then(function () { applyAndRender(page); });
+    }).catch(function () {
+        btn.innerHTML = html;
+        btn.disabled = false;
+        Dashboard.alert('Could not resolve those items. Check the server logs.');
+    });
 }
 
 // The rows one clear-down click covers, taken from what the last render actually showed rather than

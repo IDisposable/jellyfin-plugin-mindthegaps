@@ -92,6 +92,18 @@
             <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">playlist_add_check</span>
             <span>Add to TODO (<span id="cgTodoSelCount">0</span>)</span>
         </button>
+        <button is="emby-button" type="button" id="cgSendArrSelected" class="raised" style="display:none;" disabled title="Send every selected item into your configured acquisition pipeline">
+            <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">download</span>
+            <span>Acquire selected (<span id="cgSendArrSelCount">0</span>)</span>
+        </button>
+        <button is="emby-button" type="button" id="cgSendSeerrSelected" class="raised" style="display:none;" disabled title="Request every selected item through your configured acquisition pipeline">
+            <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">queue</span>
+            <span>Request selected (<span id="cgSendSeerrSelCount">0</span>)</span>
+        </button>
+        <button is="emby-button" type="button" id="cgResolveSelected" class="raised" disabled title="Mark every selected item resolved (not really missing), with one note for all of them">
+            <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">done_all</span>
+            <span>Resolve selected (<span id="cgResolveSelCount">0</span>)</span>
+        </button>
     </div>
     <div id="cgJump" style="display:none;"></div>
     <div id="cgRollup" style="display:none;"></div>
