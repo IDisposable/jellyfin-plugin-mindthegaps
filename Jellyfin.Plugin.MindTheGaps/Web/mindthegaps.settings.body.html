@@ -471,7 +471,19 @@
                     <input id="WantToWatchEnabled" name="WantToWatchEnabled" type="checkbox" is="emby-checkbox" />
                     <span>Want to watch: a bookmark on every card, and a home row</span>
                 </label>
-                <div class="fieldDescription">Lets each signed-in user keep their own list. A bookmark on every card the surfaces above show adds a title to the signed-in user's list and takes it off again, and a home row lists what is still on their list and not in the library. Every user has their own list, and an administrator can see and manage everyone's from the report's TODO button. A user with a parental rating limit does not get the surfaces above, so has no cards to bookmark from.</div>
+                <div class="fieldDescription">Lets each signed-in user keep their own list. A bookmark on every card the surfaces above show adds a title to the signed-in user's list and takes it off again, and a home row lists what is still on their list and not in the library, with a title search in that row's own header for a title no page already lists. Every user has their own list, and an administrator sees everyone's folded into one queue from the report's Maintenance section (the Fulfillment queue). A user with a parental rating limit does not get the surfaces above, so has no cards to bookmark from.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="WantToWatchPlaylistEnabled" name="WantToWatchPlaylistEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Want to watch: move arrived titles into a playlist</span>
+                </label>
+                <div class="fieldDescription">Once a title on a user's want-to-watch list is actually in the library (a real file, never a minted placeholder), the next time it is verified it is added to that user's own playlist below, so it shows up to watch in every client. Requires Want to watch above.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel inputLabelUnfocused" for="WantToWatchPlaylistName">Want to watch: playlist name</label>
+                <input id="WantToWatchPlaylistName" name="WantToWatchPlaylistName" type="text" is="emby-input" maxlength="200" />
+                <div class="fieldDescription">Each user gets their own playlist by this name, created the first time they need one.</div>
             </div>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home Discover row: max titles</label>

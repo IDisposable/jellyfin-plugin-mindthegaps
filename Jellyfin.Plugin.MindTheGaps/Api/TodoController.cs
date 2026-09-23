@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -29,6 +32,7 @@ public class TodoController : ControllerBase
     private readonly TodoStore _todo;
     private readonly TodoOwner _owner;
     private readonly LibraryVerifier _verifier;
+    private readonly WatchlistPlaylistService _playlist;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TodoController"/> class.
@@ -37,12 +41,14 @@ public class TodoController : ControllerBase
     /// <param name="todo">The per-user todo-list store.</param>
     /// <param name="owner">Resolves whose list a request is for.</param>
     /// <param name="verifier">The library verifier, so a todo entry is checked exactly as a report row is.</param>
-    public TodoController(GapStore store, TodoStore todo, TodoOwner owner, LibraryVerifier verifier)
+    /// <param name="playlist">Moves a newly-verified entry into the owner's want-to-watch playlist, when on.</param>
+    public TodoController(GapStore store, TodoStore todo, TodoOwner owner, LibraryVerifier verifier, WatchlistPlaylistService playlist)
     {
         _store = store;
         _todo = todo;
         _owner = owner;
         _verifier = verifier;
+        _playlist = playlist;
     }
 
     /// <summary>
@@ -231,10 +237,11 @@ public class TodoController : ControllerBase
     /// </summary>
     /// <param name="id">The entry id.</param>
     /// <param name="userId">The user whose list it is; omitted means the caller's own.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>Whether the library owns the entry, and the entry with its done state updated.</returns>
     [HttpPost("Todo/Verify")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<TodoVerifyResult> VerifyTodo([FromQuery] string id, [FromQuery] Guid? userId = null)
+    public async Task<ActionResult<TodoVerifyResult>> VerifyTodo([FromQuery] string id, [FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         if (Target(userId, out var target) is { } refusal)
         {
@@ -247,9 +254,15 @@ public class TodoController : ControllerBase
             return new TodoVerifyResult { Owned = false, Entry = null };
         }
 
+        var wasDone = entry.Done;
         var owned = LibraryOwns(entry);
         _todo.SetDone(target, entry.Id, owned);
         entry.Done = owned;
+
+        if (owned && !wasDone)
+        {
+            await _playlist.AddArrivedAsync(target, [entry], Plugin.Instance?.Configuration, cancellationToken).ConfigureAwait(false);
+        }
 
         // Reload so the returned entry carries the freshly stamped/cleared done timestamp.
         var updated = _todo.Load(target).FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.Ordinal)) ?? entry;
@@ -263,10 +276,11 @@ public class TodoController : ControllerBase
     /// since a title can be on several users' lists at once.
     /// </summary>
     /// <param name="userId">The user whose list it is; omitted means the caller's own.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>How many entries were checked and how many the library now holds, with the updated list.</returns>
     [HttpPost("Todo/VerifyAll")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<TodoVerifyAllResult> VerifyAllTodo([FromQuery] Guid? userId = null)
+    public async Task<ActionResult<TodoVerifyAllResult>> VerifyAllTodo([FromQuery] Guid? userId = null, CancellationToken cancellationToken = default)
     {
         if (Target(userId, out var target) is { } refusal)
         {
@@ -280,15 +294,28 @@ public class TodoController : ControllerBase
         // again, so the list keeps telling the truth rather than only ever accumulating ticks. Collected
         // first and applied in one write, since the store flushes the whole file per change.
         var states = _verifier.OwnedAmong(entries);
-        foreach (var state in states)
+        var arrived = new List<TodoEntry>();
+        foreach (var entry in entries)
         {
-            if (state.Value)
+            if (states.TryGetValue(entry.Id, out var isOwned) && isOwned)
             {
                 owned++;
+
+                // Only what just transitioned, not every already-done-and-still-owned entry every pass,
+                // so a repeated Verify all does not add the same title to the playlist again.
+                if (!entry.Done)
+                {
+                    arrived.Add(entry);
+                }
             }
         }
 
         _todo.ReconcileDone(target, states);
+
+        if (arrived.Count > 0)
+        {
+            await _playlist.AddArrivedAsync(target, arrived, Plugin.Instance?.Configuration, cancellationToken).ConfigureAwait(false);
+        }
 
         return new TodoVerifyAllResult
         {

@@ -87,6 +87,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<JustWatchLinkIndex>();
         serviceCollection.AddSingleton<WantedRowService>();
         serviceCollection.AddSingleton<WatchlistSearchService>();
+        serviceCollection.AddSingleton<WatchlistPlaylistService>();
         serviceCollection.AddSingleton<WebUiAccess>();
         serviceCollection.AddSingleton<ImageCache>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();

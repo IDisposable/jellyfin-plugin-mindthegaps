@@ -13,11 +13,12 @@
 | Per-user display gate for minted virtual items                               | Not possible from a plugin; minted items show for everyone. Needs upstream B.                                                                                                                                                                                                                                                                                                                                                             |
 | Greyed "Missing" badge on minted items                                       | Needs upstream A merged.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Symmetric **book series** as Set completion                                  | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                                                                                                                                                                                                                                                                                                |
-| Removing a title from a want-to-watch list when it is watched                | Kept manual on purpose; the want-to-watch work below does not do it.                                                                                                                                                                                                                                                                                                                                                                      |
+| Removing a title from a want-to-watch list when it is watched                | Kept manual on purpose, including from the optional per-user playlist a title moves into once owned.                                                                                                                                                                                                                                                                                                                                      |
 | A request-and-approval gate before a title is acquired                       | Might be a separate plugin. The Maintenance section's Fulfillment queue folds every user's TODO list into one row per title with a Mark fetched action, but nothing approves or denies a request before it lands there; adding a title is still unmediated.                                                                                                                                                                               |
 | A "Fix the id" action in Diagnose                                            | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it.                                                                                                                                                                                                                                                                                |
 | MusicVideos domain                                                           | Enum-only; no source.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | An acquisition handoff (Radarr/Sonarr/Lidarr/Readarr) on the injected Web UI | Deliberately removed. Every want is already visible to an administrator through the report's own Maintenance section (the Fulfillment queue, backed by everyone's TODO list); routing acquisition through the pages injected into jellyfin-web's own UI would put arr credentials and calls behind a surface that is not the report, which is the one boundary this plugin keeps deliberately narrow. Send stays on the report page only. |
+| Acquisition presence badges/caching on a Web UI card (already requested?)    | Not asked for; revisit only if it comes up. Would need its own cache layer (an arr call per card is too expensive) with no home yet.                                                                                                                                                                                                                                                                                                      |
 
 ## Upstream asks
 
@@ -41,10 +42,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Priorities (suggested, not committed)
 
-- **Want to watch: the optional playlist.** The bookmark, the home row, and a title search over TMDB in the
-  row's own header (for a movie or series no page already lists) are built. What is left is the optional
-  per-user Jellyfin playlist for titles the library already holds. Plan under [Web UI](#web-ui-experimental)
-  below.
 - **Per-title certification filtering for restricted users,** only if someone asks; see below.
 - **Upstream ask A** ([jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
@@ -84,21 +81,25 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI (experimental)
 
-- **Want to watch, without auto-removal: what is left.** Each user's own list, the bookmark on every card, the
-  home row, and its title search (over TMDB, rehydrated fresh by kind and id rather than trusted from the
-  client) are built. Still open: optionally, a per-user Jellyfin playlist for titles the library already
-  holds, which shows in every client, where a title that arrives in the library moves to that user's playlist
-  only. The home row hides a title once the library holds it; the playlist is where it would show up instead.
 - **Certification filtering by the caller.** A user with a parental rating limit is shown no surface, and a
   page is shown only to a user who can see its item. A finer filter would check each listed title's
   certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
   ADR-0019.
 - **More of the works surfaces.** Artist, book and author pages list what the owner's sources find, with links
-  and a want-to-watch bookmark. Still open: an album page (the artist's other albums, or missing tracks, for
-  which there is no track-completeness source yet); a richer album or book dialog (a tracklist, a
-  description) fetched from MusicBrainz or OpenLibrary; and a studio page, which needs a TMDB company id (a
-  library studio has none, so it would resolve by name, as auto-seed does) and a cap on a large catalogue,
-  and depends on jellyfin-web having a page to add it to.
+  and a want-to-watch bookmark. Still open: a richer album or book dialog (a tracklist, a description)
+  fetched from MusicBrainz or OpenLibrary. Missing tracks on an album page is explicitly not planned: no
+  track-completeness source exists, and it is not worth building one for this.
+- **A studio/network gaps shelf, without a dedicated studio/network page.** Jellyfin core has no studio or
+  TV-network page to inject a section into (the earlier blocker on this), but it does route two existing
+  pages by the same ids a shelf would need: the generic list page takes a `studioId` query param
+  (`#/list?studioId=<id>&serverId=<id>`), and the TV collection page takes a `topParentId`/`collectionType`
+  pair (`#/tv?topParentId=<id>&collectionType=tvshows&tab=<n>`). `mindthegaps.webui.js` already parses the
+  hash router for the item page's own `#/details?id=` the same way, so reading `studioId` off `#/list` and
+  `topParentId` off `#/tv` (scoped to `collectionType=tvshows`) is the same technique aimed at a different
+  route, not a new one. Needs: resolving a library studio to a TMDB company id (no library studio carries
+  one; auto-seed's own by-name resolution is the precedent) for the movie-studio case, and figuring out
+  what a TV network's equivalent id/source even is before building the network half. Sequenced after the
+  chip pickers.
 
 ### Scan performance
 

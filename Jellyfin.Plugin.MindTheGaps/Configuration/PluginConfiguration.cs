@@ -68,6 +68,8 @@ public class PluginConfiguration : BasePluginConfiguration
         ItemPageEnabled = false;
         HomeRowEnabled = false;
         WantToWatchEnabled = false;
+        WantToWatchPlaylistEnabled = false;
+        WantToWatchPlaylistName = "Want to Watch";
         HomeRowSize = 20;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
@@ -477,6 +479,21 @@ public class PluginConfiguration : BasePluginConfiguration
     /// surfaces to bookmark from.
     /// </summary>
     public bool WantToWatchEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a title moves into a real per-user Jellyfin playlist once the
+    /// library actually holds it (a real, non-virtual item; minting one never counts). Requires
+    /// <see cref="WantToWatchEnabled"/>. The move happens the next time the entry is verified (an
+    /// administrator's Fulfillment queue "Verify all", or any future per-user verify), not the moment the
+    /// file arrives.
+    /// </summary>
+    public bool WantToWatchPlaylistEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the per-user playlist <see cref="WantToWatchPlaylistEnabled"/> adds arrived
+    /// titles to. Each user gets their own playlist by this name, created the first time they need one.
+    /// </summary>
+    public string WantToWatchPlaylistName { get; set; }
 
     /// <summary>
     /// Gets or sets the most titles the home Discover row shows.

@@ -101,13 +101,29 @@ public sealed class WatchlistSearchService
         if (string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase))
         {
             var show = await _tmdb.GetSeriesDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-            return show is null ? null : WatchlistSearchMapper.FromSeriesDetails(show, ownership, _tmdb.GetPosterUrl);
+            if (show is null)
+            {
+                _logger.LogWarning("Watchlist search add: TMDB returned nothing for series {TmdbId}", tmdbId);
+                return null;
+            }
+
+            var gap = WatchlistSearchMapper.FromSeriesDetails(show, ownership, _tmdb.GetPosterUrl);
+            _logger.LogDebug("Watchlist search add: series {TmdbId} ('{Name}') {Result}", tmdbId, show.Name, gap is null ? "already owned" : "resolved");
+            return gap;
         }
 
         if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
         {
             var movie = await _tmdb.GetMovieDetailsAsync(tmdbId, config.MetadataLanguage, config.MetadataCountryCode, cancellationToken).ConfigureAwait(false);
-            return movie is null ? null : WatchlistSearchMapper.FromMovieDetails(movie, ownership, _tmdb.GetPosterUrl);
+            if (movie is null)
+            {
+                _logger.LogWarning("Watchlist search add: TMDB returned nothing for movie {TmdbId}", tmdbId);
+                return null;
+            }
+
+            var gap = WatchlistSearchMapper.FromMovieDetails(movie, ownership, _tmdb.GetPosterUrl);
+            _logger.LogDebug("Watchlist search add: movie {TmdbId} ('{Name}') {Result}", tmdbId, movie.Title, gap is null ? "already owned" : "resolved");
+            return gap;
         }
 
         return null;

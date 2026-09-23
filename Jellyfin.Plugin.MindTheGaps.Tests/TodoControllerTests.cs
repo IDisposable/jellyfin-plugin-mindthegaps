@@ -4,13 +4,16 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Api;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.WebUi;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Playlists;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -83,7 +86,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void VerifyTodo_MarksOwnedEntryDoneAndReturnsUpdatedEntry()
+    public async Task VerifyTodo_MarksOwnedEntryDoneAndReturnsUpdatedEntry()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -94,7 +97,7 @@ public class TodoControllerTests
             var (proxy, library) = LibraryProxy.Create([new Movie { ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "603" } }]);
             var controller = Controller(reportStore, todoStore, new LibraryVerifier(library));
 
-            var result = controller.VerifyTodo("owned").Value!;
+            var result = (await controller.VerifyTodo("owned")).Value!;
 
             Assert.True(result.Owned);
             Assert.NotNull(result.Entry);
@@ -110,7 +113,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void VerifyTodo_UnknownIdReturnsEmptyOutcome()
+    public async Task VerifyTodo_UnknownIdReturnsEmptyOutcome()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -120,7 +123,7 @@ public class TodoControllerTests
             var (_, library) = LibraryProxy.Create([]);
             var controller = Controller(reportStore, todoStore, new LibraryVerifier(library));
 
-            var result = controller.VerifyTodo("missing").Value!;
+            var result = (await controller.VerifyTodo("missing")).Value!;
 
             Assert.False(result.Owned);
             Assert.Null(result.Entry);
@@ -133,7 +136,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void VerifyAllTodo_ReconcilesOwnedAndOutstandingEntries()
+    public async Task VerifyAllTodo_ReconcilesOwnedAndOutstandingEntries()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -144,7 +147,7 @@ public class TodoControllerTests
             var (_, library) = LibraryProxy.Create([new Movie { ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "603" } }]);
             var controller = Controller(reportStore, todoStore, new LibraryVerifier(library));
 
-            var result = controller.VerifyAllTodo().Value!;
+            var result = (await controller.VerifyAllTodo()).Value!;
 
             Assert.Equal(2, result.Checked);
             Assert.Equal(1, result.Owned);
@@ -182,7 +185,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void ARequestThatIsNotAUsersHasNoList()
+    public async Task ARequestThatIsNotAUsersHasNoList()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -196,8 +199,8 @@ public class TodoControllerTests
             Assert.IsType<ForbidResult>(controller.AddTodo(["known"]).Result);
             Assert.IsType<ForbidResult>(controller.RemoveTodo("known").Result);
             Assert.IsType<ForbidResult>(controller.SetTodoDone("known", true));
-            Assert.IsType<ForbidResult>(controller.VerifyTodo("known").Result);
-            Assert.IsType<ForbidResult>(controller.VerifyAllTodo().Result);
+            Assert.IsType<ForbidResult>((await controller.VerifyTodo("known")).Result);
+            Assert.IsType<ForbidResult>((await controller.VerifyAllTodo()).Result);
         }
         finally
         {
@@ -335,7 +338,8 @@ public class TodoControllerTests
             claims.Add(new Claim(ClaimTypes.Role, "Administrator"));
         }
 
-        return new TodoController(report, todo, owner, verifier!)
+        var playlist = new WatchlistPlaylistService(PlaylistProxy.Create(), verifier!, NullLogger<WatchlistPlaylistService>.Instance);
+        return new TodoController(report, todo, owner, verifier!, playlist)
         {
             ControllerContext = new ControllerContext
             {
@@ -426,7 +430,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void VerifyingAnotherUsersListChecksTheirEntries()
+    public async Task VerifyingAnotherUsersListChecksTheirEntries()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -437,12 +441,12 @@ public class TodoControllerTests
             var (_, library) = LibraryProxy.Create([new Movie { ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "603" } }]);
             var controller = Controller(reportStore, todoStore, new LibraryVerifier(library), user: Admin);
 
-            var result = controller.VerifyAllTodo(Viewer).Value!;
+            var result = (await controller.VerifyAllTodo(Viewer)).Value!;
 
             Assert.Equal(2, result.Checked);
             Assert.Equal(1, result.Owned);
             Assert.True(todoStore.Load(Viewer).Single(e => e.Id == "owned").Done);
-            Assert.True(controller.VerifyTodo("owned", Viewer).Value!.Owned);
+            Assert.True((await controller.VerifyTodo("owned", Viewer)).Value!.Owned);
         }
         finally
         {
@@ -452,7 +456,7 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public void NamingAUserThatDoesNotExistIsNotFound_AndCreatesNoList()
+    public async Task NamingAUserThatDoesNotExistIsNotFound_AndCreatesNoList()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-controller-" + Guid.NewGuid().ToString("N"));
         try
@@ -464,8 +468,8 @@ public class TodoControllerTests
 
             Assert.IsType<NotFoundResult>(controller.RemoveTodo("x", stranger).Result);
             Assert.IsType<NotFoundResult>(controller.SetTodoDone("x", true, stranger));
-            Assert.IsType<NotFoundResult>(controller.VerifyTodo("x", stranger).Result);
-            Assert.IsType<NotFoundResult>(controller.VerifyAllTodo(stranger).Result);
+            Assert.IsType<NotFoundResult>((await controller.VerifyTodo("x", stranger)).Result);
+            Assert.IsType<NotFoundResult>((await controller.VerifyAllTodo(stranger)).Result);
             Assert.False(Directory.Exists(Path.Combine(root + "-todo", "watchlists")));
         }
         finally
@@ -634,6 +638,41 @@ public class TodoControllerTests
 
             return targetMethod?.ReturnType.IsValueType == true && targetMethod.ReturnType != typeof(void)
                 ? Activator.CreateInstance(targetMethod.ReturnType)
+                : null;
+        }
+    }
+
+    // The playlist feature is off by default (WantToWatchPlaylistEnabled), so none of these tests ever
+    // reach IPlaylistManager; this only has to satisfy the constructor without throwing, including for
+    // its Task/Task<T> members, which a plain "null for reference types" proxy would hand back as a null
+    // Task and crash the first await.
+    private class PlaylistProxy : DispatchProxy
+    {
+        public static IPlaylistManager Create() => (IPlaylistManager)DispatchProxy.Create<IPlaylistManager, PlaylistProxy>();
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            var returnType = targetMethod?.ReturnType;
+            if (returnType == typeof(Task))
+            {
+                return Task.CompletedTask;
+            }
+
+            if (returnType?.IsGenericType == true && returnType.GetGenericTypeDefinition() == typeof(Task<>))
+            {
+                var inner = returnType.GetGenericArguments()[0];
+                var defaultValue = inner.IsValueType ? Activator.CreateInstance(inner) : null;
+                var fromResult = typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(inner);
+                return fromResult.Invoke(null, [defaultValue]);
+            }
+
+            if (targetMethod?.Name == nameof(IPlaylistManager.GetPlaylists))
+            {
+                return Array.Empty<Playlist>();
+            }
+
+            return returnType?.IsValueType == true && returnType != typeof(void)
+                ? Activator.CreateInstance(returnType)
                 : null;
         }
     }

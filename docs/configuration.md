@@ -434,14 +434,16 @@ content, recommendations) are not pruned this way.
 Off by default. Adds sections to Jellyfin Web's own pages, and serves the data behind them from the
 plugin's API.
 
-| Setting                               | Default | Effect                                                                                                                                                                                                                               |
-| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Show the surfaces in Jellyfin Web** | Off     | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                                         |
-| **Person pages**                      | Off     | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                                               |
-| **Item pages**                        | Off     | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage]                         |
-| **Home screen**                       | Off     | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                                                     |
-| **Home Discover row: max titles**     | 20      | The most titles the row shows (1 to 100).                                                                                                                                                                                            |
-| **Want to watch**                     | Off     | Each signed-in user's own list: a bookmark on every card the surfaces above show, a home row of what is still on it and not in the library, and a title search in that row's header for a title no page already lists.[^wanttowatch] |
+| Setting                                                | Default         | Effect                                                                                                                                                                                                                               |
+| ------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Show the surfaces in Jellyfin Web**                  | Off             | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                                         |
+| **Person pages**                                       | Off             | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                                               |
+| **Item pages**                                         | Off             | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage]                         |
+| **Home screen**                                        | Off             | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                                                     |
+| **Home Discover row: max titles**                      | 20              | The most titles the row shows (1 to 100).                                                                                                                                                                                            |
+| **Want to watch**                                      | Off             | Each signed-in user's own list: a bookmark on every card the surfaces above show, a home row of what is still on it and not in the library, and a title search in that row's header for a title no page already lists.[^wanttowatch] |
+| **Want to watch: move arrived titles into a playlist** | Off             | Once a title is actually in the library (a real file; minting never counts), the next time it is verified it moves into that user's own Jellyfin playlist too, so it shows up to watch in every client.[^wanttowatchplaylist]        |
+| **Want to watch: playlist name**                       | "Want to Watch" | Each user gets their own playlist by this name, created the first time they need one.                                                                                                                                                |
 
 ![A person's page: "Missing from your library"](screenshots/webui-person-missing.png)
 
@@ -479,6 +481,8 @@ author you don't have":
 [^wanttowatch]:
     A user with a parental rating limit does not get the surfaces, so has no cards to bookmark from. An administrator sees everyone's lists folded into one queue from the
     report's Maintenance section (the **Fulfillment queue**), and can verify or mark a title fetched for everyone still waiting on it in one action.
+
+[^wanttowatchplaylist]: The move happens the next time the entry is verified, not the instant the file arrives: an administrator's Fulfillment queue **Verify all**, or any future per-user verify. A title moves once, the first time it is found owned; verifying again does not add it a second time. Minting a placeholder never counts as arrived, whether or not minting is on elsewhere in the plugin.
 
 Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, a trailer link, and
 JustWatch (the title's own page when a report gap carries one, else a search in your configured region).
@@ -635,5 +639,7 @@ The key each setting has in the plugin's configuration file, sorted by setting n
 | Trakt username                                                 | `TraktUsername`              | [Trakt](#trakt)                                  |
 | Use Discogs to complete record labels and artist discographies | `ScanDiscogs`                | [Discogs](#discogs)                              |
 | Want to watch                                                  | `WantToWatchEnabled`         | [Web UI](#web-ui-experimental)                   |
+| Want to watch: move arrived titles into a playlist             | `WantToWatchPlaylistEnabled` | [Web UI](#web-ui-experimental)                   |
+| Want to watch: playlist name                                   | `WantToWatchPlaylistName`    | [Web UI](#web-ui-experimental)                   |
 | Web search URL template                                        | `SearchUrlTemplate`          | [Links](#links)                                  |
 | Webhook URL                                                    | `WebhookUrl`                 | [Links](#links)                                  |

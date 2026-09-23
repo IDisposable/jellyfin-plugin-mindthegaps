@@ -120,6 +120,8 @@ function loadConfig(page, config) {
     page.querySelector('#ItemPageEnabled').checked = config.ItemPageEnabled;
     page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
     page.querySelector('#WantToWatchEnabled').checked = config.WantToWatchEnabled;
+    page.querySelector('#WantToWatchPlaylistEnabled').checked = config.WantToWatchPlaylistEnabled;
+    page.querySelector('#WantToWatchPlaylistName').value = config.WantToWatchPlaylistName || '';
     page.querySelector('#HomeRowSize').value = config.HomeRowSize;
     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
     page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
@@ -221,6 +223,8 @@ function saveConfig(page, e) {
         config.ItemPageEnabled = form.querySelector('#ItemPageEnabled').checked;
         config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
         config.WantToWatchEnabled = form.querySelector('#WantToWatchEnabled').checked;
+        config.WantToWatchPlaylistEnabled = form.querySelector('#WantToWatchPlaylistEnabled').checked;
+        config.WantToWatchPlaylistName = form.querySelector('#WantToWatchPlaylistName').value.trim() || 'Want to Watch';
         config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '20', 10);
         config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
         config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();

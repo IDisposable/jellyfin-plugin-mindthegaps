@@ -71,6 +71,46 @@ public class LibraryVerifierTests
     }
 
     [Fact]
+    public void FindOwnedItemId_WhenProviderIdMatches_ReturnsTheItemId()
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "123" } };
+        var (manager, library) = LibraryManagerProxy.Create([movie]);
+        var verifier = new LibraryVerifier(library);
+
+        var result = verifier.FindOwnedItemId(
+            BaseItemKind.Movie,
+            new Dictionary<string, string> { ["Tmdb"] = "123" },
+            null,
+            "The Title");
+
+        Assert.Equal(movie.Id, result);
+        Assert.False(manager.LastQuery!.IsVirtualItem);
+    }
+
+    [Fact]
+    public void FindOwnedItemId_WhenNothingMatches_ReturnsNull()
+    {
+        var (_, library) = LibraryManagerProxy.Create([]);
+        var verifier = new LibraryVerifier(library);
+
+        var result = verifier.FindOwnedItemId(BaseItemKind.Movie, new Dictionary<string, string> { ["Tmdb"] = "123" }, null, "The Title");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void FindOwnedItemId_UsesTheNameFallbackForAlbums()
+    {
+        var album = new MusicAlbum { Id = Guid.NewGuid(), Name = "Album", AlbumArtists = ["Artist"] };
+        var (_, library) = LibraryManagerProxy.Create([album]);
+        var verifier = new LibraryVerifier(library);
+
+        var result = verifier.FindOwnedItemId(BaseItemKind.MusicAlbum, new Dictionary<string, string>(), " artist ", "ALBUM");
+
+        Assert.Equal(album.Id, result);
+    }
+
+    [Fact]
     public void OwnedAmong_LargeBatchUsesOneIndexReadAndPreservesOrder()
     {
         var owned = new Movie { ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "owned" } };

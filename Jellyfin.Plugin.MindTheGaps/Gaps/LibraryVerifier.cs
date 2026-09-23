@@ -57,10 +57,25 @@ public sealed class LibraryVerifier
     /// <param name="title">The title.</param>
     /// <returns><see langword="true"/> if the library holds it.</returns>
     public bool Owns(BaseItemKind kind, IReadOnlyDictionary<string, string> providerIds, string? artist, string? title)
+        => FindOwnedItemId(kind, providerIds, artist, title) is not null;
+
+    /// <summary>
+    /// The same match as <see cref="Owns(BaseItemKind, IReadOnlyDictionary{string, string}, string?, string?)"/>,
+    /// but resolving to the owning item's id instead of a bool. For a caller that needs the real item once it
+    /// knows the library holds it (the want-to-watch playlist, which adds a real item, never a virtual one).
+    /// <see cref="Owns(BaseItemKind, IReadOnlyDictionary{string, string}, string?, string?)"/> is just this
+    /// with the id discarded, rather than a second copy of the same two queries.
+    /// </summary>
+    /// <param name="kind">The item kind.</param>
+    /// <param name="providerIds">The candidate's provider ids.</param>
+    /// <param name="artist">The album artist, for the name fallback. Ignored for other kinds.</param>
+    /// <param name="title">The title.</param>
+    /// <returns>The owning item's id, or <see langword="null"/> if the library does not hold it.</returns>
+    public Guid? FindOwnedItemId(BaseItemKind kind, IReadOnlyDictionary<string, string> providerIds, string? artist, string? title)
     {
         ArgumentNullException.ThrowIfNull(providerIds);
 
-        return OwnsByProviderId(kind, providerIds) || OwnsByName(kind, artist, title);
+        return FindByProviderId(kind, providerIds) ?? FindByName(kind, artist, title);
     }
 
     /// <summary>
@@ -180,7 +195,7 @@ public sealed class LibraryVerifier
         => index.OwnsAny(kind, providerIds)
             || (kind == BaseItemKind.MusicAlbum && index.OwnsByName(kind, artist, title));
 
-    private bool OwnsByProviderId(BaseItemKind kind, IReadOnlyDictionary<string, string> providerIds)
+    private Guid? FindByProviderId(BaseItemKind kind, IReadOnlyDictionary<string, string> providerIds)
     {
         var hasAny = new Dictionary<string, string>(providerIds.Count, StringComparer.OrdinalIgnoreCase);
         foreach (var pair in providerIds)
@@ -193,10 +208,10 @@ public sealed class LibraryVerifier
 
         if (hasAny.Count == 0)
         {
-            return false;
+            return null;
         }
 
-        return _libraryManager.GetItemList(new InternalItemsQuery
+        var found = _libraryManager.GetItemList(new InternalItemsQuery
         {
             DtoOptions = LibraryQueryOptions.Minimal(),
             IncludeItemTypes = new[] { kind },
@@ -204,19 +219,20 @@ public sealed class LibraryVerifier
             HasAnyProviderId = hasAny,
             Limit = 1,
             Recursive = true
-        }).Count > 0;
+        });
+        return found.Count > 0 ? found[0].Id : null;
     }
 
     // The name fallback, for an album whose provider ids do not overlap the library's (a Discogs release
     // against a MusicBrainz-tagged album). Deliberately album-only, matching what the scan's ownership index
     // name-keys and what GapEngine's carry-forward re-checks: widening it here would clear a row the next
     // scan would only report again. The exact-title query is narrower than the index's fully normalized key,
-    // so like OwnsByName it can only fail toward leaving a gap listed, never toward hiding one.
-    private bool OwnsByName(BaseItemKind kind, string? artist, string? title)
+    // so like FindByProviderId it can only fail toward leaving a gap listed, never toward hiding one.
+    private Guid? FindByName(BaseItemKind kind, string? artist, string? title)
     {
         if (kind != BaseItemKind.MusicAlbum || string.IsNullOrEmpty(title))
         {
-            return false;
+            return null;
         }
 
         var wanted = OwnershipIndex.NameKey(artist, title);
@@ -232,10 +248,10 @@ public sealed class LibraryVerifier
             if (item is MusicAlbum album
                 && string.Equals(OwnershipIndex.NameKey(album.AlbumArtist, album.Name), wanted, StringComparison.Ordinal))
             {
-                return true;
+                return item.Id;
             }
         }
 
-        return false;
+        return null;
     }
 }
