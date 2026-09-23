@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.9.1"
+version: "10.11.9.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,9 +20,11 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.9.1 (beta) - A Maintenance section "Fulfillment queue" folds every user's TODO list into one row
-  per title, sorted by how many people still want it, for an administrator who fetches things by hand
-  (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is
-  still waiting, shows the same streaming-service icons a report row does (looked up automatically as soon
-  as the queue opens, no click needed), and carries the links a TODO row already has; Mark fetched closes a
-  title out for every requester who asked for it in one action.
+  10.11.9.2 (beta) - Acquisition (Send to Radarr/Sonarr/Jellyseerr) is now only ever done from the Gap
+  Report; the injected Web UI's person/item/home pages no longer offer to send anything, so using those
+  surfaces never requires an arr setup. The report's own Send action gained a quality-profile picker
+  (pulled from each arr's own profile list, preselecting your configured default) so an older title that
+  the default profile can't find a release for is no longer stuck. The redundant "My TODO list" popup on
+  the report is gone; the Maintenance section's Fulfillment queue already covers every user's list, and
+  now has its own "Verify all", which checks every title in the queue against your library in one pass and
+  closes out anything you already have, however it arrived.
