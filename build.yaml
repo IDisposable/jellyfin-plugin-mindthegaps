@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.9.2"
+version: "10.11.9.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,11 +20,12 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.9.2 (beta) - Acquisition (Send to Radarr/Sonarr/Jellyseerr) is now only ever done from the Gap
-  Report; the injected Web UI's person/item/home pages no longer offer to send anything, so using those
-  surfaces never requires an arr setup. The report's own Send action gained a quality-profile picker
-  (pulled from each arr's own profile list, preselecting your configured default) so an older title that
-  the default profile can't find a release for is no longer stuck. The redundant "My TODO list" popup on
-  the report is gone; the Maintenance section's Fulfillment queue already covers every user's list, and
-  now has its own "Verify all", which checks every title in the queue against your library in one pass and
-  closes out anything you already have, however it arrived.
+  10.11.9.3 (beta) - The report's multi-select bar gained bulk Acquire/Request and a bulk Resolve, alongside
+  Mint and Add to TODO, so a checked batch of rows can be sent to acquisitions providers or dismissed with
+  one shared note in one action. An administrator can now manage another user's want-to-watch list, and a
+  title that arrives (however it was fetched) can automatically move into a real, per-user Jellyfin playlist
+  so it shows up to watch in every client, not just this plugin's pages. Amazon and web-search links for
+  books and music now fold in the author or artist everywhere they appear (the report, the Web UI, and the
+  Fulfillment queue), since a title alone is a weak search query when many works share a name. TMDB lists,
+  Trakt lists, and OpenLibrary subjects are configured with the same chip-picker/search boxes the other
+  curated sources already use, replacing raw comma-separated id fields.

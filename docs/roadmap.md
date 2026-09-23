@@ -95,6 +95,13 @@ them. Drafts in [docs/upstream/](upstream/).
   what a TV network's equivalent id/source even is before building the network half. Sequenced after the
   chip pickers.
 
+### Settings page
+
+- **A scroll-to-top button, matching the report's.** The settings form has grown long enough that the
+  report's own back-to-top affordance would help here too.
+- **Collapsible sections.** Each settings section (per source, per feature) could collapse like the
+  report's groups, so a page of mostly-unused toggles is not one long scroll to reach the one you want.
+
 ### Scan performance
 
 - **Weight scan progress by source cost.** Progress is the unweighted average of the concurrent sources, so
