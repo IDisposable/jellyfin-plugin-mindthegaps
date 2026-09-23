@@ -16,6 +16,7 @@ public class WebUiGateTests
         Assert.False(WebUiGate.ScriptInjected(config));
         Assert.False(WebUiGate.PersonPage(config));
         Assert.False(WebUiGate.ItemPage(config));
+        Assert.False(WebUiGate.StudioPage(config));
         Assert.False(WebUiGate.HomeRow(config));
     }
 
@@ -27,12 +28,14 @@ public class WebUiGateTests
             WebUiEnabled = false,
             PersonPageEnabled = true,
             ItemPageEnabled = true,
+            StudioPageEnabled = true,
             HomeRowEnabled = true
         };
 
         Assert.False(WebUiGate.ScriptInjected(config));
         Assert.True(WebUiGate.PersonPage(config));
         Assert.True(WebUiGate.ItemPage(config));
+        Assert.True(WebUiGate.StudioPage(config));
         Assert.True(WebUiGate.HomeRow(config));
     }
 
@@ -44,6 +47,7 @@ public class WebUiGateTests
         Assert.True(WebUiGate.ScriptInjected(config));
         Assert.False(WebUiGate.PersonPage(config));
         Assert.False(WebUiGate.ItemPage(config));
+        Assert.False(WebUiGate.StudioPage(config));
         Assert.False(WebUiGate.HomeRow(config));
     }
 
@@ -57,6 +61,9 @@ public class WebUiGateTests
         Assert.True(WebUiGate.ItemPage(new PluginConfiguration { ItemPageEnabled = true }));
         Assert.False(WebUiGate.PersonPage(new PluginConfiguration { ItemPageEnabled = true }));
 
+        Assert.True(WebUiGate.StudioPage(new PluginConfiguration { StudioPageEnabled = true }));
+        Assert.False(WebUiGate.ItemPage(new PluginConfiguration { StudioPageEnabled = true }));
+
         Assert.True(WebUiGate.HomeRow(new PluginConfiguration { HomeRowEnabled = true }));
         Assert.False(WebUiGate.ItemPage(new PluginConfiguration { HomeRowEnabled = true }));
     }
@@ -67,6 +74,7 @@ public class WebUiGateTests
         Assert.False(WebUiGate.ScriptInjected(null));
         Assert.False(WebUiGate.PersonPage(null));
         Assert.False(WebUiGate.ItemPage(null));
+        Assert.False(WebUiGate.StudioPage(null));
         Assert.False(WebUiGate.HomeRow(null));
     }
 

@@ -477,6 +477,13 @@
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
+                    <input id="StudioPageEnabled" name="StudioPageEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Studio pages: "Missing from this studio"</span>
+                </label>
+                <div class="fieldDescription">On a movie studio's own page (reached by clicking a studio credit on a movie), shows the studio's movies you do not own, with an Add to TODO button for administrators. Resolves the studio's name to a TMDB company by search, the same way "Auto-seed studios from your library" does; a studio TMDB cannot match shows a note instead of an empty row. Movies only: TV shows have no separate network id to resolve by name.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
                     <input id="HomeRowEnabled" name="HomeRowEnabled" type="checkbox" is="emby-checkbox" />
                     <span>Home screen: "Discover: not in your library" row</span>
                 </label>

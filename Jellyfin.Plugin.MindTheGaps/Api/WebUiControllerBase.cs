@@ -12,7 +12,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 
 /// <summary>
 /// Shared plumbing for the web UI surface controllers (<see cref="PersonWebUiController"/>,
-/// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>): the want-to-watch add/remove
+/// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>, <see cref="StudioWebUiController"/>):
+/// the want-to-watch add/remove
 /// every surface offers on its cards. Abstract and carries no route of its own, so it is never itself
 /// discovered as a controller. Deliberately has no acquisition handoff: an administrator monitors what
 /// everyone wants through the report's own Maintenance section (the fulfillment queue) instead, so this

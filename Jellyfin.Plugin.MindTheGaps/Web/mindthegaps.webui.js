@@ -7,6 +7,9 @@
 //   - on a Music Artist page, an "Albums you don't have" row, and on a Book page or an author's own page a
 //     "More by this author you don't have" row (their cards carry their own links, since these works have no
 //     TMDB id to look up);
+//   - on a movie studio's own list page (jellyfin-web's generic list page, reached by clicking a studio
+//     credit and routed by studioId, not a page this plugin owns), a "Missing from <studio>" row of the
+//     studio's unowned movies;
 //   - on the home screen, a "Discover" row of the recommendations the scan has accumulated;
 //   - where want to watch is on, a bookmark on every card's image that puts the title on the signed-in user's own list
 //     and takes it off again, and a home row of what is still on that list.
@@ -27,6 +30,7 @@
     var PERSON_ID = 'mtgPersonMissing';
     var RELATED_ID = 'mtgRelatedMissing';
     var WORKS_ID = 'mtgWorksMissing';
+    var STUDIO_ID = 'mtgStudioMissing';
     var HOME_ID = 'mtgHomeDiscover';
     var WANTED_ID = 'mtgHomeWanted';
     var SEARCH_RESULTS_ID = 'mtgSearchResults';
@@ -83,6 +87,17 @@
         var q = hash.indexOf('?');
         if (hash.indexOf('/details') < 0 || q < 0) { return null; }
         return new URLSearchParams(hash.slice(q + 1)).get('id');
+    }
+
+    // The studio list page is jellyfin-web's own generic list page, `#/list?studioId=…&serverId=…`; it
+    // carries no route id of its own (unlike `/details`), so the id is read off the query string the same
+    // way. Confirmed live: viewshow fires fresh on every navigation here, including between two different
+    // studios, so no MutationObserver is needed the way the home row's cached page needs one.
+    function studioIdFromLocation() {
+        var hash = window.location.hash || '';
+        var q = hash.indexOf('?');
+        if (hash.indexOf('/list') < 0 || q < 0) { return null; }
+        return new URLSearchParams(hash.slice(q + 1)).get('studioId');
     }
 
     // The result of a call that may legitimately answer 404 (a surface that is off, or a page it has nothing for).
@@ -694,6 +709,37 @@
         }
     }
 
+    // ---- Studio list page ----
+
+    // Unlike every other surface, this page is not one this plugin has any other content on (jellyfin-web
+    // owns the whole grid above), and it carries no `#similarCollapsible`-style anchor to insert relative
+    // to, so the row is simply appended at the end of the page: after the studio's own movie grid, in the
+    // page's own normal flow. The page has no padded ancestor of its own here (the grid's wrapper carries
+    // its own padding, and this section sits outside it as a sibling), so it uses the same "home row"
+    // markup (a padded-left title, a padded scroller) as the home screen's row rather than the item page's
+    // no-padding-scroller variant.
+    function renderStudioMissing(page, studioId, data) {
+        remove(page, STUDIO_ID);
+        if (!data || (!data.Reason && !data.Titles.length)) { return; }
+
+        var heading = 'Missing from ' + data.StudioName;
+        var ctx = { kind: 'Studio', id: studioId, canTodo: !!data.CanTodo };
+        var section;
+        if (data.Titles.length) {
+            section = scroller(ctx, heading, data.Titles, true);
+        } else {
+            section = h('div', { 'class': 'verticalSection' });
+            var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left' });
+            head.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, heading));
+            section.appendChild(head);
+            section.appendChild(h('p', { 'class': 'mtgNote padded-left' }, data.Reason));
+        }
+
+        section.id = STUDIO_ID;
+        section.classList.add('padded-bottom-page');
+        page.appendChild(section);
+    }
+
     // ---- Home ----
 
     function renderHome(sectionsEl, data) {
@@ -860,8 +906,19 @@
             return;
         }
 
+        var studioId = studioIdFromLocation();
+        if (studioId) {
+            var studioToken = ++pending;
+            api('GET', 'MindTheGaps/Studio/' + studioId + '/Missing').then(function (data) {
+                if (studioToken === pending) { renderStudioMissing(page, studioId, data); }
+            }, function () {
+                if (studioToken === pending) { remove(page, STUDIO_ID); }
+            });
+            return;
+        }
+
         var itemId = itemIdFromLocation();
-        if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); return; }
+        if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); return; }
 
         var token = ++pending;
         Promise.resolve(ApiClient.getItem(ApiClient.getCurrentUserId(), itemId)).then(function (item) {
@@ -869,6 +926,7 @@
             remove(page, PERSON_ID);
             remove(page, RELATED_ID);
             remove(page, WORKS_ID);
+            remove(page, STUDIO_ID);
             if (!item) { return; }
             if (item.Type === 'Person') {
                 // A person may be an actor, an author, or both: ask for the filmography and for the books, each
@@ -900,7 +958,7 @@
             }
         }).catch(function () {
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
-            if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); }
+            if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); }
         });
     }
 

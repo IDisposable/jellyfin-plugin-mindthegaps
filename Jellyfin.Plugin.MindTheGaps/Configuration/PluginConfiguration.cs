@@ -66,6 +66,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WebUiEnabled = false;
         PersonPageEnabled = false;
         ItemPageEnabled = false;
+        StudioPageEnabled = false;
         HomeRowEnabled = false;
         WantToWatchEnabled = false;
         WantToWatchPlaylistEnabled = false;
@@ -462,6 +463,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// also need the Music and Books scans on.
     /// </summary>
     public bool ItemPageEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a movie studio's list page (jellyfin-web's own generic list
+    /// page, routed by <c>studioId</c>) shows a "Missing from &lt;studio&gt;" row of the studio's unowned
+    /// movies. When on, the data is served to any signed-in user. Resolves the library studio's name to a
+    /// TMDB company by search (the same resolution <see cref="AutoSeedStudios"/> uses), so a studio TMDB
+    /// cannot match returns a reason rather than an empty row. Movies only: Jellyfin has no separate "TV
+    /// network" concept (a series' network is the same <c>Studios</c> field), and TMDB has no way to resolve
+    /// a network by name, only by an id already in hand, so this does not cover shows.
+    /// </summary>
+    public bool StudioPageEnabled { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the home screen shows a "Discover: not in your library" row

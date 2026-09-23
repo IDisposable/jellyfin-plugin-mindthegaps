@@ -20,7 +20,9 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // workDetailResult: the fake MindTheGaps/Item/{id}/Works/Detail payload for a book's dialog (undefined
 // defaults to { Overview: null }, the "nothing to show" shape; use { reject: true } to simulate the
 // OpenLibrary lookup failing).
-function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult, worksResult, searchResult, workDetailResult) {
+// studioResult: the fake MindTheGaps/Studio/{id}/Missing payload for the studio list page (null for the
+// surface being off, or the studio id not resolving).
+function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult, worksResult, searchResult, workDetailResult, studioResult) {
     var defaultDetail = {
         Title: 'A Missing Movie', Kind: 'Movie', TmdbId: 603, Year: 1999,
         Tagline: 'Welcome to the Real World.', Overview: 'A test overview.',
@@ -50,6 +52,7 @@ var __TODO_RESULT__ = ${JSON.stringify(todoResult === undefined ? 1 : todoResult
 var __DETAIL_RESULT__ = ${JSON.stringify(detailResult === undefined ? defaultDetail : detailResult)};
 var __PROFILES_RESULT__ = ${JSON.stringify(profilesResult === undefined ? defaultProfiles : profilesResult)};
 var __WORK_DETAIL_RESULT__ = ${JSON.stringify(workDetailResult === undefined ? { Overview: null } : workDetailResult)};
+var __STUDIO_RESULT__ = ${JSON.stringify(studioResult === undefined ? null : studioResult)};
 window.__lastSendUrl = null;
 window.__lastTodoUrl = null;
 window.__lastDetailUrl = null;
@@ -77,6 +80,9 @@ window.ApiClient = {
         }
         if (url.indexOf('/Works') !== -1 && url.indexOf('/Todo') === -1) {
             return __WORKS_RESULT__ ? Promise.resolve(__WORKS_RESULT__) : Promise.reject(new Error('404'));
+        }
+        if (url.indexOf('/Studio/') !== -1 && url.indexOf('/Missing') !== -1) {
+            return __STUDIO_RESULT__ ? Promise.resolve(__STUDIO_RESULT__) : Promise.reject(new Error('404'));
         }
         if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1) {
             return __MISSING_RESULT__ ? Promise.resolve(__MISSING_RESULT__) : Promise.reject(new Error('404'));
@@ -174,4 +180,33 @@ ${buildMockScript(null, null, sendResult, discoverResult, todoResult, detailResu
     return outPath;
 }
 
-module.exports = { buildWebUiHarness, buildWebUiHomeHarness };
+// Builds a fake studio list page (jellyfin-web's own generic list page, `#/list?studioId=…`), which
+// carries no id of its own and no `#similarCollapsible`-style anchor: the real page is just the studio's
+// movie grid inside a padded wrapper, confirmed against a live server, so the fake mirrors just that
+// wrapper and appends the row after it the same way the real script does.
+// studioResult: the fake MindTheGaps/Studio/{id}/Missing payload (see buildMockScript).
+function buildWebUiStudioHarness(studioResult, sendResult, todoResult) {
+    const webui = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.webui.js'), 'utf8');
+
+    const page = `<!doctype html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<div data-role="page" class="page libraryPage noSecondaryNavPage mainAnimatedPage" data-backbutton="true" style="contain:size style;position:relative;width:100%;height:100vh;overflow:auto;">
+    <div class="padded-left padded-right padded-bottom-page padded-right-withalphapicker">
+        <div class="flex align-items-center focuscontainer-x itemsViewSettingsContainer padded-top padded-bottom flex-wrap-wrap"></div>
+        <div is="emby-itemscontainer" class="vertical-wrap itemsContainer"></div>
+    </div>
+</div>
+${buildMockScript(null, null, sendResult, null, todoResult, undefined, undefined, undefined, undefined, undefined, undefined, studioResult)}
+<script>${webui}</script>
+</body>
+</html>`;
+
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mtg-webui-test-'));
+    const outPath = path.join(outDir, 'harness.html');
+    fs.writeFileSync(outPath, page);
+    return outPath;
+}
+
+module.exports = { buildWebUiHarness, buildWebUiHomeHarness, buildWebUiStudioHarness };

@@ -115,6 +115,7 @@ function loadConfig(page, config) {
     page.querySelector('#WebUiEnabled').checked = config.WebUiEnabled;
     page.querySelector('#PersonPageEnabled').checked = config.PersonPageEnabled;
     page.querySelector('#ItemPageEnabled').checked = config.ItemPageEnabled;
+    page.querySelector('#StudioPageEnabled').checked = config.StudioPageEnabled;
     page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
     page.querySelector('#WantToWatchEnabled').checked = config.WantToWatchEnabled;
     page.querySelector('#WantToWatchPlaylistEnabled').checked = config.WantToWatchPlaylistEnabled;
@@ -218,6 +219,7 @@ function saveConfig(page, e) {
         config.WebUiEnabled = form.querySelector('#WebUiEnabled').checked;
         config.PersonPageEnabled = form.querySelector('#PersonPageEnabled').checked;
         config.ItemPageEnabled = form.querySelector('#ItemPageEnabled').checked;
+        config.StudioPageEnabled = form.querySelector('#StudioPageEnabled').checked;
         config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
         config.WantToWatchEnabled = form.querySelector('#WantToWatchEnabled').checked;
         config.WantToWatchPlaylistEnabled = form.querySelector('#WantToWatchPlaylistEnabled').checked;

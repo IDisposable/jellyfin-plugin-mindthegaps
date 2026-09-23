@@ -32,6 +32,13 @@ internal static class WebUiGate
     public static bool ItemPage(PluginConfiguration? config) => config?.ItemPageEnabled == true;
 
     /// <summary>
+    /// Determines whether a movie studio's list page's "Missing from this studio" data is served.
+    /// </summary>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when the studio page toggle is on.</returns>
+    public static bool StudioPage(PluginConfiguration? config) => config?.StudioPageEnabled == true;
+
+    /// <summary>
     /// Determines whether the home screen's Discover data is served.
     /// </summary>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
