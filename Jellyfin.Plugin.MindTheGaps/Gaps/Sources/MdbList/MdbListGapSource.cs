@@ -46,9 +46,11 @@ internal sealed class MdbListGapSource : IGapSource, IDiscoverSource, IExploreSo
                 Kind = "mdblist",
                 Label = "MDBList list",
                 Source = this,
-                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids, ct),
+                // MDBList list ids are plain TMDB-style ints; the chip picker and the ad-hoc explore run
+                // work in strings (Model.CuratedSetRef), so this is the one place that widens back.
+                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids.Select(ConfigIds.ParseInt).ToList(), ct),
                 Search = (query, ct) => _mdblist.SearchListsAsync(query, ct),
-                Resolve = (id, ct) => _mdblist.GetListNameAsync(id, ct)
+                Resolve = (id, ct) => _mdblist.GetListNameAsync(ConfigIds.ParseInt(id), ct)
             }
         };
     }

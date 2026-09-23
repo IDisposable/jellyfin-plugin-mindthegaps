@@ -57,26 +57,28 @@ internal sealed class CuratedSetGapSource : IGapSource, IDiscoverSource, IExplor
                 Kind = "studio",
                 Label = SourceItemTypes.Studio,
                 Source = this,
-                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "studio", ids, ct),
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "studio", ids.Select(ConfigIds.ParseInt).ToList(), ct),
                 Search = (query, ct) => _tmdb.SearchCompaniesAsync(query, ct),
-                Resolve = (id, ct) => _tmdb.GetCompanyNameAsync(id, ct)
+                Resolve = (id, ct) => _tmdb.GetCompanyNameAsync(ConfigIds.ParseInt(id), ct)
             },
             new ExploreDescriptor
             {
                 Kind = "keyword",
                 Label = SourceItemTypes.Keyword,
                 Source = this,
-                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "keyword", ids, ct),
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "keyword", ids.Select(ConfigIds.ParseInt).ToList(), ct),
                 Search = (query, ct) => _tmdb.SearchKeywordsAsync(query, ct),
-                Resolve = (id, ct) => _tmdb.GetKeywordNameAsync(id, ct)
+                Resolve = (id, ct) => _tmdb.GetKeywordNameAsync(ConfigIds.ParseInt(id), ct)
             },
             new ExploreDescriptor
             {
-                // TMDB has no list-name search, so a list is entered by raw id (no Search/Resolve).
+                // TMDB has no list-name search, so a list is entered by raw id or a pasted list URL
+                // (TmdbListInput), confirmed by pasting it into the chip and letting Resolve name it.
                 Kind = "tmdblist",
                 Label = "TMDB list",
                 Source = this,
-                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "tmdblist", ids, ct)
+                Run = (context, ids, ct) => FindGapsForSetsAsync(context, "tmdblist", ids.Select(ConfigIds.ParseInt).ToList(), ct),
+                Resolve = (id, ct) => _tmdb.GetListNameAsync(ConfigIds.ParseInt(id), ct)
             }
         };
     }

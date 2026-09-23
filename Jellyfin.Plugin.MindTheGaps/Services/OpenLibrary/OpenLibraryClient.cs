@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
@@ -21,6 +22,9 @@ internal sealed class OpenLibraryClient
 
     // The reading log pages the same way. A shelf is usually one or two pages.
     private const int ReadingLogLimit = 100;
+
+    // The settings type-ahead shows a short list, so a partial query does not flood the dropdown.
+    private const int SubjectSuggestionLimit = 10;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -96,6 +100,52 @@ internal sealed class OpenLibraryClient
         return GetAsync<OpenLibrarySubjectResponse>(
             string.Create(CultureInfo.InvariantCulture, $"/subjects/{Uri.EscapeDataString(subject)}.json?limit={bounded}"),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Searches OpenLibrary subjects by name for the settings type-ahead, returning the top matches as slug
+    /// and name pairs (search/subjects.json?q=...). The id is the subject slug (there is no separate numeric
+    /// id to key on).
+    /// </summary>
+    /// <param name="query">The partial subject name typed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top matches.</returns>
+    public async Task<IReadOnlyList<CuratedSetRef>> SearchSubjectsAsync(string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        var response = await GetAsync<OpenLibrarySubjectSearchResponse>(
+            string.Create(CultureInfo.InvariantCulture, $"/search/subjects.json?q={Uri.EscapeDataString(query)}&limit={SubjectSuggestionLimit}"),
+            cancellationToken).ConfigureAwait(false);
+
+        var refs = new List<CuratedSetRef>();
+        foreach (var doc in response?.Docs ?? [])
+        {
+            var slug = LastSegment(doc.Key);
+            if (!string.IsNullOrEmpty(slug) && !string.IsNullOrEmpty(doc.Name))
+            {
+                refs.Add(new CuratedSetRef { Id = slug, Name = doc.Name });
+            }
+        }
+
+        return refs;
+    }
+
+    /// <summary>
+    /// Gets a subject's display name by its slug, for the chip picker's Resolve. A subject's own page
+    /// (subjects/{subject}.json, the same one <see cref="GetSubjectWorksAsync"/> reads) carries the name;
+    /// asked here for one work rather than a whole page, since only the name is wanted.
+    /// </summary>
+    /// <param name="subject">The subject slug.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The subject's display name, or null if not found.</returns>
+    public async Task<string?> GetSubjectNameAsync(string subject, CancellationToken cancellationToken)
+    {
+        var response = await GetSubjectWorksAsync(subject, 1, cancellationToken).ConfigureAwait(false);
+        return response?.Name;
     }
 
     /// <summary>

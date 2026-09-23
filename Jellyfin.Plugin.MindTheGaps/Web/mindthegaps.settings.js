@@ -69,18 +69,15 @@ function loadConfig(page, config) {
     page.querySelector('#ScanCuratedSets').checked = config.ScanCuratedSets;
     page.querySelector('#ScanTmdbLists').checked = config.ScanTmdbLists;
     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
-    page.querySelector('#CuratedTmdbListIds').value = config.CuratedTmdbListIds || '';
     loadChips(page, config);
     page.querySelector('#ScanMusic').checked = config.ScanMusic;
     page.querySelector('#ScanBooks').checked = config.ScanBooks;
     page.querySelector('#ScanCuratedBooks').checked = config.ScanCuratedBooks;
-    page.querySelector('#CuratedOpenLibrarySubjects').value = config.CuratedOpenLibrarySubjects || '';
     page.querySelector('#ScanDiscogs').checked = config.ScanDiscogs;
     page.querySelector('#DiscogsToken').value = config.DiscogsToken || '';
     page.querySelector('#ScanMdbList').checked = config.ScanMdbList;
     page.querySelector('#MdbListApiKey').value = config.MdbListApiKey || '';
     page.querySelector('#ScanTraktLists').checked = config.ScanTraktLists;
-    page.querySelector('#CuratedTraktListIds').value = config.CuratedTraktListIds || '';
     page.querySelector('#ScanTmdbWatchlist').checked = config.ScanTmdbWatchlist;
     page.querySelector('#ScanTmdbFavorites').checked = config.ScanTmdbFavorites;
     page.querySelector('#ScanTmdbTopRated').checked = config.ScanTmdbTopRated;
@@ -167,15 +164,15 @@ function saveConfig(page, e) {
         config.ScanCuratedSets = form.querySelector('#ScanCuratedSets').checked;
         config.ScanTmdbLists = form.querySelector('#ScanTmdbLists').checked;
         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
-        config.CuratedTmdbListIds = form.querySelector('#CuratedTmdbListIds').value.trim();
-        // The chips hold the ids; nothing else to persist for curated sets.
+        // The chips hold the ids; nothing else to persist for these curated sets.
         var chips = page._chipState || {};
         config.CuratedCompanyIds = chips.studio ? chips.studio.ids() : (config.CuratedCompanyIds || '');
         config.CuratedKeywordIds = chips.keyword ? chips.keyword.ids() : (config.CuratedKeywordIds || '');
+        config.CuratedTmdbListIds = chips.tmdblist ? chips.tmdblist.ids() : (config.CuratedTmdbListIds || '');
         config.ScanMusic = form.querySelector('#ScanMusic').checked;
         config.ScanBooks = form.querySelector('#ScanBooks').checked;
         config.ScanCuratedBooks = form.querySelector('#ScanCuratedBooks').checked;
-        config.CuratedOpenLibrarySubjects = form.querySelector('#CuratedOpenLibrarySubjects').value.trim();
+        config.CuratedOpenLibrarySubjects = chips.openlibrarysubject ? chips.openlibrarysubject.ids() : (config.CuratedOpenLibrarySubjects || '');
         config.ScanDiscogs = form.querySelector('#ScanDiscogs').checked;
         config.DiscogsToken = form.querySelector('#DiscogsToken').value;
         config.DiscogsLabelIds = chips.label ? chips.label.ids() : (config.DiscogsLabelIds || '');
@@ -183,7 +180,7 @@ function saveConfig(page, e) {
         config.MdbListApiKey = form.querySelector('#MdbListApiKey').value.trim();
         config.MdbListListIds = chips.mdblist ? chips.mdblist.ids() : (config.MdbListListIds || '');
         config.ScanTraktLists = form.querySelector('#ScanTraktLists').checked;
-        config.CuratedTraktListIds = form.querySelector('#CuratedTraktListIds').value.trim();
+        config.CuratedTraktListIds = chips.traktlist ? chips.traktlist.ids() : (config.CuratedTraktListIds || '');
         config.ScanTmdbWatchlist = form.querySelector('#ScanTmdbWatchlist').checked;
         config.ScanTmdbFavorites = form.querySelector('#ScanTmdbFavorites').checked;
         config.ScanTmdbTopRated = form.querySelector('#ScanTmdbTopRated').checked;
@@ -353,6 +350,87 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
     return state;
 }
 
+// Extracts a TMDB list id from a pasted token: a bare positive numeric id, or a themoviedb.org/list/{id}
+// URL (with or without a scheme, a www host, a name slug, or a query) - the same shapes
+// TmdbListInput.ParseId accepts server-side. Null when the token holds neither.
+function parseTmdbListToken(token) {
+    var trimmed = (token || '').trim();
+    if (/^[1-9]\d*$/.test(trimmed)) { return trimmed; }
+    var m = trimmed.match(/\/list\/(\d+)/i);
+    return m ? m[1] : null;
+}
+
+// A paste-and-confirm chip for a kind with no name search (TMDB has none for lists): typing a token and
+// pressing Enter parses it (parseToken), adds it as a chip immediately with the id as a placeholder name,
+// then resolves the real name through CuratedResolve (which also confirms the list exists) once it answers.
+// Shares the chip render/remove/state shape setupChips uses, so loadChips/saveConfig can treat every kind
+// the same way regardless of which of the two set it up.
+function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
+    var box = page.querySelector('#' + boxId);
+    var list = page.querySelector('#' + listId);
+    var input = page.querySelector('#' + inputId);
+    var state = { chips: [] };
+    page._chipState = page._chipState || {};
+    page._chipState[kind] = state;
+
+    function announce(msg) { var live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
+    function render() {
+        list.innerHTML = state.chips.map(function (c, i) {
+            var x = wrap('button', {
+                type: 'button', 'class': 'cgChipX', 'data-i': i,
+                'aria-label': 'Remove ' + (c.Name || ''), title: 'Remove ' + (c.Name || '')
+            }, '&times;');
+            return wrap('span', { 'class': 'cgChip', role: 'listitem' }, esc(c.Name) + x);
+        }).join('');
+    }
+    function has(id) { return state.chips.some(function (c) { return c.Id === id; }); }
+    function removeAt(i) {
+        var removed = state.chips[i];
+        state.chips.splice(i, 1); render(); page._settingsDirty = true;
+        if (removed) { announce('Removed ' + removed.Name); }
+        input.focus();
+    }
+    function addFromInput() {
+        var id = parseToken(input.value);
+        if (!id) { announce('Not a valid id or URL.'); return; }
+        input.value = '';
+        if (has(id)) { return; }
+
+        state.chips.push({ Id: id, Name: id });
+        render();
+        page._settingsDirty = true;
+        announce('Added ' + id);
+        ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedResolve', { kind: kind, ids: id }), dataType: 'json' })
+            .then(function (res) {
+                var name = res && res[0] && res[0].Name;
+                var chip = name && state.chips.find(function (c) { return c.Id === id; });
+                if (chip) { chip.Name = name; render(); }
+            }, function () { });
+    }
+
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); addFromInput(); }
+        else if (e.key === 'Backspace' && !input.value && state.chips.length) { removeAt(state.chips.length - 1); }
+    });
+    list.addEventListener('click', function (e) {
+        var x = e.target.closest('.cgChipX');
+        if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); }
+    });
+    box.addEventListener('click', function (e) { if (e.target === box || e.target === list) { input.focus(); } });
+
+    state.set = function (chips) {
+        var seen = {};
+        state.chips = [];
+        (chips || []).forEach(function (c) {
+            var k = String(c.Id);
+            if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k }); }
+        });
+        render();
+    };
+    state.ids = function () { return state.chips.map(function (c) { return c.Id; }).join(','); };
+    return state;
+}
+
 // Populate the studio/keyword chips from the saved config: resolve the stored ids to display
 // names server-side, then hand them to the chip controls.
 function loadChips(page, config) {
@@ -368,6 +446,9 @@ function loadChips(page, config) {
     resolve('keyword', config.CuratedKeywordIds || '');
     resolve('label', config.DiscogsLabelIds || '');
     resolve('mdblist', config.MdbListListIds || '');
+    resolve('tmdblist', config.CuratedTmdbListIds || '');
+    resolve('traktlist', config.CuratedTraktListIds || '');
+    resolve('openlibrarysubject', config.CuratedOpenLibrarySubjects || '');
 }
 
 // The TMDB account connect flow. Two steps, because TMDB has the user approve a request token in their own
@@ -437,6 +518,9 @@ function bindSettings(page) {
     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
     setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest');
+    setupChips(page, 'traktlist', 'cgTraktListBox', 'cgTraktListChips', 'cgTraktListInput', 'cgTraktListSuggest');
+    setupChips(page, 'openlibrarysubject', 'cgOpenLibrarySubjectBox', 'cgOpenLibrarySubjectChips', 'cgOpenLibrarySubjectInput', 'cgOpenLibrarySubjectSuggest');
+    setupPasteChip(page, 'tmdblist', 'cgTmdbListBox', 'cgTmdbListChips', 'cgTmdbListInput', parseTmdbListToken);
     setupTmdbAccount(page);
     // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
     // type=password, so the browser never treats the settings form as a login and never offers to

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 
 namespace Jellyfin.Plugin.MindTheGaps.Services.Trakt;
@@ -23,6 +24,9 @@ internal sealed class TraktClient
     // Bounds the list walk. Well above any list the discovery source will emit from, so it is a runaway
     // guard rather than a cap the user meets.
     private const int MaxListItems = 5000;
+
+    // The settings type-ahead shows a short list, so a partial query does not flood the dropdown.
+    private const int MaxSuggestions = 10;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -165,6 +169,39 @@ internal sealed class TraktClient
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// Searches Trakt's public lists by name for the settings type-ahead, returning the top matches as id
+    /// and name pairs. The id is the list's slug when it has one (more stable and readable than the numeric
+    /// id), falling back to the numeric id otherwise. Empty when no client id is configured.
+    /// </summary>
+    /// <param name="query">The partial list name typed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top matches.</returns>
+    public async Task<IReadOnlyList<CuratedSetRef>> SearchListsAsync(string query, CancellationToken cancellationToken)
+    {
+        var clientId = ClientId;
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        var results = await GetAsync<List<TraktListSearchResult>>(
+            clientId,
+            string.Create(CultureInfo.InvariantCulture, $"/search/list?query={Uri.EscapeDataString(query)}&limit={MaxSuggestions}"),
+            cancellationToken).ConfigureAwait(false);
+
+        return (results ?? [])
+            .Select(r => r.List)
+            .Where(l => !string.IsNullOrEmpty(l?.Name))
+            .Select(l => new CuratedSetRef
+            {
+                Id = l!.Ids?.Slug ?? l.Ids?.Trakt?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                Name = l.Name!
+            })
+            .Where(r => r.Id.Length > 0)
+            .ToList();
     }
 
     /// <summary>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,7 +72,7 @@ public sealed class ExploreRunner
     /// <param name="kind">The explore kind, one the registered sources declare (see <see cref="ExploreRegistry"/>).</param>
     /// <param name="ids">The ids to explore (a studio/keyword/list/label/list id, depending on the kind).</param>
     /// <returns><see langword="true"/> if this call started an explore; <see langword="false"/> if one was already running, the kind is unsupported, or no ids were given.</returns>
-    public bool TryStartExplore(string kind, IReadOnlyList<int> ids)
+    public bool TryStartExplore(string kind, IReadOnlyList<string> ids)
     {
         if (!_explore.IsKnown(kind) || ids is null || ids.Count == 0)
         {
@@ -100,14 +99,14 @@ public sealed class ExploreRunner
         return true;
     }
 
-    private async Task RunAsync(string kind, IReadOnlyList<int> ids)
+    private async Task RunAsync(string kind, IReadOnlyList<string> ids)
     {
         try
         {
             _logger.LogInformation(
                 "Background explore started for {Kind} id(s) {Ids}",
                 kind,
-                string.Join(", ", ids.Select(id => id.ToString(CultureInfo.InvariantCulture))));
+                string.Join(", ", ids));
             var progress = new Progress<double>(p =>
             {
                 lock (_lock)

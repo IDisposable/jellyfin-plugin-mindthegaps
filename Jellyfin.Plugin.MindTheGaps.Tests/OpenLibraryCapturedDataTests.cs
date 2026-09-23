@@ -17,6 +17,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 //   curl -s 'https://openlibrary.org/authors/OL79034A/works.json?limit=100' > openlibrary_works.json
 //   curl -s 'https://openlibrary.org/works/OL893415W.json' > openlibrary_workdetail.json
 //   curl -s 'https://openlibrary.org/search.json?author_key=OL79034A&fields=key,title,first_publish_year,cover_i&limit=100' > openlibrary_authorworks_search.json
+//   curl -s 'https://openlibrary.org/search/subjects.json?q=fantasy&limit=10' > openlibrary_subjectsearch.json
 //
 // The real data carries the rough edges the Books-source hardening handles, which these tests exercise:
 //  - the author search's first result is a different "Frank Herbert" (Hayward); the Dune author OL79034A is
@@ -69,6 +70,23 @@ public class OpenLibraryCapturedDataTests
         // The first result is a different "Frank Herbert", so picking docs[0] would resolve the wrong
         // author. This is a known limitation of the Books source (see roadmap).
         Assert.NotEqual(AuthorKey, response.Docs!.First().Key);
+    }
+
+    [Fact]
+    public void SubjectSearch_ParsesDocs_KeyAndName()
+    {
+        var response = JsonSerializer.Deserialize<OpenLibrarySubjectSearchResponse>(
+            TestData.Read("openlibrary_subjectsearch.json"),
+            Options);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response!.Docs);
+        Assert.Equal(10, response.Docs!.Count);
+
+        // The chip picker's Id is the slug (the last path segment of the subject key), not the whole key,
+        // which is what SearchSubjectsAsync extracts from this shape.
+        var fantasy = response.Docs!.Single(d => d.Name == "Fantasy");
+        Assert.Equal("/subjects/fantasy", fantasy.Key);
     }
 
     [Fact]

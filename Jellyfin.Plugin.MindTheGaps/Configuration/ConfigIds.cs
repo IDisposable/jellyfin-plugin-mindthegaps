@@ -28,6 +28,25 @@ internal static class ConfigIds
         => Parse(raw, part => long.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : (long?)null);
 
     /// <summary>
+    /// Parses one already-split numeric id token as an <see cref="int"/>. This is the widening half of a
+    /// chip-picker descriptor (<see cref="Gaps.ExploreDescriptor"/>'s <c>Run</c>/<c>Resolve</c> and
+    /// <see cref="Model.CuratedSetRef.Id"/> are strings, since a picker id is not always numeric, but most
+    /// kinds are and have to parse their own back to a number before calling the client method that wants
+    /// one), not the comma-split parsing <see cref="ParseInts"/> does for a whole config field.
+    /// </summary>
+    /// <param name="id">The token to parse.</param>
+    /// <returns>The parsed id.</returns>
+    public static int ParseInt(string id) => int.Parse(id, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Parses one already-split numeric id token as a <see cref="long"/> (Discogs ids do not always fit an
+    /// <see cref="int"/>). See <see cref="ParseInt"/> for why this exists alongside <see cref="ParseLongs"/>.
+    /// </summary>
+    /// <param name="id">The token to parse.</param>
+    /// <returns>The parsed id.</returns>
+    public static long ParseLong(string id) => long.Parse(id, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// Parses a comma-separated list of string tokens (for example a Trakt list's numeric id or its slug):
     /// trimmed, blanks dropped, de-duplicated in input order.
     /// </summary>

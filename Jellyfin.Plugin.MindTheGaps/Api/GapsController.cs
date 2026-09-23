@@ -361,7 +361,7 @@ public class GapsController : ControllerBase
                 $"Unknown explore kind '{kind}'. Supported kinds: {string.Join(", ", _explore.KindTokens)}."));
         }
 
-        var picked = ConfigIds.ParseInts(ids);
+        var picked = ConfigIds.ParseTokens(ids);
         if (picked.Count == 0)
         {
             return BadRequest("No valid ids to explore.");
@@ -439,10 +439,10 @@ public class GapsController : ControllerBase
         var resolve = _explore.Find(kind)?.Resolve;
         var resolved = new List<CuratedSetRef>();
 
-        foreach (var id in ConfigIds.ParseInts(ids))
+        foreach (var id in ConfigIds.ParseTokens(ids))
         {
             var name = resolve is null ? null : await resolve(id, cancellationToken).ConfigureAwait(false);
-            resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id.ToString(CultureInfo.InvariantCulture) : name });
+            resolved.Add(new CuratedSetRef { Id = id, Name = string.IsNullOrEmpty(name) ? id : name });
         }
 
         return resolved;

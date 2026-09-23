@@ -102,9 +102,14 @@
                         </label>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="CuratedTmdbListIds">TMDB list ids</label>
-                        <input id="CuratedTmdbListIds" name="CuratedTmdbListIds" type="text" is="emby-input" placeholder="e.g. 8267559 or a themoviedb.org/list/... URL" />
-                        <div class="fieldDescription">Comma-separated TMDB lists; the movies on each that you do not own become gaps. Paste each list's themoviedb.org/list/&lt;id&gt; URL or just its id. TMDB has no list search, so there is no type-ahead.</div>
+                        <label class="inputLabel inputLabelUnfocused" for="cgTmdbListInput">TMDB lists</label>
+                        <div class="cgChipField" id="cgTmdbListField">
+                            <div class="cgChipBox" id="cgTmdbListBox">
+                                <span class="cgChipList" id="cgTmdbListChips" role="list" aria-label="Selected TMDB lists"></span>
+                                <input id="cgTmdbListInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Paste a list id or themoviedb.org/list/... URL, then Enter" />
+                            </div>
+                        </div>
+                        <div class="fieldDescription">Paste a TMDB list's id or its themoviedb.org/list/&lt;id&gt; URL and press Enter; the movies on it that you do not own become gaps. TMDB has no list-name search, so a list is named once added rather than offered as a type-ahead.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
@@ -189,9 +194,15 @@
                         </label>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="CuratedTraktListIds">Trakt lists</label>
-                        <input id="CuratedTraktListIds" name="CuratedTraktListIds" type="text" is="emby-input" placeholder="e.g. 11416887, trending" />
-                        <div class="fieldDescription">Comma-separated Trakt lists, each a numeric id or a slug (the part after /lists/ in a trakt.tv list URL); the movies and shows on each that you do not own become discovery gaps.</div>
+                        <label class="inputLabel inputLabelUnfocused" for="cgTraktListInput">Trakt lists</label>
+                        <div class="cgChipField" id="cgTraktListField">
+                            <div class="cgChipBox" id="cgTraktListBox">
+                                <span class="cgChipList" id="cgTraktListChips" role="list" aria-label="Selected Trakt lists"></span>
+                                <input id="cgTraktListInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search Trakt lists..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgTraktListSuggest" />
+                            </div>
+                            <div class="cgSuggest" id="cgTraktListSuggest" role="listbox" aria-label="Trakt list matches"></div>
+                        </div>
+                        <div class="fieldDescription">Search Trakt for a public list and pick it; the movies and shows on it that you do not own become discovery gaps.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
@@ -298,9 +309,15 @@
                         </label>
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="CuratedOpenLibrarySubjects">OpenLibrary subjects</label>
-                        <input id="CuratedOpenLibrarySubjects" name="CuratedOpenLibrarySubjects" type="text" is="emby-input" placeholder="e.g. science_fiction, fantasy" />
-                        <div class="fieldDescription">Comma-separated OpenLibrary subject slugs; the books on each that you do not own become gaps. A subject slug is the last part of an openlibrary.org/subjects/&lt;slug&gt; URL (lowercase, underscores for spaces).</div>
+                        <label class="inputLabel inputLabelUnfocused" for="cgOpenLibrarySubjectInput">OpenLibrary subjects</label>
+                        <div class="cgChipField" id="cgOpenLibrarySubjectField">
+                            <div class="cgChipBox" id="cgOpenLibrarySubjectBox">
+                                <span class="cgChipList" id="cgOpenLibrarySubjectChips" role="list" aria-label="Selected OpenLibrary subjects"></span>
+                                <input id="cgOpenLibrarySubjectInput" class="cgChipInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search OpenLibrary subjects..." role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cgOpenLibrarySubjectSuggest" />
+                            </div>
+                            <div class="cgSuggest" id="cgOpenLibrarySubjectSuggest" role="listbox" aria-label="OpenLibrary subject matches"></div>
+                        </div>
+                        <div class="fieldDescription">Search OpenLibrary for a subject and pick it; the books on it that you do not own become gaps.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">

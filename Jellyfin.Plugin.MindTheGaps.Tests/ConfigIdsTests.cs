@@ -31,6 +31,21 @@ public class ConfigIdsTests
     }
 
     [Fact]
+    public void ParseInt_ParsesAnAlreadySplitToken()
+    {
+        // The widening half of a chip-picker descriptor (ExploreDescriptor.Run/Resolve take a string id;
+        // most kinds are plain numeric ids and parse their own back here), not the comma-split parsing
+        // ParseInts does for a whole config field.
+        Assert.Equal(8267559, ConfigIds.ParseInt("8267559"));
+    }
+
+    [Fact]
+    public void ParseLong_ParsesAnAlreadySplitToken()
+    {
+        Assert.Equal(9000000000L, ConfigIds.ParseLong("9000000000"));
+    }
+
+    [Fact]
     public void ParseTokens_KeepsIdsAndSlugsTrimmedDeduplicatedInOrder()
     {
         Assert.Equal(new[] { "11416887", "trending", "my-list" }, ConfigIds.ParseTokens(" 11416887 , trending, my-list , trending "));

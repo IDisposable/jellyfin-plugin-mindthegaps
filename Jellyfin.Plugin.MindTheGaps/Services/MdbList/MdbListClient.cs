@@ -74,7 +74,7 @@ internal sealed class MdbListClient
         {
             if (list.Id > 0 && !string.IsNullOrEmpty(list.Name))
             {
-                refs.Add(new CuratedSetRef { Id = list.Id, Name = list.Name });
+                refs.Add(new CuratedSetRef { Id = list.Id.ToString(CultureInfo.InvariantCulture), Name = list.Name });
             }
 
             if (refs.Count >= MaxSuggestions)

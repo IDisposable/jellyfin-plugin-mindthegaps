@@ -69,7 +69,7 @@ internal sealed class DiscogsClient
         {
             if (result.Id > 0 && !string.IsNullOrEmpty(result.Title))
             {
-                refs.Add(new CuratedSetRef { Id = (int)result.Id, Name = result.Title });
+                refs.Add(new CuratedSetRef { Id = result.Id.ToString(CultureInfo.InvariantCulture), Name = result.Title });
             }
 
             if (refs.Count >= MaxSuggestions)

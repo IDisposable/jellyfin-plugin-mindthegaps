@@ -32,8 +32,11 @@ public sealed class ExploreDescriptor
 
     /// <summary>
     /// Gets the run seam: streams the gaps for the picked ids, diffed against the context's ownership index.
+    /// The id is a string (see <see cref="Model.CuratedSetRef"/>): most kinds are TMDB/Discogs/MDBList
+    /// numeric ids and parse their own back to a number, but a Trakt list or an OpenLibrary subject uses the
+    /// string as-is.
     /// </summary>
-    public required Func<GapScanContext, IReadOnlyList<int>, CancellationToken, IAsyncEnumerable<GapItem>> Run { get; init; }
+    public required Func<GapScanContext, IReadOnlyList<string>, CancellationToken, IAsyncEnumerable<GapItem>> Run { get; init; }
 
     /// <summary>
     /// Gets the type-ahead search for the chip picker, or <see langword="null"/> when the provider has no
@@ -45,5 +48,5 @@ public sealed class ExploreDescriptor
     /// Gets the id-to-name resolve used to render a saved chip, or <see langword="null"/> when the kind is
     /// entered by raw id.
     /// </summary>
-    public Func<int, CancellationToken, Task<string?>>? Resolve { get; init; }
+    public Func<string, CancellationToken, Task<string?>>? Resolve { get; init; }
 }

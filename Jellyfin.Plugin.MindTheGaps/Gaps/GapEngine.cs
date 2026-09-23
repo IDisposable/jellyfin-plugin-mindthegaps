@@ -246,7 +246,7 @@ public sealed class GapEngine
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A report of the ad-hoc gaps found.</returns>
     /// <exception cref="ArgumentException">The kind is not a supported explore kind.</exception>
-    public async Task<GapReport> RunExploreAsync(string kind, IReadOnlyList<int> ids, IProgress<double>? progress, CancellationToken ct)
+    public async Task<GapReport> RunExploreAsync(string kind, IReadOnlyList<string> ids, IProgress<double>? progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(ids);

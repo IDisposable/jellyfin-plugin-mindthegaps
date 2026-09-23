@@ -62,13 +62,7 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **Chip pickers for the remaining list sources.** Studios, keywords, MDBList lists, and Discogs labels have a
-  type-ahead chip picker. Three sources are still raw text fields: `CuratedTmdbListIds` (a pasted
-  `themoviedb.org/list/{id}` URL or a bare id, `TmdbListInput`; TMDB has no list-search API, so a
-  paste-and-confirm chip over the existing `tmdblist` `CuratedResolve` branch), `CuratedTraktListIds` (a
-  numeric id or a slug; a `SearchListsAsync` over Trakt's list search would make a live type-ahead), and
-  `CuratedOpenLibrarySubjects` (the curated-book source; a `CuratedSearch`/`CuratedResolve` branch plus a
-  `setupChips` instance over an OpenLibrary subject search). The chips should also record whether a list is public or private: MDBList and IMDb lists cannot be told apart
+- **Chips should record whether a list is public or private.** MDBList and IMDb lists cannot be told apart
   today, so their titles stay off the home Discover row until they can.
 
 ### Acquisition handoff

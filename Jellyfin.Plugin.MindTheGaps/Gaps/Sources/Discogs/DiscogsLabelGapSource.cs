@@ -45,10 +45,11 @@ internal sealed class DiscogsLabelGapSource : IGapSource, IExploreSource, IConfi
                 Kind = "label",
                 Label = "Discogs label",
                 Source = this,
-                // Discogs label ids are long; the chip picker works in ints, so widen here.
-                Run = (context, ids, ct) => FindGapsForLabelsAsync(context, ids.Select(id => (long)id).ToList(), ct),
+                // Discogs label ids are long; the chip picker and the ad-hoc explore run work in strings
+                // (Model.CuratedSetRef), so this is the one place that widens back.
+                Run = (context, ids, ct) => FindGapsForLabelsAsync(context, ids.Select(ConfigIds.ParseLong).ToList(), ct),
                 Search = (query, ct) => _discogs.SearchLabelsAsync(query, ct),
-                Resolve = (id, ct) => _discogs.GetLabelNameAsync(id, ct)
+                Resolve = (id, ct) => _discogs.GetLabelNameAsync(ConfigIds.ParseLong(id), ct)
             }
         };
     }

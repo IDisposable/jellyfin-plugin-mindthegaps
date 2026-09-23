@@ -44,12 +44,12 @@ internal sealed class BooksSubjectGapSource : IGapSource, IExploreSource, IConfi
                 Label = "OpenLibrary subject",
                 Source = this,
 
-                // Subjects are free-typed slugs, not ints, so the int-keyed chip picker cannot drive this kind
-                // (its UI is a follow-up). An ad-hoc run falls back to the configured subjects.
-                Run = (context, _, ct) => FindGapsForSubjectsAsync(context, ParseSubjects(context.Config.CuratedOpenLibrarySubjects), ct)
-
-                // Search and Resolve stay null: a subject is a free-typed slug, so there is nothing to search
-                // and nothing to resolve from an int id.
+                // A subject is a free-typed slug, which is exactly what the chip picker and the ad-hoc
+                // explore run pass here (Model.CuratedSetRef's id is a string), so an explore run surfaces
+                // the subjects the user picked rather than falling back to the configured set.
+                Run = (context, subjects, ct) => FindGapsForSubjectsAsync(context, subjects, ct),
+                Search = (query, ct) => _openLibrary.SearchSubjectsAsync(query, ct),
+                Resolve = (subject, ct) => _openLibrary.GetSubjectNameAsync(subject, ct)
             }
         };
     }

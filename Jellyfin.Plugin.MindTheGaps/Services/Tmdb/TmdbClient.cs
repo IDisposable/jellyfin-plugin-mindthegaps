@@ -361,6 +361,41 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
+    /// Gets a TMDB list's display name by its id, for the chip picker's Resolve (TMDB has no list-name
+    /// search, so a list is entered by raw id or a pasted URL and named by resolving it once added).
+    /// </summary>
+    /// <param name="listId">The TMDB list id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The list name, or null if not found.</returns>
+    public async Task<string?> GetListNameAsync(int listId, CancellationToken cancellationToken)
+    {
+        // A list's name rarely changes, so cache it well beyond a scan (same rationale as the company and
+        // keyword name lookups). TMDB's list endpoint carries no "just the metadata" form, so this still
+        // fetches the whole list once; the cache is what keeps a settings-page reload from repeating it.
+        var key = string.Create(CultureInfo.InvariantCulture, $"tmdb:listname:{listId}");
+        if (_cache.TryGetValue(key, out string? cached))
+        {
+            return cached;
+        }
+
+        var idText = listId.ToString(CultureInfo.InvariantCulture);
+        _logger.Detailed("TMDB: GetList {ListId} (name only)", idText);
+        var list = await _client.GetListAsync(idText, null, cancellationToken).ConfigureAwait(false);
+        if (list is null)
+        {
+            _logger?.LogWarning("TMDB: GetList {ListId} returned nothing", idText);
+        }
+
+        var name = list?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            _cache.Set(key, name, CachedApiClient.StableCacheDuration);
+        }
+
+        return name;
+    }
+
+    /// <summary>
     /// Gets a single page of TMDB's official "Top Rated" movie feed.
     /// </summary>
     /// <param name="page">The 1-based page number.</param>
@@ -600,7 +635,7 @@ public sealed class TmdbClient : IDisposable
         {
             if (!string.IsNullOrEmpty(company.Name))
             {
-                refs.Add(new CuratedSetRef { Id = company.Id, Name = company.Name });
+                refs.Add(new CuratedSetRef { Id = company.Id.ToString(CultureInfo.InvariantCulture), Name = company.Name });
             }
 
             if (refs.Count >= MaxSuggestions)
@@ -682,7 +717,7 @@ public sealed class TmdbClient : IDisposable
         {
             if (!string.IsNullOrEmpty(keyword.Name))
             {
-                refs.Add(new CuratedSetRef { Id = keyword.Id, Name = keyword.Name });
+                refs.Add(new CuratedSetRef { Id = keyword.Id.ToString(CultureInfo.InvariantCulture), Name = keyword.Name });
             }
 
             if (refs.Count >= MaxSuggestions)

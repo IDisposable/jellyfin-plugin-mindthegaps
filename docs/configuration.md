@@ -122,7 +122,7 @@ availability); everything below is opt-in.
 | **Studios**                                 | Empty                | Search TheMovieDb for a studio and pick a match; each becomes a removable chip.[^studios]                                                         |
 | **Keywords**                                | Empty                | Search TheMovieDb for a keyword (a theme or motif) and pick a match; each becomes a chip.[^keywords]                                              |
 | **Discover unowned movies from TMDB lists** | Off                  | Surfaces the unowned movies from the TMDB lists named below.[^tmdblists]                                                                          |
-| **TMDB list ids**                           | Empty                | Comma-separated TMDB list ids.[^tmdblistids]                                                                                                      |
+| **TMDB lists**                              | Empty                | Paste a list's id or its `themoviedb.org/list/...` URL and press Enter; each becomes a chip named once resolved.[^tmdblistids]                    |
 | **TMDB discover feeds**                     | Off                  | Four independent toggles for TMDB's own Top Rated, Popular, Upcoming and Now Playing feeds; each surfaces its unowned movies on Discover.[^feeds] |
 | **Scan TMDB watchlist**                     | Off                  | Surfaces the unowned movies and shows on the connected TheMovieDb account's watchlist.[^tmdbwatchlist]                                            |
 | **Also read TMDB favorites**                | Off                  | Reads the account's favorites as well as its watchlist.[^tmdbfavorites]                                                                           |
@@ -139,7 +139,7 @@ availability); everything below is opt-in.
 
 [^tmdblists]: Separate from **Track curated sets**, so a discovery list can run without the studio and keyword sources. Cleared, the TMDB list ids are ignored.
 
-[^tmdblistids]: A list id is the number in its `themoviedb.org/list/<id>` URL. TMDB has no list search, so paste the id. Only matters when **Discover unowned movies from TMDB lists** is on.
+[^tmdblistids]: A list id is the number in its `themoviedb.org/list/<id>` URL. TMDB has no list-name search, so there is no type-ahead: paste the id or the whole URL, and the chip is named by resolving it once added. Only matters when **Discover unowned movies from TMDB lists** is on.
 
 [^feeds]: No account needed, just the TMDB API key below (the built-in default works). Whichever feed you clear stops surfacing.
 
@@ -163,12 +163,12 @@ availability); everything below is opt-in.
 | ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **Trakt cross-check**    | Off     | Adds a Trakt filmography cross-check alongside TMDB, catching credits TMDB misses. Needs the **Trakt client id** below.               |
 | **Scan Trakt lists**     | Off     | Surfaces the unowned titles (movies and shows) from the Trakt lists named below. Needs the **Trakt client id** below.                 |
-| **Trakt lists**          | Empty   | Comma-separated Trakt lists, each a numeric id or a slug.[^traktlists]                                                                |
+| **Trakt lists**          | Empty   | Search Trakt for a public list and pick it; each becomes a chip.[^traktlists]                                                         |
 | **Scan Trakt watchlist** | Off     | Surfaces the unowned movies and shows on a Trakt user's watchlist. Needs the **Trakt client id** and username below.[^traktwatchlist] |
 | **Trakt username**       | Empty   | Whose watchlist to read, as the username or profile slug.[^traktuser]                                                                 |
 | **Trakt client id**      | Empty   | Create a free API app at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) and paste its Client ID.[^traktid]        |
 
-[^traktlists]: A slug is the part after `/lists/` in a `trakt.tv` list URL; Trakt accepts either. Only matters when **Scan Trakt lists** is on.
+[^traktlists]: The chip stores whichever id Trakt gives the list, a slug (the part after `/lists/` in a `trakt.tv` list URL) when it has one, else its numeric id. Only matters when **Scan Trakt lists** is on; needs the **Trakt client id** below, since Trakt requires it even for a search.
 
 [^traktwatchlist]: Trakt serves a public profile's watchlist without OAuth.
 
@@ -218,13 +218,13 @@ Keyless: every OpenLibrary source below needs only a public list or subject, no 
 | Setting                                      | Default | Effect                                                                                                                    |
 | -------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **Complete books from OpenLibrary subjects** | Off     | Treats the OpenLibrary subjects below as Books sets to complete: lists the books tagged with each subject you do not own. |
-| **OpenLibrary subjects**                     | Empty   | Comma-separated OpenLibrary subject slugs.[^subjects]                                                                     |
+| **OpenLibrary subjects**                     | Empty   | Search OpenLibrary for a subject and pick it; each becomes a chip.[^subjects]                                             |
 | **Scan OpenLibrary want to read**            | Off     | Surfaces the unowned works on an OpenLibrary "Want to Read" shelf as Books gaps.                                          |
 | **OpenLibrary username**                     | Empty   | The part after `/people/` in an `openlibrary.org` profile address.[^openlibraryuser]                                      |
 
 [^subjects]:
-    A slug is the part after `/subjects/` in an `openlibrary.org/subjects/<slug>` URL, lowercase with underscores, for example `science_fiction`. Only matters when
-    **Complete books from OpenLibrary subjects** is on.
+    The chip stores the subject's slug (the part after `/subjects/` in an `openlibrary.org/subjects/<slug>` URL, lowercase with underscores, for example
+    `science_fiction`). Only matters when **Complete books from OpenLibrary subjects** is on.
 
 [^openlibraryuser]: The reading log has to be public, or OpenLibrary serves nothing.
 
@@ -631,7 +631,7 @@ The key each setting has in the plugin's configuration file, sorted by setting n
 | TMDB discover feeds: Popular                                   | `ScanTmdbPopular`            | [TMDB](#tmdb)                                    |
 | TMDB discover feeds: Top Rated                                 | `ScanTmdbTopRated`           | [TMDB](#tmdb)                                    |
 | TMDB discover feeds: Upcoming                                  | `ScanTmdbUpcoming`           | [TMDB](#tmdb)                                    |
-| TMDB list ids                                                  | `CuratedTmdbListIds`         | [TMDB](#tmdb)                                    |
+| TMDB lists                                                     | `CuratedTmdbListIds`         | [TMDB](#tmdb)                                    |
 | Track curated sets                                             | `ScanCuratedSets`            | [TMDB](#tmdb)                                    |
 | Trakt client id                                                | `TraktClientId`              | [Trakt](#trakt)                                  |
 | Trakt cross-check                                              | `TraktEnabled`               | [Trakt](#trakt)                                  |

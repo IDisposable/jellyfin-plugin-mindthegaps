@@ -46,13 +46,11 @@ internal sealed class TraktListGapSource : IGapSource, IDiscoverSource, IExplore
                 Kind = "traktlist",
                 Label = "Trakt list",
                 Source = this,
-                // A list id is a string (a numeric id or a slug). The explore chip picker works in ints, so an
-                // ad-hoc explore run reaches only numeric lists; a slug is entered in the settings field.
-                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList(), ct),
-
-                // Trakt has no list search yet (a follow-up could add one); a list is entered by raw id or slug.
-                Search = null,
-                Resolve = (id, ct) => _trakt.GetListNameAsync(id.ToString(CultureInfo.InvariantCulture), ct)
+                // A list id is a string (a numeric id or a slug), which is exactly what the chip picker and
+                // the ad-hoc explore run pass here, so no widening is needed at this boundary.
+                Run = (context, ids, ct) => FindGapsForListsAsync(context, ids, ct),
+                Search = (query, ct) => _trakt.SearchListsAsync(query, ct),
+                Resolve = (id, ct) => _trakt.GetListNameAsync(id, ct)
             }
         };
     }
