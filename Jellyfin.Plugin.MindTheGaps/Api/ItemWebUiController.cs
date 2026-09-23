@@ -131,6 +131,31 @@ public class ItemWebUiController : WebUiControllerBase
     }
 
     /// <summary>
+    /// Fetches the richer detail for one of an artist's or author's unowned works, once its dialog opens:
+    /// today, a book's description. An album gap answers with nothing extra (see
+    /// <see cref="MissingWorkDetail"/>).
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The detail, or 404 for a gap that is not there or while the surface is off.</returns>
+    [HttpGet("Item/{itemId}/Works/Detail")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MissingWorkDetail>> GetItemWorkDetail([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+    {
+        if (!ItemPageEnabled || !Access.MaySee(User, itemId) || string.IsNullOrEmpty(gapId))
+        {
+            return NotFound();
+        }
+
+        var detail = await _works.GetDetailAsync(itemId, gapId, cancellationToken).ConfigureAwait(false);
+        return detail is null ? NotFound() : detail;
+    }
+
+    /// <summary>
     /// Adds one of an artist's or author's unowned works to the caller's personal todo list, rehydrated
     /// server-side from the same lookup the page listed.
     /// </summary>

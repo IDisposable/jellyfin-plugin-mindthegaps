@@ -385,8 +385,15 @@
         var loading = null;
         var links = h('div', { 'class': 'mtgDialogLinks' });
         if (isWork(item)) {
-            // Everything a work has is on the card already: who it is by, and where to read about it.
+            // Who it is by is on the card already. A book's description is fetched separately once the
+            // dialog opens (see openDialog); an album gets no such placeholder, since MusicBrainz carries
+            // no description for a release-group and a tracklist is not fetched here.
             if (item.Creator) { info.appendChild(h('p', { 'class': 'mtgDialogMeta' }, (item.Kind === 'Book' ? 'By ' : 'Album by ') + item.Creator)); }
+            if (item.Kind === 'Book') {
+                loading = h('p', { 'class': 'mtgNote' }, 'Loading description…');
+                info.appendChild(loading);
+            }
+
             (item.Links || []).forEach(function (link) {
                 if (!link || !link.Url || !/^https:\/\//i.test(link.Url)) { return; }
                 // Amazon and the configured web search are query links, not a page about the work, so they
@@ -430,7 +437,22 @@
         // must not risk triggering an action before the title has even loaded.
         dialogCloseBtn.focus();
 
-        if (isWork(item)) { return; }
+        if (isWork(item)) {
+            if (item.Kind === 'Book') {
+                api('GET', actionUrl(ctx, 'Detail'), { gapId: item.GapId }).then(function (detail) {
+                    if (token !== dialogToken) { return; }
+                    if (refs.loading) { refs.loading.remove(); }
+                    if (detail && detail.Overview) {
+                        refs.info.insertBefore(h('p', { 'class': 'mtgDialogOverview' }, detail.Overview), refs.links);
+                    }
+                }, function () {
+                    if (token !== dialogToken) { return; }
+                    if (refs.loading) { refs.loading.textContent = 'Could not load the description.'; }
+                });
+            }
+
+            return;
+        }
 
         api('GET', 'MindTheGaps/WebUi/Detail', { tmdbId: item.TmdbId, kind: item.Kind }).then(function (detail) {
             if (token !== dialogToken) { return; }

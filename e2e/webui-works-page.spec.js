@@ -1,7 +1,8 @@
 // Drives the real mindthegaps.webui.js against a fake jellyfin-web Music Artist and Book detail page,
 // the artist/book sibling of webui-item-page.spec.js. A work (an album or a book) has no TMDB id, so its
-// dialog is built from the card's own data and links and makes no detail lookup; the only action is the
-// signed-in user's want-to-watch button.
+// dialog is built from the card's own data and links, plus the want-to-watch button. A book additionally
+// fetches its description once the dialog opens (Item/{id}/Works/Detail, from OpenLibrary); an album makes
+// no such lookup, since MusicBrainz has no description for a release-group.
 const { test, expect } = require('@playwright/test');
 const { buildWebUiHarness } = require('./support/webui-harness');
 
@@ -83,7 +84,7 @@ test('a book page says it is more by the author', async ({ page }) => {
     await expect(page.locator('[data-gapid="' + BOOK.GapId + '"]')).toBeVisible();
 });
 
-test('the dialog shows who the work is by and its own links, and makes no detail lookup', async ({ page }) => {
+test('the dialog shows who the work is by and its own links, and makes no detail or description lookup for an album', async ({ page }) => {
     const works = { Kind: 'MusicAlbum', CanTodo: false, Reason: null, Works: [ALBUM] };
     await openItemPage(page, buildWebUiHarness(ARTIST_ITEM, works), 'artist-1');
     await openCardDialog(page, ALBUM.GapId);
@@ -97,8 +98,41 @@ test('the dialog shows who the work is by and its own links, and makes no detail
     await expect(link).toHaveAttribute('href', 'https://musicbrainz.org/release-group/rg-1');
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(dialog.getByText('Loading details')).toHaveCount(0);
+    await expect(dialog.getByText('Loading description')).toHaveCount(0);
 
     expect(await page.evaluate(() => window.__lastDetailUrl)).toBeNull();
+    expect(await page.evaluate(() => window.__lastWorkDetailUrl)).toBeNull();
+});
+
+test("a book's dialog shows a loading placeholder, then its description once OpenLibrary answers", async ({ page }) => {
+    const works = { Kind: 'Book', CanTodo: false, Reason: null, Works: [BOOK] };
+    const harnessPath = buildWebUiHarness(BOOK_ITEM, works, null, undefined, undefined, undefined, undefined, { Overview: 'A tale about another novel.' });
+    await openItemPage(page, harnessPath, 'book-1');
+    await openCardDialog(page, BOOK.GapId);
+
+    const dialog = page.locator('.mtgDialog');
+    await expect(dialog.getByText('A tale about another novel.')).toBeVisible();
+    await expect(dialog.getByText('Loading description…')).toHaveCount(0);
+
+    const workDetailUrl = await page.evaluate(() => window.__lastWorkDetailUrl);
+    expect(workDetailUrl).toContain('Item/book-1/Works/Detail');
+    expect(workDetailUrl).toContain('gapId=' + encodeURIComponent(BOOK.GapId));
+});
+
+test("a book's dialog removes the loading placeholder with nothing to show when there is no description", async ({ page }) => {
+    const works = { Kind: 'Book', CanTodo: false, Reason: null, Works: [BOOK] };
+    await openItemPage(page, buildWebUiHarness(BOOK_ITEM, works, null, undefined, undefined, undefined, undefined, { Overview: null }), 'book-1');
+    await openCardDialog(page, BOOK.GapId);
+
+    await expect(page.locator('.mtgDialog').getByText('Loading description…')).toHaveCount(0);
+});
+
+test("a book's dialog reports it could not load the description when OpenLibrary fails", async ({ page }) => {
+    const works = { Kind: 'Book', CanTodo: false, Reason: null, Works: [BOOK] };
+    await openItemPage(page, buildWebUiHarness(BOOK_ITEM, works, null, undefined, undefined, undefined, undefined, { reject: true }), 'book-1');
+    await openCardDialog(page, BOOK.GapId);
+
+    await expect(page.locator('.mtgDialog').getByText('Could not load the description.')).toBeVisible();
 });
 
 test('a link that is not https is not offered', async ({ page }) => {

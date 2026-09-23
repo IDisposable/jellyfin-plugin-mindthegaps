@@ -7,9 +7,9 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// One unowned work by an artist or author the library holds, as an item page shows it on a card: an album
 /// or a book. Unlike a <see cref="MissingTitle"/> it carries its own links rather than a TMDB id, since these
-/// works are identified by MusicBrainz, Discogs and OpenLibrary and there is no shared detail lookup to ask.
-/// The <see cref="GapId"/> is the same stable id the gap report uses, so a todo add can rehydrate the gap
-/// server-side.
+/// works are identified by MusicBrainz, Discogs and OpenLibrary. The <see cref="GapId"/> is the same stable
+/// id the gap report uses, so a todo add, and the dialog's own on-demand detail fetch
+/// (<see cref="MissingWorkDetail"/>, a book's description only), can both rehydrate the gap server-side.
 /// </summary>
 public sealed class MissingWork
 {

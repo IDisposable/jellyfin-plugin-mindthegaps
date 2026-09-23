@@ -12,8 +12,11 @@ namespace Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 
 /// <summary>
 /// A minimal client for the OpenLibrary public, key-free JSON API. See https://openlibrary.org/dev/docs/api/.
+/// Implements <see cref="IOpenLibraryWorkDescriptions"/>, the one capability the Web UI needs directly,
+/// as a public seam, so this class itself (and the internal types the rest of its surface uses) can stay
+/// internal rather than escalating the whole client to public for one method.
 /// </summary>
-internal sealed class OpenLibraryClient
+internal sealed class OpenLibraryClient : IOpenLibraryWorkDescriptions
 {
     private const string BaseUrl = "https://openlibrary.org";
 
@@ -83,6 +86,28 @@ internal sealed class OpenLibraryClient
             .Select(a => a.Author?.Key)
             .FirstOrDefault(k => !string.IsNullOrEmpty(k));
         return string.IsNullOrEmpty(key) ? null : LastSegment(key);
+    }
+
+    /// <summary>
+    /// Reads a work's description directly from its OpenLibrary record (works/{key}.json, the same page
+    /// <see cref="GetWorkAuthorKeyAsync"/> reads), for the Web UI's book detail dialog. Null when the work
+    /// carries none, or cannot be read.
+    /// </summary>
+    /// <param name="workKey">The work id (for example "OL45804W", with or without the "/works/" prefix).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The description, trimmed, or <see langword="null"/>.</returns>
+    public async Task<string?> GetWorkDescriptionAsync(string workKey, CancellationToken cancellationToken)
+    {
+        var bare = LastSegment(workKey);
+        if (string.IsNullOrEmpty(bare))
+        {
+            return null;
+        }
+
+        var detail = await GetAsync<OpenLibraryWorkDetail>(
+            string.Create(CultureInfo.InvariantCulture, $"/works/{Uri.EscapeDataString(bare)}.json"),
+            cancellationToken).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(detail?.Description) ? null : detail.Description.Trim();
     }
 
     /// <summary>

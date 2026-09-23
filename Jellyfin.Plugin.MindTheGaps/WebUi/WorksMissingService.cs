@@ -9,6 +9,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.Services;
+using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
@@ -30,6 +31,7 @@ public sealed class WorksMissingService
     private readonly IEnumerable<IGapSource> _sources;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
     private readonly ResolutionStore _resolutions;
+    private readonly IOpenLibraryWorkDescriptions _openLibrary;
     private readonly IMemoryCache _cache;
     private readonly ILogger<WorksMissingService> _logger;
 
@@ -40,6 +42,7 @@ public sealed class WorksMissingService
     /// <param name="sources">Every registered gap source; the ones that re-run for one owner are used.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned albums or books.</param>
     /// <param name="resolutions">The dismissals, so a gap hidden on the report is hidden here too.</param>
+    /// <param name="openLibrary">Fetches a book's description for the detail dialog.</param>
     /// <param name="cache">The memory cache.</param>
     /// <param name="logger">The logger.</param>
     public WorksMissingService(
@@ -47,6 +50,7 @@ public sealed class WorksMissingService
         IEnumerable<IGapSource> sources,
         OwnershipIndexBuilder ownershipIndexBuilder,
         ResolutionStore resolutions,
+        IOpenLibraryWorkDescriptions openLibrary,
         IMemoryCache cache,
         ILogger<WorksMissingService> logger)
     {
@@ -54,6 +58,7 @@ public sealed class WorksMissingService
         _sources = sources;
         _ownershipIndexBuilder = ownershipIndexBuilder;
         _resolutions = resolutions;
+        _openLibrary = openLibrary;
         _cache = cache;
         _logger = logger;
     }
@@ -116,6 +121,36 @@ public sealed class WorksMissingService
         var (owner, claimants) = lookup.Value;
         var gaps = await RunAsync(owner, claimants, cancellationToken).ConfigureAwait(false);
         return gaps?.FirstOrDefault(g => string.Equals(g.Id, gapId, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Fetches the richer detail for one missing work's dialog: today, a book's description from
+    /// OpenLibrary. An album gap answers with nothing, since MusicBrainz carries no description for a
+    /// release-group and a tracklist is not fetched here. Rehydrates the gap the same way
+    /// <see cref="FindGapAsync"/> does, so the provider id comes from the server's own last computation,
+    /// never trusted from the client.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The detail, or <see langword="null"/> when the item or the gap is not there.</returns>
+    public async Task<MissingWorkDetail?> GetDetailAsync(Guid itemId, string gapId, CancellationToken cancellationToken)
+    {
+        var gap = await FindGapAsync(itemId, gapId, cancellationToken).ConfigureAwait(false);
+        if (gap is null)
+        {
+            return null;
+        }
+
+        var detail = new MissingWorkDetail();
+        if (gap.TargetKind == BaseItemKind.Book
+            && gap.ProviderIds.TryGetValue(ProviderIds.OpenLibrary, out var workKey)
+            && !string.IsNullOrEmpty(workKey))
+        {
+            detail.Overview = await _openLibrary.GetWorkDescriptionAsync(workKey, cancellationToken).ConfigureAwait(false);
+        }
+
+        return detail;
     }
 
     // The owner and the enabled sources that produce gaps for it, or null when the id is not an artist, a book

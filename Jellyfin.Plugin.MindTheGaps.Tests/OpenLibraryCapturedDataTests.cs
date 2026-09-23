@@ -117,6 +117,37 @@ public class OpenLibraryCapturedDataTests
     }
 
     [Fact]
+    public void WorkDetail_ParsesAPlainStringDescription()
+    {
+        var detail = JsonSerializer.Deserialize<OpenLibraryWorkDetail>(
+            TestData.Read("openlibrary_workdetail.json"),
+            Options);
+
+        Assert.NotNull(detail?.Description);
+        Assert.StartsWith("Set on the desert planet Arrakis", detail!.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkDetail_ParsesAnObjectShapedDescription()
+    {
+        // Not every OpenLibrary work record carries a plain string here: some serve {"type": "/type/text",
+        // "value": "..."} instead, depending on how the record was authored. OpenLibraryTextConverter reads
+        // both shapes into the same string property.
+        var detail = JsonSerializer.Deserialize<OpenLibraryWorkDetail>(
+            "{\"description\":{\"type\":\"/type/text\",\"value\":\"A tale of two cities.\"}}",
+            Options);
+
+        Assert.Equal("A tale of two cities.", detail?.Description);
+    }
+
+    [Fact]
+    public void WorkDetail_WithNoDescription_IsNull()
+    {
+        var detail = JsonSerializer.Deserialize<OpenLibraryWorkDetail>("{\"key\":\"/works/OL1W\"}", Options);
+        Assert.Null(detail?.Description);
+    }
+
+    [Fact]
     public void AuthorWorksSearch_ParsesDocsWithYears()
     {
         var response = JsonSerializer.Deserialize<OpenLibrarySearchResponse>(

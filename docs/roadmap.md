@@ -80,9 +80,13 @@ them. Drafts in [docs/upstream/](upstream/).
   certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
   ADR-0019.
 - **More of the works surfaces.** Artist, book and author pages list what the owner's sources find, with links
-  and a want-to-watch bookmark. Still open: a richer album or book dialog (a tracklist, a description)
-  fetched from MusicBrainz or OpenLibrary. Missing tracks on an album page is explicitly not planned: no
-  track-completeness source exists, and it is not worth building one for this.
+  and a want-to-watch bookmark. A book's dialog fetches its description from OpenLibrary once it opens
+  (`WorksMissingService.GetDetailAsync`, `OpenLibraryClient.GetWorkDescriptionAsync`). An album's dialog
+  deliberately fetches nothing: MusicBrainz carries no description for a release-group, and a tracklist
+  (which would need a genuinely new call chain, release-group to a release to that release's recordings) is
+  explicitly not being built at this time; revisit only if asked. Missing tracks on an album page is a
+  separate, permanent non-goal: no track-completeness source exists, and it is not worth building one for
+  this.
 - **A studio/network gaps shelf, without a dedicated studio/network page.** Jellyfin core has no studio or
   TV-network page to inject a section into (the earlier blocker on this), but it does route two existing
   pages by the same ids a shelf would need: the generic list page takes a `studioId` query param

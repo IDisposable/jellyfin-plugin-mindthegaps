@@ -70,6 +70,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TvdbClient>();
         serviceCollection.AddSingleton<MusicBrainzClient>();
         serviceCollection.AddSingleton<OpenLibraryClient>();
+        serviceCollection.AddSingleton<IOpenLibraryWorkDescriptions>(sp => sp.GetRequiredService<OpenLibraryClient>());
         serviceCollection.AddSingleton<DiscogsClient>();
         serviceCollection.AddSingleton<MdbListClient>();
         serviceCollection.AddSingleton<ImdbClient>();
