@@ -1,7 +1,7 @@
 ---
 name: "Mind the Gaps"
 guid: "8c2a93cc-6cc5-493a-880a-2e67ae50e454"
-version: "10.11.9.4"
+version: "10.11.10.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Find what's missing and related in your library and build a todo list to complete it."
@@ -20,4 +20,25 @@ artifacts:
 - "TMDbLib.dll"
 - "Newtonsoft.Json.dll"
 changelog: >
-  10.11.9.4 (beta) - Add more detail to the book and album pages. Add studio missing works shelf
+  10.11.10.0 - The Maintenance section has a Fulfillment queue for an administrator who fetches titles by
+  hand. It folds every user's TODO list into one row per title, sorted by how many people still want it,
+  names who is still waiting, and shows the streaming-service icons as soon as the queue opens, with the
+  same links a TODO row already has. Mark fetched closes the title for every requester in one action, and
+  Verify all checks the queue against the library and closes a title you already have, however it arrived.
+  With Everyone's watchlist on (off by default), that same household list is a Discover source and leads
+  the Discover view of every domain it has entries for. Send to the acquisition stack is done from the
+  Gaps Report. The report's Send action has a quality profile picker, filled from the stack's own profile
+  list and preselecting the profile you configured, so an older title the default profile cannot
+  find a release for can still be sent. The report's My TODO list popup is gone; the Fulfillment queue is
+  where an administrator sees every list. The report's multi-select bar can Acquire, Request, or Resolve a
+  checked batch (Resolve applies one shared note), alongside Mint and Add to TODO. An administrator can
+  manage another user's want-to-watch list. With "Want to watch: move arrived titles into a playlist" on,
+  a title that is in the library moves into that user's own Jellyfin playlist the next time it is
+  verified, so it shows up in every client. The playlist is named Want to Watch unless you change it, and
+  only a real file counts as arrived. Amazon and web-search links for a book or album include the author
+  or artist, on the report, the Web UI, and the Fulfillment queue. TMDB lists, Trakt lists, and
+  OpenLibrary subjects are set with the same chip pickers the other curated sources use. A book's dialog
+  loads its description from OpenLibrary when you open it. Studio pages, off by default, add a Missing
+  from the studio row of that studio's movies you do not own, on the list page you open from a movie's
+  studio credit. A library that sets a metadata fetcher order keeps TVmaze in the series check. TVmaze is
+  not a Jellyfin metadata fetcher, so it is always asked and ranked last.
