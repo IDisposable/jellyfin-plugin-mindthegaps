@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.9.2",
+                "changelog": "10.11.9.2 (beta) - Acquisition (Send to Radarr/Sonarr/Jellyseerr) is now only ever done from the Gap Report; the injected Web UI's person/item/home pages no longer offer to send anything, so using those surfaces never requires an arr setup. The report's own Send action gained a quality-profile picker (pulled from each arr's own profile list, preselecting your configured default) so an older title that the default profile can't find a release for is no longer stuck. The redundant \"My TODO list\" popup on the report is gone; the Maintenance section's Fulfillment queue already covers every user's list, and now has its own \"Verify all\", which checks every title in the queue against your library in one pass and closes out anything you already have, however it arrived.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.2/mind-the-gaps_12.0.9.2.zip",
+                "checksum": "77ad1b84ca0008a993fb02b71625723d",
+                "timestamp": "2026-09-23T01:52:15Z"
+            },
+            {
                 "version": "12.0.9.1",
                 "changelog": "10.11.9.1 (beta) - A Maintenance section \"Fulfillment queue\" folds every user's TODO list into one row per title, sorted by how many people still want it, for an administrator who fetches things by hand (StreamFab, a download, whatever) instead of through Radarr, Sonarr, or Jellyseerr. Each row says who is still waiting, shows the same streaming-service icons a report row does (looked up automatically as soon as the queue opens, no click needed), and carries the links a TODO row already has; Mark fetched closes a title out for every requester who asked for it in one action.\n",
                 "targetAbi": "12.0.0.0",
@@ -127,6 +135,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.9.2",
+                "changelog": "10.11.9.2 (beta) - Acquisition (Send to Radarr/Sonarr/Jellyseerr) is now only ever done from the Gap Report; the injected Web UI's person/item/home pages no longer offer to send anything, so using those surfaces never requires an arr setup. The report's own Send action gained a quality-profile picker (pulled from each arr's own profile list, preselecting your configured default) so an older title that the default profile can't find a release for is no longer stuck. The redundant \"My TODO list\" popup on the report is gone; the Maintenance section's Fulfillment queue already covers every user's list, and now has its own \"Verify all\", which checks every title in the queue against your library in one pass and closes out anything you already have, however it arrived.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.9.2/mind-the-gaps_10.11.9.2.zip",
+                "checksum": "51a2be0dddf7e2a6031177f7f34f9952",
+                "timestamp": "2026-09-23T01:51:51Z"
             },
             {
                 "version": "10.11.9.1",
