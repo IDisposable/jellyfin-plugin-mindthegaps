@@ -35,6 +35,8 @@ public class GapIdPrefixTests
     [InlineData("tmdbaccount:")]
     [InlineData("tmdbmoviediscover:")]
     [InlineData("everyonewatchlist:")]
+    [InlineData("watchlistsearch:movie:")]
+    [InlineData("watchlistsearch:series:")]
     public void EveryPrefixIsStillSpelledTheWayASavedReportHoldsIt(string wireValue)
         => Assert.Contains(wireValue, AllGapIdPrefixes());
 
@@ -42,7 +44,7 @@ public class GapIdPrefixTests
     public void GapIdPrefixesAreTheCompleteSet()
     {
         // Guards the list above: a new prefix must be added to the theory, not just the table.
-        Assert.Equal(26, AllGapIdPrefixes().Length);
+        Assert.Equal(28, AllGapIdPrefixes().Length);
     }
 
     [Fact]
@@ -158,6 +160,8 @@ public class GapIdPrefixTests
         GapSourceKeys.TraktWatchlist.GapPrefix,
         GapSourceKeys.TmdbAccountList.GapPrefix,
         GapSourceKeys.TmdbMovieDiscover.GapPrefix,
-        GapSourceKeys.EveryoneWatchlist.GapPrefix
+        GapSourceKeys.EveryoneWatchlist.GapPrefix,
+        GapSourceKeys.WatchlistSearchMovie.GapPrefix,
+        GapSourceKeys.WatchlistSearchSeries.GapPrefix
     ];
 }

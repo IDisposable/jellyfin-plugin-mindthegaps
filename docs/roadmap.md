@@ -41,9 +41,10 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Priorities (suggested, not committed)
 
-- **Want to watch: the title search.** The bookmark on every card and the home row are built, each user's own
-  list. What is left is a search dialog over TMDB, and the optional playlist for titles the library holds. Plan
-  under [Web UI](#web-ui-experimental) below.
+- **Want to watch: the optional playlist.** The bookmark, the home row, and a title search over TMDB in the
+  row's own header (for a movie or series no page already lists) are built. What is left is the optional
+  per-user Jellyfin playlist for titles the library already holds. Plan under [Web UI](#web-ui-experimental)
+  below.
 - **Per-title certification filtering for restricted users,** only if someone asks; see below.
 - **Actions on a selection in the report.** The multi-select bar takes Mint, Send to (Radarr, Sonarr,
   Jellyseerr/Overseerr, or the watch list) and a bulk Resolve that asks for the reason once. The server side of
@@ -85,12 +86,11 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI (experimental)
 
-- **Want to watch, without auto-removal: what is left.** Each user's own list, the bookmark on every card and
-  the home row are built. Still open: (2) a title search dialog over TMDB, rehydrating a chosen card from its
-  TMDB id, so a title no page lists can be added; (3) optionally, a per-user Jellyfin playlist for titles the
-  library already holds, which shows in every client, where a title that arrives in the library moves to that
-  user's playlist only. The home row hides a title once the library holds it; the playlist is where it would
-  show up instead.
+- **Want to watch, without auto-removal: what is left.** Each user's own list, the bookmark on every card, the
+  home row, and its title search (over TMDB, rehydrated fresh by kind and id rather than trusted from the
+  client) are built. Still open: optionally, a per-user Jellyfin playlist for titles the library already
+  holds, which shows in every client, where a title that arrives in the library moves to that user's playlist
+  only. The home row hides a title once the library holds it; the playlist is where it would show up instead.
 - **Certification filtering by the caller.** A user with a parental rating limit is shown no surface, and a
   page is shown only to a user who can see its item. A finer filter would check each listed title's
   certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See

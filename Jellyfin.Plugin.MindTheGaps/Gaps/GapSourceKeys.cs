@@ -98,4 +98,10 @@ internal static class GapSourceKeys
 
     /// <summary>Gets the key for an unowned title on the union of every user's TODO list.</summary>
     public static GapSourceKey EveryoneWatchlist { get; } = GapSourceKey.For("everyonewatchlist");
+
+    /// <summary>Gets the key for a movie a user found through the want-to-watch title search; owned by nothing.</summary>
+    public static GapSourceKey WatchlistSearchMovie { get; } = GapSourceKey.GapOnly("watchlistsearch:movie");
+
+    /// <summary>Gets the key for a series a user found through the want-to-watch title search; owned by nothing.</summary>
+    public static GapSourceKey WatchlistSearchSeries { get; } = GapSourceKey.GapOnly("watchlistsearch:series");
 }

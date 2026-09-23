@@ -29,6 +29,7 @@
     var WORKS_ID = 'mtgWorksMissing';
     var HOME_ID = 'mtgHomeDiscover';
     var WANTED_ID = 'mtgHomeWanted';
+    var SEARCH_RESULTS_ID = 'mtgSearchResults';
 
     // The classes every dialog button and link carries, so a link and a button look the same. .emby-button is
     // jellyfin-web's own box model (padding, weight, line height) as plain CSS, which is all that is needed:
@@ -130,10 +131,16 @@
         return ctx.removeUrl || actionUrl(ctx, 'Todo/Remove');
     }
 
+    // The title search (ctx.scope === 'Search') has no persisted gap to rehydrate by id: the server looks
+    // the title up fresh by kind and TMDB id instead, both of which every card already carries.
+    function wantParams(ctx, item) {
+        return ctx.scope === 'Search' ? { kind: item.Kind, tmdbId: item.TmdbId } : { gapId: item.GapId };
+    }
+
     // Puts the item on the signed-in user's list, or takes it off, and shows the result wherever it appears.
     function setWanted(ctx, item, on, control) {
         if (control) { control.disabled = true; }
-        return api('POST', on ? actionUrl(ctx, 'Todo') : removeUrl(ctx), { gapId: item.GapId }).then(function () {
+        return api('POST', on ? actionUrl(ctx, 'Todo') : removeUrl(ctx), wantParams(ctx, item)).then(function () {
             item.OnList = on;
             refreshWant(ctx, item);
         }, function () {
@@ -157,8 +164,10 @@
         btn.classList.toggle('mtgSent', !!item.OnList);
     }
 
-    // Repaints every bookmark and dialog button for this item. On the home row of what is wanted, a title taken
-    // off the list leaves the row, and the row with it when it was the last.
+    // Repaints every bookmark and dialog button for this item. On the home row of what is wanted, a title
+    // taken off the list leaves the row (the row itself stays, since its header holds the title search).
+    // A card found through the title search instead reloads the wanted row, since the row is the only
+    // place a search result's add/remove is otherwise reflected.
     function refreshWant(ctx, item) {
         var id = item.GapId.replace(/["\\]/g, '');
         var card = '.mtgCard[data-gapid="' + id + '"]';
@@ -166,14 +175,16 @@
         var dialogBookmark = '.mtgDialog .mtgWant[data-want="' + id + '"]';
         Array.prototype.forEach.call(document.querySelectorAll(card + ' .mtgWant, ' + dialogBookmark), function (btn) { paintBookmark(btn, item); });
         Array.prototype.forEach.call(document.querySelectorAll(dialogButton), function (btn) { paintWantButton(btn, item); });
+
+        if (ctx.scope === 'Search') {
+            var sectionsEl = document.querySelector('#homeTab .sections');
+            if (sectionsEl) { loadWantedRow(sectionsEl); }
+            return;
+        }
+
         if (!ctx.wanted || item.OnList) { return; }
         Array.prototype.forEach.call(document.querySelectorAll('#' + WANTED_ID + ' ' + card), function (cardEl) {
-            var container = cardEl.parentNode;
-            container.removeChild(cardEl);
-            if (!container.querySelector('.mtgCard')) {
-                var section = document.getElementById(WANTED_ID);
-                if (section && section.parentNode) { section.parentNode.removeChild(section); }
-            }
+            cardEl.parentNode.removeChild(cardEl);
         });
         Array.prototype.forEach.call(document.querySelectorAll(dialogButton), function (btn) {
             btn.textContent = 'Removed from your list';
@@ -547,11 +558,12 @@
     // On the item page the row sits in .detailVerticalSection, which already pads the left edge, so the
     // scroller takes no-padding of its own and the title goes straight in. A home section is not padded by its
     // parent: its title sits in a padded-left container and the scroller supplies the cards' own offset.
-    function scroller(ctx, name, items, onHome) {
+    function scroller(ctx, name, items, onHome, extraHeader) {
         var section = h('div', { 'class': 'verticalSection' });
         if (onHome) {
             var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left' });
             head.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name));
+            if (extraHeader) { head.appendChild(extraHeader); }
             section.appendChild(head);
         } else {
             section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards padded-right' }, name));
@@ -669,17 +681,108 @@
         sectionsEl.appendChild(section);
     }
 
+    // The search box in the wanted row's own header: a movie or series no page already lists, found on
+    // TMDB and added straight to the list. restoreState (kind/query) survives a reload the row's own add
+    // or remove triggers (loadWantedRow), so clicking a result's bookmark does not wipe what was typed.
+    function buildSearchBox(sectionsEl, restoreState) {
+        var wrap = h('div', { 'class': 'mtgSearchBox' });
+        var kindSel = h('select', { 'class': 'mtgSearchKind', 'aria-label': 'Kind to search for' });
+        kindSel.appendChild(h('option', { 'value': 'Movie' }, 'Movie'));
+        kindSel.appendChild(h('option', { 'value': 'Series' }, 'Series'));
+        if (restoreState && restoreState.kind) { kindSel.value = restoreState.kind; }
+        var input = h('input', {
+            'type': 'search',
+            'class': 'mtgSearchInput',
+            'placeholder': 'Add a title…',
+            'aria-label': 'Search for a movie or series to add to your list'
+        });
+        if (restoreState && restoreState.query) { input.value = restoreState.query; }
+        wrap.appendChild(kindSel);
+        wrap.appendChild(input);
+
+        var timer = null;
+        var trigger = function (immediate) {
+            if (timer) { clearTimeout(timer); }
+            var kind = kindSel.value;
+            var query = input.value;
+            if (immediate) { runSearch(sectionsEl, kind, query); } else { timer = setTimeout(function () { runSearch(sectionsEl, kind, query); }, 300); }
+        };
+        input.addEventListener('input', function () { trigger(false); });
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { trigger(true); } });
+        kindSel.addEventListener('change', function () { if (input.value) { trigger(true); } });
+        // The header sits inside a card the click-to-open-dialog wiring is not on, but stopPropagation
+        // keeps a click here from ever being read as a card interaction if that ever changes.
+        wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+        return wrap;
+    }
+
+    // The search results under the wanted row's header: replaced on every keystroke (debounced) or kind
+    // change, and hidden entirely once the query is cleared. A result's card is the same one every other
+    // surface uses; its bookmark goes through wantParams' Search branch, since a search result has no
+    // persisted gap of its own to rehydrate by id.
+    //
+    // query is what the signed-in user just typed, so it is treated as hostile when it appears in the "no
+    // matches" message: h()'s text parameter assigns it via textContent (never innerHTML or string-built
+    // markup), so it can only ever render as literal text, whatever characters it contains.
+    function renderSearchResults(section, titles, query) {
+        remove(section, SEARCH_RESULTS_ID);
+        if (!query) { return; }
+
+        var box = h('div', { 'id': SEARCH_RESULTS_ID, 'class': 'mtgSearchResultsBox' });
+        if (!titles.length) {
+            box.appendChild(h('p', { 'class': 'mtgNote mtgSearchNote' }, 'No matches for “' + query + '”.'));
+        } else {
+            var searchCtx = { kind: 'Home', id: '', scope: 'Search', canTodo: true };
+            var container = h('div', { 'is': 'emby-itemscontainer', 'class': 'itemsContainer vertical-wrap padded-left' });
+            titles.forEach(function (item) { container.appendChild(card(searchCtx, item)); });
+            wireCardNavigation(container);
+            box.appendChild(container);
+        }
+
+        var head = section.querySelector('.sectionTitleContainer');
+        head.parentNode.insertBefore(box, head.nextSibling);
+    }
+
+    function runSearch(sectionsEl, kind, query) {
+        var section = sectionsEl.querySelector('#' + WANTED_ID);
+        if (!section) { return; }
+        var trimmed = (query || '').trim();
+        if (!trimmed) { renderSearchResults(section, [], ''); return; }
+        api('GET', 'MindTheGaps/Home/Search', { kind: kind, q: trimmed }).then(function (titles) {
+            renderSearchResults(section, titles || [], trimmed);
+        }, function () { renderSearchResults(section, [], ''); });
+    }
+
+    // The current search box's kind/query, read before a reload replaces the row, so loadWantedRow can put
+    // them back (and re-run the search) once the fresh row is in place.
+    function currentSearchState(sectionsEl) {
+        var box = sectionsEl.querySelector('#' + WANTED_ID + ' .mtgSearchBox');
+        if (!box) { return null; }
+        return { kind: box.querySelector('.mtgSearchKind').value, query: box.querySelector('.mtgSearchInput').value };
+    }
+
     // The home row of what the signed-in user still wants: the movies and series on their own list that the
-    // library does not hold. It goes ahead of the Discover row when both are there, and a title taken off the
-    // list leaves it (refreshWant).
-    function renderWanted(sectionsEl, data) {
+    // library does not hold, plus the title search. It goes ahead of the Discover row when both are there,
+    // and a title taken off the list leaves it (refreshWant) without removing the row itself, since the row's
+    // header is also where the search lives. Renders even with an empty list, as long as want to watch is on
+    // for this user (an empty result would otherwise leave no way to add a first title).
+    function renderWanted(sectionsEl, data, restoreState) {
         remove(sectionsEl, WANTED_ID);
-        if (!data || !data.Titles.length) { return; }
+        if (!data) { return; }
 
         var ctx = { kind: 'Home', id: '', canTodo: true, wanted: true, removeUrl: 'MindTheGaps/Home/Wanted/Remove' };
-        var section = scroller(ctx, 'Want to watch', data.Titles, true);
+        var searchBox = buildSearchBox(sectionsEl, restoreState);
+        var section = scroller(ctx, 'Want to watch', data.Titles || [], true, searchBox);
         section.id = WANTED_ID;
         sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID));
+        if (restoreState && restoreState.query) { runSearch(sectionsEl, restoreState.kind, restoreState.query); }
+    }
+
+    // Reloads the wanted row (an add or remove through the row's own search, or the card the row already
+    // showed), preserving whatever the search box currently holds across the rebuild.
+    function loadWantedRow(sectionsEl) {
+        var state = currentSearchState(sectionsEl);
+        api('GET', 'MindTheGaps/Home/Wanted').then(function (data) { renderWanted(sectionsEl, data, state); }, function () { /* off, or not signed in */ });
     }
 
     // The home view is cached by jellyfin-web: returning to it fires viewshow without a reload, and its
@@ -703,7 +806,7 @@
             }
 
             if (!sectionsEl.querySelector('#' + WANTED_ID)) {
-                api('GET', 'MindTheGaps/Home/Wanted').then(function (data) { renderWanted(sectionsEl, data); }, function () { /* off, or not signed in */ });
+                loadWantedRow(sectionsEl);
             }
         };
         var schedule = function () {
@@ -813,7 +916,12 @@
         // browser that does not recognize :focus-visible would otherwise drop the rule entirely and
         // show no focus ring at all, which matters far more here than a mouse click briefly seeing one.
         '.mtgCard:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
-        '.mtgDialog :focus{outline:3px solid #00a4dc;outline-offset:2px}';
+        '.mtgDialog :focus{outline:3px solid #00a4dc;outline-offset:2px}' +
+        '.mtgSearchBox{display:flex;align-items:center;gap:.5em;margin-left:1.5em;flex:1 1 auto;min-width:0;max-width:26em}' +
+        '.mtgSearchKind{flex:0 0 auto;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .4em}' +
+        '.mtgSearchInput{flex:1 1 auto;min-width:0;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .6em}' +
+        '.mtgSearchResultsBox{padding:0 0 .8em}' +
+        '.mtgSearchNote{padding-left:1.5em}';
     document.head.appendChild(style);
 
     document.addEventListener('viewshow', onViewShow);

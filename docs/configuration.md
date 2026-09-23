@@ -434,14 +434,14 @@ content, recommendations) are not pruned this way.
 Off by default. Adds sections to Jellyfin Web's own pages, and serves the data behind them from the
 plugin's API.
 
-| Setting                               | Default | Effect                                                                                                                                                                                                       |
-| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Show the surfaces in Jellyfin Web** | Off     | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                 |
-| **Person pages**                      | Off     | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                       |
-| **Item pages**                        | Off     | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage] |
-| **Home screen**                       | Off     | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                             |
-| **Home Discover row: max titles**     | 20      | The most titles the row shows (1 to 100).                                                                                                                                                                    |
-| **Want to watch**                     | Off     | Each signed-in user's own list: a bookmark on every card the surfaces above show, and a home row of what is still on it and not in the library.[^wanttowatch]                                                |
+| Setting                               | Default | Effect                                                                                                                                                                                                                               |
+| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Show the surfaces in Jellyfin Web** | Off     | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                                         |
+| **Person pages**                      | Off     | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                                               |
+| **Item pages**                        | Off     | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage]                         |
+| **Home screen**                       | Off     | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                                                     |
+| **Home Discover row: max titles**     | 20      | The most titles the row shows (1 to 100).                                                                                                                                                                                            |
+| **Want to watch**                     | Off     | Each signed-in user's own list: a bookmark on every card the surfaces above show, a home row of what is still on it and not in the library, and a title search in that row's header for a title no page already lists.[^wanttowatch] |
 
 ![A person's page: "Missing from your library"](screenshots/webui-person-missing.png)
 
@@ -477,8 +477,8 @@ author you don't have":
     when the home page loads.
 
 [^wanttowatch]:
-    A user with a parental rating limit does not get the surfaces, so has no cards to bookmark from. An administrator sees and manages everyone's lists from the
-    report's **TODO** button.
+    A user with a parental rating limit does not get the surfaces, so has no cards to bookmark from. An administrator sees everyone's lists folded into one queue from the
+    report's Maintenance section (the **Fulfillment queue**), and can verify or mark a title fetched for everyone still waiting on it in one action.
 
 Click a card for a detail dialog with TMDB's synopsis, genres, runtime, rating, a trailer link, and
 JustWatch (the title's own page when a report gap carries one, else a search in your configured region).
@@ -491,6 +491,9 @@ by design: an administrator monitors what everyone wants from the report's own *
 or Sonarr directly. The dialog and the card grids work from a keyboard or a TV remote.
 
 ![The card detail dialog](screenshots/webui-detail-dialog.png)
+
+The "Want to watch" row's own header also carries a search box (a kind picker plus a text field), for a
+movie or series no page already lists to add directly.
 
 A bookmarked card and the home page's "Want to watch" row of what is still on the list:
 
@@ -511,6 +514,10 @@ Each surface's data is served by the plugin whether or not the script is added, 
   (`POST .../Todo` and `POST .../Todo/Remove` on each surface), and read the home row of what is still on it
   (`GET MindTheGaps/Home/Wanted`). A request that is not a user's, such as one made with an API key, has no
   list.
+- The home row's own header carries a title search, for a movie or series no page already lists:
+  `GET MindTheGaps/Home/Search?kind=&q=` (`kind` is `Movie` or `Series`) searches TMDB, filtered to what the
+  library does not already hold, and `POST MindTheGaps/Home/Search/Todo`/`.../Todo/Remove?kind=&tmdbId=` add
+  or remove a result, rehydrated fresh from TMDB by id rather than trusted from the client.
 
 All the reads are open to any signed-in user, and the shapes are experimental and may change. They are
 filtered lightly by who is asking: a user with a parental rating limit is not shown the surfaces at all, and

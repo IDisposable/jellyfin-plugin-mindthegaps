@@ -206,7 +206,7 @@ test('the wanted row is drawn without the Discover row when only the list is on'
     await expect(page.locator('#mtgHomeDiscover')).toHaveCount(0);
 });
 
-test('taking a title off the wanted row removes its card, and the row when it was the last', async ({ page }) => {
+test('taking a title off the wanted row removes its card; the row stays for its title search', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
     await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
 
@@ -217,7 +217,9 @@ test('taking a title off the wanted row removes its card, and the row when it wa
     expect(await todoUrls(page)).toContain('gapId=filmography%3Amovie%3A7');
 
     await bookmark(page, 'recommendation:movie:8').click();
-    await expect(page.locator('#mtgHomeWanted')).toHaveCount(0);
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(0);
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+    await expect(page.locator('#mtgHomeWanted .mtgSearchInput')).toBeVisible();
 });
 
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
@@ -241,9 +243,56 @@ test('no wanted row when want to watch is off (the endpoint 404s), and no script
     expect(await page.evaluate(() => window.__uiTestErrors)).toEqual([]);
 });
 
-test('an empty list draws no row', async ({ page }) => {
+test('an empty list still draws the row, for its title search', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, { Titles: [] }));
     await page.waitForTimeout(400);
 
-    await expect(page.locator('#mtgHomeWanted')).toHaveCount(0);
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(0);
+    await expect(page.locator('#mtgHomeWanted .mtgSearchInput')).toBeVisible();
+});
+
+test('typing in the wanted row search finds a title and adds it to the list', async ({ page }) => {
+    const result = [Object.assign(movie(50), { GapId: 'watchlistsearch:movie:50', Title: 'Wanted Movie', OnList: false })];
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, { Titles: [] }, result));
+
+    await page.locator('#mtgHomeWanted .mtgSearchInput').fill('wanted');
+    await expect(page.locator('#mtgSearchResults .mtgCard[data-gapid="watchlistsearch:movie:50"]')).toBeVisible({ timeout: 2000 });
+    expect(await page.evaluate(() => window.__lastSearchUrl)).toContain('kind=Movie');
+    expect(await page.evaluate(() => window.__lastSearchUrl)).toContain('q=wanted');
+
+    await bookmark(page, 'watchlistsearch:movie:50').click();
+
+    // The add posts kind/tmdbId, not a gapId: a search result has no persisted gap of its own to
+    // rehydrate by id (wantParams' Search branch). The mock is stateless, so the row's own reload after
+    // the add re-fetches the same canned (unowned) result rather than a genuinely updated one; the
+    // request shape is the contract this pins, not the mock's replayed response.
+    await expect.poll(() => todoUrls(page)).toContain('Home/Search/Todo');
+    expect(await todoUrls(page)).toContain('kind=Movie');
+    expect(await todoUrls(page)).toContain('tmdbId=50');
+});
+
+test('an empty search box shows no results box, and clearing the query hides it again', async ({ page }) => {
+    const result = [Object.assign(movie(51), { GapId: 'watchlistsearch:movie:51', Title: 'Something' })];
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, { Titles: [] }, result));
+
+    await expect(page.locator('#mtgSearchResults')).toHaveCount(0);
+
+    const input = page.locator('#mtgHomeWanted .mtgSearchInput');
+    await input.fill('something');
+    await expect(page.locator('#mtgSearchResults')).toBeVisible({ timeout: 2000 });
+
+    await input.fill('');
+    await expect(page.locator('#mtgSearchResults')).toHaveCount(0);
+});
+
+test('no matches renders the typed query as plain text, never as markup', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, { Titles: [] }, []));
+
+    const hostile = '<img src=x onerror=alert(1)>';
+    await page.locator('#mtgHomeWanted .mtgSearchInput').fill(hostile);
+    await expect(page.locator('#mtgSearchResults .mtgSearchNote')).toBeVisible({ timeout: 2000 });
+
+    expect(await page.locator('#mtgSearchResults .mtgSearchNote').textContent()).toContain(hostile);
+    await expect(page.locator('#mtgSearchResults img')).toHaveCount(0);
 });

@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -11,9 +15,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 
 /// <summary>
 /// The home-screen web UI surface: the Discover row (the recommendation gaps the scan has accumulated,
-/// ranked) and the want-to-watch row (the caller's own list, filtered to what the library still lacks),
-/// plus a signed-in user's todo-list add on the Discover row's cards. Every endpoint answers 404 while its
-/// surface is off, so a toggle takes effect on the next page load without a restart.
+/// ranked), the want-to-watch row (the caller's own list, filtered to what the library still lacks) and its
+/// title search (a movie or series no page already lists, found on TMDB and added directly), plus a
+/// signed-in user's todo-list add on the Discover row's cards. Every endpoint answers 404 while its surface
+/// is off, so a toggle takes effect on the next page load without a restart.
 /// </summary>
 [ApiController]
 [Route("MindTheGaps")]
@@ -21,6 +26,7 @@ public class HomeWebUiController : WebUiControllerBase
 {
     private readonly HomeDiscoverService _home;
     private readonly WantedRowService _wanted;
+    private readonly WatchlistSearchService _search;
     private readonly TodoStore _todo;
 
     /// <summary>
@@ -28,13 +34,15 @@ public class HomeWebUiController : WebUiControllerBase
     /// </summary>
     /// <param name="home">Builds the home screen's discovery row.</param>
     /// <param name="wanted">Builds the home screen's want-to-watch row.</param>
+    /// <param name="search">Backs the want-to-watch row's title search.</param>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch row's removal.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, TodoStore todo, WebUiAccess access)
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access)
         : base(todo, access)
     {
         _home = home;
         _wanted = wanted;
+        _search = search;
         _todo = todo;
     }
 
@@ -133,4 +141,70 @@ public class HomeWebUiController : WebUiControllerBase
         var (userId, _) = Wanting();
         return userId is not { } id ? NotFound() : _todo.Remove(id, gapId ?? string.Empty);
     }
+
+    /// <summary>
+    /// Searches TMDB for a movie or series to add to the want-to-watch list directly, for a title no page
+    /// already lists.
+    /// </summary>
+    /// <param name="kind">"Movie" or "Series".</param>
+    /// <param name="q">The search text.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matching unowned titles, or 404 while want to watch is off or for a request that cannot
+    /// keep a list.</returns>
+    [HttpGet("Home/Search")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<MissingTitle>>> SearchTitles([FromQuery] string? kind, [FromQuery] string? q, CancellationToken cancellationToken)
+    {
+        var (userId, wanted) = Wanting();
+        if (userId is not { } id)
+        {
+            return NotFound();
+        }
+
+        var titles = await _search.SearchAsync(kind ?? string.Empty, q ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        WantedMarker.Mark(titles, wanted);
+        return titles.ToList();
+    }
+
+    /// <summary>
+    /// Adds a search result to the caller's want-to-watch list, rehydrated server-side from TMDB by kind and
+    /// id rather than trusted from the client.
+    /// </summary>
+    /// <param name="kind">"Movie" or "Series".</param>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries added (0 or 1), or 404 while want to watch is off.</returns>
+    [HttpPost("Home/Search/Todo")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddSearchResultToTodo([FromQuery] string? kind, [FromQuery] int tmdbId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(true, null, SearchGapId(kind, tmdbId), ct => _search.FindGapAsync(kind ?? string.Empty, tmdbId, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes a search result off the caller's want-to-watch list.
+    /// </summary>
+    /// <param name="kind">"Movie" or "Series".</param>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of entries removed, or 404 while want to watch is off.</returns>
+    [HttpPost("Home/Search/Todo/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveSearchResultFromTodo([FromQuery] string? kind, [FromQuery] int tmdbId, CancellationToken cancellationToken)
+        => WantOwnedGapAsync(true, null, SearchGapId(kind, tmdbId), ct => _search.FindGapAsync(kind ?? string.Empty, tmdbId, ct), add: false, cancellationToken);
+
+    // The id a search-added entry would carry, computed the same way whether or not the title is still
+    // resolvable (unlike FindGapAsync, which can return null once the library owns it), so a remove still
+    // finds the entry by id even when the rehydration itself no longer would.
+    private static string SearchGapId(string? kind, int tmdbId)
+        => string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase)
+            ? GapSourceKeys.WatchlistSearchSeries.Gap(tmdbId.ToString(CultureInfo.InvariantCulture))
+            : GapSourceKeys.WatchlistSearchMovie.Gap(tmdbId.ToString(CultureInfo.InvariantCulture));
 }

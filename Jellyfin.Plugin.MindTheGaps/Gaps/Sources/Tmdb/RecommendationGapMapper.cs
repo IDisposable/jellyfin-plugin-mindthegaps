@@ -23,6 +23,9 @@ internal static class RecommendationGapMapper
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
     /// <param name="minVotes">The minimum TMDB vote count a result must have to surface (0 disables).</param>
+    /// <param name="gapPrefix">The gap-id prefix; defaults to <see cref="GapSourceKeys.RecommendationMovie"/>'s.
+    /// A caller with its own <see cref="GapSourceKey"/> (the want-to-watch title search, which is not itself
+    /// a recommendation) passes its own prefix instead.</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildMovies(
         IEnumerable<SearchMovie> results,
@@ -32,8 +35,10 @@ internal static class RecommendationGapMapper
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
         int perItem,
-        int minVotes)
+        int minVotes,
+        string? gapPrefix = null)
     {
+        var prefix = gapPrefix ?? GapSourceKeys.RecommendationMovie.GapPrefix;
         var emitted = 0;
         foreach (var rec in results)
         {
@@ -55,7 +60,7 @@ internal static class RecommendationGapMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.RecommendationMovie.GapPrefix}{rec.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{prefix}{rec.Id}"),
                 pattern: GapPattern.Recommendation,
                 domain: MediaDomain.Movies,
                 targetKind: BaseItemKind.Movie,
@@ -83,6 +88,9 @@ internal static class RecommendationGapMapper
     /// <param name="posterUrl">Resolves a TMDB poster path to a URL.</param>
     /// <param name="perItem">The maximum gaps to emit for this seed.</param>
     /// <param name="minVotes">The minimum TMDB vote count a result must have to surface (0 disables).</param>
+    /// <param name="gapPrefix">The gap-id prefix; defaults to <see cref="GapSourceKeys.RecommendationSeries"/>'s.
+    /// A caller with its own <see cref="GapSourceKey"/> (the want-to-watch title search, which is not itself
+    /// a recommendation) passes its own prefix instead.</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildSeries(
         IEnumerable<SearchTv> results,
@@ -92,8 +100,10 @@ internal static class RecommendationGapMapper
         OwnershipIndex ownership,
         Func<string?, string?> posterUrl,
         int perItem,
-        int minVotes)
+        int minVotes,
+        string? gapPrefix = null)
     {
+        var prefix = gapPrefix ?? GapSourceKeys.RecommendationSeries.GapPrefix;
         var emitted = 0;
         foreach (var rec in results)
         {
@@ -115,7 +125,7 @@ internal static class RecommendationGapMapper
 
             emitted++;
             yield return GapItemFactory.Create(
-                id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.RecommendationSeries.GapPrefix}{rec.Id}"),
+                id: string.Create(CultureInfo.InvariantCulture, $"{prefix}{rec.Id}"),
                 pattern: GapPattern.Recommendation,
                 domain: MediaDomain.Shows,
                 targetKind: BaseItemKind.Series,
