@@ -176,7 +176,8 @@ public class GapsController : ControllerBase
             MintableKinds = VirtualItemMinter.MintableKinds,
             Providers = providers,
             AvailabilityEnabled = config.IncludeAvailability,
-            AvailabilityPending = config.IncludeAvailability ? _availability.GetPendingTitleCount() : 0
+            AvailabilityPending = config.IncludeAvailability ? _availability.GetPendingTitleCount() : 0,
+            SearchUrlTemplate = config.SearchUrlTemplate
         };
     }
 

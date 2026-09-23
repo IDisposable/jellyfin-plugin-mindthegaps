@@ -367,10 +367,10 @@ A rejected Radarr, Sonarr, or Jellyseerr request shows that service's own valida
 
 ## Links
 
-| Setting                     | Default                               | Effect                                                                                                                        |
-| --------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Web search URL template** | `https://www.google.com/search?q={0}` | The "Web search" link on a TODO row uses this, with `{0}` replaced by the item's title, year, and creator.                    |
-| **Webhook URL**             | Empty                                 | Posts a summary (Discord-compatible `content` payload) when a scan or the availability pass finishes. Leave blank to disable. |
+| Setting                     | Default                               | Effect                                                                                                                                                                                                                                                                                                             |
+| --------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Web search URL template** | `https://www.google.com/search?q={0}` | The "Web search" link on a TODO row, a report book/album row, and a Web UI works dialog uses this, with `{0}` replaced by the item's title, year, and creator (the author or artist for a book or album; a title alone is often ambiguous without it). Also drives the always-on Amazon search on those same rows. |
+| **Webhook URL**             | Empty                                 | Posts a summary (Discord-compatible `content` payload) when a scan or the availability pass finishes. Leave blank to disable.                                                                                                                                                                                      |
 
 ## Region
 

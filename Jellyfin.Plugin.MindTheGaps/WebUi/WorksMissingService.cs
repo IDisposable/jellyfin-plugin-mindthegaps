@@ -93,7 +93,7 @@ public sealed class WorksMissingService
         }
 
         var dismissed = _resolutions.GetAll();
-        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey, wanted);
+        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey, wanted, Plugin.Instance?.Configuration.SearchUrlTemplate);
         return result;
     }
 

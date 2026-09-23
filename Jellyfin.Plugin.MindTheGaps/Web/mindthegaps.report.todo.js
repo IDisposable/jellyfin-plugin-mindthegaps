@@ -12,17 +12,18 @@ function todoDomainRank(name) {
     return i < 0 ? TODO_DOMAIN_ORDER.length : i;
 }
 
-// "name year" for an Amazon / web search, trimmed so a missing year leaves no trailing space.
+// "name year creator" for an Amazon / web search, trimmed so a missing field leaves no gap. Creator is
+// the author or artist for a book/album entry (see TodoEntry.Creator), and without it a search for a
+// title alone is often useless: many book and album titles are shared across unrelated works.
 function todoSearchTerm(entry) {
-    return ((entry.Name || '') + ' ' + (entry.Year || '')).trim();
+    return ((entry.Name || '') + ' ' + (entry.Year || '') + ' ' + (entry.Creator || '')).trim();
 }
 
-// The web-search URL: the configured template with {0} replaced by the encoded
-// "name year creator". Empty when no template is set, so the link is dropped.
+// The web-search URL: the configured template with {0} replaced by the encoded search term. Empty when
+// no template is set, so the link is dropped.
 function todoWebSearchUrl(template, entry) {
     if (!template) { return ''; }
-    var term = ((entry.Name || '') + ' ' + (entry.Year || '') + ' ' + (entry.Creator || '')).trim();
-    return template.replace('{0}', encodeURIComponent(term));
+    return template.replace('{0}', encodeURIComponent(todoSearchTerm(entry)));
 }
 
 function todoAmazonUrl(entry) {

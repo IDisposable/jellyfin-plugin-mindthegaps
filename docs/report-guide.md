@@ -200,11 +200,14 @@ links only when you open it, which is what keeps a large tab quick.
 - **Watch**: streaming-availability offers, if any have been looked up; otherwise a **Look up where to
   watch** button that fetches them on demand (the toolbar's background pass does many at once). A movie or
   series also gets a **Search JustWatch** link alongside whatever offers are resolved.
-- **Info**: the external id links this gap already carries (TMDB/IMDb/TheTVDB/JustWatch and more), plus a
-  **search** icon (opens a Jellyfin search for that title, series, collection, or creator in a new tab,
-  scoped to the right library type; a creator searches everywhere), an **open in Jellyfin** icon (jumps to
-  the item in your library where one exists, for example the owning series of a missing episode), and a
-  **clear** icon that clears any dismissal on the row.
+- **Info**: the external id links this gap already carries (TMDB/IMDb/TheTVDB/JustWatch and more); for a
+  music or book row, also a **Search Amazon** link and, when a [web search URL
+  template](configuration.md#links) is configured, a **Web search** link (both include the album's artist
+  or the book's author in the query, not just the title, since the title alone is often shared across
+  unrelated works). Then a **search** icon (opens a Jellyfin search for that title, series, collection, or
+  creator in a new tab, scoped to the right library type; a creator searches everywhere), an **open in
+  Jellyfin** icon (jumps to the item in your library where one exists, for example the owning series of a
+  missing episode), and a **clear** icon that clears any dismissal on the row.
 - **Actions**: whichever of these apply to the row:
     - **Diagnose** (movie and show rows): explains why the row is reported missing, most often an owned copy
       under the wrong id. See [Diagnose](#diagnose-is-it-really-missing) below.

@@ -92,4 +92,11 @@ public class GapSummary
     /// dashboard can show the remaining backlog on its button and indicate when it is cleared.
     /// </summary>
     public int AvailabilityPending { get; set; }
+
+    /// <summary>
+    /// Gets or sets the configured web-search URL template ("{0}" replaced by the encoded search term),
+    /// so a row with no linked provider id (common for a book or album) can still offer a generic web
+    /// search rather than nothing.
+    /// </summary>
+    public string SearchUrlTemplate { get; set; } = string.Empty;
 }

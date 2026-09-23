@@ -389,7 +389,10 @@
             if (item.Creator) { info.appendChild(h('p', { 'class': 'mtgDialogMeta' }, (item.Kind === 'Book' ? 'By ' : 'Album by ') + item.Creator)); }
             (item.Links || []).forEach(function (link) {
                 if (!link || !link.Url || !/^https:\/\//i.test(link.Url)) { return; }
-                links.appendChild(h('a', { 'href': link.Url, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, 'View on ' + link.Name));
+                // Amazon and the configured web search are query links, not a page about the work, so they
+                // read as "Search Amazon"/"Web search" rather than "View on ...".
+                var label = link.Name === 'Amazon' ? 'Search Amazon' : (link.Name === 'Web search' ? 'Web search' : 'View on ' + link.Name);
+                links.appendChild(h('a', { 'href': link.Url, 'target': '_blank', 'rel': 'noopener noreferrer', 'class': ACTION_BUTTON }, label));
             });
         } else {
             loading = h('p', { 'class': 'mtgNote' }, 'Loading details\u2026');

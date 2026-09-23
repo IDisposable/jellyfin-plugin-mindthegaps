@@ -47,7 +47,9 @@ public class WorksMissingBuilderTests
         Assert.Equal("A Band", work.Creator);
         Assert.Equal(gap.ImageUrl, work.ImageUrl);
         Assert.True(work.Upcoming);
-        Assert.Equal("https://musicbrainz.org/release-group/x", Assert.Single(work.Links).Url);
+        Assert.Equal(2, work.Links.Count);
+        Assert.Equal("https://musicbrainz.org/release-group/x", work.Links[0].Url);
+        Assert.Equal("Amazon", work.Links[1].Name);
     }
 
     [Fact]
@@ -58,7 +60,29 @@ public class WorksMissingBuilderTests
         Assert.Equal("Book", work.Kind);
         Assert.Equal("An Author", work.Creator);
         Assert.Null(work.Year);
-        Assert.Empty(work.Links);
+        Assert.Equal("Amazon", Assert.Single(work.Links).Name);
+    }
+
+    [Fact]
+    public void ToWork_FoldsTheAuthorOrArtistIntoTheAmazonSearchTerm()
+    {
+        // A title alone is often ambiguous (many books and albums share a name across unrelated works),
+        // so the creator has to be part of the query for the link to be useful.
+        var work = WorksMissingBuilder.ToWork(Book("b1", "Dune"));
+
+        var amazon = Assert.Single(work.Links);
+        Assert.Equal("https://www.amazon.com/s?k=Dune%20An%20Author", amazon.Url);
+    }
+
+    [Fact]
+    public void ToWork_AddsTheConfiguredWebSearchLink_WhenATemplateIsGiven()
+    {
+        var work = WorksMissingBuilder.ToWork(Book("b1", "Dune"), searchUrlTemplate: "https://www.google.com/search?q={0}");
+
+        Assert.Equal(2, work.Links.Count);
+        var webSearch = work.Links[1];
+        Assert.Equal("Web search", webSearch.Name);
+        Assert.Equal("https://www.google.com/search?q=Dune%20An%20Author", webSearch.Url);
     }
 
     [Fact]
