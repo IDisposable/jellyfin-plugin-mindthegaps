@@ -50,7 +50,7 @@ Clearing a setting removes its gaps from the next report.
 
 [^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap).
 
-[^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the report's TODO popup and the Maintenance section's Fulfillment queue already show. A title drops off once every user who wanted it marks it done or the library picks it up.
+[^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the Maintenance section's Fulfillment queue already shows. A title drops off once every user who wanted it marks it done or the library picks it up.
 
 ## Sources
 

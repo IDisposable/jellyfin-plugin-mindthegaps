@@ -18,7 +18,7 @@ it, see the [configuration reference](configuration.md).
   page polls and reloads when it finishes. Scans also run on a schedule (**Dashboard > Scheduled
   Tasks**).
 - **Toolbar**: a filter row (View, Sort, and the checkbox/search filters) and, below it, an action row
-  (Look up where to watch, Export, Identification audit, Explore a source, My TODO list, Clear what I have).
+  (Look up where to watch, Export, Identification audit, Explore a source, Clear what I have).
 - **Domain tabs**: Movies, Shows, Music, Books (below), each badged with its gap count. Only domains with
   gaps show. A **View** dropdown inside the active tab picks the pattern: Set completion, Creator works, or
   Discover.
@@ -135,8 +135,8 @@ Shows work the same way:
 ![Report toolbar](screenshots/report-toolbar.png)
 
 The toolbar has two rows: a filter row (View, Sort, and the checkbox/search filters below) and an action
-row (Look up where to watch, Export, Identification audit, Explore a source, My TODO list, Clear what I
-have). Both apply to the current domain tab; filters combine (a row must pass all of them).
+row (Look up where to watch, Export, Identification audit, Explore a source, Clear what I have). Both
+apply to the current domain tab; filters combine (a row must pass all of them).
 
 | Control                        | What it does                                                                                                                                                                                 |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -153,7 +153,6 @@ have). Both apply to the current domain tab; filters combine (a row must pass al
 | **Search**                     | Free-text filter on the title.                                                                                                                                                               |
 | **Saved views**                | Save the current set of filters under a name and re-apply later; **Save current** / **Delete**. Views are stored per browser.                                                                |
 | **Copy link**                  | Copies a URL that re-opens this exact view (active domain and pattern plus every filter) when pasted into another browser or shared.[^link]                                                  |
-| **My TODO list**               | Opens your own pick-list of gaps to go find, built with the per-row **TODO** button or the multi-select bar.[^todolist]                                                                      |
 | **Explore a source**           | Opens a modal that pulls the unowned titles from one source right now and merges them into the report, without a full rescan. See [Explore a source on demand](#explore-a-source-on-demand). |
 | **Clear what I have**          | The widest scope of the clear-down described under [Per-row actions](#per-row-actions): checks every row currently shown against your library and drops the ones you now hold.[^clearall]    |
 
@@ -170,8 +169,6 @@ have). Both apply to the current domain tab; filters combine (a row must pass al
 [^export]: Exporting therefore clears what you already have, and says how many; the file is a list of what you still need rather than a snapshot of what the last scan believed. If the check fails, it exports the list as it stands and tells you so.
 
 [^link]: Opening such a link applies the view once, then drops the marker from the address bar so a later reload uses your own saved filters. Unlike a saved view, the link is not tied to one browser.
-
-[^todolist]: Every user has their own list; a **Whose list** chooser appears once anyone else has one, so you can look at anyone's or everyone's together and manage it. It is the same list a user's bookmarks in the Web UI go to when **Want to watch** is on. It survives rescans, groups by domain, and each entry has a done tick, links, a **Verify** that checks your library for that one title, and **Delete**. **Verify all** checks every entry at once and ticks what you now hold (and un-ticks anything that has left the library). **Export Markdown** runs that same check first, then downloads the list as a checklist, so the ticks in the file are true as of the download.
 
 [^clearall]: Then it offers a provider re-check for what is left. Confirms the count first.
 
@@ -294,6 +291,18 @@ keyword, Discogs label, TMDB list, or MDBList list), choose the source (search a
 TMDB list paste its ids), then **Run**. The unowned titles merge into the report alongside the scanned
 gaps. **Clear explorations** removes everything you added this way; a full rescan also drops any
 exploration that is not also saved in your settings.
+
+## Maintenance
+
+A section below the list, for actions that touch the library or the scan rather than one row.
+
+| Control                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fulfillment queue**   | Opens every title on any user's TODO list, folded into one row per title sorted by how many people still want it, with where it is streaming looked up automatically. Find it however you fetch things, then **Mark fetched** to close it out for everyone who asked at once. **Verify all** checks every title in the queue against your library and closes out anything you already have, however it arrived, not just through Mark fetched. **Export Markdown** downloads the current view (respecting **Show fulfilled**) as a checklist.[^fulfillment] |
+| **Reset scan rotation** | Forgets which items were scanned recently, so the next scan starts a fresh coverage cycle treating everything as never-scanned. Does not delete any gaps or dismissals.                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Prune stale gaps**    | Removes gaps from a keyword, company, TMDB list, or personal watchlist/wantlist you have since removed or turned off. The next scan does this automatically; use this to clean up right away after a config change instead of waiting for one.                                                                                                                                                                                                                                                                                                              |
+
+[^fulfillment]: There is no per-user "my list" view on this page: the queue already includes your own entries, folded in with everyone else's, so a separate view of just your own would only duplicate it. Add to your own list with the per-row **TODO** button or the multi-select bar.
 
 ## Minting several at once
 

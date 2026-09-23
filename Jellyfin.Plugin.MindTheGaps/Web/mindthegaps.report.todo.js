@@ -1,13 +1,10 @@
-// Report page, part 9: the signed-in user's own TODO list, and the admin-only fulfillment queue
-// (everyone's TODO list folded into one demand-sorted list for the person actually buying things).
+// Report page, part 9: adding a gap to your own TODO list (the per-row button and the multi-select
+// bar), and the admin-only fulfillment queue that is the one place that list is read back - everyone's
+// TODO list folded into one demand-sorted list for the person actually buying things. There is no
+// per-user "my list" viewer on this page on purpose: the fulfillment queue already includes your own
+// entries, folded in with everyone else's, so a second view of just your own would only duplicate it.
 
-// ---- My TODO list ----
-// A personal "go find this" list, separate from the report's dismissals. Add a gap with the
-// per-row TODO button or the multi-select bar; the modal lists the saved entries, grouped by
-// domain, with a done toggle, search and provider links, Verify (checks the library now), and
-// Delete. The server holds the entries (Todo endpoints); the report's gap snapshot is not needed.
-
-// Domain ordering for the TODO sections, mirroring the report's Movies/Shows/Music/Books order,
+// Domain ordering for the TODO/fulfillment sections, mirroring the report's Movies/Shows/Music/Books order,
 // then anything else after.
 var TODO_DOMAIN_ORDER = ['Movies', 'Shows', 'Music', 'Books'];
 function todoDomainRank(name) {
@@ -32,91 +29,7 @@ function todoAmazonUrl(entry) {
     return 'https://www.amazon.com/s?k=' + encodeURIComponent(todoSearchTerm(entry));
 }
 
-// The "whose list" value that shows every user's list at once (a user id otherwise).
-var TODO_EVERYONE = '*';
-
-// Read every user's list (an administrator's view), keep the chosen one in view, and render. The chosen list
-// starts as the caller's own and stays put across reloads while that user still has a list.
-function loadTodo(modal) {
-    return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Todo/All'), dataType: 'json' })
-        .then(function (data) {
-            data = data || { Items: [], Owners: [] };
-            modal._data = data;
-            modal._template = data.SearchUrlTemplate || '';
-            var owners = data.Owners || [];
-            var known = modal._who === TODO_EVERYONE || owners.some(function (o) { return o.UserId === modal._who; });
-            if (!modal._who || !known) { modal._who = data.CallerId; }
-            renderTodoWho(modal);
-            renderTodo(modal);
-        });
-}
-
-// Bring each owner's counts in line with the entries held, after one is removed.
-function todoRecount(modal) {
-    var data = modal._data || {};
-    (data.Owners || []).forEach(function (o) {
-        var mine = (data.Items || []).filter(function (it) { return it.OwnerId === o.UserId; });
-        o.Count = mine.length;
-        o.Open = mine.filter(function (it) { return !it.Done; }).length;
-    });
-}
-
-// The lists in view: the one chosen, or every list that has something on it.
-function todoOwnersInView(modal) {
-    if (modal._who !== TODO_EVERYONE) { return [modal._who]; }
-    return ((modal._data && modal._data.Owners) || []).filter(function (o) { return o.Count > 0; })
-        .map(function (o) { return o.UserId; });
-}
-
-// The entries in view.
-function todoVisible(modal) {
-    var items = (modal._data && modal._data.Items) || [];
-    if (modal._who === TODO_EVERYONE) { return items; }
-    return items.filter(function (it) { return it.OwnerId === modal._who; });
-}
-
-// The "whose list" chooser: shown only when more than one user has a list.
-function renderTodoWho(modal) {
-    var data = modal._data || {};
-    var owners = data.Owners || [];
-    var row = document.getElementById('cgTodoWhoRow');
-    var select = document.getElementById('cgTodoWho');
-    row.style.display = owners.length > 1 ? 'flex' : 'none';
-    var total = 0;
-    var html = owners.map(function (o) {
-        total += o.Count;
-        return h('option', { value: o.UserId }, (o.UserId === data.CallerId ? 'My list' : o.UserName) + ' (' + o.Count + ')').outerHTML;
-    }).join('');
-    html += h('option', { value: TODO_EVERYONE }, 'Everyone (' + total + ')').outerHTML;
-    select.innerHTML = html;
-    select.value = modal._who;
-}
-
-// Check the entries in view against the library, one list at a time, tick the ones now held, and re-render
-// from a fresh read. Both the "Verify all" button and the export run this, so a list you are about to read
-// (on screen or in a file) has just been reconciled with the library.
-function verifyAllTodo(modal) {
-    var checked = 0;
-    var owned = 0;
-    return todoOwnersInView(modal).reduce(function (chain, ownerId) {
-        return chain.then(function () {
-            return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Todo/VerifyAll', { userId: ownerId }), dataType: 'json' })
-                .then(function (res) {
-                    checked += (res && res.Checked) || 0;
-                    owned += (res && res.Owned) || 0;
-                });
-        });
-    }, Promise.resolve()).then(function () {
-        return loadTodo(modal).then(function () { return { Checked: checked, Owned: owned }; });
-    });
-}
-
-// POST helper for the single-id Todo endpoints (Remove / SetDone / Verify), all query-string args.
-function todoPost(path, args) {
-    return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/' + path, args), dataType: 'json' });
-}
-
-// Add ids to the TODO list, then confirm. ids is an array of gap ids.
+// Add ids to the caller's own TODO list, then confirm. ids is an array of gap ids.
 function todoAdd(ids, btn) {
     if (!ids || !ids.length) { return; }
     var html = btn ? btn.innerHTML : '';
@@ -180,89 +93,6 @@ function todoLinks(entry, template) {
     var jwUrl = todoJustWatchUrl(entry);
     if (jwUrl) { out.push({ Name: 'JustWatch search', Url: jwUrl, Title: 'Search JustWatch for where to watch' }); }
     return out;
-}
-
-// One TODO row: the done checkbox, the title and year, the source, the links cell, and the
-// Verify/Delete actions. Built with the same h/wrap/newTab/providerLink helpers as the report.
-function todoRowHtml(entry, template, showOwner) {
-    var done = !!entry.Done;
-    var check = h('input', {
-        type: 'checkbox', 'class': 'cgTodoDoneBox', 'data-id': entry.Id, 'data-owner': entry.OwnerId,
-        title: 'Mark done', 'aria-label': 'Mark done'
-    });
-    if (done) { check.setAttribute('checked', 'checked'); }
-    var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '');
-    var ownerNote = showOwner ? wrap('span', { 'class': 'cgTodoOwner' }, esc('On ' + (entry.OwnerName || 'a user') + "'s list")) : '';
-    var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta) + ownerNote);
-    var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, todoSourceCell(entry));
-
-    var links = todoLinks(entry, template).map(function (l) {
-        return l.Provider
-            ? providerLink(l)
-            : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
-    });
-    var note = entry.Done && entry.DoneUtc
-        ? wrap('div', { 'class': 'cgTodoNote' }, 'Done')
-        : '';
-    var linksCell = wrap('td', null, wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + note);
-
-    var actions = actionBtn('cgTodoVerify', { 'data-id': entry.Id, 'data-owner': entry.OwnerId, title: 'Check your library for this title now' }, 'Verify')
-        + actionBtn('cgTodoDelete', { 'data-id': entry.Id, 'data-owner': entry.OwnerId, title: 'Remove from the TODO list' }, 'Delete');
-    var actionsCell = wrap('td', { 'class': 'cgTodoActions' }, actions);
-
-    return wrap('tr', { 'class': 'cgTodoRow' + (done ? ' cgTodoDone' : ''), 'data-id': entry.Id, 'data-owner': entry.OwnerId },
-        wrap('td', { 'class': 'cgTodoCheck' }, check.outerHTML) + titleCell + creatorCell + linksCell + actionsCell);
-}
-
-// Render the loaded TODO list into the modal body, grouped into per-domain sections.
-function renderTodo(modal) {
-    var body = document.getElementById('cgTodoBody');
-    var items = todoVisible(modal);
-    var everyone = modal._who === TODO_EVERYONE;
-    var owner = ((modal._data && modal._data.Owners) || []).filter(function (o) { return o.UserId === modal._who; })[0];
-    var mine = !everyone && (!owner || owner.UserId === (modal._data || {}).CallerId);
-    document.getElementById('cgTodoTitle').textContent = everyone ? "Everyone's TODO lists"
-        : (mine ? 'My TODO list' : owner.UserName + "'s TODO list");
-    if (!items.length) {
-        var empty = everyone ? 'Nobody has anything on their TODO list yet.'
-            : (mine ? 'Your TODO list is empty. Add gaps with the TODO button on a row or the multi-select bar.'
-                : owner.UserName + ' has nothing on their TODO list.');
-        body.innerHTML = h('div', { 'class': 'cgTodoEmpty' }, empty).outerHTML;
-        return;
-    }
-    var template = modal._template || '';
-    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
-    byDomain.order.sort(function (a, b) {
-        var ra = todoDomainRank(a), rb = todoDomainRank(b);
-        return ra !== rb ? ra - rb : ci(a, b);
-    });
-    var html = '';
-    byDomain.order.forEach(function (domain) {
-        html += h('div', { 'class': 'cgTodoSection' }, domain).outerHTML;
-        var rows = byDomain.map[domain].map(function (e) { return todoRowHtml(e, template, everyone); }).join('');
-        html += wrap('table', { 'class': 'cgTodoTable' }, wrap('tbody', null, rows));
-    });
-    body.innerHTML = html;
-}
-
-function openTodo() {
-    var modal = document.getElementById('cgTodoModal');
-    var body = document.getElementById('cgTodoBody');
-    body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Loading your TODO list...').outerHTML;
-    modal.style.display = 'flex';
-    modal._who = null;
-    loadTodo(modal)
-        .catch(function () {
-            body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Could not load the TODO list. Check the server logs.').outerHTML;
-        });
-}
-
-function closeTodo() {
-    var modal = document.getElementById('cgTodoModal');
-    if (modal && modal.style.display !== 'none') {
-        modal.style.display = 'none';
-        document.getElementById('cgTodoBody').innerHTML = '';
-    }
 }
 
 // Whether a URL is a themoviedb.org page over https, the same rule Services/Tmdb/TmdbLinks.IsWatchUrl
@@ -357,6 +187,39 @@ function loadFulfillment(modal) {
         });
 }
 
+// The distinct user ids represented anywhere in the loaded queue (a title can have several requesters,
+// and the queue holds many titles), for Verify all.
+function fulfillmentOwnersInView(modal) {
+    var seen = {};
+    var owners = [];
+    ((modal._data && modal._data.Items) || []).forEach(function (row) {
+        (row.Entries || []).forEach(function (e) {
+            if (!seen[e.OwnerId]) { seen[e.OwnerId] = true; owners.push(e.OwnerId); }
+        });
+    });
+    return owners;
+}
+
+// Checks every user represented in the queue against the library, one list at a time, then reloads the
+// queue from a fresh read so a title the library now holds - however it arrived, not just through Mark
+// fetched - drops off or shrinks its open count. The caller re-primes availability afterward (this stays
+// page-agnostic, like the rest of this file).
+function verifyAllFulfillment(modal) {
+    var checked = 0;
+    var owned = 0;
+    return fulfillmentOwnersInView(modal).reduce(function (chain, ownerId) {
+        return chain.then(function () {
+            return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Todo/VerifyAll', { userId: ownerId }), dataType: 'json' })
+                .then(function (res) {
+                    checked += (res && res.Checked) || 0;
+                    owned += (res && res.Owned) || 0;
+                });
+        });
+    }, Promise.resolve()).then(function () {
+        return loadFulfillment(modal).then(function () { return { Checked: checked, Owned: owned }; });
+    });
+}
+
 // Looks up "where to watch" for every watchable row that does not have it yet (everything, on first
 // load), one at a time so a large queue does not burst TMDB, and patches each row's icons in place as
 // each answer comes back rather than waiting for the whole queue or re-rendering the list. The result is
@@ -409,49 +272,14 @@ function closeFulfillment() {
     }
 }
 
-// Find a stored TODO entry by id and owner (the in-modal data the render used), so a row update keeps the
-// section ordering and the export in step without a reload. The same gap can be on several users' lists.
-function todoEntryById(modal, id, owner) {
-    var items = (modal._data && modal._data.Items) || [];
-    for (var i = 0; i < items.length; i++) { if (items[i].Id === id && items[i].OwnerId === owner) { return items[i]; } }
-    return null;
-}
-
-// Apply a Done state to a row's markup and its stored entry (no full re-render, so the row stays
-// put). note is an optional line under the links (the Verify result).
-function todoApplyDone(modal, id, owner, done, note) {
-    var entry = todoEntryById(modal, id, owner);
-    if (entry) { entry.Done = done; }
-    var cssEsc = window.CSS && CSS.escape ? CSS.escape : function (s) { return s; };
-    var row = document.querySelector('#cgTodoBody .cgTodoRow[data-id="' + cssEsc(id) + '"][data-owner="' + cssEsc(owner) + '"]');
-    if (!row) { return; }
-    if (done) { row.classList.add('cgTodoDone'); } else { row.classList.remove('cgTodoDone'); }
-    var box = row.querySelector('.cgTodoDoneBox');
-    if (box) { box.checked = done; }
-    var noteEl = row.querySelector('.cgTodoNote');
-    if (note) {
-        if (!noteEl) {
-            noteEl = document.createElement('div');
-            noteEl.className = 'cgTodoNote';
-            var linkCell = row.querySelector('.cgTodoLinks');
-            if (linkCell && linkCell.parentNode) { linkCell.parentNode.appendChild(noteEl); }
-        }
-        noteEl.textContent = note;
-    } else if (noteEl && !done) {
-        noteEl.parentNode.removeChild(noteEl);
-    }
-}
-
-// Build the TODO export: one H2 per domain (in the report's domain order), then a table per
-// domain with a checkbox cell, the title and year, the source, and the links as Markdown links.
-function buildTodoMarkdown(modal) {
-    var items = todoVisible(modal);
-    var everyone = modal._who === TODO_EVERYONE;
-    var owner = ((modal._data && modal._data.Owners) || []).filter(function (o) { return o.UserId === modal._who; })[0];
-    var heading = everyone ? "Everyone's TODO lists"
-        : (owner && owner.UserId !== (modal._data || {}).CallerId ? owner.UserName + "'s TODO list" : 'My TODO list');
+// Build the fulfillment queue export: one H2 per domain (in the report's domain order), then a table per
+// domain with a fetched checkbox cell, the title and year, who still wants it, the source, and the links
+// as Markdown links. Exports exactly what is on screen (respects "Show fulfilled"), same as the modal.
+function buildFulfillmentMarkdown(modal) {
+    var showDone = document.getElementById('cgFulfillShowDone').checked;
+    var items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
     var template = modal._template || '';
-    var out = ['# Mind the Gaps: ' + mdHeading(heading), ''];
+    var out = ['# Mind the Gaps: Fulfillment queue', ''];
     out.push('_' + items.length + ' items, exported ' + new Date().toLocaleString() + '_', '');
     var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
     byDomain.order.sort(function (a, b) {
@@ -460,16 +288,16 @@ function buildTodoMarkdown(modal) {
     });
     byDomain.order.forEach(function (domain) {
         out.push('## ' + mdHeading(domain), '');
-        out.push('| Done | Title | Source | Links |');
-        out.push('| --- | --- | --- | --- |');
-        byDomain.map[domain].forEach(function (entry) {
-            var box = entry.Done ? '[x]' : '[ ]';
-            var titleMeta = (entry.Name || '') + (entry.Year ? ' (' + entry.Year + ')' : '')
-                + (everyone ? ' (on ' + (entry.OwnerName || 'a user') + "'s list)" : '');
-            var links = todoLinks(entry, template).map(function (l) {
+        out.push('| Fetched | Title | Wanted by | Source | Links |');
+        out.push('| --- | --- | --- | --- | --- |');
+        byDomain.map[domain].forEach(function (row) {
+            var box = row.OpenCount === 0 ? '[x]' : '[ ]';
+            var titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
+            var wanted = (row.RequestedBy || []).join(', ') + ' (' + row.OpenCount + ' of ' + row.RequestCount + ' still open)';
+            var links = todoLinks(row, template).map(function (l) {
                 return '[' + mdEsc(l.Name || 'Link') + '](' + safeUrl(l.Url) + ')';
             });
-            out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(todoSourceText(entry)) + ' | ' + links.join(' ') + ' |');
+            out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(wanted) + ' | ' + mdEsc(todoSourceText(row)) + ' | ' + links.join(' ') + ' |');
         });
         out.push('');
     });

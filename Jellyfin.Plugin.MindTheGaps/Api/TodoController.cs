@@ -258,8 +258,9 @@ public class TodoController : ControllerBase
 
     /// <summary>
     /// Verifies the whole todo list against the library in one pass, marking each entry done or not to match.
-    /// The bulk form of <see cref="VerifyTodo"/>, for the popup's "check everything" action and for the
-    /// verify the Markdown export runs before writing, so an exported checklist is true when it is written.
+    /// The bulk form of <see cref="VerifyTodo"/>, for one user's list at a time; the Maintenance section's
+    /// fulfillment queue's own "Verify all" calls this once per distinct owner represented in the queue,
+    /// since a title can be on several users' lists at once.
     /// </summary>
     /// <param name="userId">The user whose list it is; omitted means the caller's own.</param>
     /// <returns>How many entries were checked and how many the library now holds, with the updated list.</returns>

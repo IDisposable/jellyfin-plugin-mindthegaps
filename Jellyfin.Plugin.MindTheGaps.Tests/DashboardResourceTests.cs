@@ -108,7 +108,7 @@ public class DashboardResourceTests
         Assert.Contains("function saveConfig(", js, StringComparison.Ordinal);
 
         Assert.DoesNotContain("id=\"cgList\"", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("id=\"cgTodoModal\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"cgFulfillModal\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"RemoveMinted\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("function pollRemoval()", js, StringComparison.Ordinal);
     }

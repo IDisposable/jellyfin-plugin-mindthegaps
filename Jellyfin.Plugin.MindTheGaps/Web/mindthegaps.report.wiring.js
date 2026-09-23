@@ -92,100 +92,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             if (dx) { downloadText(diagFilename(dx, this._name), buildDiagnosisMarkdown(dx, this._name)); }
         }
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); closeTodo(); closeFulfillment(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDiagnose(); closeExplore(page); closeFulfillment(); } });
     // Explore a source popup: the modal handles its own close button, backdrop click, kind
     // selector, source picker, Run, and Clear. The toolbar button opens it.
     setupExploreModal(page);
-    // My TODO list popup: close via the button, a backdrop click, or Escape (above). The body's
-    // done toggle, Verify, and Delete are handled by delegation; the footer exports Markdown.
-    document.getElementById('cgTodoClose').addEventListener('click', closeTodo);
-    document.getElementById('cgTodoModal').addEventListener('click', function (e) {
-        if (e.target === this) { closeTodo(); }
-    });
-    document.getElementById('cgTodoVerifyAll').addEventListener('click', function () {
-        var modal = document.getElementById('cgTodoModal');
-        Dashboard.showLoadingMsg();
-        verifyAllTodo(modal).then(function (res) {
-            Dashboard.hideLoadingMsg();
-            Dashboard.alert('Checked ' + ((res && res.Checked) || 0) + ' entry(s); you have ' + ((res && res.Owned) || 0) + ' of them.');
-        }).catch(function () {
-            Dashboard.hideLoadingMsg();
-            Dashboard.alert('Could not check your library. Check the server logs.');
-        });
-    });
-    // Verify before writing the file, so the exported checklist's ticks are true as of the download
-    // rather than as of whenever each entry was last checked by hand.
-    document.getElementById('cgTodoExport').addEventListener('click', function () {
-        var modal = document.getElementById('cgTodoModal');
-        Dashboard.showLoadingMsg();
-        verifyAllTodo(modal).catch(function () {
-            // A failed check must not cost you the export; fall back to writing what is on screen.
-            Dashboard.alert('Could not check your library first, so the export reflects the list as it stands.');
-        }).then(function () {
-            Dashboard.hideLoadingMsg();
-            downloadText('mind-the-gaps-todo.md', buildTodoMarkdown(modal));
-        });
-    });
-    document.getElementById('cgTodoWho').addEventListener('change', function () {
-        var modal = document.getElementById('cgTodoModal');
-        modal._who = this.value;
-        renderTodo(modal);
-    });
-    document.getElementById('cgTodoBody').addEventListener('change', function (e) {
-        var box = e.target.closest ? e.target.closest('.cgTodoDoneBox') : null;
-        if (!box) { return; }
-        var modal = document.getElementById('cgTodoModal');
-        var id = box.getAttribute('data-id');
-        var owner = box.getAttribute('data-owner');
-        var done = box.checked;
-        box.disabled = true;
-        todoPost('Todo/SetDone', { id: id, done: done, userId: owner })
-            .then(function () { box.disabled = false; todoApplyDone(modal, id, owner, done, null); })
-            .catch(function () { box.disabled = false; box.checked = !done; Dashboard.alert('Could not update that item. Check the server logs.'); });
-    });
-    document.getElementById('cgTodoBody').addEventListener('click', function (e) {
-        if (!e.target.closest) { return; }
-        if (e.target.closest('a[href]')) { return; }
-        var modal = document.getElementById('cgTodoModal');
-        var verifyBtn = e.target.closest('.cgTodoVerify');
-        if (verifyBtn) {
-            var vid = verifyBtn.getAttribute('data-id');
-            var vowner = verifyBtn.getAttribute('data-owner');
-            var vHtml = verifyBtn.innerHTML;
-            verifyBtn.textContent = 'Checking...';
-            verifyBtn.disabled = true;
-            todoPost('Todo/Verify', { id: vid, userId: vowner }).then(function (res) {
-                verifyBtn.innerHTML = vHtml;
-                verifyBtn.disabled = false;
-                if (res && res.Owned) {
-                    todoApplyDone(modal, vid, vowner, true, 'In your library now.');
-                } else {
-                    todoApplyDone(modal, vid, vowner, false, 'Not in your library yet.');
-                }
-            }).catch(function () {
-                verifyBtn.innerHTML = vHtml;
-                verifyBtn.disabled = false;
-                Dashboard.alert('Could not verify that item. Check the server logs.');
-            });
-            return;
-        }
-        var delBtn = e.target.closest('.cgTodoDelete');
-        if (delBtn) {
-            var did = delBtn.getAttribute('data-id');
-            var downer = delBtn.getAttribute('data-owner');
-            delBtn.disabled = true;
-            todoPost('Todo/Remove', { id: did, userId: downer }).then(function () {
-                var items = (modal._data && modal._data.Items) || [];
-                modal._data.Items = items.filter(function (it) { return !(it.Id === did && it.OwnerId === downer); });
-                todoRecount(modal);
-                renderTodoWho(modal);
-                renderTodo(modal);
-            }).catch(function () {
-                delBtn.disabled = false;
-                Dashboard.alert('Could not remove that item. Check the server logs.');
-            });
-        }
-    });
     // Fulfillment queue popup: close via the button, a backdrop click, or Escape (below). "Show
     // fulfilled" just re-renders from what is already loaded; Mark fetched and the where-to-watch
     // lookup are handled by delegation since a queue row has no live report item to key off.
@@ -223,6 +133,22 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
                 Dashboard.alert('Could not mark that title fetched. Check the server logs.');
             });
         }
+    });
+    document.getElementById('cgFulfillVerifyAll').addEventListener('click', function () {
+        var modal = document.getElementById('cgFulfillModal');
+        Dashboard.showLoadingMsg();
+        verifyAllFulfillment(modal).then(function (res) {
+            Dashboard.hideLoadingMsg();
+            Dashboard.alert('Checked ' + ((res && res.Checked) || 0) + ' entry(s); ' + ((res && res.Owned) || 0) + ' are already in your library.');
+            return primeFulfillmentAvailability(page, modal);
+        }).catch(function () {
+            Dashboard.hideLoadingMsg();
+            Dashboard.alert('Could not check the library. Check the server logs.');
+        });
+    });
+    document.getElementById('cgFulfillExport').addEventListener('click', function () {
+        var modal = document.getElementById('cgFulfillModal');
+        downloadText('mind-the-gaps-fulfillment-queue.md', buildFulfillmentMarkdown(modal));
     });
     function setAllSelected(checked) {
         // "Select all" should reach every row, including those in still-deferred creator-works
@@ -429,9 +355,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     });
     page.querySelector('#cgExploreBtn').addEventListener('click', function () {
         openExplore(page);
-    });
-    page.querySelector('#cgTodoBtn').addEventListener('click', function () {
-        openTodo();
     });
     // The rollup line sits outside the list, so its clear-down control needs its own delegation. It
     // scopes to one media domain, which on a tab with no kind headings (Creator works, Discover, or a
