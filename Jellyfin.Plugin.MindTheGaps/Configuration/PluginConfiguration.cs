@@ -73,6 +73,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WantToWatchPlaylistName = "Want to Watch";
         WantToWatchRowIncludesOwned = false;
         WantToWatchRemoveWatched = false;
+        WantToWatchDetailBookmark = false;
         HomeRowSize = 20;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
@@ -524,6 +525,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <see cref="WantToWatchPlaylistEnabled"/>.
     /// </summary>
     public bool WantToWatchRemoveWatched { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a movie or series page in the library gets a bookmark button
+    /// beside its own buttons, which puts that title on the user's want-to-watch playlist and takes it off
+    /// again. Requires <see cref="WantToWatchPlaylistEnabled"/>, since an owned title on the list lives there.
+    /// </summary>
+    public bool WantToWatchDetailBookmark { get; set; }
 
     /// <summary>
     /// Gets or sets the most titles the home Discover row shows.

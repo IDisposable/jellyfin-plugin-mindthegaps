@@ -142,12 +142,31 @@ public class WantToWatchOwnedTests
         Assert.False(WatchedAutoRemover.IsOn(null));
     }
 
+    [Theory]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, true, false)]
+    [InlineData(true, true, false, false)]
+    public void DetailBookmark_NeedsWantToWatch_ItsPlaylist_AndItsOwnOption(bool wantToWatch, bool playlist, bool bookmark, bool expected)
+    {
+        var config = new PluginConfiguration
+        {
+            WantToWatchEnabled = wantToWatch,
+            WantToWatchPlaylistEnabled = playlist,
+            WantToWatchDetailBookmark = bookmark
+        };
+
+        Assert.Equal(expected, WebUiGate.DetailBookmark(config));
+        Assert.False(WebUiGate.DetailBookmark(null));
+    }
+
     [Fact]
-    public void BothOptionsAreOffByDefault()
+    public void TheNewOptionsAreOffByDefault()
     {
         var config = new PluginConfiguration();
 
         Assert.False(config.WantToWatchRowIncludesOwned);
         Assert.False(config.WantToWatchRemoveWatched);
+        Assert.False(config.WantToWatchDetailBookmark);
     }
 }

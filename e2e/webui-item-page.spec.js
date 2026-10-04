@@ -128,3 +128,74 @@ test('the related row uses the item page markup: no-padding on the scroller, tit
     await expect(section.locator('[is="emby-scroller"]')).toHaveClass(/no-padding/);
     await expect(section.locator('h2.sectionTitle')).toHaveClass(/padded-right/);
 });
+
+// The bookmark on an owned movie or series page: drawn before jellyfin-web's "More" button only when the server
+// answers for this item, and it puts the title on the user's want-to-watch playlist and takes it off again.
+const detailWant = (page) => page.locator('.mainDetailButtons .mtgWantDetail');
+
+test('a movie page gets a bookmark before More, showing whether the title is on the list', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, null, undefined, undefined, undefined, undefined, undefined, undefined, { OnList: true }));
+
+    await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(detailWant(page)).toHaveAttribute('title', 'Remove from your list');
+    await expect(detailWant(page).locator('.material-icons')).toHaveClass(/\bbookmark\b/);
+    const order = await page.locator('.mainDetailButtons > button').evaluateAll((els) => els.map((e) => e.className));
+    expect(order[order.length - 2]).toContain('mtgWantDetail');
+    expect(order[order.length - 1]).toContain('btnMoreCommands');
+});
+
+test('the page bookmark adds the title, then takes it off again', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, null, undefined, undefined, undefined, undefined, undefined, undefined, { OnList: false }));
+    await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'false');
+
+    await detailWant(page).click();
+    await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'true');
+    await detailWant(page).click();
+    await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'false');
+
+    const calls = (await page.evaluate(() => window.__itemWantedCalls)).map((c) => c.replace(/\?$/, ''));
+    expect(calls).toEqual([
+        'GET MindTheGaps/Item/movie-1/Wanted',
+        'POST MindTheGaps/Item/movie-1/Wanted',
+        'POST MindTheGaps/Item/movie-1/Wanted/Remove'
+    ]);
+});
+
+test('the page bookmark keeps its state and says so when the change fails', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, null, undefined, undefined, undefined, undefined, undefined, undefined, { OnList: false, failWrites: true }));
+    const alerts = [];
+    page.on('console', (m) => { if (m.text().startsWith('Dashboard.alert')) { alerts.push(m.text()); } });
+
+    await detailWant(page).click();
+
+    await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'false');
+    await expect(detailWant(page)).toBeEnabled();
+    expect(alerts).toEqual(['Dashboard.alert: Could not update your list.']);
+});
+
+test('no page bookmark when the server does not answer for the item, and no script errors', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, null, undefined, undefined, undefined, undefined, undefined, undefined, null));
+
+    await expect(page.locator('.mainDetailButtons')).toHaveCount(1);
+    await expect(page.locator('.mtgWantDetail')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__uiTestErrors)).toEqual([]);
+});
+
+test('a person page never asks for the bookmark', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness({ Id: 'movie-1', Name: 'Someone', Type: 'Person' }, null, undefined, undefined, undefined, undefined, undefined, undefined, { OnList: false }));
+
+    await expect(page.locator('.mtgWantDetail')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__itemWantedCalls)).toEqual([]);
+});
+
+test('leaving for another page takes the bookmark away', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, null, undefined, undefined, undefined, undefined, undefined, undefined, { OnList: false }));
+    await expect(detailWant(page)).toHaveCount(1);
+
+    await page.evaluate(() => {
+        window.location.hash = '#/home';
+        document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+    });
+
+    await expect(page.locator('.mtgWantDetail')).toHaveCount(0);
+});

@@ -933,6 +933,7 @@
         }
 
         var itemId = itemIdFromLocation();
+        removeDetailWant(page);
         if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); return; }
 
         var token = ++pending;
@@ -961,6 +962,10 @@
             }
 
             if (item.Type === 'Movie' || item.Type === 'Series') {
+                // Independent of the related titles below, which have their own toggle and may 404.
+                api('GET', 'MindTheGaps/Item/' + item.Id + '/Wanted').then(function (state) {
+                    if (token === pending) { renderDetailWant(page, item.Id, state || {}); }
+                }, function () { /* off, or not a title the list keeps */ });
                 return api('GET', 'MindTheGaps/Item/' + item.Id + '/Related').then(function (data) {
                     if (token === pending) { renderRelated(page, item.Id, data); }
                 });
@@ -975,6 +980,48 @@
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
             if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); }
         });
+    }
+
+    // The bookmark on an owned movie or series page, beside jellyfin-web's own buttons and before "More", in
+    // their markup so it takes the same size and TV focus style. It keeps the title on the user's
+    // want-to-watch playlist. Drawn only when the server answers for this item: a 404 means the option is off,
+    // the caller cannot keep a list, or the item is not one it keeps.
+    var DETAIL_WANT_CLASS = 'mtgWantDetail';
+
+    function paintDetailWant(btn, onList) {
+        var label = onList ? 'Remove from your list' : 'Want to watch';
+        btn.setAttribute('title', label);
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('aria-pressed', onList ? 'true' : 'false');
+        btn.mtgOnList = onList;
+        btn.querySelector('.material-icons').className = 'material-icons detailButton-icon ' + (onList ? 'bookmark' : 'bookmark_border');
+    }
+
+    function removeDetailWant(page) {
+        Array.prototype.forEach.call(page.querySelectorAll('.' + DETAIL_WANT_CLASS), function (b) { b.parentNode.removeChild(b); });
+    }
+
+    function renderDetailWant(page, itemId, state) {
+        removeDetailWant(page);
+        var more = page.querySelector('.mainDetailButtons .btnMoreCommands');
+        var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
+        if (!host) { return; }
+
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'button-flat detailButton ' + DETAIL_WANT_CLASS, 'data-itemid': itemId });
+        var content = h('div', { 'class': 'detailButton-content' });
+        content.appendChild(h('span', { 'class': 'material-icons detailButton-icon', 'aria-hidden': 'true' }));
+        btn.appendChild(content);
+        paintDetailWant(btn, !!state.OnList);
+        btn.addEventListener('click', function () {
+            var next = !btn.mtgOnList;
+            btn.disabled = true;
+            api('POST', 'MindTheGaps/Item/' + itemId + (next ? '/Wanted' : '/Wanted/Remove')).then(function () {
+                paintDetailWant(btn, next);
+            }, function () {
+                alertUser('Could not update your list.');
+            }).then(function () { btn.disabled = false; });
+        });
+        host.insertBefore(btn, more || null);
     }
 
     var style = document.createElement('style');

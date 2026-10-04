@@ -51,4 +51,13 @@ internal static class WebUiGate
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
     /// <returns><see langword="true"/> when the want-to-watch toggle is on.</returns>
     public static bool WantToWatch(PluginConfiguration? config) => config?.WantToWatchEnabled == true;
+
+    /// <summary>
+    /// Determines whether a movie or series page's bookmark, which keeps an owned title on the user's
+    /// want-to-watch playlist, is served. It needs want to watch, its playlist, and its own toggle.
+    /// </summary>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when all three are on.</returns>
+    public static bool DetailBookmark(PluginConfiguration? config)
+        => config is { WantToWatchEnabled: true, WantToWatchPlaylistEnabled: true, WantToWatchDetailBookmark: true };
 }

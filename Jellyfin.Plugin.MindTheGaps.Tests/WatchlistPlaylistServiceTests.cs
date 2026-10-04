@@ -191,6 +191,88 @@ public class WatchlistPlaylistServiceTests
         Assert.NotEqual(shared.Id, playlists.LastAddedPlaylistId);
     }
 
+    [Fact]
+    public async Task AddItemAsync_CreatesThePlaylistTheFirstTime_AndAddsTheItem()
+    {
+        var itemId = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+
+        Assert.True(await service.AddItemAsync(User, itemId, new PluginConfiguration { WantToWatchPlaylistEnabled = true }));
+
+        Assert.Equal("Want to Watch", Assert.Single(playlists.CreatedRequests).Name);
+        Assert.Equal([itemId], playlists.LastAddedItemIds);
+        Assert.Equal(User, playlists.LastAddedUserId);
+    }
+
+    [Fact]
+    public async Task AddItemAsync_AddsToTheExistingPlaylist_AndNotTwice()
+    {
+        var itemId = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+        var playlist = PlaylistWith(User, "Want to Watch", itemId);
+        playlists.Existing.Add(playlist);
+        var config = new PluginConfiguration { WantToWatchPlaylistEnabled = true };
+
+        Assert.False(await service.AddItemAsync(User, itemId, config));
+        Assert.Null(playlists.LastAddedItemIds);
+
+        var other = Guid.NewGuid();
+        Assert.True(await service.AddItemAsync(User, other, config));
+        Assert.Equal(playlist.Id, playlists.LastAddedPlaylistId);
+        Assert.Equal([other], playlists.LastAddedItemIds);
+        Assert.Empty(playlists.CreatedRequests);
+    }
+
+    [Fact]
+    public async Task AddItemAsync_DoesNothing_WithThePlaylistOff()
+    {
+        var (playlists, service) = Build([]);
+
+        Assert.False(await service.AddItemAsync(User, Guid.NewGuid(), new PluginConfiguration { WantToWatchPlaylistEnabled = false }));
+        Assert.False(await service.AddItemAsync(User, Guid.NewGuid(), null));
+        Assert.Empty(playlists.CreatedRequests);
+        Assert.Null(playlists.LastAddedItemIds);
+    }
+
+    [Fact]
+    public void Contains_IsTrueOnlyForAnItemOnTheUsersOwnPlaylist_WithThePlaylistOn()
+    {
+        var mine = Guid.NewGuid();
+        var sharedItem = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+        playlists.Existing.Add(PlaylistWith(User, "Want to Watch", mine));
+        playlists.Shared.Add(PlaylistWith(Guid.NewGuid(), "Want to Watch", sharedItem));
+        var on = new PluginConfiguration { WantToWatchPlaylistEnabled = true };
+
+        Assert.True(service.Contains(User, mine, on));
+        Assert.False(service.Contains(User, sharedItem, on));
+        Assert.False(service.Contains(User, Guid.NewGuid(), on));
+        Assert.False(service.Contains(User, mine, new PluginConfiguration { WantToWatchPlaylistEnabled = false }));
+    }
+
+    [Fact]
+    public async Task AddArrivedAsync_DoesNotAddATitleAlreadyOnThePlaylist()
+    {
+        var movieId = Guid.NewGuid();
+        var movie = new Movie { Id = movieId, ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "603" } };
+        var (playlists, service) = Build([movie]);
+        playlists.Existing.Add(PlaylistWith(User, "Want to Watch", movieId));
+
+        await service.AddArrivedAsync(User, [Entry("Movie", "603")], new PluginConfiguration { WantToWatchPlaylistEnabled = true }, CancellationToken.None);
+
+        Assert.Null(playlists.LastAddedItemIds);
+        Assert.Empty(playlists.CreatedRequests);
+    }
+
+    [Fact]
+    public void IsWantable_IsAMovieOrASeries()
+    {
+        Assert.True(WatchlistPlaylistService.IsWantable(new Movie()));
+        Assert.True(WatchlistPlaylistService.IsWantable(new MediaBrowser.Controller.Entities.TV.Series()));
+        Assert.False(WatchlistPlaylistService.IsWantable(new MediaBrowser.Controller.Entities.TV.Episode()));
+        Assert.False(WatchlistPlaylistService.IsWantable(null));
+    }
+
     [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]

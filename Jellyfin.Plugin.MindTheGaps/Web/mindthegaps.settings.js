@@ -122,6 +122,7 @@ function loadConfig(page, config) {
     page.querySelector('#WantToWatchPlaylistName').value = config.WantToWatchPlaylistName || '';
     page.querySelector('#WantToWatchRowIncludesOwned').checked = config.WantToWatchRowIncludesOwned;
     page.querySelector('#WantToWatchRemoveWatched').checked = config.WantToWatchRemoveWatched;
+    page.querySelector('#WantToWatchDetailBookmark').checked = config.WantToWatchDetailBookmark;
     page.querySelector('#HomeRowSize').value = config.HomeRowSize;
     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
     page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
@@ -228,6 +229,7 @@ function saveConfig(page, e) {
         config.WantToWatchPlaylistName = form.querySelector('#WantToWatchPlaylistName').value.trim() || 'Want to Watch';
         config.WantToWatchRowIncludesOwned = form.querySelector('#WantToWatchRowIncludesOwned').checked;
         config.WantToWatchRemoveWatched = form.querySelector('#WantToWatchRemoveWatched').checked;
+        config.WantToWatchDetailBookmark = form.querySelector('#WantToWatchDetailBookmark').checked;
         config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '20', 10);
         config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
         config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();

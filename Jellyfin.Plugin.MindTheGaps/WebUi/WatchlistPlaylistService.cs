@@ -90,7 +90,18 @@ public sealed class WatchlistPlaylistService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var playlistId = await FindOrCreatePlaylistAsync(userId, config.WantToWatchPlaylistName).ConfigureAwait(false);
+        // A title the user already put on the playlist themselves (the page bookmark) is not added twice.
+        var existing = Find(userId, config.WantToWatchPlaylistName);
+        if (existing is not null)
+        {
+            itemIds.RemoveAll(id => Holds(existing, id));
+            if (itemIds.Count == 0)
+            {
+                return;
+            }
+        }
+
+        var playlistId = existing?.Id ?? await CreatePlaylistAsync(userId, config.WantToWatchPlaylistName).ConfigureAwait(false);
         if (playlistId is null)
         {
             return;
@@ -98,11 +109,7 @@ public sealed class WatchlistPlaylistService
 
         try
         {
-#if NET10_0_OR_GREATER
-            await _playlists.AddItemToPlaylistAsync(playlistId.Value, itemIds, null, userId).ConfigureAwait(false);
-#else
-            await _playlists.AddItemToPlaylistAsync(playlistId.Value, itemIds, userId).ConfigureAwait(false);
-#endif
+            await AddToPlaylistAsync(playlistId.Value, itemIds, userId).ConfigureAwait(false);
             _logger.LogDebug(
                 "Want to watch: added {Count} item(s) to '{Name}' for user {UserId}",
                 itemIds.Count,
@@ -121,6 +128,48 @@ public sealed class WatchlistPlaylistService
                 userId);
         }
     }
+
+    /// <summary>
+    /// Puts an owned item on a user's want-to-watch playlist (a movie or series page's bookmark), creating the
+    /// playlist the first time. Unlike <see cref="AddArrivedAsync"/> a failure is the caller's to report, since
+    /// a user pressed a button and should hear that it did not work.
+    /// </summary>
+    /// <param name="userId">The playlist's owner.</param>
+    /// <param name="itemId">The library item.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when added; <see langword="false"/> when it was already there or the playlist is off.</returns>
+    /// <exception cref="InvalidOperationException">The playlist could not be created.</exception>
+    public async Task<bool> AddItemAsync(Guid userId, Guid itemId, PluginConfiguration? config)
+    {
+        if (config is not { WantToWatchPlaylistEnabled: true })
+        {
+            return false;
+        }
+
+        var existing = Find(userId, config.WantToWatchPlaylistName);
+        if (existing is not null && Holds(existing, itemId))
+        {
+            return false;
+        }
+
+        var playlistId = existing?.Id
+            ?? await CreatePlaylistAsync(userId, config.WantToWatchPlaylistName).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Could not create the want-to-watch playlist.");
+        await AddToPlaylistAsync(playlistId, [itemId], userId).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// Whether an item is on a user's want-to-watch playlist.
+    /// </summary>
+    /// <param name="userId">The playlist's owner.</param>
+    /// <param name="itemId">The library item.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when it is there.</returns>
+    public bool Contains(Guid userId, Guid itemId, PluginConfiguration? config)
+        => config is { WantToWatchPlaylistEnabled: true }
+            && Find(userId, config.WantToWatchPlaylistName) is { } playlist
+            && Holds(playlist, itemId);
 
     /// <summary>
     /// Gets the movies and series in a user's want-to-watch playlist that they may see, the ones added last
@@ -157,7 +206,7 @@ public sealed class WatchlistPlaylistService
         // An entry whose item has left the library resolves to nothing and is skipped.
         return linked
             .OfType<BaseItem>()
-            .Where(item => item is Movie or Series && maySee(item))
+            .Where(item => IsWantable(item) && maySee(item))
             .Reverse()
             .ToList();
     }
@@ -173,7 +222,7 @@ public sealed class WatchlistPlaylistService
     {
         if (config is not { WantToWatchPlaylistEnabled: true }
             || Find(userId, config.WantToWatchPlaylistName) is not { } playlist
-            || !playlist.LinkedChildren.Any(child => child.ItemId == itemId))
+            || !Holds(playlist, itemId))
         {
             return false;
         }
@@ -191,14 +240,27 @@ public sealed class WatchlistPlaylistService
         => _playlists.GetPlaylists(userId)
             .FirstOrDefault(p => p.OwnerUserId.Equals(userId) && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-    private async Task<Guid?> FindOrCreatePlaylistAsync(Guid userId, string name)
-    {
-        var existing = Find(userId, name);
-        if (existing is not null)
-        {
-            return existing.Id;
-        }
+    /// <summary>
+    /// Whether an item is one the want-to-watch playlist keeps: a movie or a series.
+    /// </summary>
+    /// <param name="item">The library item, or <see langword="null"/> when there is none.</param>
+    /// <returns><see langword="true"/> for a movie or series.</returns>
+    public static bool IsWantable(BaseItem? item) => item is Movie or Series;
 
+    private static bool Holds(Playlist playlist, Guid itemId)
+        => playlist.LinkedChildren.Any(child => child.ItemId == itemId);
+
+    private Task AddToPlaylistAsync(Guid playlistId, IReadOnlyCollection<Guid> itemIds, Guid userId)
+    {
+#if NET10_0_OR_GREATER
+        return _playlists.AddItemToPlaylistAsync(playlistId, itemIds, null, userId);
+#else
+        return _playlists.AddItemToPlaylistAsync(playlistId, itemIds, userId);
+#endif
+    }
+
+    private async Task<Guid?> CreatePlaylistAsync(Guid userId, string name)
+    {
         try
         {
             var result = await _playlists.CreatePlaylist(new PlaylistCreationRequest

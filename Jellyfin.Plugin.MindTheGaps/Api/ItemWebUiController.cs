@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
+using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,8 @@ public class ItemWebUiController : WebUiControllerBase
 {
     private readonly RelatedMissingService _related;
     private readonly WorksMissingService _works;
+    private readonly WatchlistPlaylistService _playlist;
+    private readonly ILibraryManager _library;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ItemWebUiController"/> class.
@@ -29,14 +32,93 @@ public class ItemWebUiController : WebUiControllerBase
     /// <param name="works">Computes an artist's unowned albums and a book's unowned works by its author.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, WebUiAccess access)
+    /// <param name="playlist">The want-to-watch playlist, for a movie or series page's bookmark.</param>
+    /// <param name="library">The library manager, to tell what kind of item a page is about.</param>
+    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, ILibraryManager library)
         : base(todo, access)
     {
         _related = related;
         _works = works;
+        _playlist = playlist;
+        _library = library;
     }
 
     private static bool ItemPageEnabled => WebUiGate.ItemPage(Plugin.Instance?.Configuration);
+
+    /// <summary>
+    /// Says whether this owned movie or series is on the caller's want-to-watch playlist, for its page's bookmark.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <returns>The state, or 404 while the bookmark is off, for a caller who cannot keep a list, or for an item
+    /// that is not a movie or series they may see.</returns>
+    [HttpGet("Item/{itemId}/Wanted")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<WantedItemState> GetItemWanted([FromRoute] Guid itemId)
+    {
+        if (BookmarkingUser(itemId) is not { } userId)
+        {
+            return NotFound();
+        }
+
+        return new WantedItemState { OnList = _playlist.Contains(userId, itemId, Plugin.Instance?.Configuration) };
+    }
+
+    /// <summary>
+    /// Puts this owned movie or series on the caller's want-to-watch playlist.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <returns>1 when added, 0 when it was already there, or 404 as for <see cref="GetItemWanted"/>.</returns>
+    [HttpPost("Item/{itemId}/Wanted")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<int>> AddItemWanted([FromRoute] Guid itemId)
+    {
+        if (BookmarkingUser(itemId) is not { } userId)
+        {
+            return NotFound();
+        }
+
+        return await _playlist.AddItemAsync(userId, itemId, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Takes this owned movie or series off the caller's want-to-watch playlist.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <returns>1 when removed, 0 when it was not there, or 404 as for <see cref="GetItemWanted"/>.</returns>
+    [HttpPost("Item/{itemId}/Wanted/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<int>> RemoveItemWanted([FromRoute] Guid itemId)
+    {
+        if (BookmarkingUser(itemId) is not { } userId)
+        {
+            return NotFound();
+        }
+
+        return await _playlist.RemoveAsync(userId, itemId, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
+    }
+
+    // The caller, when the page bookmark is on, they may keep a list, and the item is a movie or series they
+    // may see; otherwise null.
+    private Guid? BookmarkingUser(Guid itemId)
+    {
+        if (!WebUiGate.DetailBookmark(Plugin.Instance?.Configuration)
+            || !WatchlistPlaylistService.IsWantable(_library.GetItemById(itemId))
+            || !Access.MaySee(User, itemId))
+        {
+            return null;
+        }
+
+        return Wanting().UserId;
+    }
 
     /// <summary>
     /// Lists the titles similar to this owned movie or series that the library does not hold.
