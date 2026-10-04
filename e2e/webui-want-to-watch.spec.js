@@ -306,6 +306,22 @@ test('returning to the cached home leaves an unchanged row alone', async ({ page
     expect(await page.evaluate(() => document.getElementById('mtgHomeWanted').__marker === true)).toBe(true);
 });
 
+// jellyfin-web's focusManager (12.1, main bundle) moves a remote's D-pad focus only between elements matching
+// this selector. A card that does not match is unreachable: the D-pad lands on its bookmark button instead.
+const JELLYFIN_FOCUSABLE = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A']
+    .map((t) => (t === 'INPUT' ? t + ':not([type="range"]):not([type="file"])' : t) + ':not([tabindex="-1"]):not(:disabled)')
+    .join(',') + ',.focusable';
+
+test('every card on the wanted and Discover rows is reachable by jellyfin-web remote navigation', async ({ page }) => {
+    const discover = { CanTodo: true, Titles: [movie(1, { GapId: 'recommendation:movie:1' })] };
+    await openHomePage(page, buildWebUiHomeHarness(discover, null, 1, undefined, undefined, ownedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await expect(page.locator('#mtgHomeDiscover .mtgCard')).toHaveCount(1);
+
+    const unreachable = await page.locator('.mtgCard').evaluateAll((cards, selector) => cards.filter((c) => !c.matches(selector)).map((c) => c.getAttribute('data-gapid')), JELLYFIN_FOCUSABLE);
+    expect(unreachable).toEqual([]);
+});
+
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
 

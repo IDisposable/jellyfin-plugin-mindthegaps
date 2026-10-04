@@ -500,7 +500,9 @@
     function card(ctx, item) {
         // An album cover is square; a poster or a book cover is portrait.
         var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
-        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
+        // .focusable is what lets a remote reach it: jellyfin-web's D-pad navigation moves only between
+        // INPUT/TEXTAREA/SELECT/BUTTON/A and .focusable, so without it the bookmark button was all it could land on.
+        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable focusable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
