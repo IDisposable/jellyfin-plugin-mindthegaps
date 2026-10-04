@@ -73,6 +73,16 @@
         return true;
     }
 
+    // An owned title's poster is the library's own, served by Jellyfin itself.
+    function setItemImage(el, itemId) {
+        el.style.backgroundImage = cssUrl(ApiClient.getUrl('Items/' + itemId + '/Images/Primary', { fillHeight: 480, quality: 90 }));
+    }
+
+    // An owned title opens its own page in the library rather than the TMDB detail dialog.
+    function openItem(itemId) {
+        window.location.hash = '#/details?id=' + encodeURIComponent(itemId) + '&serverId=' + encodeURIComponent(ApiClient.serverId());
+    }
+
     function alertUser(message) {
         if (window.Dashboard && Dashboard.alert) { Dashboard.alert(message); } else { window.alert(message); }
     }
@@ -148,7 +158,9 @@
 
     // The title search (ctx.scope === 'Search') has no persisted gap to rehydrate by id: the server looks
     // the title up fresh by kind and TMDB id instead, both of which every card already carries.
+    // An owned title on the wanted row is on the user's playlist, not their list, and is removed by its item.
     function wantParams(ctx, item) {
+        if (item.ItemId) { return { itemId: item.ItemId }; }
         return ctx.scope === 'Search' ? { kind: item.Kind, tmdbId: item.TmdbId } : { gapId: item.GapId };
     }
 
@@ -493,7 +505,9 @@
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
         var img = h('div', { 'class': 'cardImageContainer coveredImage cardContent' });
-        if (!setImage(img, item.ImageUrl)) {
+        if (item.ItemId) {
+            setItemImage(img, item.ItemId);
+        } else if (!setImage(img, item.ImageUrl)) {
             img.classList.add('defaultCardBackground', 'defaultCardBackground1');
             img.appendChild(h('div', { 'class': 'cardText cardDefaultText' }, item.Title));
         }
@@ -517,13 +531,14 @@
         box.appendChild(secondary);
 
         el.appendChild(box);
-        el.addEventListener('click', function () { openDialog(ctx, item); });
+        var open = function () { if (item.ItemId) { openItem(item.ItemId); } else { openDialog(ctx, item); } };
+        el.addEventListener('click', open);
         el.addEventListener('keydown', function (e) {
             // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
             if (e.target !== el) { return; }
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
-                openDialog(ctx, item);
+                open();
             }
         });
         return el;

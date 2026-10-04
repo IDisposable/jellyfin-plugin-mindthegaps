@@ -222,6 +222,47 @@ test('taking a title off the wanted row removes its card; the row stays for its 
     await expect(page.locator('#mtgHomeWanted .mtgSearchInput')).toBeVisible();
 });
 
+// An owned title (from the user's want-to-watch playlist) carries its library item: the card shows the
+// library's own poster, opens the item's page rather than the TMDB dialog, and its bookmark takes it off the
+// playlist by item id.
+const ownedRow = () => ({
+    Titles: [
+        movie(9, { GapId: 'owned:item9', Title: 'Owned Movie', OnList: true, ItemId: 'item9' }),
+        movie(7, { GapId: 'filmography:movie:7', OnList: true })
+    ]
+});
+
+test('an owned title on the wanted row shows the library poster and opens its library page', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+
+    const image = card(page, 'owned:item9').locator('.cardImageContainer');
+    await expect(image).toHaveCSS('background-image', /Items\/item9\/Images\/Primary/);
+
+    await card(page, 'owned:item9').click();
+    await expect(page.locator('.mtgDialog')).toHaveCount(0);
+    expect(await page.evaluate(() => window.location.hash)).toBe('#/details?id=item9&serverId=test-server');
+});
+
+test('an owned title opens its library page from the keyboard too', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+
+    await card(page, 'owned:item9').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.mtgDialog')).toHaveCount(0);
+    expect(await page.evaluate(() => window.location.hash)).toContain('id=item9');
+});
+
+test('taking an owned title off the wanted row removes it by item id', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+
+    await bookmark(page, 'owned:item9').click();
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    expect(await todoUrls(page)).toContain('Home/Wanted/Remove?itemId=item9');
+    await expect(card(page, 'filmography:movie:7')).toHaveCount(1);
+});
+
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
 

@@ -123,6 +123,102 @@ public class WatchlistPlaylistServiceTests
         Assert.Equal(playlists.Existing[0].Id, playlists.LastAddedPlaylistId);
     }
 
+    private static Playlist PlaylistWith(Guid owner, string name, params Guid[] itemIds)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            OwnerUserId = owner,
+            LinkedChildren = itemIds.Select(id => new LinkedChild { ItemId = id }).ToArray()
+        };
+
+    [Fact]
+    public async Task RemoveAsync_TakesTheItemOffTheUsersOwnPlaylist_ByItsIdInTheNForm()
+    {
+        var itemId = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+        var playlist = PlaylistWith(User, "Want to Watch", Guid.NewGuid(), itemId);
+        playlists.Existing.Add(playlist);
+        var config = new PluginConfiguration { WantToWatchPlaylistEnabled = true };
+
+        Assert.True(await service.RemoveAsync(User, itemId, config));
+
+        Assert.Equal(playlist.Id.ToString("N"), playlists.LastRemovedPlaylistId);
+        Assert.Equal([itemId.ToString("N")], playlists.LastRemovedEntryIds);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_DoesNothing_ForAnItemNotOnThePlaylist_OrWithThePlaylistOff_OrNoPlaylist()
+    {
+        var itemId = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+        var on = new PluginConfiguration { WantToWatchPlaylistEnabled = true };
+
+        Assert.False(await service.RemoveAsync(User, itemId, on));
+
+        playlists.Existing.Add(PlaylistWith(User, "Want to Watch", Guid.NewGuid()));
+        Assert.False(await service.RemoveAsync(User, itemId, on));
+
+        playlists.Existing.Add(PlaylistWith(User, "Want to Watch", itemId));
+        Assert.False(await service.RemoveAsync(User, itemId, new PluginConfiguration { WantToWatchPlaylistEnabled = false }));
+        Assert.False(await service.RemoveAsync(User, itemId, null));
+
+        Assert.Null(playlists.LastRemovedEntryIds);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_NeverTouchesAnotherUsersPlaylistSharedUnderTheSameName()
+    {
+        var itemId = Guid.NewGuid();
+        var (playlists, service) = Build([]);
+        playlists.Shared.Add(PlaylistWith(Guid.NewGuid(), "Want to Watch", itemId));
+
+        Assert.False(await service.RemoveAsync(User, itemId, new PluginConfiguration { WantToWatchPlaylistEnabled = true }));
+        Assert.Null(playlists.LastRemovedEntryIds);
+    }
+
+    [Fact]
+    public async Task AddArrivedAsync_CreatesItsOwnPlaylist_RatherThanAddingToAnotherUsersSharedOne()
+    {
+        var movie = new Movie { Id = Guid.NewGuid(), ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "603" } };
+        var (playlists, service) = Build([movie]);
+        var shared = PlaylistWith(Guid.NewGuid(), "Want to Watch");
+        playlists.Shared.Add(shared);
+
+        await service.AddArrivedAsync(User, [Entry("Movie", "603")], new PluginConfiguration { WantToWatchPlaylistEnabled = true }, CancellationToken.None);
+
+        Assert.Single(playlists.CreatedRequests);
+        Assert.NotEqual(shared.Id, playlists.LastAddedPlaylistId);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void GetOwned_IsEmpty_UnlessBothThePlaylistAndTheRowOptionAreOn(bool playlist, bool includeOwned)
+    {
+        var (playlists, service) = Build([]);
+        playlists.Existing.Add(PlaylistWith(User, "Want to Watch", Guid.NewGuid()));
+        var user = new Jellyfin.Database.Implementations.Entities.User("u", "auth", "reset") { Id = User };
+        var config = new PluginConfiguration { WantToWatchPlaylistEnabled = playlist, WantToWatchRowIncludesOwned = includeOwned };
+
+        Assert.Empty(service.GetOwned(user, config));
+        Assert.Empty(service.GetOwned(user, null));
+    }
+
+    [Fact]
+    public void OwnedTitles_AreTheVisibleMoviesAndSeries_NewestAddedFirst()
+    {
+        var first = new Movie { Id = Guid.NewGuid(), Name = "First" };
+        var episode = new MediaBrowser.Controller.Entities.TV.Episode { Id = Guid.NewGuid(), Name = "An Episode" };
+        var hidden = new Movie { Id = Guid.NewGuid(), Name = "Hidden" };
+        var show = new MediaBrowser.Controller.Entities.TV.Series { Id = Guid.NewGuid(), Name = "Show" };
+        var last = new Movie { Id = Guid.NewGuid(), Name = "Last" };
+
+        var owned = WatchlistPlaylistService.OwnedTitles([first, episode, null, hidden, show, last], item => item != hidden);
+
+        Assert.Equal(["Last", "Show", "First"], owned.Select(i => i.Name));
+    }
+
     private class LibraryManagerProxy : DispatchProxy
     {
         private IReadOnlyList<BaseItem> _items = [];
@@ -153,6 +249,13 @@ public class WatchlistPlaylistServiceTests
     {
         public List<Playlist> Existing { get; } = [];
 
+        // Other users' playlists shared with the caller: GetPlaylists returns these too, as the host does.
+        public List<Playlist> Shared { get; } = [];
+
+        public string? LastRemovedPlaylistId { get; private set; }
+
+        public IReadOnlyList<string>? LastRemovedEntryIds { get; private set; }
+
         public List<PlaylistCreationRequest> CreatedRequests { get; } = [];
 
         public Guid? LastAddedPlaylistId { get; private set; }
@@ -172,7 +275,11 @@ public class WatchlistPlaylistServiceTests
             switch (targetMethod?.Name)
             {
                 case nameof(IPlaylistManager.GetPlaylists):
-                    return Existing.Where(p => p.OwnerUserId == (Guid)args![0]!).ToArray().AsEnumerable();
+                    return Existing.Where(p => p.OwnerUserId == (Guid)args![0]!).Concat(Shared).ToArray().AsEnumerable();
+                case nameof(IPlaylistManager.RemoveItemFromPlaylistAsync):
+                    LastRemovedPlaylistId = (string)args![0]!;
+                    LastRemovedEntryIds = ((IEnumerable<string>)args[1]!).ToList();
+                    return Task.CompletedTask;
                 case nameof(IPlaylistManager.CreatePlaylist):
                     var request = (PlaylistCreationRequest)args![0]!;
                     CreatedRequests.Add(request);

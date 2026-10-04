@@ -434,17 +434,19 @@ content, recommendations) are not pruned this way.
 Off by default. Adds sections to Jellyfin Web's own pages, and serves the data behind them from the
 plugin's API.
 
-| Setting                                                | Default         | Effect                                                                                                                                                                                                                               |
-| ------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Show the surfaces in Jellyfin Web**                  | Off             | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                                         |
-| **Person pages**                                       | Off             | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                                               |
-| **Item pages**                                         | Off             | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage]                         |
-| **Studio pages**                                       | Off             | A "Missing from &lt;studio&gt;" row of a movie studio's unowned movies, on its own list page (reached by clicking a studio credit on a movie).[^studiopage]                                                                          |
-| **Home screen**                                        | Off             | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                                                     |
-| **Home Discover row: max titles**                      | 20              | The most titles the row shows (1 to 100).                                                                                                                                                                                            |
-| **Want to watch**                                      | Off             | Each signed-in user's own list: a bookmark on every card the surfaces above show, a home row of what is still on it and not in the library, and a title search in that row's header for a title no page already lists.[^wanttowatch] |
-| **Want to watch: move arrived titles into a playlist** | Off             | Once a title is actually in the library (a real file; minting never counts), the next time it is verified it moves into that user's own Jellyfin playlist too, so it shows up to watch in every client.[^wanttowatchplaylist]        |
-| **Want to watch: playlist name**                       | "Want to Watch" | Each user gets their own playlist by this name, created the first time they need one.                                                                                                                                                |
+| Setting                                                 | Default         | Effect                                                                                                                                                                                                                               |
+| ------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Show the surfaces in Jellyfin Web**                   | Off             | Adds the client script to Jellyfin Web at request time, so the surfaces you turn on below appear on its pages.[^webuiscript]                                                                                                         |
+| **Person pages**                                        | Off             | A "Missing from your library" section on a person's page: the movies and series they are credited on that you do not own.[^personpage]                                                                                               |
+| **Item pages**                                          | Off             | A "More like this you don't have" row on an owned movie or series page, an "Albums you don't have" row on a music artist's page, and a "More by this author you don't have" row on a book's page.[^itempage]                         |
+| **Studio pages**                                        | Off             | A "Missing from &lt;studio&gt;" row of a movie studio's unowned movies, on its own list page (reached by clicking a studio credit on a movie).[^studiopage]                                                                          |
+| **Home screen**                                         | Off             | A "Discover: not in your library" row of recommendations from your owned titles and from public lists.[^homerow]                                                                                                                     |
+| **Home Discover row: max titles**                       | 20              | The most titles the row shows (1 to 100).                                                                                                                                                                                            |
+| **Want to watch**                                       | Off             | Each signed-in user's own list: a bookmark on every card the surfaces above show, a home row of what is still on it and not in the library, and a title search in that row's header for a title no page already lists.[^wanttowatch] |
+| **Want to watch: move arrived titles into a playlist**  | Off             | Once a title is actually in the library (a real file; minting never counts), the next time it is verified it moves into that user's own Jellyfin playlist too, so it shows up to watch in every client.[^wanttowatchplaylist]        |
+| **Want to watch: playlist name**                        | "Want to Watch" | Each user gets their own playlist by this name, created the first time they need one.                                                                                                                                                |
+| **Want to watch: include owned titles in the home row** | Off             | The home row also shows the movies and series in the user's want-to-watch playlist, ahead of the ones still missing. An owned card opens its library page, and its bookmark takes it off the playlist. Requires the playlist.        |
+| **Want to watch: take titles off once watched**         | Off             | A movie comes off the user's want-to-watch playlist once it is played, and a series once every episode is, whichever client they watched on. Requires the playlist.                                                                  |
 
 ![A person's page: "Missing from your library"](screenshots/webui-person-missing.png)
 
@@ -557,90 +559,92 @@ on the report to apply changes immediately, or let the scheduled task pick them 
 
 The key each setting has in the plugin's configuration file, sorted by setting name.
 
-| Setting                                                        | Key                          | Section                                          |
-| -------------------------------------------------------------- | ---------------------------- | ------------------------------------------------ |
-| Also read JustWatch likes                                      | `ScanJustWatchLikes`         | [JustWatch](#justwatch)                          |
-| Also read TMDB favorites                                       | `ScanTmdbFavorites`          | [TMDB](#tmdb)                                    |
-| Auto-seed studios from your library                            | `AutoSeedStudios`            | [TMDB](#tmdb)                                    |
-| Availability ("where to watch")                                | `IncludeAvailability`        | [Where to watch](#where-to-watch)                |
-| Availability cache (hours)                                     | `AvailabilityCacheHours`     | [Where to watch](#where-to-watch)                |
-| Books (author bibliographies)                                  | `ScanBooks`                  | [What to scan](#what-to-scan)                    |
-| Collections / franchises                                       | `ScanCollections`            | [What to scan](#what-to-scan)                    |
-| Complete books from OpenLibrary subjects                       | `ScanCuratedBooks`           | [OpenLibrary](#openlibrary)                      |
-| Country code                                                   | `MetadataCountryCode`        | [Region](#region)                                |
-| Detailed API logging                                           | `DetailedApiLogging`         | [Diagnostics](#diagnostics)                      |
-| Discogs labels                                                 | `DiscogsLabelIds`            | [Discogs](#discogs)                              |
-| Discogs token                                                  | `DiscogsToken`               | [Discogs](#discogs)                              |
-| Discogs username                                               | `DiscogsUsername`            | [Discogs](#discogs)                              |
-| Discover unowned movies from TMDB lists                        | `ScanTmdbLists`              | [TMDB](#tmdb)                                    |
-| Everyone's watchlist                                           | `ScanEveryoneWatchlist`      | [What to scan](#what-to-scan)                    |
-| Filmography: deepest cast billing                              | `MaxCastBillingOrder`        | [Limits](#limits)                                |
-| Filmography: minimum TMDB votes                                | `MinFilmographyVotes`        | [Limits](#limits)                                |
-| Follow IMDb people lists                                       | `ScanImdbPeopleLists`        | [IMDb](#imdb)                                    |
-| Home Discover row: max titles                                  | `HomeRowSize`                | [Web UI](#web-ui-experimental)                   |
-| Home screen                                                    | `HomeRowEnabled`             | [Web UI](#web-ui-experimental)                   |
-| Image cache size (MB)                                          | `ImageCacheMaxMegabytes`     | [Images](#images)                                |
-| IMDb watchlists and lists                                      | `ImdbListIds`                | [IMDb](#imdb)                                    |
-| Item pages                                                     | `ItemPageEnabled`            | [Web UI](#web-ui-experimental)                   |
-| Jellyseerr/Overseerr API key                                   | `SeerrApiKey`                | [Acquisition stack](#acquisition-stack-optional) |
-| Jellyseerr/Overseerr URL                                       | `SeerrUrl`                   | [Acquisition stack](#acquisition-stack-optional) |
-| JustWatch token                                                | `JustWatchToken`             | [JustWatch](#justwatch)                          |
-| Keep the pages' images on this server                          | `ImageCacheEnabled`          | [Images](#images)                                |
-| Keywords                                                       | `CuratedKeywordIds`          | [TMDB](#tmdb)                                    |
-| Language                                                       | `MetadataLanguage`           | [Region](#region)                                |
-| Max creators scanned per run                                   | `MaxFilmographyPeople`       | [Limits](#limits)                                |
-| Max missing episodes per show                                  | `MaxMissingEpisodesPerShow`  | [Limits](#limits)                                |
-| Max related per item                                           | `MaxRelatedPerItem`          | [Limits](#limits)                                |
-| MDBList API key                                                | `MdbListApiKey`              | [MDBList](#mdblist)                              |
-| MDBList lists                                                  | `MdbListListIds`             | [MDBList](#mdblist)                              |
-| Music (artist discographies)                                   | `ScanMusic`                  | [What to scan](#what-to-scan)                    |
-| OpenLibrary subjects                                           | `CuratedOpenLibrarySubjects` | [OpenLibrary](#openlibrary)                      |
-| OpenLibrary username                                           | `OpenLibraryUsername`        | [OpenLibrary](#openlibrary)                      |
-| People (filmographies)                                         | `ScanPeople`                 | [What to scan](#what-to-scan)                    |
-| Person page: minimum episodes for a show                       | `PersonPageMinEpisodes`      | [Limits](#limits)                                |
-| Person page: minimum TMDB votes                                | `PersonPageMinVotes`         | [Limits](#limits)                                |
-| Person pages                                                   | `PersonPageEnabled`          | [Web UI](#web-ui-experimental)                   |
-| Radarr API key                                                 | `RadarrApiKey`               | [Acquisition stack](#acquisition-stack-optional) |
-| Radarr quality profile id                                      | `RadarrQualityProfileId`     | [Acquisition stack](#acquisition-stack-optional) |
-| Radarr root folder                                             | `RadarrRootFolderPath`       | [Acquisition stack](#acquisition-stack-optional) |
-| Radarr URL                                                     | `RadarrUrl`                  | [Acquisition stack](#acquisition-stack-optional) |
-| Recommendations (similar titles)                               | `ScanRecommendations`        | [What to scan](#what-to-scan)                    |
-| Recommendations: minimum TMDB votes                            | `MinRecommendationVotes`     | [Limits](#limits)                                |
-| Scan Discogs wantlist                                          | `ScanDiscogsWantlist`        | [Discogs](#discogs)                              |
-| Scan IMDb lists                                                | `ScanImdbLists`              | [IMDb](#imdb)                                    |
-| Scan JustWatch watchlist                                       | `ScanJustWatchLists`         | [JustWatch](#justwatch)                          |
-| Scan MDBList community lists                                   | `ScanMdbList`                | [MDBList](#mdblist)                              |
-| Scan MDBList watchlist                                         | `ScanMdbListWatchlist`       | [MDBList](#mdblist)                              |
-| Scan OpenLibrary want to read                                  | `ScanOpenLibraryWantToRead`  | [OpenLibrary](#openlibrary)                      |
-| Scan TheTVDB favorites                                         | `ScanTvdbFavorites`          | [TheTVDB](#thetvdb)                              |
-| Scan TMDB watchlist                                            | `ScanTmdbWatchlist`          | [TMDB](#tmdb)                                    |
-| Scan Trakt lists                                               | `ScanTraktLists`             | [Trakt](#trakt)                                  |
-| Scan Trakt watchlist                                           | `ScanTraktWatchlist`         | [Trakt](#trakt)                                  |
-| Series (missing seasons / episodes)                            | `ScanSeries`                 | [What to scan](#what-to-scan)                    |
-| Show the surfaces in Jellyfin Web                              | `WebUiEnabled`               | [Web UI](#web-ui-experimental)                   |
-| Sonarr API key                                                 | `SonarrApiKey`               | [Acquisition stack](#acquisition-stack-optional) |
-| Sonarr monitor                                                 | `SonarrMonitor`              | [Acquisition stack](#acquisition-stack-optional) |
-| Sonarr quality profile id                                      | `SonarrQualityProfileId`     | [Acquisition stack](#acquisition-stack-optional) |
-| Sonarr root folder                                             | `SonarrRootFolderPath`       | [Acquisition stack](#acquisition-stack-optional) |
-| Sonarr URL                                                     | `SonarrUrl`                  | [Acquisition stack](#acquisition-stack-optional) |
-| Studios                                                        | `CuratedCompanyIds`          | [TMDB](#tmdb)                                    |
-| TheTVDB API key                                                | `TvdbApiKey`                 | [TheTVDB](#thetvdb)                              |
-| TheTVDB subscriber PIN                                         | `TvdbPin`                    | [TheTVDB](#thetvdb)                              |
-| TMDB account                                                   | `TmdbSessionId`              | [TMDB](#tmdb)                                    |
-| TMDB API key                                                   | `TmdbApiKey`                 | [TMDB](#tmdb)                                    |
-| TMDB discover feeds: Now Playing                               | `ScanTmdbNowPlaying`         | [TMDB](#tmdb)                                    |
-| TMDB discover feeds: Popular                                   | `ScanTmdbPopular`            | [TMDB](#tmdb)                                    |
-| TMDB discover feeds: Top Rated                                 | `ScanTmdbTopRated`           | [TMDB](#tmdb)                                    |
-| TMDB discover feeds: Upcoming                                  | `ScanTmdbUpcoming`           | [TMDB](#tmdb)                                    |
-| TMDB lists                                                     | `CuratedTmdbListIds`         | [TMDB](#tmdb)                                    |
-| Track curated sets                                             | `ScanCuratedSets`            | [TMDB](#tmdb)                                    |
-| Trakt client id                                                | `TraktClientId`              | [Trakt](#trakt)                                  |
-| Trakt cross-check                                              | `TraktEnabled`               | [Trakt](#trakt)                                  |
-| Trakt lists                                                    | `CuratedTraktListIds`        | [Trakt](#trakt)                                  |
-| Trakt username                                                 | `TraktUsername`              | [Trakt](#trakt)                                  |
-| Use Discogs to complete record labels and artist discographies | `ScanDiscogs`                | [Discogs](#discogs)                              |
-| Want to watch                                                  | `WantToWatchEnabled`         | [Web UI](#web-ui-experimental)                   |
-| Want to watch: move arrived titles into a playlist             | `WantToWatchPlaylistEnabled` | [Web UI](#web-ui-experimental)                   |
-| Want to watch: playlist name                                   | `WantToWatchPlaylistName`    | [Web UI](#web-ui-experimental)                   |
-| Web search URL template                                        | `SearchUrlTemplate`          | [Links](#links)                                  |
-| Webhook URL                                                    | `WebhookUrl`                 | [Links](#links)                                  |
+| Setting                                                        | Key                           | Section                                          |
+| -------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
+| Also read JustWatch likes                                      | `ScanJustWatchLikes`          | [JustWatch](#justwatch)                          |
+| Also read TMDB favorites                                       | `ScanTmdbFavorites`           | [TMDB](#tmdb)                                    |
+| Auto-seed studios from your library                            | `AutoSeedStudios`             | [TMDB](#tmdb)                                    |
+| Availability ("where to watch")                                | `IncludeAvailability`         | [Where to watch](#where-to-watch)                |
+| Availability cache (hours)                                     | `AvailabilityCacheHours`      | [Where to watch](#where-to-watch)                |
+| Books (author bibliographies)                                  | `ScanBooks`                   | [What to scan](#what-to-scan)                    |
+| Collections / franchises                                       | `ScanCollections`             | [What to scan](#what-to-scan)                    |
+| Complete books from OpenLibrary subjects                       | `ScanCuratedBooks`            | [OpenLibrary](#openlibrary)                      |
+| Country code                                                   | `MetadataCountryCode`         | [Region](#region)                                |
+| Detailed API logging                                           | `DetailedApiLogging`          | [Diagnostics](#diagnostics)                      |
+| Discogs labels                                                 | `DiscogsLabelIds`             | [Discogs](#discogs)                              |
+| Discogs token                                                  | `DiscogsToken`                | [Discogs](#discogs)                              |
+| Discogs username                                               | `DiscogsUsername`             | [Discogs](#discogs)                              |
+| Discover unowned movies from TMDB lists                        | `ScanTmdbLists`               | [TMDB](#tmdb)                                    |
+| Everyone's watchlist                                           | `ScanEveryoneWatchlist`       | [What to scan](#what-to-scan)                    |
+| Filmography: deepest cast billing                              | `MaxCastBillingOrder`         | [Limits](#limits)                                |
+| Filmography: minimum TMDB votes                                | `MinFilmographyVotes`         | [Limits](#limits)                                |
+| Follow IMDb people lists                                       | `ScanImdbPeopleLists`         | [IMDb](#imdb)                                    |
+| Home Discover row: max titles                                  | `HomeRowSize`                 | [Web UI](#web-ui-experimental)                   |
+| Home screen                                                    | `HomeRowEnabled`              | [Web UI](#web-ui-experimental)                   |
+| Image cache size (MB)                                          | `ImageCacheMaxMegabytes`      | [Images](#images)                                |
+| IMDb watchlists and lists                                      | `ImdbListIds`                 | [IMDb](#imdb)                                    |
+| Item pages                                                     | `ItemPageEnabled`             | [Web UI](#web-ui-experimental)                   |
+| Jellyseerr/Overseerr API key                                   | `SeerrApiKey`                 | [Acquisition stack](#acquisition-stack-optional) |
+| Jellyseerr/Overseerr URL                                       | `SeerrUrl`                    | [Acquisition stack](#acquisition-stack-optional) |
+| JustWatch token                                                | `JustWatchToken`              | [JustWatch](#justwatch)                          |
+| Keep the pages' images on this server                          | `ImageCacheEnabled`           | [Images](#images)                                |
+| Keywords                                                       | `CuratedKeywordIds`           | [TMDB](#tmdb)                                    |
+| Language                                                       | `MetadataLanguage`            | [Region](#region)                                |
+| Max creators scanned per run                                   | `MaxFilmographyPeople`        | [Limits](#limits)                                |
+| Max missing episodes per show                                  | `MaxMissingEpisodesPerShow`   | [Limits](#limits)                                |
+| Max related per item                                           | `MaxRelatedPerItem`           | [Limits](#limits)                                |
+| MDBList API key                                                | `MdbListApiKey`               | [MDBList](#mdblist)                              |
+| MDBList lists                                                  | `MdbListListIds`              | [MDBList](#mdblist)                              |
+| Music (artist discographies)                                   | `ScanMusic`                   | [What to scan](#what-to-scan)                    |
+| OpenLibrary subjects                                           | `CuratedOpenLibrarySubjects`  | [OpenLibrary](#openlibrary)                      |
+| OpenLibrary username                                           | `OpenLibraryUsername`         | [OpenLibrary](#openlibrary)                      |
+| People (filmographies)                                         | `ScanPeople`                  | [What to scan](#what-to-scan)                    |
+| Person page: minimum episodes for a show                       | `PersonPageMinEpisodes`       | [Limits](#limits)                                |
+| Person page: minimum TMDB votes                                | `PersonPageMinVotes`          | [Limits](#limits)                                |
+| Person pages                                                   | `PersonPageEnabled`           | [Web UI](#web-ui-experimental)                   |
+| Radarr API key                                                 | `RadarrApiKey`                | [Acquisition stack](#acquisition-stack-optional) |
+| Radarr quality profile id                                      | `RadarrQualityProfileId`      | [Acquisition stack](#acquisition-stack-optional) |
+| Radarr root folder                                             | `RadarrRootFolderPath`        | [Acquisition stack](#acquisition-stack-optional) |
+| Radarr URL                                                     | `RadarrUrl`                   | [Acquisition stack](#acquisition-stack-optional) |
+| Recommendations (similar titles)                               | `ScanRecommendations`         | [What to scan](#what-to-scan)                    |
+| Recommendations: minimum TMDB votes                            | `MinRecommendationVotes`      | [Limits](#limits)                                |
+| Scan Discogs wantlist                                          | `ScanDiscogsWantlist`         | [Discogs](#discogs)                              |
+| Scan IMDb lists                                                | `ScanImdbLists`               | [IMDb](#imdb)                                    |
+| Scan JustWatch watchlist                                       | `ScanJustWatchLists`          | [JustWatch](#justwatch)                          |
+| Scan MDBList community lists                                   | `ScanMdbList`                 | [MDBList](#mdblist)                              |
+| Scan MDBList watchlist                                         | `ScanMdbListWatchlist`        | [MDBList](#mdblist)                              |
+| Scan OpenLibrary want to read                                  | `ScanOpenLibraryWantToRead`   | [OpenLibrary](#openlibrary)                      |
+| Scan TheTVDB favorites                                         | `ScanTvdbFavorites`           | [TheTVDB](#thetvdb)                              |
+| Scan TMDB watchlist                                            | `ScanTmdbWatchlist`           | [TMDB](#tmdb)                                    |
+| Scan Trakt lists                                               | `ScanTraktLists`              | [Trakt](#trakt)                                  |
+| Scan Trakt watchlist                                           | `ScanTraktWatchlist`          | [Trakt](#trakt)                                  |
+| Series (missing seasons / episodes)                            | `ScanSeries`                  | [What to scan](#what-to-scan)                    |
+| Show the surfaces in Jellyfin Web                              | `WebUiEnabled`                | [Web UI](#web-ui-experimental)                   |
+| Sonarr API key                                                 | `SonarrApiKey`                | [Acquisition stack](#acquisition-stack-optional) |
+| Sonarr monitor                                                 | `SonarrMonitor`               | [Acquisition stack](#acquisition-stack-optional) |
+| Sonarr quality profile id                                      | `SonarrQualityProfileId`      | [Acquisition stack](#acquisition-stack-optional) |
+| Sonarr root folder                                             | `SonarrRootFolderPath`        | [Acquisition stack](#acquisition-stack-optional) |
+| Sonarr URL                                                     | `SonarrUrl`                   | [Acquisition stack](#acquisition-stack-optional) |
+| Studios                                                        | `CuratedCompanyIds`           | [TMDB](#tmdb)                                    |
+| TheTVDB API key                                                | `TvdbApiKey`                  | [TheTVDB](#thetvdb)                              |
+| TheTVDB subscriber PIN                                         | `TvdbPin`                     | [TheTVDB](#thetvdb)                              |
+| TMDB account                                                   | `TmdbSessionId`               | [TMDB](#tmdb)                                    |
+| TMDB API key                                                   | `TmdbApiKey`                  | [TMDB](#tmdb)                                    |
+| TMDB discover feeds: Now Playing                               | `ScanTmdbNowPlaying`          | [TMDB](#tmdb)                                    |
+| TMDB discover feeds: Popular                                   | `ScanTmdbPopular`             | [TMDB](#tmdb)                                    |
+| TMDB discover feeds: Top Rated                                 | `ScanTmdbTopRated`            | [TMDB](#tmdb)                                    |
+| TMDB discover feeds: Upcoming                                  | `ScanTmdbUpcoming`            | [TMDB](#tmdb)                                    |
+| TMDB lists                                                     | `CuratedTmdbListIds`          | [TMDB](#tmdb)                                    |
+| Track curated sets                                             | `ScanCuratedSets`             | [TMDB](#tmdb)                                    |
+| Trakt client id                                                | `TraktClientId`               | [Trakt](#trakt)                                  |
+| Trakt cross-check                                              | `TraktEnabled`                | [Trakt](#trakt)                                  |
+| Trakt lists                                                    | `CuratedTraktListIds`         | [Trakt](#trakt)                                  |
+| Trakt username                                                 | `TraktUsername`               | [Trakt](#trakt)                                  |
+| Use Discogs to complete record labels and artist discographies | `ScanDiscogs`                 | [Discogs](#discogs)                              |
+| Want to watch                                                  | `WantToWatchEnabled`          | [Web UI](#web-ui-experimental)                   |
+| Want to watch: move arrived titles into a playlist             | `WantToWatchPlaylistEnabled`  | [Web UI](#web-ui-experimental)                   |
+| Want to watch: playlist name                                   | `WantToWatchPlaylistName`     | [Web UI](#web-ui-experimental)                   |
+| Want to watch: include owned titles in the home row            | `WantToWatchRowIncludesOwned` | [Web UI](#web-ui-experimental)                   |
+| Want to watch: take titles off once watched                    | `WantToWatchRemoveWatched`    | [Web UI](#web-ui-experimental)                   |
+| Web search URL template                                        | `SearchUrlTemplate`           | [Links](#links)                                  |
+| Webhook URL                                                    | `WebhookUrl`                  | [Links](#links)                                  |

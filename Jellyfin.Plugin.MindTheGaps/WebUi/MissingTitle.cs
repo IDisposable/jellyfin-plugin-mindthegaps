@@ -64,4 +64,10 @@ public sealed class MissingTitle
     /// Gets or sets a value indicating whether the title is on the signed-in user's want-to-watch list.
     /// </summary>
     public bool OnList { get; set; }
+
+    /// <summary>
+    /// Gets or sets the library item, for a title the user already owns (the want-to-watch row's titles from
+    /// their playlist); <see langword="null"/> for a title the library does not hold.
+    /// </summary>
+    public Guid? ItemId { get; set; }
 }

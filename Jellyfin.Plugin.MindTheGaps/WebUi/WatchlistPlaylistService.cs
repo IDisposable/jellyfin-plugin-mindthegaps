@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Playlists;
 using MediaBrowser.Model.Playlists;
 using Microsoft.Extensions.Logging;
@@ -117,10 +122,78 @@ public sealed class WatchlistPlaylistService
         }
     }
 
+    /// <summary>
+    /// Gets the movies and series in a user's want-to-watch playlist that they may see, the ones added last
+    /// first, for the home row. Empty unless the playlist and the row's owned titles are both switched on.
+    /// </summary>
+    /// <param name="user">The playlist's owner.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns>The owned titles to show.</returns>
+    public IReadOnlyList<BaseItem> GetOwned(User user, PluginConfiguration? config)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        if (config is not { WantToWatchPlaylistEnabled: true, WantToWatchRowIncludesOwned: true }
+            || Find(user.Id, config.WantToWatchPlaylistName) is not { } playlist)
+        {
+            return [];
+        }
+
+        return OwnedTitles(playlist.GetLinkedChildren(), item => item.IsVisible(user));
+    }
+
+    /// <summary>
+    /// The pure half of <see cref="GetOwned"/>: the movies and series among a playlist's items that the user may
+    /// see, newest first. A playlist keeps its entries in the order they were added, so the newest is last.
+    /// </summary>
+    /// <param name="linked">The playlist's resolved items, in playlist order.</param>
+    /// <param name="maySee">Whether the user may see an item.</param>
+    /// <returns>The titles to show.</returns>
+    internal static IReadOnlyList<BaseItem> OwnedTitles(IEnumerable<BaseItem?> linked, Func<BaseItem, bool> maySee)
+    {
+        ArgumentNullException.ThrowIfNull(linked);
+        ArgumentNullException.ThrowIfNull(maySee);
+
+        // An entry whose item has left the library resolves to nothing and is skipped.
+        return linked
+            .OfType<BaseItem>()
+            .Where(item => item is Movie or Series && maySee(item))
+            .Reverse()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Takes an item off a user's want-to-watch playlist, if it is there.
+    /// </summary>
+    /// <param name="userId">The playlist's owner.</param>
+    /// <param name="itemId">The library item.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when the item was on the playlist and has been removed.</returns>
+    public async Task<bool> RemoveAsync(Guid userId, Guid itemId, PluginConfiguration? config)
+    {
+        if (config is not { WantToWatchPlaylistEnabled: true }
+            || Find(userId, config.WantToWatchPlaylistName) is not { } playlist
+            || !playlist.LinkedChildren.Any(child => child.ItemId == itemId))
+        {
+            return false;
+        }
+
+        // The playlist manager identifies an entry by its item's id, in the "N" form.
+        await _playlists.RemoveItemFromPlaylistAsync(
+            playlist.Id.ToString("N", CultureInfo.InvariantCulture),
+            [itemId.ToString("N", CultureInfo.InvariantCulture)]).ConfigureAwait(false);
+        return true;
+    }
+
+    // Only a playlist the user owns: GetPlaylists also returns ones shared with them, and another user's
+    // playlist of the same name is not theirs to add to or take from.
+    private Playlist? Find(Guid userId, string name)
+        => _playlists.GetPlaylists(userId)
+            .FirstOrDefault(p => p.OwnerUserId.Equals(userId) && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
     private async Task<Guid?> FindOrCreatePlaylistAsync(Guid userId, string name)
     {
-        var existing = _playlists.GetPlaylists(userId)
-            .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        var existing = Find(userId, name);
         if (existing is not null)
         {
             return existing.Id;
