@@ -103,7 +103,7 @@ public class ItemWebUiController : WebUiControllerBase
             return NotFound();
         }
 
-        return await _playlist.RemoveAsync(userId, itemId, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
+        return await _playlist.RemoveTitleAsync(userId, itemId, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
     }
 
     // The caller, when the page bookmark is on, they may keep a list, and the item is a movie or series they

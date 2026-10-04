@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -25,12 +26,22 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// (<see cref="Configuration.PluginConfiguration.WantToWatchPlaylistEnabled"/>), called from the same place a
 /// todo entry already flips to done (<c>Todo/Verify</c>/<c>Todo/VerifyAll</c>), never at add time: at add
 /// time there is no real item yet to put in a playlist.
+/// <para>
+/// Membership is by title. Jellyfin's playlist manager never stores a series: adding one adds every episode
+/// (<c>Playlist.GetPlaylistItems</c> expands any folder), so a series is on the playlist when any of its episodes
+/// is, and taking the series off takes all of them. Every find-or-create, add and remove for one user runs
+/// behind that user's own gate, so two first adds cannot each create a playlist of the same name, and two adds
+/// cannot both pass the membership check.
+/// </para>
 /// </summary>
 public sealed class WatchlistPlaylistService
 {
     private readonly IPlaylistManager _playlists;
     private readonly LibraryVerifier _verifier;
     private readonly ILogger<WatchlistPlaylistService> _logger;
+    private readonly Func<Playlist, IEnumerable<BaseItem>> _entries;
+    private readonly Func<BaseItem, BaseItem?> _titleOf;
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _gates = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WatchlistPlaylistService"/> class.
@@ -39,10 +50,32 @@ public sealed class WatchlistPlaylistService
     /// <param name="verifier">Resolves a todo entry to the real item that fills it.</param>
     /// <param name="logger">The logger.</param>
     public WatchlistPlaylistService(IPlaylistManager playlists, LibraryVerifier verifier, ILogger<WatchlistPlaylistService> logger)
+        : this(playlists, verifier, logger, playlist => playlist.GetLinkedChildren(), DefaultTitleOf)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WatchlistPlaylistService"/> class with explicit lookups.
+    /// Test seam: resolving a playlist's entries and an episode's series both go through the host's static
+    /// library manager, which a test has no instance of.
+    /// </summary>
+    /// <param name="playlists">The host's playlist manager.</param>
+    /// <param name="verifier">Resolves a todo entry to the real item that fills it.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="entries">Resolves a playlist's entries to library items, in playlist order.</param>
+    /// <param name="titleOf">The movie or series an entry stands for.</param>
+    internal WatchlistPlaylistService(
+        IPlaylistManager playlists,
+        LibraryVerifier verifier,
+        ILogger<WatchlistPlaylistService> logger,
+        Func<Playlist, IEnumerable<BaseItem>> entries,
+        Func<BaseItem, BaseItem?> titleOf)
     {
         _playlists = playlists;
         _verifier = verifier;
         _logger = logger;
+        _entries = entries;
+        _titleOf = titleOf;
     }
 
     /// <summary>
@@ -90,29 +123,12 @@ public sealed class WatchlistPlaylistService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // A title the user already put on the playlist themselves (the page bookmark) is not added twice.
-        var existing = Find(userId, config.WantToWatchPlaylistName);
-        if (existing is not null)
-        {
-            itemIds.RemoveAll(id => Holds(existing, id));
-            if (itemIds.Count == 0)
-            {
-                return;
-            }
-        }
-
-        var playlistId = existing?.Id ?? await CreatePlaylistAsync(userId, config.WantToWatchPlaylistName).ConfigureAwait(false);
-        if (playlistId is null)
-        {
-            return;
-        }
-
         try
         {
-            await AddToPlaylistAsync(playlistId.Value, itemIds, userId).ConfigureAwait(false);
+            var added = await WithGateAsync(userId, () => AddLockedAsync(userId, itemIds, config.WantToWatchPlaylistName)).ConfigureAwait(false);
             _logger.LogDebug(
-                "Want to watch: added {Count} item(s) to '{Name}' for user {UserId}",
-                itemIds.Count,
+                "Want to watch: added {Count} title(s) to '{Name}' for user {UserId}",
+                added,
                 config.WantToWatchPlaylistName,
                 userId);
         }
@@ -130,12 +146,12 @@ public sealed class WatchlistPlaylistService
     }
 
     /// <summary>
-    /// Puts an owned item on a user's want-to-watch playlist (a movie or series page's bookmark), creating the
-    /// playlist the first time. Unlike <see cref="AddArrivedAsync"/> a failure is the caller's to report, since
-    /// a user pressed a button and should hear that it did not work.
+    /// Puts an owned movie or series on a user's want-to-watch playlist (a movie or series page's bookmark),
+    /// creating the playlist the first time. Unlike <see cref="AddArrivedAsync"/> a failure is the caller's to
+    /// report, since a user pressed a button and should hear that it did not work.
     /// </summary>
     /// <param name="userId">The playlist's owner.</param>
-    /// <param name="itemId">The library item.</param>
+    /// <param name="itemId">The movie or series.</param>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
     /// <returns><see langword="true"/> when added; <see langword="false"/> when it was already there or the playlist is off.</returns>
     /// <exception cref="InvalidOperationException">The playlist could not be created.</exception>
@@ -146,33 +162,25 @@ public sealed class WatchlistPlaylistService
             return false;
         }
 
-        var existing = Find(userId, config.WantToWatchPlaylistName);
-        if (existing is not null && Holds(existing, itemId))
-        {
-            return false;
-        }
-
-        var playlistId = existing?.Id
-            ?? await CreatePlaylistAsync(userId, config.WantToWatchPlaylistName).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("Could not create the want-to-watch playlist.");
-        await AddToPlaylistAsync(playlistId, [itemId], userId).ConfigureAwait(false);
-        return true;
+        var added = await WithGateAsync(userId, () => AddLockedAsync(userId, [itemId], config.WantToWatchPlaylistName)).ConfigureAwait(false);
+        return added > 0;
     }
 
     /// <summary>
-    /// Whether an item is on a user's want-to-watch playlist.
+    /// Whether a movie or series is on a user's want-to-watch playlist: the movie itself, or any episode of
+    /// the series.
     /// </summary>
     /// <param name="userId">The playlist's owner.</param>
-    /// <param name="itemId">The library item.</param>
+    /// <param name="titleId">The movie or series.</param>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
     /// <returns><see langword="true"/> when it is there.</returns>
-    public bool Contains(Guid userId, Guid itemId, PluginConfiguration? config)
+    public bool Contains(Guid userId, Guid titleId, PluginConfiguration? config)
         => config is { WantToWatchPlaylistEnabled: true }
             && Find(userId, config.WantToWatchPlaylistName) is { } playlist
-            && Holds(playlist, itemId);
+            && EntriesOf(_entries(playlist), titleId).Count > 0;
 
     /// <summary>
-    /// Gets the movies and series in a user's want-to-watch playlist that they may see, the ones added last
+    /// Gets the movies and series on a user's want-to-watch playlist that they may see, the ones added last
     /// first, for the home row. Empty unless the playlist and the row's owned titles are both switched on.
     /// </summary>
     /// <param name="user">The playlist's owner.</param>
@@ -188,50 +196,144 @@ public sealed class WatchlistPlaylistService
             return [];
         }
 
-        return OwnedTitles(playlist.GetLinkedChildren(), item => item.IsVisible(user));
+        return OwnedTitles(_entries(playlist), _titleOf, item => item.IsVisible(user));
     }
 
     /// <summary>
-    /// The pure half of <see cref="GetOwned"/>: the movies and series among a playlist's items that the user may
-    /// see, newest first. A playlist keeps its entries in the order they were added, so the newest is last.
+    /// Takes a movie or series off a user's want-to-watch playlist: the movie, or every episode of the series.
     /// </summary>
-    /// <param name="linked">The playlist's resolved items, in playlist order.</param>
-    /// <param name="maySee">Whether the user may see an item.</param>
+    /// <param name="userId">The playlist's owner.</param>
+    /// <param name="titleId">The movie or series.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when anything was on the playlist and has been removed.</returns>
+    public Task<bool> RemoveTitleAsync(Guid userId, Guid titleId, PluginConfiguration? config)
+        => RemoveAsync(userId, config, entries => EntriesOf(entries, titleId));
+
+    /// <summary>
+    /// Takes one entry off a user's want-to-watch playlist: the movie or episode that was just watched, leaving
+    /// a series' other episodes where they are.
+    /// </summary>
+    /// <param name="userId">The playlist's owner.</param>
+    /// <param name="itemId">The movie or episode.</param>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when it was on the playlist and has been removed.</returns>
+    public Task<bool> RemoveEntryAsync(Guid userId, Guid itemId, PluginConfiguration? config)
+        => RemoveAsync(userId, config, entries => entries.Any(e => e.Id == itemId) ? [itemId] : []);
+
+    /// <summary>
+    /// Whether an item is one the want-to-watch playlist keeps: a real movie or series. A minted placeholder
+    /// is a virtual Movie or Series with nothing to play, so it never counts.
+    /// </summary>
+    /// <param name="item">The library item, or <see langword="null"/> when there is none.</param>
+    /// <returns><see langword="true"/> for a real movie or series.</returns>
+    public static bool IsWantable(BaseItem? item) => item is Movie or Series && !item.IsVirtualItem;
+
+    /// <summary>
+    /// The pure half of <see cref="GetOwned"/>: the movies and series a playlist's entries stand for, once each,
+    /// newest first, that the user may see. A playlist keeps its entries in the order they were added, so the
+    /// newest is last; a series counts from its most recently added episode.
+    /// </summary>
+    /// <param name="entries">The playlist's resolved entries, in playlist order.</param>
+    /// <param name="titleOf">The movie or series an entry stands for.</param>
+    /// <param name="maySee">Whether the user may see a title.</param>
     /// <returns>The titles to show.</returns>
-    internal static IReadOnlyList<BaseItem> OwnedTitles(IEnumerable<BaseItem?> linked, Func<BaseItem, bool> maySee)
+    internal static IReadOnlyList<BaseItem> OwnedTitles(IEnumerable<BaseItem?> entries, Func<BaseItem, BaseItem?> titleOf, Func<BaseItem, bool> maySee)
     {
-        ArgumentNullException.ThrowIfNull(linked);
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(titleOf);
         ArgumentNullException.ThrowIfNull(maySee);
 
         // An entry whose item has left the library resolves to nothing and is skipped.
-        return linked
+        return entries
             .OfType<BaseItem>()
-            .Where(item => IsWantable(item) && maySee(item))
             .Reverse()
+            .Select(titleOf)
+            .OfType<BaseItem>()
+            .Where(title => IsWantable(title) && maySee(title))
+            .DistinctBy(title => title.Id)
             .ToList();
     }
 
     /// <summary>
-    /// Takes an item off a user's want-to-watch playlist, if it is there.
+    /// The pure membership rule: the ids of the entries that put a title on the playlist, which are the movie
+    /// itself, or a series' episodes. These are also the entry ids the playlist manager removes by.
     /// </summary>
-    /// <param name="userId">The playlist's owner.</param>
-    /// <param name="itemId">The library item.</param>
-    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
-    /// <returns><see langword="true"/> when the item was on the playlist and has been removed.</returns>
-    public async Task<bool> RemoveAsync(Guid userId, Guid itemId, PluginConfiguration? config)
+    /// <param name="entries">The playlist's resolved entries.</param>
+    /// <param name="titleId">The movie or series.</param>
+    /// <returns>The matching entries' item ids.</returns>
+    internal static IReadOnlyList<Guid> EntriesOf(IEnumerable<BaseItem> entries, Guid titleId)
+        => entries
+            .Where(e => e.Id == titleId || (e is Episode episode && episode.SeriesId == titleId))
+            .Select(e => e.Id)
+            .ToList();
+
+    private static BaseItem? DefaultTitleOf(BaseItem entry) => entry is Episode episode ? episode.Series : entry;
+
+    private async Task<T> WithGateAsync<T>(Guid userId, Func<Task<T>> action)
     {
-        if (config is not { WantToWatchPlaylistEnabled: true }
-            || Find(userId, config.WantToWatchPlaylistName) is not { } playlist
-            || !Holds(playlist, itemId))
+        var gate = _gates.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            return false;
+            return await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    // Behind the user's gate: finds or creates the playlist and adds whichever titles are not on it yet,
+    // checking membership against the playlist as it is now. Returns how many titles were added.
+    private async Task<int> AddLockedAsync(Guid userId, IReadOnlyList<Guid> titleIds, string name)
+    {
+        var existing = Find(userId, name);
+        var entries = existing is null ? [] : _entries(existing).ToList();
+        var toAdd = titleIds.Distinct().Where(id => EntriesOf(entries, id).Count == 0).ToList();
+        if (toAdd.Count == 0)
+        {
+            return 0;
         }
 
-        // The playlist manager identifies an entry by its item's id, in the "N" form.
-        await _playlists.RemoveItemFromPlaylistAsync(
-            playlist.Id.ToString("N", CultureInfo.InvariantCulture),
-            [itemId.ToString("N", CultureInfo.InvariantCulture)]).ConfigureAwait(false);
-        return true;
+        var playlistId = existing?.Id
+            ?? await CreatePlaylistAsync(userId, name).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Could not create the want-to-watch playlist.");
+
+#if NET10_0_OR_GREATER
+        await _playlists.AddItemToPlaylistAsync(playlistId, toAdd, null, userId).ConfigureAwait(false);
+#else
+        await _playlists.AddItemToPlaylistAsync(playlistId, toAdd, userId).ConfigureAwait(false);
+#endif
+        return toAdd.Count;
+    }
+
+    private Task<bool> RemoveAsync(Guid userId, PluginConfiguration? config, Func<IReadOnlyList<BaseItem>, IReadOnlyList<Guid>> select)
+    {
+        if (config is not { WantToWatchPlaylistEnabled: true })
+        {
+            return Task.FromResult(false);
+        }
+
+        var name = config.WantToWatchPlaylistName;
+        return WithGateAsync(userId, async () =>
+        {
+            if (Find(userId, name) is not { } playlist)
+            {
+                return false;
+            }
+
+            var ids = select(_entries(playlist).ToList());
+            if (ids.Count == 0)
+            {
+                return false;
+            }
+
+            // The playlist manager identifies an entry by its item's id, in the "N" form.
+            await _playlists.RemoveItemFromPlaylistAsync(
+                playlist.Id.ToString("N", CultureInfo.InvariantCulture),
+                ids.Select(id => id.ToString("N", CultureInfo.InvariantCulture))).ConfigureAwait(false);
+            return true;
+        });
     }
 
     // Only a playlist the user owns: GetPlaylists also returns ones shared with them, and another user's
@@ -239,25 +341,6 @@ public sealed class WatchlistPlaylistService
     private Playlist? Find(Guid userId, string name)
         => _playlists.GetPlaylists(userId)
             .FirstOrDefault(p => p.OwnerUserId.Equals(userId) && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>
-    /// Whether an item is one the want-to-watch playlist keeps: a movie or a series.
-    /// </summary>
-    /// <param name="item">The library item, or <see langword="null"/> when there is none.</param>
-    /// <returns><see langword="true"/> for a movie or series.</returns>
-    public static bool IsWantable(BaseItem? item) => item is Movie or Series;
-
-    private static bool Holds(Playlist playlist, Guid itemId)
-        => playlist.LinkedChildren.Any(child => child.ItemId == itemId);
-
-    private Task AddToPlaylistAsync(Guid playlistId, IReadOnlyCollection<Guid> itemIds, Guid userId)
-    {
-#if NET10_0_OR_GREATER
-        return _playlists.AddItemToPlaylistAsync(playlistId, itemIds, null, userId);
-#else
-        return _playlists.AddItemToPlaylistAsync(playlistId, itemIds, userId);
-#endif
-    }
 
     private async Task<Guid?> CreatePlaylistAsync(Guid userId, string name)
     {

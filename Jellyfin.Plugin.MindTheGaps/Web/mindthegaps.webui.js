@@ -910,6 +910,40 @@
         });
         homeObserver.observe(sectionsEl, { childList: true });
         schedule();
+        refreshWantedRow(sectionsEl);
+    }
+
+    // The wanted row's own cards, in order, as one string: not the title search's results, which sit inside it.
+    function wantedCardIds(section) {
+        return Array.prototype.filter.call(section.querySelectorAll('.mtgCard'), function (c) { return !c.closest('#' + SEARCH_RESULTS_ID); })
+            .map(function (c) { return c.getAttribute('data-gapid'); }).join('\n');
+    }
+
+    // jellyfin-web only resumes the cached home view's sections on a return, never lays them out again, so
+    // the wanted row would keep showing what it showed when the user left: a title bookmarked on its page, or
+    // watched, or arrived since, would not be reflected. Ask again on every return, and rebuild only when the
+    // cards differ, so an unchanged row keeps the card a remote had focus on; a rebuilt one puts focus back
+    // on the same card, or the first one if that card is gone.
+    function refreshWantedRow(sectionsEl) {
+        var section = sectionsEl.querySelector('#' + WANTED_ID);
+        if (!section) { return; }
+        var shown = wantedCardIds(section);
+        api('GET', 'MindTheGaps/Home/Wanted').then(function (data) {
+            var current = sectionsEl.querySelector('#' + WANTED_ID);
+            // Rebuilt by something else meanwhile (the row's own search, or the sections being laid out).
+            if (!current || wantedCardIds(current) !== shown) { return; }
+            var next = ((data && data.Titles) || []).map(function (t) { return t.GapId; }).join('\n');
+            if (next === shown) { return; }
+
+            var focusedCard = document.activeElement && current.contains(document.activeElement) && document.activeElement.closest('.mtgCard');
+            var focusedId = focusedCard ? focusedCard.getAttribute('data-gapid') : null;
+            renderWanted(sectionsEl, data, currentSearchState(sectionsEl));
+            if (focusedId) {
+                var row = sectionsEl.querySelector('#' + WANTED_ID);
+                var again = row && (row.querySelector('.mtgCard[data-gapid="' + focusedId.replace(/["\\]/g, '') + '"]') || row.querySelector('.mtgCard'));
+                if (again) { again.focus(); }
+            }
+        }, function () { /* switched off, or signed out: leave the row as it is */ });
     }
 
     function onViewShow(e) {
@@ -1007,7 +1041,9 @@
         var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
         if (!host) { return; }
 
-        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'button-flat detailButton ' + DETAIL_WANT_CLASS, 'data-itemid': itemId });
+        // .emby-button by hand: h() sets `is` after the element exists, so it is never upgraded to the custom
+        // element that would add it (see ACTION_BUTTON).
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'emby-button button-flat detailButton ' + DETAIL_WANT_CLASS, 'data-itemid': itemId });
         var content = h('div', { 'class': 'detailButton-content' });
         content.appendChild(h('span', { 'class': 'material-icons detailButton-icon', 'aria-hidden': 'true' }));
         btn.appendChild(content);

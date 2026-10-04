@@ -151,7 +151,7 @@ public class HomeWebUiController : WebUiControllerBase
 
         if (itemId is { } item)
         {
-            return await _playlist.RemoveAsync(id, item, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
+            return await _playlist.RemoveTitleAsync(id, item, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
         }
 
         return _todo.Remove(id, gapId ?? string.Empty);

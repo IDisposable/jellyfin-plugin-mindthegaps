@@ -263,6 +263,49 @@ test('taking an owned title off the wanted row removes it by item id', async ({ 
     await expect(card(page, 'filmography:movie:7')).toHaveCount(1);
 });
 
+// jellyfin-web only resumes its cached home view on a return, so the plugin asks for the row again itself.
+const returnHome = (page) => page.evaluate(() => {
+    document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+});
+
+test('returning to the cached home shows a title added since, keeping focus on the same card', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await card(page, 'recommendation:movie:8').focus();
+
+    await page.evaluate(() => {
+        __WANTED_RESULT__ = { Titles: [{ GapId: 'owned:item9', Title: 'Bookmarked Since', Kind: 'Movie', TmdbId: 9, OnList: true, ItemId: 'item9' }].concat(__WANTED_RESULT__.Titles) };
+    });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(3);
+    await expect(page.locator('#mtgHomeWanted .mtgCard').first()).toHaveAttribute('data-gapid', 'owned:item9');
+    expect(await page.evaluate(() => document.activeElement.getAttribute('data-gapid'))).toBe('recommendation:movie:8');
+});
+
+test('returning to the cached home drops a title removed since, moving focus to the first card', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await card(page, 'filmography:movie:7').focus();
+
+    await page.evaluate(() => { __WANTED_RESULT__ = { Titles: [__WANTED_RESULT__.Titles[1]] }; });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    await expect(card(page, 'filmography:movie:7')).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement.getAttribute('data-gapid'))).toBe('recommendation:movie:8');
+});
+
+test('returning to the cached home leaves an unchanged row alone', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await page.evaluate(() => { document.getElementById('mtgHomeWanted').__marker = true; });
+
+    await returnHome(page);
+    await page.waitForTimeout(300);
+
+    expect(await page.evaluate(() => document.getElementById('mtgHomeWanted').__marker === true)).toBe(true);
+});
+
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
 

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
@@ -16,8 +15,8 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// Takes a title off the viewer's want-to-watch playlist once they have watched it
 /// (<see cref="PluginConfiguration.WantToWatchRemoveWatched"/>). Listens for Jellyfin saving a user's played
-/// state, so it works whichever client they watched on: a movie comes off when it is played, a series when
-/// every episode is, so a show in progress stays.
+/// state, so it works whichever client they watched on: a movie or episode comes off when it is played, and a
+/// series' remaining episodes once every one of them is.
 /// </summary>
 public sealed class WatchedAutoRemover : IHostedService
 {
@@ -95,12 +94,17 @@ public sealed class WatchedAutoRemover : IHostedService
                 return;
             }
 
-            foreach (var candidate in Candidates(item, user))
+            // The movie or episode just watched comes off by itself; a series' other episodes stay.
+            if (await _playlist.RemoveEntryAsync(userId, item.Id, config).ConfigureAwait(false))
             {
-                if (await _playlist.RemoveAsync(userId, candidate.Id, config).ConfigureAwait(false))
-                {
-                    _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, watched", candidate.Name, user.Username);
-                }
+                _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, watched", item.Name, user.Username);
+            }
+
+            // Once every episode is played the series is done, along with anything of it still on the playlist.
+            if (FinishedSeries(item, user) is { } series
+                && await _playlist.RemoveTitleAsync(userId, series.Id, config).ConfigureAwait(false))
+            {
+                _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, every episode watched", series.Name, user.Username);
             }
         }
         catch (Exception ex)
@@ -110,20 +114,16 @@ public sealed class WatchedAutoRemover : IHostedService
         }
     }
 
-    // The item itself, and for an episode or season its series once the whole series is played.
-    private static IEnumerable<BaseItem> Candidates(BaseItem item, User user)
+    // For an episode or a season, its series once the whole series is played; otherwise null.
+    private static Series? FinishedSeries(BaseItem item, User user)
     {
-        yield return item;
-
         var series = item switch
         {
             Episode episode => episode.Series,
             Season season => season.Series,
+            Series whole => whole,
             _ => null
         };
-        if (series is not null && series.IsPlayed(user, null))
-        {
-            yield return series;
-        }
+        return series is not null && series.IsPlayed(user, null) ? series : null;
     }
 }

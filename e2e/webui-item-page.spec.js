@@ -138,6 +138,9 @@ test('a movie page gets a bookmark before More, showing whether the title is on 
 
     await expect(detailWant(page)).toHaveAttribute('aria-pressed', 'true');
     await expect(detailWant(page)).toHaveAttribute('title', 'Remove from your list');
+    // Not upgraded to the custom element, so it carries jellyfin-web's button class itself, like its neighbours.
+    await expect(detailWant(page)).toHaveClass(/\bemby-button\b/);
+    await expect(detailWant(page)).toHaveClass(/\bdetailButton\b/);
     await expect(detailWant(page).locator('.material-icons')).toHaveClass(/\bbookmark\b/);
     const order = await page.locator('.mainDetailButtons > button').evaluateAll((els) => els.map((e) => e.className));
     expect(order[order.length - 2]).toContain('mtgWantDetail');
