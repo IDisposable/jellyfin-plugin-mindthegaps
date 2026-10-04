@@ -322,6 +322,57 @@ test('every card on the wanted and Discover rows is reachable by jellyfin-web re
     expect(unreachable).toEqual([]);
 });
 
+// On a TV, jellyfin-web's own cards grow when focused (.card.show-animation:focus > .cardBox, scale 1.07) rather
+// than drawing an outline; the plugin's cards take the same classes, copied from a stock card on the page.
+// jellyfin-web 12.1's own rules for a card's focus (main bundle CSS), which the harness otherwise lacks.
+const JELLYFIN_CARD_CSS = '.card{outline:none!important}.card.show-animation:focus>.cardBox{transform:scale(1.07)}';
+const addJellyfinCardCss = (page) => page.evaluate((css) => {
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+}, JELLYFIN_CARD_CSS);
+
+const tvHome = async (page, stockClasses) => {
+    await page.goto('file://' + buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await page.evaluate((cls) => {
+        document.documentElement.classList.add('layout-tv');
+        const stock = document.createElement('div');
+        stock.className = 'verticalSection';
+        stock.innerHTML = '<button class="card portraitCard ' + cls + '"><div class="cardBox"></div></button>';
+        document.querySelector('#homeTab .sections').appendChild(stock);
+        document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+    }, stockClasses);
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+};
+
+test('on a TV a focused card grows like a stock card, with no outline', async ({ page }) => {
+    await tvHome(page, 'show-focus show-animation');
+    await addJellyfinCardCss(page);
+
+    const mtg = card(page, 'filmography:movie:7');
+    await expect(mtg).toHaveClass(/\bshow-focus\b/);
+    await expect(mtg).toHaveClass(/\bshow-animation\b/);
+    await mtg.focus();
+    await expect(mtg.locator('> .cardBox')).toHaveCSS('transform', 'matrix(1.07, 0, 0, 1.07, 0, 0)');
+    await expect(mtg).toHaveCSS('outline-style', 'none');
+});
+
+test('on a TV whose stock cards do not grow, the plugin cards do not either', async ({ page }) => {
+    await tvHome(page, 'show-focus');
+
+    await expect(card(page, 'filmography:movie:7')).toHaveClass(/\bshow-focus\b/);
+    await expect(card(page, 'filmography:movie:7')).not.toHaveClass(/\bshow-animation\b/);
+});
+
+test('off a TV a focused card keeps its outline and takes no TV focus classes', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await addJellyfinCardCss(page);
+    const mtg = card(page, 'filmography:movie:7');
+    await expect(mtg).not.toHaveClass(/\bshow-focus\b/);
+    await mtg.focus();
+    await expect(mtg).toHaveCSS('outline-style', 'solid');
+});
+
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
 

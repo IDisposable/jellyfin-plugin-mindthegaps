@@ -497,12 +497,22 @@
     // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
+    // jellyfin-web's own TV focus look for a card, as its card builder gives it: show-focus in the TV layout,
+    // and show-animation (the card growing when focused) unless the browser is one it thinks too slow for that.
+    // That test (browser.slow/edge) is not reachable from an injected script, so the choice is copied from a
+    // stock card already on the page, and the scale-up is assumed when there is none to copy.
+    function tvFocusClasses() {
+        if (!document.documentElement.classList.contains('layout-tv')) { return ''; }
+        var stock = document.querySelector('.card.show-focus:not(.mtgCard)');
+        return stock && !stock.classList.contains('show-animation') ? ' show-focus' : ' show-focus show-animation';
+    }
+
     function card(ctx, item) {
         // An album cover is square; a poster or a book cover is portrait.
         var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
         // .focusable is what lets a remote reach it: jellyfin-web's D-pad navigation moves only between
         // INPUT/TEXTAREA/SELECT/BUTTON/A and .focusable, so without it the bookmark button was all it could land on.
-        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable focusable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
+        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable focusable' + tvFocusClasses(), 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
@@ -1098,7 +1108,8 @@
         // Plain :focus, not :focus-visible: a TV has no mouse to distinguish from, and an older TV
         // browser that does not recognize :focus-visible would otherwise drop the rule entirely and
         // show no focus ring at all, which matters far more here than a mouse click briefly seeing one.
-        '.mtgCard:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
+        // jellyfin-web sets .card{outline:none!important}, so the keyboard outline needs !important to show at all.
+        '.mtgCard:not(.show-focus):focus{outline:3px solid #00a4dc!important;outline-offset:2px}' +
         '.mtgDialog :focus{outline:3px solid #00a4dc;outline-offset:2px}' +
         '.mtgSearchBox{display:flex;align-items:center;gap:.5em;margin-left:1.5em;flex:1 1 auto;min-width:0;max-width:26em}' +
         '.mtgSearchKind{flex:0 0 auto;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .4em}' +
