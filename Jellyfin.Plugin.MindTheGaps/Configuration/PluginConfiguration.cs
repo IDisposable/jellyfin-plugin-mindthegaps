@@ -513,7 +513,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets a value indicating whether the home want-to-watch row also shows the titles already in the
     /// user's want-to-watch playlist (the ones they own), ahead of the ones still missing, so one row holds
-    /// everything they want to watch. Requires <see cref="WantToWatchPlaylistEnabled"/>, since that playlist is
+    /// everything they want to watch. Each group shows up to <see cref="HomeRowSize"/> titles of its own. Requires <see cref="WantToWatchPlaylistEnabled"/>, since that playlist is
     /// where an owned title on the list lives.
     /// </summary>
     public bool WantToWatchRowIncludesOwned { get; set; }

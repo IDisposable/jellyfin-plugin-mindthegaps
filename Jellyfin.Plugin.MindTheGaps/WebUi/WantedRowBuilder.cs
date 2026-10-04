@@ -30,7 +30,8 @@ internal static class WantedRowBuilder
 
     /// <summary>
     /// Builds the row with the user's owned titles ahead of the missing ones. What is ready to watch comes
-    /// first; the owned titles share the row's limit with the missing ones rather than adding to it.
+    /// first. Each group gets the limit to itself, so a long playlist can never crowd the missing titles off
+    /// the row, nor a long list the owned ones.
     /// </summary>
     /// <param name="entries">The user's todo entries.</param>
     /// <param name="ownership">The index of the owned movies and series.</param>
@@ -74,12 +75,13 @@ internal static class WantedRowBuilder
             .ThenBy(c => c.Card.Title, StringComparer.OrdinalIgnoreCase)
             .Select(c => c.Card);
 
+        var perGroup = Math.Max(1, limit);
         return owned
             .Where(item => item is not null)
             .DistinctBy(item => item.Id)
             .Select(OwnedCard)
-            .Concat(missing)
-            .Take(Math.Max(1, limit))
+            .Take(perGroup)
+            .Concat(missing.Take(perGroup))
             .ToList();
     }
 

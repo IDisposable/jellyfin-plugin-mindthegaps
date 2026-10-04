@@ -59,14 +59,31 @@ public class WantToWatchOwnedTests
     }
 
     [Fact]
-    public void WantedRow_OwnedTitlesShareTheLimit_AndAppearOnce()
+    public void WantedRow_AFullPlaylist_NeverCrowdsOutTheMissingTitles()
+    {
+        // The case that shipped wrong: as many owned titles as the limit, and the missing ones still show.
+        var owned = Enumerable.Range(1, 3).Select(n => OwnedMovie("Owned " + n)).ToList();
+
+        var row = WantedRowBuilder.Build([Missing("Werwulf", "1"), Missing("Kung Fu Hustle", "2", "2026-02-01T00:00:00Z")], OwnsNothing, owned, 3, Now);
+
+        Assert.Equal(["Owned 1", "Owned 2", "Owned 3", "Kung Fu Hustle", "Werwulf"], row.Select(c => c.Title));
+    }
+
+    [Fact]
+    public void WantedRow_EachGroupIsLimitedOnItsOwn_AndAnOwnedTitleAppearsOnce()
     {
         var a = OwnedMovie("Owned A");
         var b = OwnedMovie("Owned B");
+        var c = OwnedMovie("Owned C");
 
-        var row = WantedRowBuilder.Build([Missing("m", "1")], OwnsNothing, [a, b, a], 2, Now);
+        var row = WantedRowBuilder.Build(
+            [Missing("m1", "1", "2026-03-01T00:00:00Z"), Missing("m2", "2", "2026-02-01T00:00:00Z"), Missing("m3", "3")],
+            OwnsNothing,
+            [a, b, a, c],
+            2,
+            Now);
 
-        Assert.Equal(["Owned A", "Owned B"], row.Select(c => c.Title));
+        Assert.Equal(["Owned A", "Owned B", "m1", "m2"], row.Select(t => t.Title));
     }
 
     [Fact]
