@@ -27,7 +27,6 @@ public class HomeWebUiController : WebUiControllerBase
     private readonly HomeDiscoverService _home;
     private readonly WantedRowService _wanted;
     private readonly WatchlistSearchService _search;
-    private readonly TodoStore _todo;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeWebUiController"/> class.
@@ -43,7 +42,6 @@ public class HomeWebUiController : WebUiControllerBase
         _home = home;
         _wanted = wanted;
         _search = search;
-        _todo = todo;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
@@ -139,7 +137,7 @@ public class HomeWebUiController : WebUiControllerBase
     public ActionResult<int> RemoveHomeWanted([FromQuery] string? gapId)
     {
         var (userId, _) = Wanting();
-        return userId is not { } id ? NotFound() : _todo.Remove(id, gapId ?? string.Empty);
+        return userId is not { } id ? NotFound() : Todo.Remove(id, gapId ?? string.Empty);
     }
 
     /// <summary>
