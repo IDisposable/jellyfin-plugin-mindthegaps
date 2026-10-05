@@ -48,7 +48,8 @@ public class WatchlistPlaylistServiceTests
             verifier,
             NullLogger<WatchlistPlaylistService>.Instance,
             playlist => playlist.LinkedChildren.Select(c => c.ItemId is { } id ? control.Items.GetValueOrDefault(id) : null).OfType<BaseItem>(),
-            entry => entry is Episode episode ? control.Items.GetValueOrDefault(episode.SeriesId) : entry);
+            entry => entry is Episode episode ? control.Items.GetValueOrDefault(episode.SeriesId) : entry,
+            (_, _) => true);
         return (control, service);
     }
 

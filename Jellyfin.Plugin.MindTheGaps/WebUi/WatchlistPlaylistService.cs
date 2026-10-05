@@ -41,6 +41,7 @@ public sealed class WatchlistPlaylistService
     private readonly ILogger<WatchlistPlaylistService> _logger;
     private readonly Func<Playlist, IEnumerable<BaseItem>> _entries;
     private readonly Func<BaseItem, BaseItem?> _titleOf;
+    private readonly Func<BaseItem, User, bool> _maySee;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _gates = new();
 
     /// <summary>
@@ -50,32 +51,36 @@ public sealed class WatchlistPlaylistService
     /// <param name="verifier">Resolves a todo entry to the real item that fills it.</param>
     /// <param name="logger">The logger.</param>
     public WatchlistPlaylistService(IPlaylistManager playlists, LibraryVerifier verifier, ILogger<WatchlistPlaylistService> logger)
-        : this(playlists, verifier, logger, playlist => playlist.GetLinkedChildren(), DefaultTitleOf)
+        : this(playlists, verifier, logger, playlist => playlist.GetLinkedChildren(), DefaultTitleOf, (item, user) => item.IsVisible(user))
     {
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WatchlistPlaylistService"/> class with explicit lookups.
-    /// Test seam: resolving a playlist's entries and an episode's series both go through the host's static
-    /// library manager, which a test has no instance of.
+    /// Test seam: resolving a playlist's entries, an episode's series and a title's visibility all go through
+    /// the host's static library manager, which a test has no instance of (10.11's <c>IsVisible</c> walks the
+    /// item's parents for inherited tags).
     /// </summary>
     /// <param name="playlists">The host's playlist manager.</param>
     /// <param name="verifier">Resolves a todo entry to the real item that fills it.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="entries">Resolves a playlist's entries to library items, in playlist order.</param>
     /// <param name="titleOf">The movie or series an entry stands for.</param>
+    /// <param name="maySee">Whether a user may see a title.</param>
     internal WatchlistPlaylistService(
         IPlaylistManager playlists,
         LibraryVerifier verifier,
         ILogger<WatchlistPlaylistService> logger,
         Func<Playlist, IEnumerable<BaseItem>> entries,
-        Func<BaseItem, BaseItem?> titleOf)
+        Func<BaseItem, BaseItem?> titleOf,
+        Func<BaseItem, User, bool> maySee)
     {
         _playlists = playlists;
         _verifier = verifier;
         _logger = logger;
         _entries = entries;
         _titleOf = titleOf;
+        _maySee = maySee;
     }
 
     /// <summary>
@@ -196,7 +201,7 @@ public sealed class WatchlistPlaylistService
             return [];
         }
 
-        return OwnedTitles(_entries(playlist), _titleOf, item => item.IsVisible(user));
+        return OwnedTitles(_entries(playlist), _titleOf, item => _maySee(item, user));
     }
 
     /// <summary>
