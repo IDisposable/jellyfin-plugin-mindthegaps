@@ -51,6 +51,11 @@ public abstract class WebUiControllerBase : ControllerBase
     protected WebUiAccess Access => _access;
 
     /// <summary>
+    /// Gets the per-user todo-list store, for the want-to-watch add/remove.
+    /// </summary>
+    public TodoStore Todo => _todo;
+
+    /// <summary>
     /// The caller's own list when they may keep one (want to watch is on, and they are a signed-in user
     /// without a parental rating limit), with the identity keys of what is on it so a card can say whether
     /// its title is.
@@ -63,7 +68,7 @@ public abstract class WebUiControllerBase : ControllerBase
             return (null, new HashSet<string>(StringComparer.Ordinal));
         }
 
-        return (userId, _todo.WantedKeys(userId));
+        return (userId, Todo.WantedKeys(userId));
     }
 
     /// <summary>
@@ -101,10 +106,10 @@ public abstract class WebUiControllerBase : ControllerBase
         var gap = await findGap(cancellationToken).ConfigureAwait(false);
         if (add)
         {
-            return gap is null ? 0 : _todo.Add(userId, [gap]);
+            return gap is null ? 0 : Todo.Add(userId, [gap]);
         }
 
-        var removed = gap is null ? 0 : _todo.RemoveMatching(userId, GapTargetKey.For(gap).ToList());
-        return removed > 0 ? removed : _todo.Remove(userId, gapId ?? string.Empty);
+        var removed = gap is null ? 0 : Todo.RemoveMatching(userId, GapTargetKey.For(gap).ToList());
+        return removed > 0 ? removed : Todo.Remove(userId, gapId ?? string.Empty);
     }
 }

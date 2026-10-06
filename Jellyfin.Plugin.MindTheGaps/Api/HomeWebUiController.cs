@@ -27,7 +27,6 @@ public class HomeWebUiController : WebUiControllerBase
     private readonly HomeDiscoverService _home;
     private readonly WantedRowService _wanted;
     private readonly WatchlistSearchService _search;
-    private readonly TodoStore _todo;
     private readonly WatchlistPlaylistService _playlist;
 
     /// <summary>
@@ -46,7 +45,6 @@ public class HomeWebUiController : WebUiControllerBase
         _home = home;
         _wanted = wanted;
         _search = search;
-        _todo = todo;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
@@ -154,7 +152,7 @@ public class HomeWebUiController : WebUiControllerBase
             return await _playlist.RemoveTitleAsync(id, item, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
         }
 
-        return _todo.Remove(id, gapId ?? string.Empty);
+        return Todo.Remove(id, gapId ?? string.Empty);
     }
 
     /// <summary>
