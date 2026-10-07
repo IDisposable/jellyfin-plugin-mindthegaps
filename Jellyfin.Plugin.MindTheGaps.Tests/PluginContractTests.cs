@@ -26,7 +26,12 @@ public class PluginContractTests
         ["CuratedTmdbListIds"] = "TMDB list chip picker",
         ["CuratedTraktListIds"] = "Trakt list chip picker",
         ["CuratedOpenLibrarySubjects"] = "OpenLibrary subject chip picker",
-        ["TmdbSessionId"] = "minted by the TMDB connect wizard, never shown"
+        ["TmdbSessionId"] = "minted by the TMDB connect wizard, never shown",
+        ["PersonPageEnabled"] = "replaced by PersonPagePlacement, read only while that is empty",
+        ["ItemPageEnabled"] = "replaced by ItemPagePlacement's none, read only while that is empty",
+        ["StudioPageEnabled"] = "replaced by StudioPagePlacement, read only while that is empty",
+        ["HomeRowEnabled"] = "replaced by HomeDiscoverPlacement's none, read only while that is empty",
+        ["HomeRowPlacement"] = "replaced by the two home row placements, read only while they are empty"
     };
 
     [Fact]
@@ -85,7 +90,8 @@ public class PluginContractTests
             {
                 missing.Add($"{name}: never written back on save");
             }
-            else if (!page.Contains($"= config.{name}", StringComparison.Ordinal))
+            else if (!page.Contains($"= config.{name}", StringComparison.Ordinal)
+                && !page.Contains($"setPlacement(page, '{name}', config.{name},", StringComparison.Ordinal))
             {
                 missing.Add($"{name}: never read on load");
             }

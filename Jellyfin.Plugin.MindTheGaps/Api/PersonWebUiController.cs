@@ -12,7 +12,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 
 /// <summary>
 /// The person-page web UI surface: a person's unowned filmography, plus a signed-in user's todo-list add on
-/// each. Every endpoint answers 404 while the surface is off, so a toggle takes effect on the next page
+/// each. Every endpoint answers 404 while the surface is off, so a change takes effect on the next page
 /// load without a restart.
 /// </summary>
 [ApiController]

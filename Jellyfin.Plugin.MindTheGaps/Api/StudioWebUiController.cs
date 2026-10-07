@@ -33,7 +33,7 @@ public class StudioWebUiController : WebUiControllerBase
         _studios = studios;
     }
 
-    private static bool StudioPageEnabled => WebUiGate.StudioPage(Plugin.Instance?.Configuration);
+    private static bool StudioPageShown => WebUiGate.StudioPage(Plugin.Instance?.Configuration);
 
     /// <summary>
     /// Lists the movies from this studio that the library does not hold.
@@ -48,7 +48,7 @@ public class StudioWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<StudioMissingResult>> GetStudioMissing([FromRoute] Guid studioId, CancellationToken cancellationToken)
     {
-        if (!StudioPageEnabled || !Access.MaySee(User, studioId))
+        if (!StudioPageShown || !Access.MaySee(User, studioId))
         {
             return NotFound();
         }
@@ -79,7 +79,7 @@ public class StudioWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddStudioGapToTodo([FromRoute] Guid studioId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(StudioPageEnabled, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+        => WantOwnedGapAsync(StudioPageShown, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: true, cancellationToken);
 
     /// <summary>
     /// Takes one of a studio's unowned movies off the caller's want-to-watch list.
@@ -94,5 +94,5 @@ public class StudioWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveStudioGapFromTodo([FromRoute] Guid studioId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(StudioPageEnabled, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+        => WantOwnedGapAsync(StudioPageShown, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }

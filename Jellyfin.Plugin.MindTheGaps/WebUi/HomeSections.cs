@@ -37,7 +37,7 @@ public sealed class HomeSections
     /// The user's home slots in order, when the placement follows a section type.
     /// </summary>
     /// <param name="userId">The signed-in user, or null for a request without one.</param>
-    /// <param name="placement">The placement <see cref="HomePlacement.Of"/> returned.</param>
+    /// <param name="placement">The placement <see cref="HomePlacement.Discover"/> or <see cref="HomePlacement.Wanted"/> returned.</param>
     /// <returns>One section type per slot, or null when the placement needs none or it could not be read
     /// (the rows then go to the bottom).</returns>
     public IReadOnlyList<string>? For(Guid? userId, string placement)

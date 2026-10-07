@@ -22,16 +22,19 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 public sealed class GapScanPipeline
 {
     private readonly GapStore _store;
+    private readonly SourceDurationStore _durations;
     private readonly ILogger<GapScanPipeline> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapScanPipeline"/> class.
     /// </summary>
     /// <param name="store">The gap store, for mid-scan checkpoints.</param>
+    /// <param name="durations">Each source's last run, which weighs the progress bar.</param>
     /// <param name="logger">The logger.</param>
-    public GapScanPipeline(GapStore store, ILogger<GapScanPipeline> logger)
+    public GapScanPipeline(GapStore store, SourceDurationStore durations, ILogger<GapScanPipeline> logger)
     {
         _store = store;
+        _durations = durations;
         _logger = logger;
     }
 
@@ -118,19 +121,15 @@ public sealed class GapScanPipeline
         // still serialize through ServicePacer, and the cache/circuit and ownership index are thread-safe or
         // read-only. De-dup is order-tolerant (GapSourceMerge only unions recommendation source-refs, which
         // come from a single source), so the streamed, completion-order merge is fine.
-        var fractions = new double[Math.Max(1, total)];
+        var fractions = new double[total];
+        var expected = ScanProgressEstimate.Expected(_durations.Get(enabled.Select(s => s.Name).ToList()));
 
         // Per slot, so each producer writes its own and no lock is needed.
         var runs = new SourceRun?[Math.Max(1, total)];
+        var seconds = new double?[total];
         void ReportAggregate()
         {
-            double sum = 0;
-            foreach (var f in fractions)
-            {
-                sum += f;
-            }
-
-            progress?.Report(sum / Math.Max(1, total) * 100.0);
+            progress?.Report(ScanProgressEstimate.Combine(fractions, expected) * 100.0);
         }
 
         var channel = Channel.CreateUnbounded<GapItem>(new UnboundedChannelOptions { SingleReader = true });
@@ -166,6 +165,8 @@ public sealed class GapScanPipeline
                         discovered++;
                     }
                 }
+
+                seconds[slot] = Stopwatch.GetElapsedTime(started).TotalSeconds;
             }
             catch (OperationCanceledException)
             {
@@ -185,8 +186,8 @@ public sealed class GapScanPipeline
                     runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
                 }
 
-                // The sources run concurrently, so the scan ends with the slowest one and the progress bar
-                // creeps once only the rate-paced sources are left. The time names which one held it up.
+                // The sources run concurrently, so the scan ends with the slowest one. The time names which
+                // one held it up, and a completed run's time weighs the next scan's progress bar.
                 _logger.LogInformation("Gap source {Source} produced {Count} gaps in {Seconds:F0}s", source.Name, produced, Stopwatch.GetElapsedTime(started).TotalSeconds);
             }
         }
@@ -228,6 +229,17 @@ public sealed class GapScanPipeline
 
             // Flush the complete scan results before the (in-memory) enrichment phase.
             Checkpoint(force: true);
+
+            var completed = new Dictionary<string, double>(StringComparer.Ordinal);
+            for (var i = 0; i < total; i++)
+            {
+                if (seconds[i] is { } elapsed)
+                {
+                    completed[enabled[i].Name] = elapsed;
+                }
+            }
+
+            _durations.Record(completed);
         }
         finally
         {

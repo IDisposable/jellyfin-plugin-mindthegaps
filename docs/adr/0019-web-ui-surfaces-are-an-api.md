@@ -16,14 +16,16 @@ other way to ask for a person's missing titles or a title's related suggestions.
 ## Decision
 
 The master switch (`WebUiEnabled`) governs only whether the script is added and served. Each surface's data
-endpoint is governed by that surface's own toggle (`PersonPageEnabled`, `ItemPageEnabled`, `HomeRowEnabled`)
-and nothing else, so another client can use a surface without the script being injected. The rules are in one
+endpoint is governed by that surface's own placement (`PersonPagePlacement`, `ItemPagePlacement`,
+`StudioPagePlacement`, `HomeDiscoverPlacement`, `HomeWantedPlacement`), `none` being off, and nothing else, so another client can use a surface without the script being injected. The rules are in one
 place, `WebUiGate`, which reads the configuration per request so a change needs no restart, and is tested
 without a server.
 
 `WebUi/Detail` (a proxied TMDB lookup for one title, from its id) is open to any signed-in user whatever the
-toggles say: it carries nothing about the library. Send and `WebUi/Profiles` stay administrators only; the
-todo endpoints on each surface belong to the signed-in user whose list they touch (see Consequences).
+toggles say: it carries nothing about the library. The surfaces offer no acquisition handoff: the most a
+signed-in user can do is put a title on their own want-to-watch list, which reaches an administrator through
+the report's fulfillment queue. The todo endpoints on each surface belong to the signed-in user whose list
+they touch (see Consequences).
 
 The audience of the surface reads is any signed-in user. The shapes are not a versioned contract and may change; an API
 with no consumers cannot be shaped by them, so it is offered before there are any.

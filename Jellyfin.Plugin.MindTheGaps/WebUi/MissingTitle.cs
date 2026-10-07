@@ -5,7 +5,7 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// One unowned title as a web UI surface shows it on a card: a movie or series the library does not hold,
 /// whether it came from a person's filmography, a title's recommendations, or the scanned Discover row. The
-/// <see cref="GapId"/> is the same stable id the gap report uses, so a Send action can rehydrate the gap
+/// <see cref="GapId"/> is the same stable id the gap report uses, so a want-to-watch add can rehydrate the gap
 /// server-side from the same source the card came from.
 /// </summary>
 public sealed class MissingTitle

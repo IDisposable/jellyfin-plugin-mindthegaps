@@ -5,8 +5,8 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// Which parts of the web UI are on, read from the configuration on every request so a change needs no
 /// restart. The master switch decides only whether the client script is added to jellyfin-web. Each surface's
-/// data endpoint is governed by its own toggle and nothing else, so another client can use a surface without
-/// the script ever being injected.
+/// data endpoint is governed by its own placement and nothing else, <c>none</c> being off, so another client
+/// can use a surface without the script ever being injected.
 /// </summary>
 internal static class WebUiGate
 {
@@ -21,29 +21,38 @@ internal static class WebUiGate
     /// Determines whether the person page's "Missing from your library" data is served.
     /// </summary>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
-    /// <returns><see langword="true"/> when the person page toggle is on.</returns>
-    public static bool PersonPage(PluginConfiguration? config) => config?.PersonPageEnabled == true;
+    /// <returns><see langword="true"/> when the section has a placement other than none.</returns>
+    public static bool PersonPage(PluginConfiguration? config) => PersonPlacement.Of(config) != PlacementValue.None;
 
     /// <summary>
-    /// Determines whether the movie and series page's "More like this you don't have" data is served.
+    /// Determines whether the item page's "you don't have" data (related titles, an artist's albums, an
+    /// author's books) is served.
     /// </summary>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
-    /// <returns><see langword="true"/> when the item page toggle is on.</returns>
-    public static bool ItemPage(PluginConfiguration? config) => config?.ItemPageEnabled == true;
+    /// <returns><see langword="true"/> when the row has a placement other than none.</returns>
+    public static bool ItemPage(PluginConfiguration? config) => ItemPlacement.Of(config) != PlacementValue.None;
 
     /// <summary>
     /// Determines whether a movie studio's list page's "Missing from this studio" data is served.
     /// </summary>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
-    /// <returns><see langword="true"/> when the studio page toggle is on.</returns>
-    public static bool StudioPage(PluginConfiguration? config) => config?.StudioPageEnabled == true;
+    /// <returns><see langword="true"/> when the row has a placement other than none.</returns>
+    public static bool StudioPage(PluginConfiguration? config) => StudioPlacement.Of(config) != PlacementValue.None;
 
     /// <summary>
     /// Determines whether the home screen's Discover data is served.
     /// </summary>
     /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
-    /// <returns><see langword="true"/> when the home row toggle is on.</returns>
-    public static bool HomeRow(PluginConfiguration? config) => config?.HomeRowEnabled == true;
+    /// <returns><see langword="true"/> when the row has a placement other than none.</returns>
+    public static bool HomeDiscover(PluginConfiguration? config) => HomePlacement.Discover(config) != PlacementValue.None;
+
+    /// <summary>
+    /// Determines whether the home screen's Want to watch row is served. It needs want to watch, and a
+    /// placement other than none.
+    /// </summary>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when both are.</returns>
+    public static bool HomeWanted(PluginConfiguration? config) => WantToWatch(config) && HomePlacement.Wanted(config) != PlacementValue.None;
 
     /// <summary>
     /// Determines whether the bookmark on a card and the home screen's want-to-watch row are served.

@@ -76,6 +76,10 @@ public class PluginConfiguration : BasePluginConfiguration
         WantToWatchDetailBookmark = false;
         HomeRowSize = 20;
         HomeRowPlacement = string.Empty;
+        HomeDiscoverPlacement = string.Empty;
+        HomeWantedPlacement = string.Empty;
+        PersonPagePlacement = string.Empty;
+        StudioPagePlacement = string.Empty;
         ItemPagePlacement = string.Empty;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
@@ -448,46 +452,76 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets a value indicating whether the client script is added to jellyfin-web, which is what
     /// draws the web UI surfaces (sections on its own person, movie/series, and home pages, as opposed to this
     /// plugin's own Report/Settings pages). It governs only the script. Each surface's data endpoint is
-    /// governed by its own toggle (<see cref="PersonPageEnabled"/> and the two after it), so another client
-    /// can use a surface without the script.
+    /// governed by its own placement (<see cref="PersonPagePlacement"/> and the others), <c>none</c> being off,
+    /// so another client can use a surface without the script.
     /// </summary>
     public bool WebUiEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether a library person's page shows a "Missing from your library"
-    /// section for their unowned filmography. When on, the data is served to any signed-in user.
+    /// Gets or sets a value indicating whether the person page section was on, the switch
+    /// <see cref="PersonPagePlacement"/> replaced. Never written by the settings page; read only while that
+    /// placement is empty, so a configuration saved before it existed keeps its page.
     /// </summary>
     public bool PersonPageEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether an owned movie or series page shows a "More like this you
-    /// don't have" row of TMDB's recommendations for it. When on, the data is served to any signed-in
-    /// user. Uses the same <see cref="MaxRelatedPerItem"/>/<see cref="MinRecommendationVotes"/> limits the
-    /// scan's own recommendations source does. An artist page lists the albums the library lacks, and a book
-    /// page the other works by its author, through the same sources the report's re-check runs, so they
-    /// also need the Music and Books scans on.
+    /// Gets or sets whether a library person's page shows a "Missing from your library" section for their
+    /// unowned filmography: <c>none</c> or <c>after:credits</c>, below the person's own titles. It joins a live
+    /// TMDB lookup with the scanned report's Creator works gaps for the person, so it also lists what Trakt and
+    /// IMDb people lists found. When shown, the data is served to any signed-in user. See
+    /// <see cref="WebUi.PersonPlacement"/>.
+    /// </summary>
+    public string PersonPagePlacement { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the item page row was on, the switch
+    /// <see cref="ItemPagePlacement"/>'s <c>none</c> replaced. Never written by the settings page; read only
+    /// while that placement is empty.
     /// </summary>
     public bool ItemPageEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether a movie studio's list page (jellyfin-web's own generic list
-    /// page, routed by <c>studioId</c>) shows a "Missing from &lt;studio&gt;" row of the studio's unowned
-    /// movies. When on, the data is served to any signed-in user. Resolves the library studio's name to a
-    /// TMDB company by search (the same resolution <see cref="AutoSeedStudios"/> uses), so a studio TMDB
-    /// cannot match returns a reason rather than an empty row. Movies only: Jellyfin has no separate "TV
-    /// network" concept (a series' network is the same <c>Studios</c> field), and TMDB has no way to resolve
-    /// a network by name, only by an id already in hand, so this does not cover shows.
+    /// Gets or sets a value indicating whether the studio page row was on, the switch
+    /// <see cref="StudioPagePlacement"/> replaced. Never written by the settings page; read only while that
+    /// placement is empty.
     /// </summary>
     public bool StudioPageEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the home screen shows a "Discover: not in your library" row
-    /// of the recommendations the scan has accumulated from owned titles and from public lists (TMDB lists,
-    /// Trakt lists and TMDB's own feeds), never from a watchlist or an account. When on, the data is served to
-    /// any signed-in user. Unlike the person and item pages, this reads the scanned report rather than calling
-    /// TMDB on demand.
+    /// Gets or sets whether a movie studio's list page (jellyfin-web's own generic list page, routed by
+    /// <c>studioId</c>) shows a "Missing from &lt;studio&gt;" row of the studio's unowned movies: <c>none</c> or
+    /// <c>after:movies</c>. When shown, the data is served to any signed-in user. Resolves the library studio's
+    /// name to a TMDB company by search (the same resolution <see cref="AutoSeedStudios"/> uses), so a studio
+    /// TMDB cannot match returns a reason rather than an empty row. Movies only: Jellyfin has no separate "TV
+    /// network" concept (a series' network is the same <c>Studios</c> field), and TMDB has no way to resolve a
+    /// network by name, only by an id already in hand, so this does not cover shows. See
+    /// <see cref="WebUi.StudioPlacement"/>.
+    /// </summary>
+    public string StudioPagePlacement { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the home Discover row was on, the switch
+    /// <see cref="HomeDiscoverPlacement"/>'s <c>none</c> replaced. Never written by the settings page; read only
+    /// while that placement is empty.
     /// </summary>
     public bool HomeRowEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether and where the home screen shows a "Discover: not in your library" row of the
+    /// recommendations the scan has accumulated from owned titles and from public lists (TMDB lists, Trakt
+    /// lists and TMDB's own feeds), never from a watchlist or an account: <c>none</c>, <c>bottom</c>,
+    /// <c>top</c>, or after one of jellyfin-web's home section types. When shown, the data is served to any
+    /// signed-in user. Unlike the person and item pages, this reads the scanned report rather than calling
+    /// TMDB on demand. See <see cref="WebUi.HomePlacement"/>.
+    /// </summary>
+    public string HomeDiscoverPlacement { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether and where the home screen shows the Want to watch row (with its title search), the
+    /// same values as <see cref="HomeDiscoverPlacement"/>. Needs <see cref="WantToWatchEnabled"/>; <c>none</c>
+    /// hides only the row, not the bookmarks.
+    /// </summary>
+    public string HomeWantedPlacement { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether users can keep their own "want to watch" list from the web UI: a
@@ -541,18 +575,20 @@ public class PluginConfiguration : BasePluginConfiguration
     public int HomeRowSize { get; set; }
 
     /// <summary>
-    /// Gets or sets where on the home screen the want-to-watch and Discover rows go: empty for the bottom,
-    /// <c>top</c>, or the name of one of jellyfin-web's home section types (<c>resume</c>, <c>nextup</c>, and
-    /// so on) to follow that section wherever the viewing user has placed it. A user whose home screen does
-    /// not show that section gets the rows at the bottom. See <see cref="WebUi.HomePlacement"/>.
+    /// Gets or sets the one placement both home rows shared before <see cref="HomeDiscoverPlacement"/> and
+    /// <see cref="HomeWantedPlacement"/>. Never written by the settings page; read only while those are empty.
     /// </summary>
     public string HomeRowPlacement { get; set; }
 
     /// <summary>
-    /// Gets or sets where an item page's "you don't have" row goes: a side and one of jellyfin-web's own item
-    /// page sections (<c>after:similar</c>, <c>before:similar</c>, <c>after:cast</c>, and so on). Empty, or a
-    /// value the plugin does not know, is after "More Like This". A page that does not have the named section
-    /// gets the row after "More Like This". See <see cref="WebUi.ItemPlacement"/>.
+    /// Gets or sets whether and where an item page's "you don't have" row goes: <c>none</c>, or a side and one
+    /// of jellyfin-web's own item page sections (<c>after:similar</c>, <c>before:similar</c>, <c>after:cast</c>,
+    /// and so on). A page that does not have the named section gets the row after "More Like This". When
+    /// shown, the data is served to any signed-in user. On a movie or series page it lists TMDB's
+    /// recommendations, using the same <see cref="MaxRelatedPerItem"/>/<see cref="MinRecommendationVotes"/>
+    /// limits the scan's recommendations source does; an artist page lists the albums the library lacks, and a
+    /// book page the other works by its author, through the same sources the report's re-check runs, so they
+    /// also need the Music and Books scans on. See <see cref="WebUi.ItemPlacement"/>.
     /// </summary>
     public string ItemPagePlacement { get; set; }
 

@@ -51,7 +51,7 @@ public class HomeWebUiController : WebUiControllerBase
         _sections = sections;
     }
 
-    private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
+    private static bool HomeDiscoverShown => WebUiGate.HomeDiscover(Plugin.Instance?.Configuration);
 
     /// <summary>
     /// The home screen's discovery row: the recommendation gaps the scan has accumulated, ranked.
@@ -65,7 +65,7 @@ public class HomeWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<HomeDiscoverResult> GetHomeDiscover([FromQuery] int? limit)
     {
-        if (!HomeRowEnabled || !Access.MaySee(User))
+        if (!HomeDiscoverShown || !Access.MaySee(User))
         {
             return NotFound();
         }
@@ -74,7 +74,7 @@ public class HomeWebUiController : WebUiControllerBase
         var result = _home.Get(size);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
-        (result.Placement, result.HomeSections) = Placement(Plugin.Instance?.Configuration);
+        (result.Placement, result.HomeSections) = Placement(HomePlacement.Discover(Plugin.Instance?.Configuration));
         WantedMarker.Mark(result.Titles, wanted);
         return result;
     }
@@ -92,7 +92,7 @@ public class HomeWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddHomeGapToTodo([FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(HomeRowEnabled, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: true, cancellationToken);
+        => WantOwnedGapAsync(HomeDiscoverShown, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: true, cancellationToken);
 
     /// <summary>
     /// Takes one of the home row's recommendations off the caller's want-to-watch list.
@@ -106,14 +106,15 @@ public class HomeWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveHomeGapFromTodo([FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(HomeRowEnabled, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: false, cancellationToken);
+        => WantOwnedGapAsync(HomeDiscoverShown, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: false, cancellationToken);
 
     /// <summary>
     /// The home screen's want-to-watch row: the movies and series on the caller's own list that are not done
     /// and that the library does not hold yet.
     /// </summary>
     /// <param name="limit">The most titles to return; omitted uses the configured row size.</param>
-    /// <returns>The row, or 404 while want to watch is off or for a request that cannot keep a list.</returns>
+    /// <returns>The row, or 404 while want to watch or the row is off, or for a request that cannot keep a
+    /// list.</returns>
     [HttpGet("Home/Wanted")]
     [Authorize]
     [Produces("application/json")]
@@ -121,16 +122,16 @@ public class HomeWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<WantedRowResult> GetHomeWanted([FromQuery] int? limit)
     {
+        var config = Plugin.RequireConfiguration();
         var (userId, _) = Wanting();
-        if (userId is not { } id)
+        if (!WebUiGate.HomeWanted(config) || userId is not { } id)
         {
             return NotFound();
         }
 
-        var config = Plugin.RequireConfiguration();
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : config.HomeRowSize;
         var result = _wanted.Get(id, size);
-        (result.Placement, result.HomeSections) = Placement(config);
+        (result.Placement, result.HomeSections) = Placement(HomePlacement.Wanted(config));
         return result;
     }
 
@@ -229,10 +230,9 @@ public class HomeWebUiController : WebUiControllerBase
             ? GapSourceKeys.WatchlistSearchSeries.Gap(tmdbId.ToString(CultureInfo.InvariantCulture))
             : GapSourceKeys.WatchlistSearchMovie.Gap(tmdbId.ToString(CultureInfo.InvariantCulture));
 
-    // Where the rows go, and the caller's slot order when that follows a section type.
-    private (string Placement, IReadOnlyList<string>? Sections) Placement(PluginConfiguration? config)
+    // Where a row goes, and the caller's slot order when that follows a section type.
+    private (string Placement, IReadOnlyList<string>? Sections) Placement(string placement)
     {
-        var placement = HomePlacement.Of(config);
         Guid? userId = TodoOwner.TryGetUserId(User, out var id) ? id : null;
         return (placement, _sections.For(userId, placement));
     }

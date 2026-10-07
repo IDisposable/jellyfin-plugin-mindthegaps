@@ -23,7 +23,7 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// uses for auto-seeding) and diffs the company's movies against the library, through the same
 /// <see cref="CuratedSetGapMapper"/> the scan's own studio sets use, so a gap id here matches the report's
 /// exactly when the scan already tracks the same studio. Movies only: see
-/// <see cref="Configuration.PluginConfiguration.StudioPageEnabled"/> for why there is no TV-network
+/// <see cref="Configuration.PluginConfiguration.StudioPagePlacement"/> for why there is no TV-network
 /// counterpart.
 /// </summary>
 public sealed class StudioMissingService

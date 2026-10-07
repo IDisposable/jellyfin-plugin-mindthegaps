@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -19,8 +20,10 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// <summary>
 /// Answers "what of this person's work don't I have?" for one library person on demand: reads the person's
 /// TMDB id off the library item, fetches their credits through the shared (cached) TMDB client, runs the same
-/// filmography mapper the scan uses against a fresh ownership index, and drops what the report has
-/// dismissed. Independent of the scan, so a person the rotation has not reached yet still gets an answer.
+/// filmography mapper the scan uses against a fresh ownership index, folds in the scanned report's Creator
+/// works gaps for the person (what Trakt and IMDb people lists found as well), and drops what the report has
+/// dismissed. The live lookup does not wait on the scan, so a person the rotation has not reached yet still
+/// gets an answer, and the report answers for a person TMDB cannot look up.
 /// </summary>
 public sealed class PersonMissingService
 {
@@ -29,6 +32,7 @@ public sealed class PersonMissingService
     private readonly ILibraryManager _libraryManager;
     private readonly TmdbClient _tmdb;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
+    private readonly GapStore _store;
     private readonly ResolutionStore _resolutions;
     private readonly IMemoryCache _cache;
     private readonly ILogger<PersonMissingService> _logger;
@@ -39,6 +43,7 @@ public sealed class PersonMissingService
     /// <param name="libraryManager">The library manager.</param>
     /// <param name="tmdb">The TMDB client.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned movies and series.</param>
+    /// <param name="store">The gap store, for the report's gaps for the person.</param>
     /// <param name="resolutions">The dismissals, so a gap hidden on the report is hidden here too.</param>
     /// <param name="cache">The memory cache.</param>
     /// <param name="logger">The logger.</param>
@@ -46,6 +51,7 @@ public sealed class PersonMissingService
         ILibraryManager libraryManager,
         TmdbClient tmdb,
         OwnershipIndexBuilder ownershipIndexBuilder,
+        GapStore store,
         ResolutionStore resolutions,
         IMemoryCache cache,
         ILogger<PersonMissingService> logger)
@@ -53,6 +59,7 @@ public sealed class PersonMissingService
         _libraryManager = libraryManager;
         _tmdb = tmdb;
         _ownershipIndexBuilder = ownershipIndexBuilder;
+        _store = store;
         _resolutions = resolutions;
         _cache = cache;
         _logger = logger;
@@ -77,24 +84,23 @@ public sealed class PersonMissingService
             PersonName = person.Name
         };
 
-        var gaps = await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false);
-        if (gaps.Reason is not null)
-        {
-            result.Reason = gaps.Reason;
-            return result;
-        }
+        var live = await BuildGapsAsync(person, cancellationToken).ConfigureAwait(false);
+        result.TmdbId = live.TmdbId;
 
-        result.TmdbId = gaps.TmdbId;
-        var (movies, series) = PersonMissingBuilder.Split(gaps.Gaps, person.Name, _resolutions.GetAll());
+        // Live first, so a title both list carries the live credit's role first.
+        var (movies, series) = PersonMissingBuilder.Split(live.Gaps.Concat(ReportGaps(person)), person.Name, _resolutions.GetAll());
         result.Movies = movies;
         result.Series = series;
+
+        // Why the live lookup could not run matters only when the report has nothing to show either.
+        result.Reason = movies.Count == 0 && series.Count == 0 ? live.Reason : null;
         return result;
     }
 
     /// <summary>
     /// Rehydrates one of the person's gaps by id, for a want-to-watch add or remove. Recomputed server-side
     /// from the same inputs the page listed, so a client can only ever act on a title this person is
-    /// actually credited on and the library actually lacks.
+    /// actually credited on and the library actually lacks: the live lookup, else the report.
     /// </summary>
     /// <param name="personId">The Jellyfin person id.</param>
     /// <param name="gapId">The gap id the page showed.</param>
@@ -116,12 +122,23 @@ public sealed class PersonMissingService
         if (gap is not null)
         {
             gap.Overview = PersonMissingBuilder.MergedRole(credits);
+            return gap;
         }
 
-        return gap;
+        return ReportGaps(person).FirstOrDefault(g => string.Equals(g.Id, gapId, StringComparison.Ordinal));
     }
 
-    private async Task<(System.Collections.Generic.IReadOnlyList<GapItem> Gaps, int? TmdbId, string? Reason)> BuildGapsAsync(Person person, CancellationToken cancellationToken)
+    // The report's Creator works gaps for the person, from the two domains they can be in.
+    private IEnumerable<GapItem> ReportGaps(Person person)
+    {
+        var key = person.Id.ToString("N", CultureInfo.InvariantCulture);
+        var imdbOwner = PersonReportGaps.ImdbOwner(person.ProviderIdOrNull(ProviderIds.Imdb));
+        return _store.LoadDomainSnapshot(MediaDomain.Movies).Items
+            .Concat(_store.LoadDomainSnapshot(MediaDomain.Shows).Items)
+            .Where(g => PersonReportGaps.IsForPerson(g, key, imdbOwner));
+    }
+
+    private async Task<(IReadOnlyList<GapItem> Gaps, int? TmdbId, string? Reason)> BuildGapsAsync(Person person, CancellationToken cancellationToken)
     {
         if (!person.TryGetProviderIdAsInt(ProviderIds.Tmdb, out var tmdbId))
         {

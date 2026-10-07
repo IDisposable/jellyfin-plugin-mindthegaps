@@ -147,6 +147,10 @@
         if (old) { old.parentNode.removeChild(old); }
     }
 
+    function removeDetailSections(page) {
+        [PERSON_ID, RELATED_ID, WORKS_ID, STUDIO_ID].forEach(function (id) { remove(page, id); });
+    }
+
     // ctx: { kind: 'Person'|'Item'|'Home', id: the owning page's Jellyfin id (empty for Home), canTodo, scope }.
     // scope is an extra path segment before the action, for a page whose actions live under their own route
     // (an artist's or book's works).
@@ -684,7 +688,11 @@
         if (data.Movies.length) { wrap.appendChild(grid(ctx, 'Movies', data.Movies)); }
         if (data.Series.length) { wrap.appendChild(grid(ctx, 'Shows', data.Series)); }
 
-        // Below the person's own items, above jellyfin-web's own "More Like This".
+        insertOnPersonPage(page, wrap);
+    }
+
+    // Below the person's own items, above jellyfin-web's own "More Like This".
+    function insertOnPersonPage(page, wrap) {
         var anchor = page.querySelector('#similarCollapsible');
         var host = anchor ? anchor.parentNode : page.querySelector('.detailPageContent') || page;
         host.insertBefore(wrap, anchor || null);
@@ -746,13 +754,11 @@
             section.appendChild(h('p', { 'class': 'mtgNote' }, data.Reason));
         }
 
-        var anchor = page.querySelector('#similarCollapsible');
         if (onPerson) {
             var wrap = h('div', { 'id': WORKS_ID, 'class': 'detailPageSecondaryContainer padded-left padded-bottom-page' });
             wrap.appendChild(section);
-            // Right after the filmography section, which went in before the same anchor, else at the end.
-            var host = anchor ? anchor.parentNode : page.querySelector('.detailPageContent') || page;
-            host.insertBefore(wrap, anchor || null);
+            // Right after the filmography section, which went in before the same anchor.
+            insertOnPersonPage(page, wrap);
             return;
         }
 
@@ -796,7 +802,7 @@
 
     // ---- Home ----
 
-    // The node the home rows go in front of: the first slot for the top, the slot after the one holding the
+    // The node a home row goes in front of: the first slot for the top, the slot after the one holding the
     // chosen type, or null (the end) for the bottom or a type this user's home screen does not show.
     // jellyfin-web lays the home screen out as numbered slots (.section0 on), each holding the section type
     // the user picked for it, and has no way to add a type of its own; the server sends the user's slot
@@ -814,7 +820,13 @@
         return index < 0 ? null : sectionsEl.querySelector('.section' + (index + 1));
     }
 
-    // The Discover row follows the wanted row when that is there.
+    // Our other home row, when it is there and was given the same placement as this one.
+    function homeNeighbour(sectionsEl, id, data) {
+        var other = sectionsEl.querySelector('#' + id);
+        return other && other.getAttribute('data-placement') === String(data.Placement || '') ? other : null;
+    }
+
+    // The Discover row follows the wanted row when the two share a placement.
     function renderHome(sectionsEl, data) {
         remove(sectionsEl, HOME_ID);
         if (!data || !data.Titles.length) { return; }
@@ -822,7 +834,8 @@
         var ctx = { kind: 'Home', id: '', canTodo: !!data.CanTodo };
         var section = scroller(ctx, 'Discover: not in your library', data.Titles, true);
         section.id = HOME_ID;
-        var wanted = sectionsEl.querySelector('#' + WANTED_ID);
+        section.setAttribute('data-placement', String(data.Placement || ''));
+        var wanted = homeNeighbour(sectionsEl, WANTED_ID, data);
         sectionsEl.insertBefore(section, wanted ? wanted.nextSibling : homeAnchor(sectionsEl, data));
     }
 
@@ -907,8 +920,8 @@
     }
 
     // The home row of what the signed-in user still wants: the movies and series on their own list that the
-    // library does not hold, plus the title search. It goes ahead of the Discover row when both are there,
-    // and a title taken off the list leaves it (refreshWant) without removing the row itself, since the row's
+    // library does not hold, plus the title search. It goes ahead of the Discover row when the two share a
+    // placement, and a title taken off the list leaves it (refreshWant) without removing the row itself, since the row's
     // header is also where the search lives. Renders even with an empty list, as long as want to watch is on
     // for this user (an empty result would otherwise leave no way to add a first title).
     function renderWanted(sectionsEl, data, restoreState) {
@@ -919,7 +932,8 @@
         var searchBox = buildSearchBox(sectionsEl, restoreState);
         var section = scroller(ctx, 'Want to watch', data.Titles || [], true, searchBox);
         section.id = WANTED_ID;
-        sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID) || homeAnchor(sectionsEl, data));
+        section.setAttribute('data-placement', String(data.Placement || ''));
+        sectionsEl.insertBefore(section, homeNeighbour(sectionsEl, HOME_ID, data) || homeAnchor(sectionsEl, data));
         if (restoreState && restoreState.query) { runSearch(sectionsEl, restoreState.kind, restoreState.query); }
     }
 
@@ -1042,15 +1056,12 @@
 
         var itemId = itemIdFromLocation();
         removeDetailWant(page);
-        if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); return; }
+        if (!itemId) { removeDetailSections(page); return; }
 
         var token = ++pending;
         Promise.resolve(ApiClient.getItem(ApiClient.getCurrentUserId(), itemId)).then(function (item) {
             if (token !== pending) { return; }
-            remove(page, PERSON_ID);
-            remove(page, RELATED_ID);
-            remove(page, WORKS_ID);
-            remove(page, STUDIO_ID);
+            removeDetailSections(page);
             if (!item) { return; }
             if (item.Type === 'Person') {
                 // A person may be an actor, an author, or both: ask for the filmography and for the books, each
@@ -1085,7 +1096,7 @@
             }
         }).catch(function () {
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
-            if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); }
+            if (token === pending) { removeDetailSections(page); }
         });
     }
 

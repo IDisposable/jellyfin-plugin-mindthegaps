@@ -160,6 +160,29 @@ test('placed after a section type, the rows follow the slot that holds it for th
     expect(order.slice(0, 5)).toEqual(['section0', 'section1', 'mtgHomeWanted', 'mtgHomeDiscover', 'section2']);
 });
 
+// Each row has its own placement; they keep Want to watch first only when the two share one.
+test('rows given different placements each go to their own', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('bottom'), null, 1, undefined, undefined, PLACED_WANTED('nextup', SECTIONS)));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+
+    const order = await homeOrder(page);
+    expect(order.slice(0, 4)).toEqual(['section0', 'section1', 'mtgHomeWanted', 'section2']);
+    expect(order.slice(-1)).toEqual(['mtgHomeDiscover']);
+});
+
+test('Discover at the top and Want to watch at the bottom do not pull each other along', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('top'), null, 1, undefined, undefined, PLACED_WANTED('bottom')));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+
+    const order = await homeOrder(page);
+    expect(order[0]).toBe('mtgHomeDiscover');
+    expect(order.slice(-1)).toEqual(['mtgHomeWanted']);
+});
+
 test('the TV layout\'s extra library slot shifts the slots the way jellyfin-web does', async ({ page }) => {
     const sections = ['resume', 'nextup', 'none', 'none', 'none', 'none', 'none', 'none', 'none', 'none'];
     await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('resume', sections)));

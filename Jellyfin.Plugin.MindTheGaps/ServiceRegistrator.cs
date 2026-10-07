@@ -51,6 +51,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<TodoOwner>();
         serviceCollection.AddSingleton<IEventConsumer<UserDeletedEventArgs>>(sp => sp.GetRequiredService<TodoOwner>());
         serviceCollection.AddSingleton<ScanCursorStore>();
+        serviceCollection.AddSingleton<SourceDurationStore>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<OwnershipIndexBuilder>();
         serviceCollection.AddSingleton<LibraryVerifier>();

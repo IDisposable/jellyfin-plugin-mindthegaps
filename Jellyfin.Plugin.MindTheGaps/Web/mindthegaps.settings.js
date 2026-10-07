@@ -60,6 +60,16 @@ function filterSettings(page, query) {
     }
 }
 
+// Shows a placement in its dropdown. An empty or unknown value is a configuration saved before the placement
+// existed, so the dropdown shows what the server reads for it (the fallback, from the switch it replaced);
+// showing the first option instead would switch the surface off on the next save.
+function setPlacement(page, id, value, fallback) {
+    const select = page.querySelector('#' + id);
+    const wanted = String(value || '').trim().toLowerCase();
+    const known = Array.prototype.some.call(select.options, (o) => o.value === wanted);
+    select.value = known ? wanted : fallback;
+}
+
 function loadConfig(page, config) {
     page.querySelector('#ScanCollections').checked = config.ScanCollections;
     page.querySelector('#ScanSeries').checked = config.ScanSeries;
@@ -113,11 +123,16 @@ function loadConfig(page, config) {
     page.querySelector('#WebhookUrl').value = config.WebhookUrl || '';
     page.querySelector('#DetailedApiLogging').checked = config.DetailedApiLogging;
     page.querySelector('#WebUiEnabled').checked = config.WebUiEnabled;
-    page.querySelector('#PersonPageEnabled').checked = config.PersonPageEnabled;
-    page.querySelector('#ItemPageEnabled').checked = config.ItemPageEnabled;
-    page.querySelector('#ItemPagePlacement').value = config.ItemPagePlacement || 'after:similar';
-    page.querySelector('#StudioPageEnabled').checked = config.StudioPageEnabled;
-    page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
+    setPlacement(page, 'PersonPagePlacement', config.PersonPagePlacement, config.PersonPageEnabled ? 'after:credits' : 'none');
+    setPlacement(page, 'ItemPagePlacement', config.ItemPagePlacement, config.ItemPageEnabled ? 'after:similar' : 'none');
+    setPlacement(page, 'StudioPagePlacement', config.StudioPagePlacement, config.StudioPageEnabled ? 'after:movies' : 'none');
+
+    // Both home rows shared one placement, where empty or anything unknown was the bottom.
+    const homeSelect = page.querySelector('#HomeWantedPlacement');
+    const shared = String(config.HomeRowPlacement || '').trim().toLowerCase();
+    const sharedPlacement = shared !== 'none' && Array.prototype.some.call(homeSelect.options, (o) => o.value === shared) ? shared : 'bottom';
+    setPlacement(page, 'HomeDiscoverPlacement', config.HomeDiscoverPlacement, config.HomeRowEnabled ? sharedPlacement : 'none');
+    setPlacement(page, 'HomeWantedPlacement', config.HomeWantedPlacement, sharedPlacement);
     page.querySelector('#WantToWatchEnabled').checked = config.WantToWatchEnabled;
     page.querySelector('#WantToWatchPlaylistEnabled').checked = config.WantToWatchPlaylistEnabled;
     page.querySelector('#WantToWatchPlaylistName').value = config.WantToWatchPlaylistName || '';
@@ -125,7 +140,6 @@ function loadConfig(page, config) {
     page.querySelector('#WantToWatchRemoveWatched').checked = config.WantToWatchRemoveWatched;
     page.querySelector('#WantToWatchDetailBookmark').checked = config.WantToWatchDetailBookmark;
     page.querySelector('#HomeRowSize').value = config.HomeRowSize;
-    page.querySelector('#HomeRowPlacement').value = config.HomeRowPlacement || '';
     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
     page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
     page.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
@@ -222,11 +236,11 @@ function saveConfig(page, e) {
         config.WebhookUrl = form.querySelector('#WebhookUrl').value;
         config.DetailedApiLogging = form.querySelector('#DetailedApiLogging').checked;
         config.WebUiEnabled = form.querySelector('#WebUiEnabled').checked;
-        config.PersonPageEnabled = form.querySelector('#PersonPageEnabled').checked;
-        config.ItemPageEnabled = form.querySelector('#ItemPageEnabled').checked;
+        config.PersonPagePlacement = form.querySelector('#PersonPagePlacement').value;
         config.ItemPagePlacement = form.querySelector('#ItemPagePlacement').value;
-        config.StudioPageEnabled = form.querySelector('#StudioPageEnabled').checked;
-        config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
+        config.StudioPagePlacement = form.querySelector('#StudioPagePlacement').value;
+        config.HomeDiscoverPlacement = form.querySelector('#HomeDiscoverPlacement').value;
+        config.HomeWantedPlacement = form.querySelector('#HomeWantedPlacement').value;
         config.WantToWatchEnabled = form.querySelector('#WantToWatchEnabled').checked;
         config.WantToWatchPlaylistEnabled = form.querySelector('#WantToWatchPlaylistEnabled').checked;
         config.WantToWatchPlaylistName = form.querySelector('#WantToWatchPlaylistName').value.trim() || 'Want to Watch';
@@ -234,7 +248,6 @@ function saveConfig(page, e) {
         config.WantToWatchRemoveWatched = form.querySelector('#WantToWatchRemoveWatched').checked;
         config.WantToWatchDetailBookmark = form.querySelector('#WantToWatchDetailBookmark').checked;
         config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '20', 10);
-        config.HomeRowPlacement = form.querySelector('#HomeRowPlacement').value;
         config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
         config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();
         config.RadarrUrl = form.querySelector('#RadarrUrl').value.trim();

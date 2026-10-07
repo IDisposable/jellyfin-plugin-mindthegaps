@@ -15,6 +15,7 @@
 | Symmetric **book series** as Set completion                                  | OpenLibrary works carry no series and the Jellyfin Book entity has no series field, so there is no reliable series membership to complete.                                                                                                                                                                                                                                                                       |
 | A request-and-approval gate before a title is acquired                       | Might be a separate plugin. The report's Fulfillment queue folds every user's TODO list into one row per title with a Mark fetched action, but nothing approves or denies a request before it lands there; adding a title is still unmediated.                                                                                                                                                                   |
 | A "Fix the id" action in Diagnose                                            | Diagnose stays advisory. Opening the item's own page and using Identify fixes the id and refreshes its images, so a plugin button would only duplicate it.                                                                                                                                                                                                                                                       |
+| Album tracklists or missing tracks on the Web UI                             | An album's dialog fetches nothing: MusicBrainz carries no description for a release-group, a tracklist would need a new call chain (release-group to a release to its recordings), and no track-completeness source exists.                                                                                                                                                                                      |
 | MusicVideos domain                                                           | Enum-only; no source.                                                                                                                                                                                                                                                                                                                                                                                            |
 | An acquisition handoff (Radarr/Sonarr/Lidarr/Readarr) on the injected Web UI | Deliberately removed. Every want is already visible to an administrator through the report's own Fulfillment queue (backed by everyone's TODO list); routing acquisition through the pages injected into jellyfin-web's own UI would put arr credentials and calls behind a surface that is not the report, which is the one boundary this plugin keeps deliberately narrow. Send stays on the report page only. |
 | Acquisition presence badges/caching on a Web UI card (already requested?)    | Not asked for; revisit only if it comes up. Would need its own cache layer (an arr call per card is too expensive) with no home yet.                                                                                                                                                                                                                                                                             |
@@ -47,18 +48,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Backlog
 
-### Correctness and known limitations
-
-- **Collection completion flags owned-but-mistagged movies as missing (deliberately a real gap).**
-  `CollectionGapSource` is keyed by provider id, so a movie in the owned BoxSet whose library item has no (or
-  a mismatched) TMDB id is reported missing ("Jack Reacher: Never Go Back"). Not "fixed" by fuzzy
-  title-and-year matching, which would mask the metadata that should be corrected; the resolution is to
-  surface it via Diagnose so the user fixes the id and rescans.
-- **A Trakt list entry that is not a real list fails quietly.** A slug such as `popular` names a Trakt
-  category, not a list; the items request comes back 400, the list request fails to parse as a list, and the
-  source logs a JSON error and reports a list with no items. Validating the entry when it is saved would say
-  so instead.
-
 ### Sources and curated sets
 
 - **Chips should record whether a list is public or private.** MDBList and IMDb lists cannot be told apart
@@ -78,14 +67,12 @@ them. Drafts in [docs/upstream/](upstream/).
   page is shown only to a user who can see its item. A finer filter would check each listed title's
   certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
   ADR-0019.
-- **More of the works surfaces.** Artist, book and author pages list what the owner's sources find, with links
-  and a want-to-watch bookmark. A book's dialog fetches its description from OpenLibrary once it opens
-  (`WorksMissingService.GetDetailAsync`, `OpenLibraryClient.GetWorkDescriptionAsync`). An album's dialog
-  deliberately fetches nothing: MusicBrainz carries no description for a release-group, and a tracklist
-  (which would need a genuinely new call chain, release-group to a release to that release's recordings) is
-  explicitly not being built at this time; revisit only if asked. Missing tracks on an album page is a
-  separate, permanent non-goal: no track-completeness source exists, and it is not worth building one for
-  this.
+- **A per-user dismissal.** Only an administrator can dismiss a gap, by resolving it on the report, and that
+  hides it for everyone (`ResolutionStore` is server-wide). A signed-in user on the Web UI surfaces has no
+  way to say "not interested" to a card, so a title they will never want keeps coming back on every person,
+  item, studio and home row. Needs a per-user store beside the want-to-watch list (per user, like `TodoStore`),
+  a control on the card or in its dialog, and each surface leaving out what the caller dismissed as well as
+  what the report resolved.
 - **A studio/network gaps shelf, without a dedicated studio/network page.** Jellyfin core has no studio or
   TV-network page to inject a section into (the earlier blocker on this), but it does route two existing
   pages by the same ids a shelf would need: the generic list page takes a `studioId` query param
@@ -104,14 +91,6 @@ them. Drafts in [docs/upstream/](upstream/).
   report's own back-to-top affordance would help here too.
 - **Collapsible sections.** Each settings section (per source, per feature) could collapse like the
   report's groups, so a page of mostly-unused toggles is not one long scroll to reach the one you want.
-
-### Scan performance
-
-- **Weight scan progress by source cost.** Progress is the unweighted average of the concurrent sources, so
-  once the fast ones finish the bar tracks only the slowest. On a library of about 4,000 items the sources
-  other than filmography and series content were done in under 30 seconds, filmography took 110 seconds and
-  series content 222, so most of the bar's time is spent in its last stretch. Weighting by expected cost, or
-  reporting per-source progress, would make it honest.
 
 ### Minting
 
@@ -133,11 +112,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Native page integration
 
-- **CreatorWorks on the native person page.** A minted virtual item with the person attached already appears
-  on that person's page and survives scans with no server change (verified against 10.11). The Web UI's
-  "Missing from your library" section covers the same ground without minting anything; a distinct native
-  "Gaps" shelf would still need jellyfin-web work. Dependencies: upstream A for the greyed badge, and there is
-  still no per-user display gate.
 - **A menu entry that opens the report scoped to a library or a person.** A library "..." context-menu "Gaps"
   entry that jumps to the report. Rides on the same `index.html` injection the Web UI uses, and shares its
   fragility: jellyfin-web exposes no stable public JS API beyond `ApiClient` and `Dashboard`, so anything that

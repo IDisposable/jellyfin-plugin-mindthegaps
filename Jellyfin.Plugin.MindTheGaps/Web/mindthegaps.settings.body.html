@@ -452,7 +452,7 @@
         <div class="verticalSection">
             <h2 class="sectionTitle">Web UI</h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page
-                load. Each surface below has its own switch. Turning one on also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
+                load. Each surface below is placed by its own setting, and "Do not show" turns it off. Showing one also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
             <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Filtered lightly by who is asking.</strong> A user with a parental rating limit is not shown the surfaces at all, and a page is shown only to a user who can see the item it is about. Beyond that a title is listed if the library does not hold it, for everyone, whatever the signed-in user's library access, because checking each title's certification would cost a TMDB request per title.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
@@ -461,43 +461,50 @@
                 </label>
                 <div class="fieldDescription">Adds the client script to Jellyfin Web so the surfaces you turn on below appear there. It does not affect whether their data is served. Off by default.</div>
             </div>
-            <div class="checkboxContainer checkboxContainer-withDescription">
-                <label class="emby-checkbox-label">
-                    <input id="PersonPageEnabled" name="PersonPageEnabled" type="checkbox" is="emby-checkbox" />
-                    <span>Person pages: "Missing from your library"</span>
-                </label>
-                <div class="fieldDescription">Shows the movies and series a person is credited on that you do not own, with a Send button for administrators. See "Person page" under Limits below to trim what counts as a credit.</div>
-            </div>
-            <div class="checkboxContainer checkboxContainer-withDescription">
-                <label class="emby-checkbox-label">
-                    <input id="ItemPageEnabled" name="ItemPageEnabled" type="checkbox" is="emby-checkbox" />
-                    <span>Item pages: more you don't have (movies, series, artists, books)</span>
-                </label>
-                <div class="fieldDescription">On a movie or series page, shows TMDB's recommendations for the title that you do not own, with a Send button for administrators. Uses the same "Max related per item" and "Recommendations: minimum TMDB votes" limits under Limits below as the report's own Discover recommendations. On a music artist page, shows the albums by that artist you do not own, and on a book page the other works by its author, each with an Add to TODO button for administrators. Those follow the Music and Books scan switches, and need the artist or book to carry a MusicBrainz, Discogs or OpenLibrary id.</div>
+            <div class="selectContainer">
+                <label class="selectLabel" for="PersonPagePlacement">Person pages: "Missing from your library"</label>
+                <select id="PersonPagePlacement" name="PersonPagePlacement" is="emby-select">
+                    <option value="none">Do not show</option>
+                    <option value="after:credits">Below the person's own titles</option>
+                </select>
+                <div class="fieldDescription">Shows the movies and series a person is credited on that you do not own: TMDB's filmography for them, looked up when the page opens, together with what the last scan found for them (which adds Trakt and IMDb people lists), less what you dismissed on the report. See "Person page" under Limits below to trim what counts as a credit.</div>
             </div>
             <div class="selectContainer">
-                <label class="selectLabel" for="ItemPagePlacement">Item pages: where the row goes</label>
+                <label class="selectLabel" for="ItemPagePlacement">Item pages: more you don't have (movies, series, artists, books)</label>
                 <select id="ItemPagePlacement" name="ItemPagePlacement" is="emby-select">
+                    <option value="none">Do not show</option>
                     <option value="before:children">Before Seasons and Episodes</option>
                     <option value="after:children">After Seasons and Episodes</option>
                     <option value="after:cast">After Cast and Crew</option>
                     <option value="before:similar">Before More Like This</option>
                     <option value="after:similar">After More Like This</option>
                 </select>
-                <div class="fieldDescription">Where the "you don't have" row sits among Jellyfin's own sections on a movie, series, artist or book page. A page without the chosen section gets the row after More Like This. Requires Item pages above.</div>
+                <div class="fieldDescription">On a movie or series page, shows TMDB's recommendations for the title that you do not own. Uses the same "Max related per item" and "Recommendations: minimum TMDB votes" limits under Limits below as the report's own Discover recommendations. On a music artist page, shows the albums by that artist you do not own, and on a book page the other works by its author. Those follow the Music and Books scan switches, and need the artist or book to carry a MusicBrainz, Discogs or OpenLibrary id. The row sits beside the chosen one of Jellyfin's own sections; a page without that section gets it after More Like This.</div>
             </div>
-            <div class="checkboxContainer checkboxContainer-withDescription">
-                <label class="emby-checkbox-label">
-                    <input id="StudioPageEnabled" name="StudioPageEnabled" type="checkbox" is="emby-checkbox" />
-                    <span>Studio pages: "Missing from this studio"</span>
-                </label>
-                <div class="fieldDescription">On a movie studio's own page (reached by clicking a studio credit on a movie), shows the studio's movies you do not own, with an Add to TODO button for administrators. Resolves the studio's name to a TMDB company by search, the same way "Auto-seed studios from your library" does; a studio TMDB cannot match shows a note instead of an empty row. Movies only: TV shows have no separate network id to resolve by name.</div>
+            <div class="selectContainer">
+                <label class="selectLabel" for="StudioPagePlacement">Studio pages: "Missing from this studio"</label>
+                <select id="StudioPagePlacement" name="StudioPagePlacement" is="emby-select">
+                    <option value="none">Do not show</option>
+                    <option value="after:movies">Below the studio's movies</option>
+                </select>
+                <div class="fieldDescription">On a movie studio's own page (reached by clicking a studio credit on a movie), shows the studio's movies you do not own. Resolves the studio's name to a TMDB company by search, the same way "Auto-seed studios from your library" does; a studio TMDB cannot match shows a note instead of an empty row. Movies only: TV shows have no separate network id to resolve by name.</div>
             </div>
-            <div class="checkboxContainer checkboxContainer-withDescription">
-                <label class="emby-checkbox-label">
-                    <input id="HomeRowEnabled" name="HomeRowEnabled" type="checkbox" is="emby-checkbox" />
-                    <span>Home screen: "Discover: not in your library" row</span>
-                </label>
+            <div class="selectContainer">
+                <label class="selectLabel" for="HomeDiscoverPlacement">Home screen: "Discover: not in your library" row</label>
+                <select id="HomeDiscoverPlacement" name="HomeDiscoverPlacement" is="emby-select">
+                    <option value="none">Do not show</option>
+                    <option value="bottom">At the bottom</option>
+                    <option value="top">At the top</option>
+                    <option value="smalllibrarytiles">After My Media</option>
+                    <option value="librarybuttons">After My Media (small)</option>
+                    <option value="resume">After Continue Watching</option>
+                    <option value="resumeaudio">After Continue Listening</option>
+                    <option value="resumebook">After Continue Reading</option>
+                    <option value="livetv">After Live TV</option>
+                    <option value="activerecordings">After Active Recordings</option>
+                    <option value="nextup">After Next Up</option>
+                    <option value="latestmedia">After Recently Added Media</option>
+                </select>
                 <div class="fieldDescription">Shows the recommendations the scan has already accumulated from your owned titles, ranked by how many sources suggest each one, then by TMDB popularity. Titles from a watchlist, favorites, or an IMDb or MDBList list never appear here; titles from TMDB lists, Trakt lists and TMDB's own feeds can, and read "From" and the list's name. Unlike the person and item pages, this does not call TMDB itself, so it needs the report's own Discover
                     recommendations turned on and scanned at least once.</div>
             </div>
@@ -547,21 +554,22 @@
                 <div class="fieldDescription">The most titles the home Discover row shows.</div>
             </div>
             <div class="selectContainer">
-                <label class="selectLabel" for="HomeRowPlacement">Home rows: where they go</label>
-                <select id="HomeRowPlacement" name="HomeRowPlacement" is="emby-select">
-                    <option value="">At the bottom</option>
+                <label class="selectLabel" for="HomeWantedPlacement">Home screen: "Want to watch" row</label>
+                <select id="HomeWantedPlacement" name="HomeWantedPlacement" is="emby-select">
+                    <option value="none">Do not show</option>
+                    <option value="bottom">At the bottom</option>
                     <option value="top">At the top</option>
                     <option value="smalllibrarytiles">After My Media</option>
                     <option value="librarybuttons">After My Media (small)</option>
                     <option value="resume">After Continue Watching</option>
                     <option value="resumeaudio">After Continue Listening</option>
                     <option value="resumebook">After Continue Reading</option>
-                    <option value="nextup">After Next Up</option>
                     <option value="livetv">After Live TV</option>
                     <option value="activerecordings">After Active Recordings</option>
+                    <option value="nextup">After Next Up</option>
                     <option value="latestmedia">After Recently Added Media</option>
                 </select>
-                <div class="fieldDescription">Where the Want to watch and Discover rows sit on the home screen. The sections are the ones each user picks under Settings, Home, Home screen sections, by the names Jellyfin gives them there: My Media shows the libraries as cards with artwork, and My Media (small) as a compact row of buttons. Each user orders their own home screen, so the rows follow the chosen section wherever that user put it, and go to the bottom for a user who does not show it.</div>
+                <div class="fieldDescription">The signed-in user's own want-to-watch row, with its title search. Requires Want to watch above; "Do not show" hides only the row, and the bookmarks stay. On both home rows, the sections are the ones each user picks under Settings, Home, Home screen sections, by the names Jellyfin gives them there: My Media shows the libraries as cards with artwork, and My Media (small) as a compact row of buttons. Each user orders their own home screen, so a row follows the chosen section wherever that user put it, and goes to the bottom for a user who does not show it. Two rows given the same place show Want to watch first.</div>
             </div>
         </div>
         <div class="verticalSection">

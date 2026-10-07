@@ -42,7 +42,7 @@ public sealed class HomeDiscoverService
     }
 
     /// <summary>
-    /// Finds one of the row's gaps by id, for a Send.
+    /// Finds one of the row's gaps by id, for a want-to-watch add or remove.
     /// </summary>
     /// <param name="gapId">The gap id the row showed.</param>
     /// <returns>The gap, or <see langword="null"/> when it is not a recommendation in the current report.</returns>
