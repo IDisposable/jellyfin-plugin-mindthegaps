@@ -86,6 +86,16 @@ public class WorksMissingBuilderTests
     }
 
     [Fact]
+    public void ToWork_LeavesTheYearOutOfTheAmazonSearch_ButKeepsItInTheWebSearch()
+    {
+        var gap = Album("a1", "Moving Pictures", new DateTime(1981, 2, 12, 0, 0, 0, DateTimeKind.Utc));
+        var work = WorksMissingBuilder.ToWork(gap, searchUrlTemplate: "https://www.google.com/search?q={0}");
+
+        Assert.Equal("https://www.amazon.com/s?k=Moving%20Pictures%20A%20Band", work.Links.Single(l => l.Name == "Amazon").Url);
+        Assert.Equal("https://www.google.com/search?q=Moving%20Pictures%201981%20A%20Band", work.Links.Single(l => l.Name == "Web search").Url);
+    }
+
+    [Fact]
     public void Build_OrdersNewestFirst_UndatedLast_TiesByTitle()
     {
         var works = WorksMissingBuilder.Build(

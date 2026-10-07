@@ -73,7 +73,8 @@ internal static class WorksMissingBuilder
 
     // The author/artist is folded into the search term (not just the title) because a book or album title
     // alone is often shared across unrelated works, which is what made the fulfillment queue's own Amazon
-    // link (see mindthegaps.report.todo.js's todoSearchTerm) useless without it.
+    // link (see mindthegaps.report.todo.js's todoSearchTerm) useless without it. Amazon gets no year: its
+    // search treats the number as a required term and finds nothing for most albums.
     private static IReadOnlyList<ExternalLink> BuildSearchLinks(string name, int? year, string? creator, string? searchUrlTemplate)
     {
         if (string.IsNullOrEmpty(name))
@@ -81,17 +82,17 @@ internal static class WorksMissingBuilder
             return [];
         }
 
-        var term = string.Join(
-            ' ',
-            new[] { name, year?.ToString(CultureInfo.InvariantCulture), creator }.Where(part => !string.IsNullOrEmpty(part)));
-        var encoded = Uri.EscapeDataString(term);
-
-        var links = new List<ExternalLink> { new("Amazon", "https://www.amazon.com/s?k=" + encoded) };
+        var links = new List<ExternalLink> { new("Amazon", "https://www.amazon.com/s?k=" + SearchTerm(name, null, creator)) };
         if (!string.IsNullOrEmpty(searchUrlTemplate))
         {
-            links.Add(new ExternalLink("Web search", searchUrlTemplate.Replace("{0}", encoded, StringComparison.Ordinal)));
+            links.Add(new ExternalLink("Web search", searchUrlTemplate.Replace("{0}", SearchTerm(name, year, creator), StringComparison.Ordinal)));
         }
 
         return links;
     }
+
+    private static string SearchTerm(string name, int? year, string? creator) =>
+        Uri.EscapeDataString(string.Join(
+            ' ',
+            new[] { name, year?.ToString(CultureInfo.InvariantCulture), creator }.Where(part => !string.IsNullOrEmpty(part))));
 }

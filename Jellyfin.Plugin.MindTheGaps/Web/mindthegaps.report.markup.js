@@ -449,14 +449,15 @@ function buildWatchPopoverBody(item) {
 // id to browse a "where to watch" page for, and the title alone is often ambiguous without the author
 // or artist (many are shared across unrelated works), so the term also carries the gap's source item
 // (the same convention TodoEntry.Creator/todoSearchTerm use for the fulfillment queue's own links).
+// Amazon gets no year: its search treats the number as a required term and finds nothing for most albums.
 function externalSearchLinks(name, year, creator) {
     if (!name) { return ''; }
-    var term = (name + ' ' + (year || '') + ' ' + (creator || '')).trim();
-    var encoded = encodeURIComponent(term);
-    var out = newTab(true, { 'class': 'cgLink cgPopLink emby-button', href: 'https://www.amazon.com/s?k=' + encoded, title: 'Search Amazon' }, 'Search Amazon');
+    var amazonTerm = encodeURIComponent((name + ' ' + (creator || '')).trim());
+    var out = newTab(true, { 'class': 'cgLink cgPopLink emby-button', href: 'https://www.amazon.com/s?k=' + amazonTerm, title: 'Search Amazon' }, 'Search Amazon');
     var template = vocab().searchUrlTemplate;
     if (template) {
-        out += newTab(true, { 'class': 'cgLink cgPopLink emby-button', href: template.replace('{0}', encoded), title: 'Web search' }, 'Web search');
+        var webTerm = encodeURIComponent((name + ' ' + (year || '') + ' ' + (creator || '')).trim());
+        out += newTab(true, { 'class': 'cgLink cgPopLink emby-button', href: template.replace('{0}', webTerm), title: 'Web search' }, 'Web search');
     }
 
     return out;

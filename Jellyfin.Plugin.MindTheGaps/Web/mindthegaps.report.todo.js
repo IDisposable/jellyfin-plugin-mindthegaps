@@ -26,8 +26,9 @@ function todoWebSearchUrl(template, entry) {
     return template.replace('{0}', encodeURIComponent(todoSearchTerm(entry)));
 }
 
+// Amazon gets no year: its search treats the number as a required term and finds nothing for most albums.
 function todoAmazonUrl(entry) {
-    return 'https://www.amazon.com/s?k=' + encodeURIComponent(todoSearchTerm(entry));
+    return 'https://www.amazon.com/s?k=' + encodeURIComponent(((entry.Name || '') + ' ' + (entry.Creator || '')).trim());
 }
 
 // Add ids to the caller's own TODO list, then confirm. ids is an array of gap ids.
