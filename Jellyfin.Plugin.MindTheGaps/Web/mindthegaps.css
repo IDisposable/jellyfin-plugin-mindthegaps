@@ -144,6 +144,23 @@
     display: inline;
 }
 
+/* On a phone the header's buttons alone fill the width, leaving the name a few letters. There the name
+    takes the whole first line beside the caret, and the count, coverage and buttons wrap onto the next,
+    indented under the name. */
+@media (max-width: 40em) {
+    .cgGridWrap>.cgGroup.cgCollapsed>.cgHdr {
+        flex-wrap: wrap;
+    }
+
+    .cgGridWrap>.cgGroup.cgCollapsed>.cgHdr>.cgLabel {
+        flex: 1 1 calc(100% - 1.5em);
+    }
+
+    .cgGridWrap>.cgGroup.cgCollapsed>.cgHdr>.cgCount {
+        margin-left: 1.15em;
+    }
+}
+
 .cgL2 .listItem {
     padding-left: 2.6em;
 }
