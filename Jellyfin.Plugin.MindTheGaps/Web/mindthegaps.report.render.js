@@ -2,6 +2,20 @@
 // tree), selection, saved views, loading/refreshing the report, and starting a scan or
 // availability pass.
 
+// Put each group under root back the way it was before a re-render. A group restored to expanded needs
+// its deferred body built now, so its rows are present for the open-row and selection restore (and
+// visible); what that build adds (a letter bucket's own groups) is restored the same way.
+function restoreCollapsed(root, collapsed) {
+    var groups = root.querySelectorAll('.cgGroup');
+    for (var i = 0; i < groups.length; i++) {
+        var k = groupKey(groups[i]);
+        if (k in collapsed) { groups[i].classList.toggle('cgCollapsed', collapsed[k]); }
+        if (!groups[i].classList.contains('cgCollapsed') && ensureGroupBody(groups[i])) {
+            restoreCollapsed(groups[i].querySelector('.cgBody'), collapsed);
+        }
+    }
+}
+
 function applyAndRender(page) {
     var report = page._report || { Items: [] };
     currentSort = page.querySelector('#cgSort').value || 'title';
@@ -81,14 +95,7 @@ function applyAndRender(page) {
     listEl.innerHTML = displayItems.length ? buildTree(displayItems) : noneHtml;
 
     // Restore the snapshot onto whichever groups/rows still exist after the rebuild.
-    var ng = listEl.querySelectorAll('.cgGroup');
-    for (var ngi = 0; ngi < ng.length; ngi++) {
-        var k = groupKey(ng[ngi]);
-        if (k in collapsed) { ng[ngi].classList.toggle('cgCollapsed', collapsed[k]); }
-        // A group restored to expanded needs its deferred body built now, so its rows are
-        // present for the open-row and selection restore (and visible) after the rebuild.
-        if (!ng[ngi].classList.contains('cgCollapsed')) { ensureGroupBody(ng[ngi]); }
-    }
+    restoreCollapsed(listEl, collapsed);
     syncGroupAria(listEl);
     var nsel = listEl.querySelectorAll('.cgSel');
     for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }

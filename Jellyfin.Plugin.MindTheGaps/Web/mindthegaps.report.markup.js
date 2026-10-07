@@ -147,15 +147,18 @@ var cgGroupSeq = 0;
 var lazyBodies = {};
 
 // Builds a group's body the first time it is expanded (if it was registered as deferred),
-// then drops the marker so it is not rebuilt. A no-op for eager (already-built) groups.
+// then drops the marker so it is not rebuilt. A no-op for eager (already-built) groups. True when it
+// built a body, which can itself hold deferred groups (a letter bucket's sources).
 function ensureGroupBody(groupEl) {
-    if (!groupEl) { return; }
+    if (!groupEl) { return false; }
     var token = groupEl.getAttribute('data-cglazy');
-    if (!token) { return; }
+    if (!token) { return false; }
     groupEl.removeAttribute('data-cglazy');
     var build = lazyBodies[token];
     var body = groupEl.querySelector('.cgBody');
-    if (build && body) { body.innerHTML = build(); }
+    if (!build || !body) { return false; }
+    body.innerHTML = build();
+    return true;
 }
 
 // Sort a leaf group's rows by the active mode (popularity desc, then title; or just title).

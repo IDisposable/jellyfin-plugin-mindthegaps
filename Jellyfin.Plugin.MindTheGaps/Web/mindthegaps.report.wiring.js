@@ -152,10 +152,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     });
     function setAllSelected(checked) {
         // "Select all" should reach every row, including those in still-deferred creator-works
-        // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups).
+        // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups). A
+        // letter bucket's body holds deferred groups of its own, hence the repeat.
         if (checked) {
-            var deferred = page.querySelectorAll('#cgList .cgGroup[data-cglazy]');
-            for (var d = 0; d < deferred.length; d++) { ensureGroupBody(deferred[d]); }
+            var deferred;
+            while ((deferred = page.querySelectorAll('#cgList .cgGroup[data-cglazy]')).length) {
+                for (var d = 0; d < deferred.length; d++) { ensureGroupBody(deferred[d]); }
+            }
         }
         var cbs = page.querySelectorAll('#cgList .cgSel');
         for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }

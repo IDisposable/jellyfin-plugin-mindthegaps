@@ -24,6 +24,18 @@
     opacity: .8;
 }
 
+/* A letter bucket over a long section's groups (letterBuckets): it sits where those groups would, and
+    indents what it holds one step further. */
+.cgHdrLetter {
+    font-size: 1em;
+    padding-left: 1.3em;
+    font-weight: 600;
+}
+
+.cgLLetter>.cgBody {
+    padding-left: 1.3em;
+}
+
 .cgGroup.cgCollapsed>.cgBody {
     display: none;
 }

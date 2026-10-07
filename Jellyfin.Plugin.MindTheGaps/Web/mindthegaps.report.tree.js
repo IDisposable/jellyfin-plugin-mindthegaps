@@ -350,9 +350,61 @@ function setSourceCell(src, srcItems) {
     return groupHtml(2, title, srcItems.length, true, sourceBody(srcItems), '', extra);
 }
 
+// Below this many groups a section lists them directly; at or above it they go under letter buckets.
+var LETTER_LAYER_MIN = 20;
+
+// The first two letters or digits of a name's first word, accents folded and cased like "Ab", so a
+// bucket under an already-chosen letter splits on the next one.
+function twoLetterPrefix(name) {
+    var word = (name || '').trim().split(/\s+/)[0] || '';
+    var chars = word.match(/[\p{L}\p{N}]/gu) || [];
+    return chars.slice(0, 2).map(function (c, i) {
+        var folded = c.normalize ? c.normalize('NFD').charAt(0) : c;
+        if (!/[A-Za-z]/.test(folded)) { folded = c; }
+        return i === 0 ? folded.toUpperCase() : folded.toLowerCase();
+    }).join('') || '#';
+}
+
+// The bucket a group's name files under. With every letter shown, its first letter. With one letter
+// chosen above, the first two letters of the word that put it under that letter: a person's first or
+// last name, a title's first word or the word after a leading "The" (see personLetters, titleLetters).
+function bucketOf(name, letter, person) {
+    if (!letter || letter === '*') { return firstLetter(name); }
+    var trimmed = (name || '').trim();
+    var words = trimmed.split(/\s+/);
+    var candidates = person ? [words[0], words[words.length - 1]] : [trimmed, trimmed.replace(/^the\s+/i, '')];
+    for (var i = 0; i < candidates.length; i++) {
+        if (firstLetter(candidates[i]) === letter) { return twoLetterPrefix(candidates[i]); }
+    }
+    return letter;
+}
+
+// A section's groups, filed under collapsible letter buckets once there are too many to scan, each
+// built only when it is opened. names is the groups' names in display order, groupOf builds one group,
+// and wrapBody wraps a run of them (the Set completion grid). A short section, or one whose groups all
+// share a bucket, lists them directly.
+function letterBuckets(names, itemsOf, groupOf, person, wrapBody) {
+    var wrapRun = function (run) { var html = run.map(groupOf).join(''); return wrapBody ? wrapBody(html) : html; };
+    if (names.length < LETTER_LAYER_MIN) { return wrapRun(names); }
+
+    var page = reportPage();
+    var letter = page && page._letter;
+    var byBucket = groupBy(names, function (n) { return bucketOf(n, letter, person); });
+    if (byBucket.order.length < 2) { return wrapRun(names); }
+
+    byBucket.order.sort(letterSort);
+    return byBucket.order.map(function (key) {
+        var run = byBucket.map[key];
+        var count = run.reduce(function (sum, n) { return sum + itemsOf(n).length; }, 0);
+        var token = 'lz' + (++cgGroupSeq);
+        lazyBodies[token] = function () { return wrapRun(run); };
+        return groupHtml('Letter', key, count, true, '', '', '', token);
+    }).join('');
+}
+
 // Render the current pattern's entities for the items passed (already scoped to one domain and,
 // via the A-Z selector, usually one letter): recommended titles as rows, creators as groups, or
-// the set grid. The A-Z bar handles letters, so there is no in-tree letter grouping.
+// the set grid. A section with many groups files them under letter buckets (see letterBuckets).
 function buildTree(items) {
     if (!items.length) { return ''; }
     var pattern = items[0].PatternName;
@@ -369,7 +421,8 @@ function buildTree(items) {
         return byKind.order.map(function (kind) {
             var bySource = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
             bySource.order.sort(ci);
-            var groups = bySource.order.map(function (src) {
+            var itemsOf = function (src) { return bySource.map[src]; };
+            var groups = letterBuckets(bySource.order, itemsOf, function (src) {
                 var sItems = bySource.map[src];
                 var token = 'lz' + (++cgGroupSeq);
                 lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
@@ -379,7 +432,7 @@ function buildTree(items) {
                     + clearBtn('group', src, 'everything listed under ' + src)
                     + recSourceDismissBtn(sItems[0].SourceItemId, src)
                     + sourceLinks(sItems[0]), token);
-            }).join('');
+            }, false);
             return kindSection(kind, groups);
         }).join('') + emptyRunSections(byKind.map);
     }
@@ -387,7 +440,7 @@ function buildTree(items) {
     if (pattern === 'CreatorWorks') {
         var byCreator = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
         byCreator.order.sort(ci);
-        return byCreator.order.map(function (src) {
+        return letterBuckets(byCreator.order, function (src) { return byCreator.map[src]; }, function (src) {
             var cItems = byCreator.map[src];
             // Defer the rows: a creator's body is built only when its header is expanded, so a
             // tab with tens of thousands of rows renders just the headers up front.
@@ -399,7 +452,7 @@ function buildTree(items) {
                 + clearBtn('group', src, 'everything listed under ' + src)
                 + creatorDismissBtn(cItems[0].SourceItemId, src)
                 + sourceLinks(cItems[0]), token);
-        }).join('');
+        }, true);
     }
 
     // SetCompletion: split by the kind of set, then lay each kind's collapsed sources out in a
@@ -411,8 +464,9 @@ function buildTree(items) {
     return byKind.order.map(function (kind) {
         var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
         bySrc.order.sort(ci);
-        var srcHtml = bySrc.order.map(function (src) { return setSourceCell(src, bySrc.map[src]); }).join('');
-        var grid = wrap('div', { 'class': 'cgGridWrap' }, srcHtml);
+        var grid = letterBuckets(bySrc.order, function (src) { return bySrc.map[src]; },
+            function (src) { return setSourceCell(src, bySrc.map[src]); },
+            false, function (html) { return wrap('div', { 'class': 'cgGridWrap' }, html); });
         // A single kind needs no header; with several kinds in one domain (Movies has
         // collections, studios, and keywords) each kind gets a collapsible header, reusing the
         // group machinery so its caret, keyboard toggle, and persisted state all come for free.
