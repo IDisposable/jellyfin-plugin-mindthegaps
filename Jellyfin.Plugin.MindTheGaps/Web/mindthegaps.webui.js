@@ -79,8 +79,13 @@
     }
 
     // An owned title opens its own page in the library rather than the TMDB detail dialog.
+    // jellyfin-web's router is a global only for legacy plugin scripts; the hash route reaches the same page.
     function openItem(itemId) {
-        Emby.Page.showItem(itemId, ApiClient.serverId());
+        if (window.Emby && Emby.Page && Emby.Page.showItem) {
+            Emby.Page.showItem(itemId, ApiClient.serverId());
+        } else {
+            window.location.hash = '#/details?id=' + encodeURIComponent(itemId) + '&serverId=' + encodeURIComponent(ApiClient.serverId());
+        }
     }
 
     function alertUser(message) {
