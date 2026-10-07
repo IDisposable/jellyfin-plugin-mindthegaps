@@ -1,33 +1,77 @@
 // Report page, part 4: the shared row filter, the domain tabs, and the Type (pattern) selector.
 
+// The narrowing filters that are on: the search and the Hide checkboxes. Each says how the filter hint
+// names it, whether it hides a gap, and how to turn it off.
+function activeUserFilters(page) {
+    var out = [];
+    var search = page.querySelector('#cgSearch');
+    var raw = (search.value || '').trim();
+    var term = raw.toLowerCase();
+    if (term) {
+        out.push({
+            label: 'the search “' + raw + '”',
+            // Match the title and the owning source (creator or recommending title), so searching a
+            // person's name finds their filmography rows even though the row name is the missing film.
+            hides: function (it) { return ((it.Name || '') + ' ' + (it.SourceItemName || '')).toLowerCase().indexOf(term) === -1; },
+            clear: function () { search.value = ''; }
+        });
+    }
+    var box = function (id, label, hides) {
+        var el = page.querySelector(id);
+        if (el.checked) { out.push({ label: label, hides: hides, clear: function () { el.checked = false; } }); }
+    };
+    box('#cgHideSpecials', 'Hide specials', function (it) { return it.Season != null && it.Season <= 0; });
+    box('#cgHideUpcoming', 'Hide upcoming', function (it) { return !!it.IsUpcoming; });
+    // Hide "no sources" only once a title has actually been looked up. An un-checked gap is
+    // "unknown", not "no sources", so keep it visible (with its Where-to-watch button)
+    // rather than vanishing the whole un-enriched list behind this filter.
+    box('#cgStreamable', 'Hide items with no sources', function (it) { return it.AvailabilityChecked && !filterOffers(it.Availability).length; });
+    return out;
+}
+
 // The filters shared by the tab counts and the list, all of them except the pattern itself,
 // so a tab's badge shows how many gaps would appear if you opened it under the current filters.
-function buildFilter(page) {
+// Without the narrowing filters, it is what the list would hold with them all off (see renderFilterHint).
+function buildFilter(page, withoutNarrowing) {
     var type = page._domain;
-    var term = (page.querySelector('#cgSearch').value || '').toLowerCase();
-    var hideSpecials = page.querySelector('#cgHideSpecials').checked;
-    var hideUpcoming = page.querySelector('#cgHideUpcoming').checked;
     var showResolved = page.querySelector('#cgShowResolved').checked;
-    var streamable = page.querySelector('#cgStreamable').checked;
+    var narrowing = withoutNarrowing ? [] : activeUserFilters(page);
     return function (it) {
         if (activeDismissal(it) && !showResolved) { return false; }
         if (it.PatternName === 'CreatorWorks' && creatorDismissed(it.SourceItemId) && !showResolved) { return false; }
         if (it.PatternName === 'Recommendation' && effectiveRecSourceCount(it) === 0 && !showResolved) { return false; }
         if (type && categoryOf(it) !== type) { return false; }
-        if (hideSpecials && it.Season != null && it.Season <= 0) { return false; }
-        if (hideUpcoming && it.IsUpcoming) { return false; }
-        // Hide "no sources" only once a title has actually been looked up. An un-checked gap is
-        // "unknown", not "no sources", so keep it visible (with its Where-to-watch button)
-        // rather than vanishing the whole un-enriched list behind this filter.
-        if (streamable && it.AvailabilityChecked && !filterOffers(it.Availability).length) { return false; }
-        // Match the title and the owning source (creator or recommending title), so searching a
-        // person's name finds their filmography rows even though the row name is the missing film.
-        if (term) {
-            var haystack = ((it.Name || '') + ' ' + (it.SourceItemName || '')).toLowerCase();
-            if (haystack.indexOf(term) === -1) { return false; }
-        }
+        for (var i = 0; i < narrowing.length; i++) { if (narrowing[i].hides(it)) { return false; } }
         return true;
     };
+}
+
+// The line above the list saying how many gaps the narrowing filters hide and which ones, with a button
+// that turns those off. A search left in the box otherwise looks exactly like an empty tab.
+function renderFilterHint(page, report) {
+    var el = page.querySelector('#cgFilterHint');
+    var filters = activeUserFilters(page);
+    var unfiltered = buildFilter(page, true);
+    var hidden = (report.Items || []).filter(function (it) {
+        return it.PatternName === page._pattern && unfiltered(it) && filters.some(function (f) { return f.hides(it); });
+    });
+    var hiding = filters.filter(function (f) { return hidden.some(f.hides); });
+    var html = '';
+    if (hidden.length) {
+        var names = hiding.map(function (f) { return f.label; });
+        var list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+        html += h('span', null, hidden.length + ' hidden by ' + list + '.').outerHTML
+            + h('button', { is: 'emby-button', type: 'button', id: 'cgShowFiltered', 'class': 'raised', title: 'Turn off ' + list }, 'Show them').outerHTML;
+    }
+    // Hide items with no sources acts only on titles already looked up, so with none looked up it does nothing yet.
+    var streamable = page.querySelector('#cgStreamable').checked;
+    if (streamable && !(report.Items || []).some(function (it) { return it.AvailabilityChecked; })) {
+        html += h('span', null, '“Hide items with no sources” has nothing to act on until where to watch is looked up.').outerHTML
+            + h('button', { is: 'emby-button', type: 'button', id: 'cgEnableAvail', 'class': 'raised' }, 'Look up where to watch').outerHTML;
+    }
+    el.innerHTML = html;
+    el.style.display = html ? 'flex' : 'none';
+    el._clear = function () { hiding.forEach(function (f) { f.clear(); }); };
 }
 
 function renderTabs(page) {

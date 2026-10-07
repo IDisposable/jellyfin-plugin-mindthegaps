@@ -44,10 +44,10 @@ function todoAdd(ids, btn) {
         dataType: 'json'
     }).then(function (count) {
         if (btn) { btn.innerHTML = html; btn.disabled = false; }
-        Dashboard.alert('Added ' + (count == null ? ids.length : count) + ' to your TODO list.');
+        Dashboard.alert('Added ' + (count == null ? ids.length : count) + ' to your watchlist.');
     }).catch(function () {
         if (btn) { btn.innerHTML = html; btn.disabled = false; }
-        Dashboard.alert('Could not add to the TODO list. Check the server logs.');
+        Dashboard.alert('Could not add to your watchlist. Check the server logs.');
     });
 }
 
@@ -161,8 +161,8 @@ function renderFulfillment(modal) {
     if (!items.length) {
         body.innerHTML = h('div', { 'class': 'cgTodoEmpty' },
             (modal._data && modal._data.Items && modal._data.Items.length)
-                ? 'Nothing outstanding; everything on a TODO list has been marked fetched.'
-                : 'Nobody has anything on their TODO list yet.').outerHTML;
+                ? 'Nothing outstanding; everything on a watchlist has been marked fetched.'
+                : 'Nobody has anything on their watchlist yet.').outerHTML;
         return;
     }
     var template = modal._template || '';

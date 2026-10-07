@@ -271,7 +271,7 @@ public class TodoController : ControllerBase
 
     /// <summary>
     /// Verifies the whole todo list against the library in one pass, marking each entry done or not to match.
-    /// The bulk form of <see cref="VerifyTodo"/>, for one user's list at a time; the Maintenance section's
+    /// The bulk form of <see cref="VerifyTodo"/>, for one user's list at a time; the report's
     /// fulfillment queue's own "Verify all" calls this once per distinct owner represented in the queue,
     /// since a title can be on several users' lists at once.
     /// </summary>

@@ -165,12 +165,39 @@
     }
 
     .cgGridWrap>.cgGroup.cgCollapsed>.cgHdr>.cgLabel {
-        flex: 1 1 calc(100% - 1.5em);
+        flex: 1 1 calc(100% - 3em);
     }
 
     .cgGridWrap>.cgGroup.cgCollapsed>.cgHdr>.cgCount {
-        margin-left: 1.15em;
+        margin-left: 2.4em;
     }
+}
+
+/* A header's select-all checkbox, between its caret and its name. Clicking it selects; clicking the rest
+    of the header still expands and collapses. */
+.cgGrpSel {
+    flex: none;
+    margin: 0 .4em 0 0;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+/* Says how many gaps the search and Hide filters are hiding, so a forgotten search does not read as an
+    empty tab. */
+.cgFilterHint {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4em .8em;
+    margin: 0 0 .4em 0;
+    padding: .35em .6em;
+    border-left: 3px solid #f0ad4e;
+    background: rgba(240, 173, 78, .08);
+    border-radius: 4px;
+    font-size: .95em;
+}
+
+.cgFilterHint button {
+    margin: 0;
 }
 
 .cgL2 .listItem {
@@ -244,12 +271,6 @@
     padding: .35em .25em;
     /* Only the parts of a row that act on a click show a hand (the title, the service icons, the controls). */
     cursor: default;
-}
-
-.cgSelSpacer {
-    display: inline-block;
-    width: 1.4em;
-    flex: none;
 }
 
 .cgThumb {

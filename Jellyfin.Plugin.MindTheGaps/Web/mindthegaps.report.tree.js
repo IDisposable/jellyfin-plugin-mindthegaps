@@ -35,7 +35,7 @@ function searchIcon(name, collectionType) {
         icon('search'));
 }
 
-function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyToken) {
+function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyToken, selIds) {
     // A per-render id ties the header to its body for assistive tech (aria-controls), and
     // aria-expanded mirrors the collapse state (kept in sync on toggle and re-render).
     var bodyId = 'cgBody' + (++cgGroupSeq);
@@ -43,6 +43,7 @@ function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyTok
         'class': 'cgHdr cgHdr' + level, role: 'button', tabindex: '0',
         'aria-expanded': collapsed ? 'false' : 'true', 'aria-controls': bodyId
     }, h('span', { 'class': 'cgCaret' }).outerHTML
+    + groupSelBox(selIds, label)
     + h('span', { 'class': 'cgLabel' }, label).outerHTML
     + ' ' + h('span', { 'class': 'cgCount' }, '(' + count + ')').outerHTML
     + (extra || '') + openIcon(itemId));
@@ -134,7 +135,7 @@ function sourceBody(items) {
             + openIcon(openId)
             + clearBtn('season', (seriesName || '') + '|' + key, 'this season')
             + seasonDiag + batchDismissBtns(label);
-        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra);
+        return groupHtml(3, label, seasonItems.length, true, sortRows(seasonItems).map(renderRow).join(''), '', seasonExtra, null, idsOf(seasonItems));
     }).join('');
 }
 
@@ -347,7 +348,7 @@ function setSourceCell(src, srcItems) {
     // For a series, put the show's year in the header so same-named reboots are distinguishable
     // ("Quantum Leap (1989)" vs "Quantum Leap (2022)"); the plain name still drives search and dismiss.
     var title = (isEpisodic && srcItems[0].SourceItemYear) ? src + ' (' + srcItems[0].SourceItemYear + ')' : src;
-    return groupHtml(2, title, srcItems.length, true, sourceBody(srcItems), '', extra);
+    return groupHtml(2, title, srcItems.length, true, sourceBody(srcItems), '', extra, null, idsOf(srcItems));
 }
 
 // Below this many groups a section lists them directly; at or above it they go under letter buckets.
@@ -395,10 +396,11 @@ function letterBuckets(names, itemsOf, groupOf, person, wrapBody) {
     byBucket.order.sort(letterSort);
     return byBucket.order.map(function (key) {
         var run = byBucket.map[key];
-        var count = run.reduce(function (sum, n) { return sum + itemsOf(n).length; }, 0);
+        var ids = [];
+        run.forEach(function (n) { ids = ids.concat(idsOf(itemsOf(n))); });
         var token = 'lz' + (++cgGroupSeq);
         lazyBodies[token] = function () { return wrapRun(run); };
-        return groupHtml('Letter', key, count, true, '', '', '', token);
+        return groupHtml('Letter', key, ids.length, true, '', '', '', token, ids);
     }).join('');
 }
 
@@ -431,9 +433,9 @@ function buildTree(items) {
                     + searchIcon(src, '')
                     + clearBtn('group', src, 'everything listed under ' + src)
                     + recSourceDismissBtn(sItems[0].SourceItemId, src)
-                    + sourceLinks(sItems[0]), token);
+                    + sourceLinks(sItems[0]), token, idsOf(sItems));
             }, false);
-            return kindSection(kind, groups);
+            return kindSection(kind, groups, false, idsOf(byKind.map[kind]));
         }).join('') + emptyRunSections(byKind.map);
     }
 
@@ -451,7 +453,7 @@ function buildTree(items) {
                 + searchIcon(src, '')
                 + clearBtn('group', src, 'everything listed under ' + src)
                 + creatorDismissBtn(cItems[0].SourceItemId, src)
-                + sourceLinks(cItems[0]), token);
+                + sourceLinks(cItems[0]), token, idsOf(cItems));
         }, true);
     }
 
@@ -471,15 +473,15 @@ function buildTree(items) {
         // collections, studios, and keywords) each kind gets a collapsible header, reusing the
         // group machinery so its caret, keyboard toggle, and persisted state all come for free.
         if (!multiKind) { return grid; }
-        return kindSection(kind, grid);
+        return kindSection(kind, grid, false, idsOf(byKind.map[kind]));
     }).join('');
 }
 
 // A collapsible section heading over a kind's groups, reusing the group machinery so its caret, keyboard
 // toggle, and persisted collapse state all come for free. Shared by Set completion and Discover.
-function kindSection(kind, body, noClear) {
+function kindSection(kind, body, noClear, selIds) {
     var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
-        h('span', { 'class': 'cgCaret' }).outerHTML + h('span', { 'class': 'cgLabel' }, kind).outerHTML
+        h('span', { 'class': 'cgCaret' }).outerHTML + groupSelBox(selIds, kind) + h('span', { 'class': 'cgLabel' }, kind).outerHTML
         + (noClear ? '' : clearBtn('kind', kind, 'everything under ' + kind)));
     return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
         hdr + wrap('div', { 'class': 'cgBody' }, body));

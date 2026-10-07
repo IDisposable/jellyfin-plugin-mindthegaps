@@ -146,6 +146,20 @@ var cgGroupSeq = 0;
 // the rows for groups the user actually opens. Reset each render (tokens are per-render).
 var lazyBodies = {};
 
+// The gap ids under each header's select-all checkbox, keyed by its data-cgsel, so checking a group
+// selects rows its collapsed body has not built. Reset each render, like lazyBodies.
+var selGroups = {};
+
+// A header's select-all checkbox over ids, or nothing for a header with no rows under it.
+function groupSelBox(ids, label) {
+    if (!ids || !ids.length) { return ''; }
+    var key = 's' + (++cgGroupSeq);
+    selGroups[key] = ids;
+    return h('input', { type: 'checkbox', 'class': 'cgGrpSel', 'data-cgsel': key, title: 'Select everything under ' + label, 'aria-label': 'Select everything under ' + label }).outerHTML;
+}
+
+function idsOf(items) { return items.map(function (it) { return it.Id; }); }
+
 // Builds a group's body the first time it is expanded (if it was registered as deferred),
 // then drops the marker so it is not rebuilt. A no-op for eager (already-built) groups. True when it
 // built a body, which can itself hold deferred groups (a letter bucket's sources).
@@ -554,7 +568,7 @@ function buildActionsPopoverBody(item) {
     }
 
     actionItems.push(actionBtn('cgDiagnose', { 'data-gapid': item.Id, 'data-name': item.Name, title: 'Why is this listed as missing?' }, icon('troubleshoot', 'cgIconLead') + 'Diagnose'));
-    actionItems.push(actionBtn('cgTodoAdd', { 'data-gapid': item.Id, title: 'Add to my TODO list' }, icon('playlist_add_check', 'cgIconLead') + 'TODO'));
+    actionItems.push(actionBtn('cgTodoAdd', { 'data-gapid': item.Id, title: 'Add to my watchlist' }, icon('playlist_add_check', 'cgIconLead') + 'Watchlist'));
 
     var resolveBody;
     if (res) {
@@ -727,9 +741,9 @@ function serviceIcons(item) {
 function renderRow(item) {
     var res = activeDismissal(item);
 
-    var selBox = isMintable(item)
-        ? h('input', { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select to mint' }).outerHTML
-        : h('span', { 'class': 'cgSelSpacer' }).outerHTML;
+    var selAttrs = { type: 'checkbox', 'class': 'cgSel', 'data-gapid': item.Id, title: 'Select', 'aria-label': 'Select ' + (item.Name || 'this title') };
+    if (isSelected(item.Id)) { selAttrs.checked = 'checked'; }
+    var selBox = h('input', selAttrs).outerHTML;
 
     var thumb = item.ImageUrl
         ? cachedImage({ 'class': 'cgThumb' }, item.ImageUrl)

@@ -14,7 +14,7 @@ function twoMovies() {
 }
 
 async function selectAll(page) {
-    await page.locator('#cgSelectAll').click();
+    await page.locator('#cgRollup .cgGrpSel').check();
 }
 
 test('Acquire and Request stay hidden until their target is configured', async ({ page }) => {

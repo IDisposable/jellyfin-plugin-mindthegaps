@@ -150,28 +150,30 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         var modal = document.getElementById('cgFulfillModal');
         downloadText('mind-the-gaps-fulfillment-queue.md', buildFulfillmentMarkdown(modal));
     });
-    function setAllSelected(checked) {
-        // "Select all" should reach every row, including those in still-deferred creator-works
-        // groups, so build any unbuilt bodies first (a no-op on tabs with no deferred groups). A
-        // letter bucket's body holds deferred groups of its own, hence the repeat.
-        if (checked) {
-            var deferred;
-            while ((deferred = page.querySelectorAll('#cgList .cgGroup[data-cglazy]')).length) {
-                for (var d = 0; d < deferred.length; d++) { ensureGroupBody(deferred[d]); }
-            }
-        }
-        var cbs = page.querySelectorAll('#cgList .cgSel');
-        for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }
-        refreshSelectBar(page);
-        updateSelection(page);
+    // A row's checkbox selects that row; a header's (and the rollup line's) selects every id it was built
+    // over, whether or not the rows under it exist yet.
+    function onSelectChange(e) {
+        var t = e.target;
+        if (!t || !t.classList) { return; }
+        if (t.classList.contains('cgSel')) { setSelected(page, [t.getAttribute('data-gapid')], t.checked); }
+        else if (t.classList.contains('cgGrpSel')) { setSelected(page, selGroups[t.getAttribute('data-cgsel')] || [], t.checked); }
     }
-    page.querySelector('#cgSelectAll').addEventListener('click', function () { setAllSelected(true); });
-    page.querySelector('#cgSelectNone').addEventListener('click', function () { setAllSelected(false); });
-    page.querySelector('#cgList').addEventListener('change', function (e) {
-        if (e.target && e.target.classList && e.target.classList.contains('cgSel')) { updateSelection(page); }
+    page.querySelector('#cgList').addEventListener('change', onSelectChange);
+    // The filter hint's buttons: turn off the filters hiding rows, or look up the data that
+    // "Hide items with no sources" needs before it can act.
+    page.querySelector('#cgFilterHint').addEventListener('click', function (e) {
+        if (!e.target.closest) { return; }
+        var enableAvail = e.target.closest('#cgEnableAvail');
+        if (enableAvail) { startAvailability(page, enableAvail); return; }
+        if (e.target.closest('#cgShowFiltered')) {
+            this._clear();
+            saveFilters(page);
+            applyAndRender(page);
+        }
     });
+    page.querySelector('#cgRollup').addEventListener('change', onSelectChange);
     page.querySelector('#cgMintSelected').addEventListener('click', function () {
-        var ids = selectedGapIds(page);
+        var ids = mintableSelectedIds(page);
         if (!ids.length) { return; }
         if (!window.confirm('Mint ' + ids.length + ' selected item(s) as virtual placeholders?')) { return; }
         var btn = this;
@@ -521,12 +523,14 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // tree is operable from the keyboard.
     page.querySelector('#cgList').addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') { return; }
+        // A key on a header's own control (its select-all checkbox) is that control's, not a toggle.
+        if (e.target.matches && e.target.matches('input, a, button')) { return; }
         var hdr = e.target.closest ? e.target.closest('.cgHdr') : null;
         if (hdr && hdr.parentElement) {
             e.preventDefault();
             var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
-            if (!nowCollapsed) { ensureGroupBody(hdr.parentElement); refreshSelectBar(page); }
+            if (!nowCollapsed && ensureGroupBody(hdr.parentElement)) { syncSelection(page); }
         }
     });
     page.querySelector('#cgList').addEventListener('click', function (e) {
@@ -563,13 +567,6 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         // open their new tab; do not treat the click as a header toggle or row action. Action
         // controls (Diagnose, dismiss, batch) carry no href, so they fall through to handling.
         if (e.target.closest('a[href]')) { return; }
-
-        // The "Hide items with no sources" nudge: look the data up in the background.
-        var enableAvail = e.target.closest('#cgEnableAvail');
-        if (enableAvail) {
-            startAvailability(page, enableAvail);
-            return;
-        }
 
         var resolveBtn = e.target.closest('.cgResolve');
         if (resolveBtn) {
@@ -786,11 +783,14 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
+        // A checkbox (a row's, or a header's select-all) keeps its own click; the change listener acts on it.
+        if (e.target.closest('input[type=checkbox]')) { return; }
+
         var hdr = e.target.closest('.cgHdr');
         if (hdr && hdr.parentElement) {
             var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
-            if (!nowCollapsed) { ensureGroupBody(hdr.parentElement); refreshSelectBar(page); }
+            if (!nowCollapsed && ensureGroupBody(hdr.parentElement)) { syncSelection(page); }
             return;
         }
     });

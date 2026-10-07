@@ -11,9 +11,18 @@
             <span id="cgStaleMsg" style="flex:1;"></span>
             <button is="emby-button" type="button" id="cgStaleRescan" class="raised button-submit"><span>Rescan now</span></button>
         </div>
-        <div id="cgRescanBar" style="margin-bottom:.5em;">
-            <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" title="Run a full scan (can take a while)">
+        <div id="cgToolbar" style="display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin-bottom:.6em;">
+            <button is="emby-button" type="button" id="cgRescan" class="raised button-submit" style="margin:0;" title="Run a full scan (can take a while)">
                 <span>Rescan now</span>
+            </button>
+            <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
+                <span>Look up where to watch</span>
+            </button>
+            <button is="emby-button" type="button" id="cgExploreBtn" class="raised" style="margin:0;" title="Explore one source ad-hoc (a studio, keyword, label, or list) and merge its unowned titles into the report, without changing your saved settings.">
+                <span>Explore a source</span>
+            </button>
+            <button is="emby-button" type="button" id="cgFulfillBtn" class="raised" style="margin:0;" title="Every title on any user's watchlist, folded into one list sorted by demand, with where it is streaming. For when you fetch things yourself rather than through the acquisition stack: find out what is actually wanted before you go looking, then mark a title fetched for everyone who asked in one action.">
+                <span>Fulfillment queue</span>
             </button>
         </div>
         <div id="cgTabs" style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:0 0 .6em 0;"></div>
@@ -29,34 +38,19 @@
                     <option value="popularity">Popularity</option>
                 </select>
             </label>
+            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
+        </div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.4em 1em;margin-bottom:.5em;">
             <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;">
                 <input type="checkbox" id="cgHideSpecials" />Hide specials </label>
             <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps that are not out yet: a release date in the future, or, for a movie, series, or episode, no release date at all (announced but unscheduled).">
                 <input type="checkbox" id="cgHideUpcoming" />Hide upcoming </label>
-            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have dismissed (resolved, not interested, or snoozed). Each appears greyed with its status and a Clear button.">
-                <input type="checkbox" id="cgShowResolved" />Show dismissed </label>
             <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Hide gaps with no 'where to watch' matching your filters. Use 'Look up where to watch' to fetch that data first.">
                 <input type="checkbox" id="cgStreamable" />Hide items with no sources </label>
+            <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Show gaps you have dismissed (resolved, not interested, or snoozed). Each appears greyed with its status and a Clear button.">
+                <input type="checkbox" id="cgShowResolved" />Show dismissed </label>
             <label style="display:inline-flex;align-items:center;gap:.4em;margin:0;" title="Multiple columns of collapsed sets, and a smaller thumbnail on each row. Off by default.">
                 <input type="checkbox" id="cgCompact" />Compact view </label>
-            <input type="text" is="emby-input" id="cgSearch" placeholder="search title&hellip;" aria-label="Search titles and sources" style="flex:1 1 14em;min-width:12em;max-width:30em;margin:0;" />
-        </div>
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin-bottom:.5em;">
-            <button is="emby-button" type="button" id="cgLookupAvail" class="raised" style="margin:0;" title="Look up 'where to watch' for gaps that don't have it yet. Runs in the background; results fill in as it goes.">
-                <span>Look up where to watch</span>
-            </button>
-            <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
-                <span>Export Markdown</span>
-            </button>
-            <button is="emby-button" type="button" id="cgAuditBtn" class="raised" style="margin:0;" title="Audit the whole library for identification problems (false 'missing' and duplicate TheMovieDb ids) and download the result as Markdown. Read-only; nothing is changed.">
-                <span>Identification audit</span>
-            </button>
-            <button is="emby-button" type="button" id="cgExploreBtn" class="raised" style="margin:0;" title="Explore one source ad-hoc (a studio, keyword, label, or list) and merge its unowned titles into the report, without changing your saved settings.">
-                <span>Explore a source</span>
-            </button>
-            <button is="emby-button" type="button" id="cgVerifyShown" class="raised" style="margin:0;" title="Check every row currently shown against your library and clear the ones you now have, then offer a provider re-check for whatever is still missing.">
-                <span>Clear what I have</span>
-            </button>
         </div>
         <div id="cgAvailPanel" style="display:none;font-size:.9em;opacity:.85;margin-bottom:.4em;">
             <div style="font-weight:600;">Where to watch</div>
@@ -71,6 +65,16 @@
             <div id="cgProviderFilter" style="margin-top:.15em;"></div>
         </div>
         <div style="display:flex;align-items:center;gap:.4em;flex-wrap:wrap;margin:.3em 0;font-size:.9em;">
+            <span style="opacity:.7;">This view:</span>
+            <button is="emby-button" type="button" id="cgVerifyShown" class="raised" style="margin:0;" title="Check every row currently shown against your library and clear the ones you now have, then offer a provider re-check for whatever is still missing.">
+                <span>Clear what I have</span>
+            </button>
+            <button is="emby-button" type="button" id="cgExport" class="raised" style="margin:0;" title="Download the current tab (as filtered) as a Markdown file with links.">
+                <span>Export Markdown</span>
+            </button>
+            <button is="emby-button" type="button" id="cgAuditBtn" class="raised" style="margin:0 1em 0 0;" title="Audit the whole library for identification problems (false 'missing' and duplicate TheMovieDb ids) and download the result as Markdown. Read-only; nothing is changed.">
+                <span>Identification audit</span>
+            </button>
             <span style="opacity:.7;">Saved views:</span>
             <select is="emby-select" id="cgViews" class="emby-select" style="width:auto;">
                 <option value="">(choose a saved view)</option>
@@ -82,15 +86,13 @@
         </div>
     </div>
     <div id="cgSelectBar" style="display:none;align-items:center;gap:.5em;margin:.3em 0;flex-wrap:wrap;">
-        <button is="emby-button" type="button" id="cgSelectAll" class="raised"><span>Select all</span></button>
-        <button is="emby-button" type="button" id="cgSelectNone" class="raised"><span>Clear</span></button>
-        <button is="emby-button" type="button" id="cgMintSelected" class="raised button-submit" disabled>
+        <button is="emby-button" type="button" id="cgMintSelected" class="raised button-submit" disabled title="Mint the selected titles that can be minted as virtual placeholders">
             <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">eco</span>
             <span>Mint selected (<span id="cgSelCount">0</span>)</span>
         </button>
-        <button is="emby-button" type="button" id="cgTodoSelected" class="raised" disabled>
+        <button is="emby-button" type="button" id="cgTodoSelected" class="raised" disabled title="Add the selected titles to your own watchlist">
             <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">playlist_add_check</span>
-            <span>Add to TODO (<span id="cgTodoSelCount">0</span>)</span>
+            <span>Add to watchlist (<span id="cgTodoSelCount">0</span>)</span>
         </button>
         <button is="emby-button" type="button" id="cgSendArrSelected" class="raised" style="display:none;" disabled title="Send every selected item into your configured acquisition pipeline">
             <span class="material-icons" aria-hidden="true" style="margin-right:.2em;">download</span>
@@ -107,15 +109,10 @@
     </div>
     <div id="cgJump" style="display:none;"></div>
     <div id="cgRollup" style="display:none;"></div>
+    <div id="cgFilterHint" class="cgFilterHint" role="status" style="display:none;"></div>
     <div id="cgList" class="itemsContainer vertical-list"></div>
     <div class="verticalSection">
         <h2 class="sectionTitle">Maintenance</h2>
-        <div style="margin: 0.5em 0;">
-            <button id="cgFulfillBtn" is="emby-button" type="button" class="raised emby-button">
-                <span>Fulfillment queue</span>
-            </button>
-            <div class="fieldDescription">Every title on any user's TODO list, folded into one list sorted by demand, with where it is streaming. For when you fetch things yourself (StreamFab, a download, whatever) rather than through Radarr/Sonarr/Jellyseerr: find out what is actually wanted before you go looking, then mark a title fetched for everyone who asked in one action.</div>
-        </div>
         <div style="margin: 0.5em 0;">
             <button id="ResetRotation" is="emby-button" type="button" class="raised emby-button">
                 <span>Reset scan rotation</span>

@@ -16,7 +16,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 /// the want-to-watch add/remove
 /// every surface offers on its cards. Abstract and carries no route of its own, so it is never itself
 /// discovered as a controller. Deliberately has no acquisition handoff: an administrator monitors what
-/// everyone wants through the report's own Maintenance section (the fulfillment queue) instead, so this
+/// everyone wants through the report's own fulfillment queue instead, so this
 /// surface never talks to Radarr or Sonarr.
 /// </summary>
 public abstract class WebUiControllerBase : ControllerBase

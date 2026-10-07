@@ -83,9 +83,14 @@ test('an opened bucket and the group inside it stay open across a re-render', as
     await expect(page.locator('#cgList .cgL2[data-cglabel="Andor"] .cgRow')).toHaveCount(3);
 });
 
-test('select all reaches the rows inside unopened buckets', async ({ page }) => {
+test('select all reaches the rows inside unopened buckets, without building them', async ({ page }) => {
     await open(page);
-    await page.locator('#cgSelectAll').evaluate((el) => el.click());
+    await page.locator('#cgRollup .cgGrpSel').check();
 
-    await expect(page.locator('#cgList .cgSel:checked')).toHaveCount(items().length);
+    await expect(page.locator('#cgTodoSelCount')).toHaveText(String(items().length));
+    await expect(page.locator('#cgList .cgRow')).toHaveCount(0);
+
+    await page.locator('#cgList .cgLLetter[data-cglabel="B"] > .cgHdr').click();
+    await page.locator('#cgList .cgL2[data-cglabel="Bones"] > .cgHdr').click();
+    await expect(page.locator('#cgList .cgL2[data-cglabel="Bones"] .cgSel:checked')).toHaveCount(3);
 });

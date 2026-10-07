@@ -41,80 +41,108 @@ function applyAndRender(page) {
     // (including in a collapsed group, whose rows are not in the DOM until it is expanded).
     page._shown = displayItems;
 
-    var streamable = page.querySelector('#cgStreamable').checked;
+    // The domain has gaps overall (summary count) but none show. The pattern selector is not a "hide"
+    // filter here, so it is handled separately: if the chosen pattern is empty but the domain has gaps
+    // under another pattern, say so. Both checks come from the summary counts, not report.Items, which
+    // is already narrowed to this exact domain+pattern by the fetch and so cannot see what another
+    // pattern has. A narrowing filter that hides rows is named by the filter hint above the list.
+    var patternCounts = patternCountsFor(page, page._domain);
+    var rawForPattern = patternCounts[page._pattern] || 0;
+    var rawForDomain = Object.keys(patternCounts).reduce(function (sum, k) { return sum + patternCounts[k]; }, 0);
+    var unfiltered = buildFilter(page, true);
+    var narrowedAway = (report.Items || []).some(function (it) { return it.PatternName === page._pattern && unfiltered(it); });
     var empty;
-    if (streamable && !(report.Items || []).some(function (it) { return it.AvailabilityChecked; })) {
-        empty = h('p', { 'class': 'fieldDescription' }, 'No "where to watch" data yet, so this filter has nothing to act on. Look it up in the background, then it fills in here.').outerHTML
-            + wrap('button', { is: 'emby-button', type: 'button', id: 'cgEnableAvail', 'class': 'raised button-submit' },
-                h('span', null, 'Look up where to watch').outerHTML);
+    if (rawForPattern === 0 && rawForDomain > 0) {
+        empty = h('p', { 'class': 'fieldDescription' }, 'No ' + patternLabel(page._pattern, page._domain) + ' gaps in this domain. Pick another pattern from the menu above.').outerHTML;
+    } else if (narrowedAway) {
+        empty = h('p', { 'class': 'fieldDescription' }, 'No gaps match the current filters.').outerHTML;
+    } else if (rawForPattern > 0) {
+        // No filters on, yet nothing shows: the rows are all dismissed.
+        empty = h('p', { 'class': 'fieldDescription' }, 'Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.').outerHTML;
     } else {
-        // The domain has gaps overall (summary count) but none pass the filters: name the
-        // filters that are on so the user knows what to relax, rather than a dead-end blank.
-        // The pattern selector is not a "hide" filter here, so it is handled separately: if the
-        // chosen pattern is empty but the domain has gaps under another pattern, say so. Both
-        // checks come from the summary counts, not report.Items, which is already narrowed to
-        // this exact domain+pattern by the fetch and so cannot see what another pattern has.
-        var patternCounts = patternCountsFor(page, page._domain);
-        var rawForPattern = patternCounts[page._pattern] || 0;
-        var rawForDomain = Object.keys(patternCounts).reduce(function (sum, k) { return sum + patternCounts[k]; }, 0);
-        var otherPatternHasRaw = rawForPattern === 0 && rawForDomain > 0;
-        var active = [];
-        if ((page.querySelector('#cgSearch').value || '').trim()) { active.push('the search box'); }
-        if (page.querySelector('#cgHideSpecials').checked) { active.push('"Hide specials"'); }
-        if (page.querySelector('#cgHideUpcoming').checked) { active.push('"Hide upcoming"'); }
-        if (streamable) { active.push('"Hide items with no sources"'); }
-        if (otherPatternHasRaw) {
-            empty = h('p', { 'class': 'fieldDescription' }, 'No ' + patternLabel(page._pattern, page._domain) + ' gaps in this domain. Pick another pattern from the menu above.').outerHTML;
-        } else if (rawForPattern > 0 && active.length) {
-            var list = active.length === 1 ? active[0]
-                : active.slice(0, -1).join(', ') + ' or ' + active[active.length - 1];
-            empty = h('p', { 'class': 'fieldDescription' }, 'No gaps match the current filters. Try clearing ' + list + '.').outerHTML;
-        } else if (rawForPattern > 0) {
-            // No filters on, yet nothing shows: the rows are all dismissed.
-            empty = h('p', { 'class': 'fieldDescription' }, 'Every gap on this tab is dismissed. Turn on "Show dismissed" to see them.').outerHTML;
-        } else {
-            empty = h('p', { 'class': 'fieldDescription' }, 'No gaps on this tab. Pick another tab, or rescan to refresh.').outerHTML;
-        }
+        empty = h('p', { 'class': 'fieldDescription' }, 'No gaps on this tab. Pick another tab, or rescan to refresh.').outerHTML;
     }
 
     var listEl = page.querySelector('#cgList');
 
-    // Snapshot what the user has expanded/collapsed/selected and where they are scrolled, so a
-    // re-render (resolving a row, toggling a filter) does not throw it all away.
-    var collapsed = {}, checkedSel = {};
+    // Snapshot what the user has expanded/collapsed and where they are scrolled, so a re-render
+    // (resolving a row, toggling a filter) does not throw it all away. The selection is kept apart
+    // from the DOM, so it only needs trimming to what is still shown.
+    var collapsed = {};
     var pg = listEl.querySelectorAll('.cgGroup');
     for (var gi = 0; gi < pg.length; gi++) { collapsed[groupKey(pg[gi])] = pg[gi].classList.contains('cgCollapsed'); }
-    var psel = listEl.querySelectorAll('.cgSel:checked');
-    for (var sk = 0; sk < psel.length; sk++) { checkedSel[psel[sk].getAttribute('data-gapid')] = true; }
+    pruneSelection(page, displayItems);
     var scroller = scrollerFor(page);
     var scrollY = scroller.scrollTop;
 
     // With nothing to list, Discover still says what its lists did, so a tab that is empty because every
     // list was read and holds nothing reads that way rather than as a tab that never ran.
     var noneHtml = (page._pattern === 'Recommendation' && emptyRunSections({})) || empty;
+    selGroups = {}; // per-render, like the lazy bodies; the tree and the rollup line register theirs below
     listEl.innerHTML = displayItems.length ? buildTree(displayItems) : noneHtml;
 
     // Restore the snapshot onto whichever groups/rows still exist after the rebuild.
     restoreCollapsed(listEl, collapsed);
     syncGroupAria(listEl);
-    var nsel = listEl.querySelectorAll('.cgSel');
-    for (var nsi = 0; nsi < nsel.length; nsi++) { if (checkedSel[nsel[nsi].getAttribute('data-gapid')]) { nsel[nsi].checked = true; } }
     scroller.scrollTop = scrollY;
 
     renderLetterBar(page, letters, letter, letterCounts(items, page._pattern), items.length);
     var rollup = page.querySelector('#cgRollup');
-    var rh = items.length ? rollupHtml(items) : '';
+    // The rollup line leads with the select-all over everything the list shows.
+    var rh = items.length ? groupSelBox(idsOf(displayItems), 'everything shown') + rollupHtml(items) : '';
     rollup.innerHTML = rh;
     rollup.style.display = rh ? 'block' : 'none';
+    renderFilterHint(page, report);
     renderHiddenCreators(page);
-    refreshSelectBar(page);
+    syncSelection(page);
+}
+
+// The selected gap ids, kept here rather than read from the checkboxes, so a header can select a group
+// whose rows have not been built and a row picks its state up whenever it is.
+function selection(page) {
+    page = page || reportPage();
+    if (!page) { return {}; }
+    return page._selected || (page._selected = {});
+}
+
+function isSelected(id) { return !!selection()[id]; }
+
+function setSelected(page, ids, on) {
+    var sel = selection(page);
+    ids.forEach(function (id) { if (on) { sel[id] = true; } else { delete sel[id]; } });
+    syncSelection(page);
+}
+
+// Drop what the list no longer shows, so a bulk action never reaches a row a filter has hidden.
+function pruneSelection(page, shown) {
+    var sel = selection(page), keep = {};
+    shown.forEach(function (it) { if (sel[it.Id]) { keep[it.Id] = true; } });
+    page._selected = keep;
+}
+
+// Bring every checkbox in line with the selection: rows checked or not, and each header checked, clear,
+// or indeterminate by how many of its ids are selected. Run after a render and after a body is built.
+function syncSelection(page) {
+    var sel = selection(page);
+    var rows = page.querySelectorAll('#cgList .cgSel');
+    for (var i = 0; i < rows.length; i++) { rows[i].checked = !!sel[rows[i].getAttribute('data-gapid')]; }
+    var heads = page.querySelectorAll('#cgReportPanel .cgGrpSel');
+    for (var j = 0; j < heads.length; j++) {
+        var ids = selGroups[heads[j].getAttribute('data-cgsel')] || [];
+        var n = 0;
+        for (var k = 0; k < ids.length; k++) { if (sel[ids[k]]) { n++; } }
+        heads[j].checked = n > 0 && n === ids.length;
+        heads[j].indeterminate = n > 0 && n < ids.length;
+    }
     updateSelection(page);
 }
 
 function updateSelection(page) {
-    var n = page.querySelectorAll('#cgList .cgSel:checked').length;
-    page.querySelector('#cgSelCount').textContent = n;
-    page.querySelector('#cgMintSelected').disabled = n === 0;
+    var n = selectedGapIds(page).length;
+    var mintable = mintableSelectedIds(page).length;
+    page.querySelector('#cgSelectBar').style.display = n ? 'flex' : 'none';
+    page.querySelector('#cgSelCount').textContent = mintable;
+    page.querySelector('#cgMintSelected').disabled = mintable === 0;
     page.querySelector('#cgTodoSelCount').textContent = n;
     page.querySelector('#cgTodoSelected').disabled = n === 0;
 
@@ -136,22 +164,17 @@ function updateSelection(page) {
     page.querySelector('#cgResolveSelected').disabled = n === 0;
 }
 
-// Show the multi-select bar once any selectable row exists. Deferred creator-works bodies have
-// no rows until expanded, so the bar is re-evaluated when a group is opened, not just on render.
-function refreshSelectBar(page) {
-    page.querySelector('#cgSelectBar').style.display = page.querySelector('#cgList .cgSel') ? 'flex' : 'none';
-}
-
-// The ids of the checked rows. Mint rehydrates each from the stored report server-side, so the
+// The selected ids. Every bulk action rehydrates each from the stored report server-side, so the
 // client only needs to name them, not ship the whole gap object.
 function selectedGapIds(page) {
-    var out = [];
-    var cbs = page.querySelectorAll('#cgList .cgSel:checked');
-    for (var i = 0; i < cbs.length; i++) {
-        var id = cbs[i].getAttribute('data-gapid');
-        if (id) { out.push(id); }
-    }
-    return out;
+    return Object.keys(selection(page));
+}
+
+// The selected ids the minter would accept; the rest of a selection is still good for every other action.
+function mintableSelectedIds(page) {
+    var sel = selection(page);
+    return ((page._shown) || []).filter(function (it) { return sel[it.Id] && isMintable(it); })
+        .map(function (it) { return it.Id; });
 }
 
 // Persist the report filters per browser (not server config; these are personal view prefs).
@@ -558,9 +581,9 @@ function fetchResolved() {
 // an upgrade the persisted links/fields may be stale until rebuilt).
 function checkStale(page, report) {
     var stale = page.querySelector('#cgStale');
-    var rescanBar = page.querySelector('#cgRescanBar');
+    var rescan = page.querySelector('#cgRescan');
     stale.style.display = 'none';
-    rescanBar.style.display = '';
+    rescan.style.display = '';
     var generated = report && report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0;
     if (!generated) { return; }
     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
@@ -572,9 +595,9 @@ function checkStale(page, report) {
             page.querySelector('#cgStaleMsg').textContent =
                 'This list was built by ' + built + '. You are on ' + cur + '. Rescan to rebuild it with the current version.';
             stale.style.display = 'flex';
-            // The banner carries its own Rescan, so hide the standalone one to avoid two
-            // identical buttons stacked together.
-            rescanBar.style.display = 'none';
+            // The banner carries its own Rescan, so hide the toolbar's to avoid two identical
+            // buttons stacked together.
+            rescan.style.display = 'none';
         }
     }).catch(function () { /* version check is best-effort */ });
 }

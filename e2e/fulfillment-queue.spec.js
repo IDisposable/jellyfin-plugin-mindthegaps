@@ -1,4 +1,4 @@
-// The Maintenance section's fulfillment queue: MindTheGaps/Todo/Demand already folds every user's TODO
+// The report's fulfillment queue: MindTheGaps/Todo/Demand already folds every user's TODO
 // entries into one row per title (Gaps/TodoDemandAggregator.cs), so the client only renders it, offers the
 // lazy where-to-watch lookup the report list already has, and posts MindTheGaps/Todo/Demand/MarkFetched to
 // close a title out for every requester at once. This is the surface an administrator without a
@@ -41,7 +41,7 @@ async function open(page, demand) {
 
 const titles = (page) => page.locator('#cgFulfillBody .cgTodoTitle').allInnerTexts();
 
-test('opens from the Maintenance section, sorted by demand, with who still wants each title', async ({ page }) => {
+test('opens from the library actions, sorted by demand, with who still wants each title', async ({ page }) => {
     await open(page, demandData());
 
     expect(await titles(page)).toEqual(['Both Want It (1999)', 'Solo Want (1999)']);
@@ -102,7 +102,7 @@ test('an empty queue says so', async ({ page }) => {
     await page.locator('#cgFulfillBtn').click();
     await expect(page.locator('#cgFulfillModal')).toBeVisible();
 
-    await expect(page.locator('#cgFulfillBody .cgTodoEmpty')).toHaveText('Nobody has anything on their TODO list yet.');
+    await expect(page.locator('#cgFulfillBody .cgTodoEmpty')).toHaveText('Nobody has anything on their watchlist yet.');
 });
 
 test('an empty queue with only fulfilled titles distinguishes the two empty states', async ({ page }) => {

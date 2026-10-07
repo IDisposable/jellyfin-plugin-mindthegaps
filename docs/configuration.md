@@ -50,7 +50,7 @@ Clearing a setting removes its gaps from the next report.
 
 [^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap).
 
-[^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the Maintenance section's Fulfillment queue already shows. A title drops off once every user who wanted it marks it done or the library picks it up.
+[^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the report's Fulfillment queue already shows. A title drops off once every user who wanted it marks it done or the library picks it up.
 
 ## Sources
 
@@ -484,7 +484,7 @@ author you don't have":
 
 [^wanttowatch]:
     A user with a parental rating limit does not get the surfaces, so has no cards to bookmark from. An administrator sees everyone's lists folded into one queue from the
-    report's Maintenance section (the **Fulfillment queue**), and can verify or mark a title fetched for everyone still waiting on it in one action.
+    report's **Fulfillment queue**, and can verify or mark a title fetched for everyone still waiting on it in one action.
 
 [^wanttowatchplaylist]: The move happens the next time the entry is verified, not the instant the file arrives: an administrator's Fulfillment queue **Verify all**, or any future per-user verify. A title moves once, the first time it is found owned; verifying again does not add it a second time. Minting a placeholder never counts as arrived, whether or not minting is on elsewhere in the plugin.
 

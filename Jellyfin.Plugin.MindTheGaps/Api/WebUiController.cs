@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 /// detail dialog's TMDB lookup, shared by the person/item/home surfaces (<see cref="PersonWebUiController"/>,
 /// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>) since a TMDB id and kind is all
 /// any of them needs. Deliberately carries no acquisition handoff: an administrator monitors what everyone
-/// wants through the report's own Maintenance section (the fulfillment queue) instead, so this surface
+/// wants through the report's own fulfillment queue instead, so this surface
 /// never talks to Radarr or Sonarr.
 /// </summary>
 [ApiController]

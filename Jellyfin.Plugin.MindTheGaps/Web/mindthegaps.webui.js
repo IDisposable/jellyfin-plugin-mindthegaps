@@ -20,7 +20,7 @@
 // A card's only control of its own is the bookmark: clicking anywhere else on it opens a detail dialog (TMDB's
 // own synopsis, genres, rating, a trailer link when TMDB has one) with the want-to-watch button moved into it.
 // There is no acquisition handoff here on purpose: an administrator monitors what everyone wants through the
-// report's own Maintenance section (the fulfillment queue) instead, so this surface never talks to Radarr or
+// report's own fulfillment queue instead, so this surface never talks to Radarr or
 // Sonarr. The dialog is appended to document.body rather than the page, since jellyfin-web's own page wrapper
 // sets CSS containment (see CLAUDE.md's "position: fixed is not safe" note) which would otherwise make it the
 // containing block for a fixed-position overlay and misplace it.

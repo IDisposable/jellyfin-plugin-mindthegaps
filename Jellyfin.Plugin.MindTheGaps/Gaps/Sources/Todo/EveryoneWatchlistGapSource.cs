@@ -11,7 +11,7 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Todo;
 
 /// <summary>
-/// Discovery source over the union of every user's TODO list (the same rows the Maintenance section's
+/// Discovery source over the union of every user's TODO list (the same rows the report's
 /// Fulfillment queue shows), treated as a household watchlist: still-wanted titles the library does not
 /// hold, folded to one per title. Needs no account or credential, since it only reads data the plugin
 /// already keeps.
