@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Entities;
@@ -18,12 +19,18 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 /// state, so it works whichever client they watched on: a movie or episode comes off when it is played, and a
 /// series' remaining episodes once every one of them is.
 /// </summary>
-public sealed class WatchedAutoRemover : IHostedService
+internal sealed class WatchedAutoRemover : IHostedService
 {
+    // Marking a whole series played saves every episode in turn, each its own event. Waiting this long before
+    // asking whether the series is finished lets one check answer for the whole burst.
+    private static readonly TimeSpan SeriesSettle = TimeSpan.FromSeconds(5);
+
     private readonly IUserDataManager _userData;
     private readonly IUserManager _users;
     private readonly WatchlistPlaylistService _playlist;
+    private readonly PluginLifetime _lifetime;
     private readonly ILogger<WatchedAutoRemover> _logger;
+    private readonly ConcurrentDictionary<(Guid User, Guid Series), byte> _pendingSeries = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WatchedAutoRemover"/> class.
@@ -31,12 +38,14 @@ public sealed class WatchedAutoRemover : IHostedService
     /// <param name="userData">The user data manager, whose saves are listened for.</param>
     /// <param name="users">The user manager.</param>
     /// <param name="playlist">The want-to-watch playlist.</param>
+    /// <param name="lifetime">Stops a pending removal on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public WatchedAutoRemover(IUserDataManager userData, IUserManager users, WatchlistPlaylistService playlist, ILogger<WatchedAutoRemover> logger)
+    public WatchedAutoRemover(IUserDataManager userData, IUserManager users, WatchlistPlaylistService playlist, PluginLifetime lifetime, ILogger<WatchedAutoRemover> logger)
     {
         _userData = userData;
         _users = users;
         _playlist = playlist;
+        _lifetime = lifetime;
         _logger = logger;
     }
 
@@ -82,10 +91,11 @@ public sealed class WatchedAutoRemover : IHostedService
         }
 
         // Off the event thread: a playlist update writes the playlist, and must not hold up Jellyfin's save.
-        _ = Task.Run(() => RemoveWatchedAsync(e.UserId, e.Item, config));
+        var stopping = _lifetime.Stopping;
+        _ = Task.Run(() => RemoveWatchedAsync(e.UserId, e.Item, config, stopping), stopping);
     }
 
-    private async Task RemoveWatchedAsync(Guid userId, BaseItem item, PluginConfiguration? config)
+    private async Task RemoveWatchedAsync(Guid userId, BaseItem item, PluginConfiguration? config, CancellationToken stopping)
     {
         try
         {
@@ -100,12 +110,15 @@ public sealed class WatchedAutoRemover : IHostedService
                 _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, watched", item.Name, user.Username);
             }
 
-            // Once every episode is played the series is done, along with anything of it still on the playlist.
-            if (FinishedSeries(item, user) is { } series
-                && await _playlist.RemoveTitleAsync(userId, series.Id, config).ConfigureAwait(false))
+            // One check per user and series at a time; a save during the wait is answered by that check.
+            if (SeriesOf(item) is { } series && _pendingSeries.TryAdd((userId, series.Id), 0))
             {
-                _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, every episode watched", series.Name, user.Username);
+                await RemoveIfFinishedAsync(user, series, config, stopping).ConfigureAwait(false);
             }
+        }
+        catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+        {
+            // Shutting down; the title stays on the playlist.
         }
         catch (Exception ex)
         {
@@ -114,16 +127,33 @@ public sealed class WatchedAutoRemover : IHostedService
         }
     }
 
-    // For an episode or a season, its series once the whole series is played; otherwise null.
-    private static Series? FinishedSeries(BaseItem item, User user)
+    // Once every episode is played the series is done, along with anything of it still on the playlist.
+    private async Task RemoveIfFinishedAsync(User user, Series series, PluginConfiguration? config, CancellationToken stopping)
     {
-        var series = item switch
+        try
         {
-            Episode episode => episode.Series,
-            Season season => season.Series,
-            Series whole => whole,
-            _ => null
-        };
-        return series is not null && series.IsPlayed(user, null) ? series : null;
+            await Task.Delay(SeriesSettle, stopping).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Released before the check, so a save that lands while it runs schedules a check of its own.
+            _pendingSeries.TryRemove((user.Id, series.Id), out _);
+        }
+
+        // Whether the series is played walks all its episodes, so ask only when the playlist holds any of it.
+        if (_playlist.Contains(user.Id, series.Id, config)
+            && series.IsPlayed(user, null)
+            && await _playlist.RemoveTitleAsync(user.Id, series.Id, config).ConfigureAwait(false))
+        {
+            _logger.LogInformation("Want to watch: removed '{Name}' from {User}'s playlist, every episode watched", series.Name, user.Username);
+        }
     }
+
+    private static Series? SeriesOf(BaseItem item) => item switch
+    {
+        Episode episode => episode.Series,
+        Season season => season.Series,
+        Series whole => whole,
+        _ => null
+    };
 }
