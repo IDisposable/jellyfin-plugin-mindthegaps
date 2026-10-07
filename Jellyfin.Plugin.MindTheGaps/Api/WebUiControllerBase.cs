@@ -84,7 +84,10 @@ public abstract class WebUiControllerBase : ControllerBase
     /// <param name="findGap">Rehydrates the gap server-side from the same lookup the page listed it from.</param>
     /// <param name="add">True to add the gap; false to remove it.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The number of entries added or removed, or 404 while the surface is off.</returns>
+    /// <returns>
+    /// The number of entries added or removed; 404 while the surface or want to watch is off, or the caller
+    /// may not see the item; 403 for a caller with no list of their own.
+    /// </returns>
     protected async Task<ActionResult<int>> WantOwnedGapAsync(
         bool surfaceEnabled,
         Guid? itemId,
