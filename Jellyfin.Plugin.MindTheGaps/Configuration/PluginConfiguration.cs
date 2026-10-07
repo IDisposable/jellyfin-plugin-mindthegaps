@@ -71,6 +71,9 @@ public class PluginConfiguration : BasePluginConfiguration
         WantToWatchEnabled = false;
         WantToWatchPlaylistEnabled = false;
         WantToWatchPlaylistName = "Want to Watch";
+        WantToWatchRowIncludesOwned = false;
+        WantToWatchRemoveWatched = false;
+        WantToWatchDetailBookmark = false;
         HomeRowSize = 20;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
@@ -506,6 +509,29 @@ public class PluginConfiguration : BasePluginConfiguration
     /// titles to. Each user gets their own playlist by this name, created the first time they need one.
     /// </summary>
     public string WantToWatchPlaylistName { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the home want-to-watch row also shows the titles already in the
+    /// user's want-to-watch playlist (the ones they own), ahead of the ones still missing, so one row holds
+    /// everything they want to watch. Each group shows up to <see cref="HomeRowSize"/> titles of its own. Requires <see cref="WantToWatchPlaylistEnabled"/>, since that playlist is
+    /// where an owned title on the list lives.
+    /// </summary>
+    public bool WantToWatchRowIncludesOwned { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a title comes off the user's want-to-watch playlist once they
+    /// have watched it: a movie when it is played, a series when every episode is. Done on the server when
+    /// Jellyfin saves the played state, so it works from any client. Requires
+    /// <see cref="WantToWatchPlaylistEnabled"/>.
+    /// </summary>
+    public bool WantToWatchRemoveWatched { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a movie or series page in the library gets a bookmark button
+    /// beside its own buttons, which puts that title on the user's want-to-watch playlist and takes it off
+    /// again. Requires <see cref="WantToWatchPlaylistEnabled"/>, since an owned title on the list lives there.
+    /// </summary>
+    public bool WantToWatchDetailBookmark { get; set; }
 
     /// <summary>
     /// Gets or sets the most titles the home Discover row shows.

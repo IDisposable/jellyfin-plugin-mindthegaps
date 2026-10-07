@@ -73,6 +73,16 @@
         return true;
     }
 
+    // An owned title's poster is the library's own, served by Jellyfin itself.
+    function setItemImage(el, itemId) {
+        el.style.backgroundImage = cssUrl(ApiClient.getUrl('Items/' + itemId + '/Images/Primary', { fillHeight: 480, quality: 90 }));
+    }
+
+    // An owned title opens its own page in the library rather than the TMDB detail dialog.
+    function openItem(itemId) {
+        Emby.Page.showItem(itemId, ApiClient.serverId());
+    }
+
     function alertUser(message) {
         if (window.Dashboard && Dashboard.alert) { Dashboard.alert(message); } else { window.alert(message); }
     }
@@ -148,7 +158,9 @@
 
     // The title search (ctx.scope === 'Search') has no persisted gap to rehydrate by id: the server looks
     // the title up fresh by kind and TMDB id instead, both of which every card already carries.
+    // An owned title on the wanted row is on the user's playlist, not on their want-list, and is removed by its item.
     function wantParams(ctx, item) {
+        if (item.ItemId) { return { itemId: item.ItemId }; }
         return ctx.scope === 'Search' ? { kind: item.Kind, tmdbId: item.TmdbId } : { gapId: item.GapId };
     }
 
@@ -485,15 +497,25 @@
     // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
+    // jellyfin-web picks a card's TV focus look per device (a ring, or growing), and a plugin script cannot see
+    // that choice, so it is copied from a stock card on the page.
+    function tvFocusClasses() {
+        if (!document.documentElement.classList.contains('layout-tv')) { return ''; }
+        var stock = document.querySelector('.card.show-focus:not(.mtgCard)');
+        return stock && !stock.classList.contains('show-animation') ? ' show-focus' : ' show-focus show-animation';
+    }
+
     function card(ctx, item) {
         // An album cover is square; a poster or a book cover is portrait.
         var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
-        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable', 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
+        var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable focusable' + tvFocusClasses(), 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
         scalable.appendChild(h('div', { 'class': 'cardPadder cardPadder-' + shape }));
         var img = h('div', { 'class': 'cardImageContainer coveredImage cardContent' });
-        if (!setImage(img, item.ImageUrl)) {
+        if (item.ItemId) {
+            setItemImage(img, item.ItemId);
+        } else if (!setImage(img, item.ImageUrl)) {
             img.classList.add('defaultCardBackground', 'defaultCardBackground1');
             img.appendChild(h('div', { 'class': 'cardText cardDefaultText' }, item.Title));
         }
@@ -517,13 +539,16 @@
         box.appendChild(secondary);
 
         el.appendChild(box);
-        el.addEventListener('click', function () { openDialog(ctx, item); });
+        var open = item.ItemId
+            ? function () { openItem(item.ItemId); }
+            : function () { openDialog(ctx, item); };
+        el.addEventListener('click', open);
         el.addEventListener('keydown', function (e) {
             // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
             if (e.target !== el) { return; }
             if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
-                openDialog(ctx, item);
+                open();
             }
         });
         return el;
@@ -895,6 +920,55 @@
         });
         homeObserver.observe(sectionsEl, { childList: true });
         schedule();
+        refreshWantedRow(sectionsEl);
+    }
+
+    // The wanted row's own cards' gap ids, in order, as one string: not the title search's results, which sit inside it.
+    function wantedCardIds(section) {
+        return Array.prototype.filter.call(section.querySelectorAll('.mtgCard'), function (c) { return !c.closest('#' + SEARCH_RESULTS_ID); })
+            .map(function (c) { return c.getAttribute('data-gapid'); }).join('\n');
+    }
+
+    // jellyfin-web only resumes the cached home view's sections on a return, never lays them out again, so
+    // the wanted row would keep showing what it showed when the user left: a title bookmarked on its page, or
+    // watched, or arrived since, would not be reflected. Ask again on every return, and rebuild only when the
+    // cards differ, so an unchanged row keeps the card a remote had focus on; a rebuilt one puts focus back
+    // on the same card (or the first one if that card is gone), or on the search box with its caret.
+    function refreshWantedRow(sectionsEl) {
+        var section = sectionsEl.querySelector('#' + WANTED_ID);
+        if (!section) { return; }
+        var shown = wantedCardIds(section);
+        api('GET', 'MindTheGaps/Home/Wanted').then(function (data) {
+            var current = sectionsEl.querySelector('#' + WANTED_ID);
+            // Rebuilt by something else meanwhile (the row's own search, or the sections being laid out).
+            if (!current || wantedCardIds(current) !== shown) { return; }
+            var next = ((data && data.Titles) || []).map(function (t) { return t.GapId; }).join('\n');
+            if (next === shown) { return; }
+
+            var focused = current.contains(document.activeElement) ? document.activeElement : null;
+            var focusedCard = focused ? focused.closest('.mtgCard') : null;
+            var focusedId = focusedCard ? focusedCard.getAttribute('data-gapid') : null;
+            var inSearchInput = !!focused && focused.classList.contains('mtgSearchInput');
+            var inSearchKind = !!focused && focused.classList.contains('mtgSearchKind');
+            var selectionStart = inSearchInput ? focused.selectionStart : 0;
+            var selectionEnd = inSearchInput ? focused.selectionEnd : 0;
+
+            renderWanted(sectionsEl, data, currentSearchState(sectionsEl));
+            var row = sectionsEl.querySelector('#' + WANTED_ID);
+            if (!row) { return; }
+
+            if (inSearchInput) {
+                var input = row.querySelector('.mtgSearchInput');
+                input.focus();
+                input.setSelectionRange(selectionStart, selectionEnd);
+            } else if (inSearchKind) {
+                row.querySelector('.mtgSearchKind').focus();
+            } else if (focusedId) {
+                var sameCard = row.querySelector('.mtgCard[data-gapid="' + focusedId.replace(/["\\]/g, '') + '"]');
+                var foundAgain = sameCard || row.querySelector('.mtgCard');
+                if (foundAgain) { foundAgain.focus(); }
+            }
+        }, function () { /* switched off, or signed out: leave the row as it is */ });
     }
 
     function onViewShow(e) {
@@ -918,6 +992,7 @@
         }
 
         var itemId = itemIdFromLocation();
+        removeDetailWant(page);
         if (!itemId) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); return; }
 
         var token = ++pending;
@@ -946,8 +1021,11 @@
             }
 
             if (item.Type === 'Movie' || item.Type === 'Series') {
-                return api('GET', 'MindTheGaps/Item/' + item.Id + '/Related').then(function (data) {
-                    if (token === pending) { renderRelated(page, item.Id, data); }
+                // The bookmark and the related titles each have their own toggle; a part that is off is null.
+                return api('GET', 'MindTheGaps/Item/' + item.Id + '/WantedOrRelated').then(function (data) {
+                    if (token !== pending) { return; }
+                    if (data.OnList !== null && data.OnList !== undefined) { renderDetailWant(page, item.Id, data.OnList); }
+                    renderRelated(page, item.Id, data.Related);
                 });
             }
 
@@ -960,6 +1038,49 @@
             // A 404 means the surface was switched off or the id is not one we handle; either way show nothing.
             if (token === pending) { remove(page, PERSON_ID); remove(page, RELATED_ID); remove(page, WORKS_ID); remove(page, STUDIO_ID); }
         });
+    }
+
+    // The bookmark on an owned movie or series page, beside jellyfin-web's own buttons and before "More", in
+    // their markup so it takes the same size and TV focus style. It keeps the title on the user's
+    // want-to-watch playlist.
+    var DETAIL_WANT_CLASS = 'mtgWantDetail';
+
+    function paintDetailWant(btn, onList) {
+        var label = onList ? 'Remove from your list' : 'Want to watch';
+        btn.setAttribute('title', label);
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('aria-pressed', onList ? 'true' : 'false');
+        btn.mtgOnList = onList;
+        btn.querySelector('.material-icons').className = 'material-icons detailButton-icon ' + (onList ? 'bookmark' : 'bookmark_border');
+    }
+
+    function removeDetailWant(page) {
+        Array.prototype.forEach.call(page.querySelectorAll('.' + DETAIL_WANT_CLASS), function (b) { b.parentNode.removeChild(b); });
+    }
+
+    function renderDetailWant(page, itemId, onList) {
+        removeDetailWant(page);
+        var more = page.querySelector('.mainDetailButtons .btnMoreCommands');
+        var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
+        if (!host) { return; }
+
+        // .emby-button by hand: h() sets `is` after the element exists, so it is never upgraded to the custom
+        // element that would add it (see ACTION_BUTTON).
+        var btn = h('button', { 'is': 'emby-button', 'type': 'button', 'class': 'emby-button button-flat detailButton ' + DETAIL_WANT_CLASS, 'data-itemid': itemId });
+        var content = h('div', { 'class': 'detailButton-content' });
+        content.appendChild(h('span', { 'class': 'material-icons detailButton-icon', 'aria-hidden': 'true' }));
+        btn.appendChild(content);
+        paintDetailWant(btn, !!onList);
+        btn.addEventListener('click', function () {
+            var next = !btn.mtgOnList;
+            btn.disabled = true;
+            api('POST', 'MindTheGaps/Item/' + itemId + (next ? '/Wanted' : '/Wanted/Remove')).then(function () {
+                paintDetailWant(btn, next);
+            }, function () {
+                alertUser('Could not update your list.');
+            }).then(function () { btn.disabled = false; });
+        });
+        host.insertBefore(btn, more || null);
     }
 
     var style = document.createElement('style');
@@ -998,7 +1119,8 @@
         // Plain :focus, not :focus-visible: a TV has no mouse to distinguish from, and an older TV
         // browser that does not recognize :focus-visible would otherwise drop the rule entirely and
         // show no focus ring at all, which matters far more here than a mouse click briefly seeing one.
-        '.mtgCard:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
+        // jellyfin-web sets .card{outline:none!important}, so the keyboard outline needs !important to show at all.
+        '.mtgCard:not(.show-focus):focus{outline:3px solid #00a4dc!important;outline-offset:2px}' +
         '.mtgDialog :focus{outline:3px solid #00a4dc;outline-offset:2px}' +
         '.mtgSearchBox{display:flex;align-items:center;gap:.5em;margin-left:1.5em;flex:1 1 auto;min-width:0;max-width:26em}' +
         '.mtgSearchKind{flex:0 0 auto;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .4em}' +

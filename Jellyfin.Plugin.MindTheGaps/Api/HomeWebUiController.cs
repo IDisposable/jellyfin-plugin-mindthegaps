@@ -27,6 +27,7 @@ public class HomeWebUiController : WebUiControllerBase
     private readonly HomeDiscoverService _home;
     private readonly WantedRowService _wanted;
     private readonly WatchlistSearchService _search;
+    private readonly WatchlistPlaylistService _playlist;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeWebUiController"/> class.
@@ -36,12 +37,14 @@ public class HomeWebUiController : WebUiControllerBase
     /// <param name="search">Backs the want-to-watch row's title search.</param>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch row's removal.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access)
+    /// <param name="playlist">The want-to-watch playlist, for the row's removal of an owned title.</param>
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist)
         : base(todo, access)
     {
         _home = home;
         _wanted = wanted;
         _search = search;
+        _playlist = playlist;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
@@ -124,20 +127,32 @@ public class HomeWebUiController : WebUiControllerBase
     }
 
     /// <summary>
-    /// Takes an entry off the want-to-watch row, by the id it has on the caller's own list.
+    /// Takes a title off the want-to-watch row: an owned one (it has an item id) off the caller's want-to-watch
+    /// playlist, a missing one off their list by the id it has there.
     /// </summary>
-    /// <param name="gapId">The entry id the row showed.</param>
-    /// <returns>The number of entries removed (0 or 1), or 404 while want to watch is off or for a request that
+    /// <param name="gapId">The entry id the row showed, for a title the library does not hold.</param>
+    /// <param name="itemId">The library item the row showed, for an owned title.</param>
+    /// <returns>The number of titles removed (0 or 1), or 404 while want to watch is off or for a request that
     /// cannot keep a list.</returns>
     [HttpPost("Home/Wanted/Remove")]
     [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<int> RemoveHomeWanted([FromQuery] string? gapId)
+    public async Task<ActionResult<int>> RemoveHomeWanted([FromQuery] string? gapId, [FromQuery] Guid? itemId)
     {
         var (userId, _) = Wanting();
-        return userId is not { } id ? NotFound() : Todo.Remove(id, gapId ?? string.Empty);
+        if (userId is not { } id)
+        {
+            return NotFound();
+        }
+
+        if (itemId is { } item)
+        {
+            return await _playlist.RemoveTitleAsync(id, item, Plugin.Instance?.Configuration).ConfigureAwait(false) ? 1 : 0;
+        }
+
+        return Todo.Remove(id, gapId ?? string.Empty);
     }
 
     /// <summary>

@@ -22,7 +22,10 @@ const WEB_DIR = path.join(__dirname, '..', '..', 'Jellyfin.Plugin.MindTheGaps', 
 // OpenLibrary lookup failing).
 // studioResult: the fake MindTheGaps/Studio/{id}/Missing payload for the studio list page (null for the
 // surface being off, or the studio id not resolving).
-function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult, worksResult, searchResult, workDetailResult, studioResult) {
+// itemWantedResult: the bookmark half of the fake MindTheGaps/Item/{id}/WantedOrRelated payload for a movie or series
+// page, e.g. { OnList: false } (undefined and null both mean the bookmark is off: OnList null); adding or removing
+// answers 1, or fails with { failWrites: true }.
+function buildMockScript(item, missingResult, sendResult, discoverResult, todoResult, detailResult, profilesResult, wantedResult, worksResult, searchResult, workDetailResult, studioResult, itemWantedResult) {
     var defaultDetail = {
         Title: 'A Missing Movie', Kind: 'Movie', TmdbId: 603, Year: 1999,
         Tagline: 'Welcome to the Real World.', Overview: 'A test overview.',
@@ -53,6 +56,9 @@ var __DETAIL_RESULT__ = ${JSON.stringify(detailResult === undefined ? defaultDet
 var __PROFILES_RESULT__ = ${JSON.stringify(profilesResult === undefined ? defaultProfiles : profilesResult)};
 var __WORK_DETAIL_RESULT__ = ${JSON.stringify(workDetailResult === undefined ? { Overview: null } : workDetailResult)};
 var __STUDIO_RESULT__ = ${JSON.stringify(studioResult === undefined ? null : studioResult)};
+var __ITEM_WANTED__ = ${JSON.stringify(itemWantedResult === undefined ? null : itemWantedResult)};
+window.__itemWantedCalls = [];
+window.__shownItems = [];
 window.__lastSendUrl = null;
 window.__lastTodoUrl = null;
 window.__lastDetailUrl = null;
@@ -84,8 +90,18 @@ window.ApiClient = {
         if (url.indexOf('/Studio/') !== -1 && url.indexOf('/Missing') !== -1) {
             return __STUDIO_RESULT__ ? Promise.resolve(__STUDIO_RESULT__) : Promise.reject(new Error('404'));
         }
-        if (url.indexOf('/Missing') !== -1 || url.indexOf('/Related') !== -1) {
+        if (url.indexOf('/WantedOrRelated') !== -1) {
+            window.__itemWantedCalls.push(opts.type + ' ' + url);
+            if (!__ITEM_WANTED__ && !__MISSING_RESULT__) { return Promise.reject(new Error('404')); }
+            return Promise.resolve({ OnList: __ITEM_WANTED__ ? __ITEM_WANTED__.OnList : null, Related: __MISSING_RESULT__ });
+        }
+        if (url.indexOf('/Missing') !== -1) {
             return __MISSING_RESULT__ ? Promise.resolve(__MISSING_RESULT__) : Promise.reject(new Error('404'));
+        }
+        if (url.indexOf('/Item/') !== -1 && url.indexOf('/Wanted') !== -1) {
+            window.__itemWantedCalls.push(opts.type + ' ' + url);
+            if (!__ITEM_WANTED__) { return Promise.reject(new Error('404')); }
+            return __ITEM_WANTED__.failWrites ? Promise.reject(new Error('500')) : Promise.resolve(1);
         }
         if (url.indexOf('/Wanted/Remove') !== -1) {
             window.__lastTodoUrl = url;
@@ -117,6 +133,9 @@ window.ApiClient = {
     },
     serverId: function () { return 'test-server'; }
 };
+window.Emby = {
+    Page: { showItem: function (itemId, serverId) { window.__shownItems.push(itemId + '@' + serverId); } }
+};
 window.Dashboard = {
     alert: function (m) { console.log('Dashboard.alert: ' + m); }
 };
@@ -125,24 +144,32 @@ window.Dashboard = {
 }
 
 // item: the fake ApiClient.getItem() result (null to simulate an id the item lookup fails for).
-// missingResult: the fake MindTheGaps/Person/{id}/Missing (or Item/.../Related, or Item/.../Works) payload (null for the
+// missingResult: the fake MindTheGaps/Person/{id}/Missing (or Item/.../WantedOrRelated's Related, or Item/.../Works) payload (null for the
 // surface being off). todoResult: the fake MindTheGaps/.../Todo payload (an int; defaults to 1).
 // detailResult/profilesResult: the dialog's own lookups, see buildMockScript's header for the defaults.
 // worksResult: for a Person, the Item/{id}/Works payload of an author (see buildMockScript).
 // workDetailResult: a book's Item/{id}/Works/Detail payload (see buildMockScript).
-function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailResult, profilesResult, worksResult, workDetailResult) {
+function buildWebUiHarness(item, missingResult, sendResult, todoResult, detailResult, profilesResult, worksResult, workDetailResult, itemWantedResult) {
     const webui = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.webui.js'), 'utf8');
+
+    // jellyfin-web's own header buttons (as in its itemDetails template), only for a spec about the page
+    // bookmark, so every other spec's Tab order starts at the plugin's own cards as it always has.
+    const headerButtons = itemWantedResult === undefined ? '' : `    <div class="mainDetailButtons focuscontainer-x">
+        <button is="emby-button" type="button" class="button-flat btnPlay detailButton"><div class="detailButton-content"><span class="material-icons detailButton-icon play_arrow" aria-hidden="true"></span></div></button>
+        <button is="emby-button" type="button" class="button-flat btnMoreCommands detailButton"><div class="detailButton-content"><span class="material-icons detailButton-icon more_vert" aria-hidden="true"></span></div></button>
+    </div>
+`;
 
     const page = `<!doctype html>
 <html>
 <head><meta charset="utf-8"></head>
 <body>
 <div class="page type-interior mainAnimatedPage itemDetailPage" id="itemDetailPage" style="contain:size style;position:relative;width:100%;height:100vh;overflow:auto;">
-    <div class="detailPageContent">
+${headerButtons}    <div class="detailPageContent">
         <div id="similarCollapsible"></div>
     </div>
 </div>
-${buildMockScript(item, missingResult, sendResult, null, todoResult, detailResult, profilesResult, undefined, worksResult, undefined, workDetailResult)}
+${buildMockScript(item, missingResult, sendResult, null, todoResult, detailResult, profilesResult, undefined, worksResult, undefined, workDetailResult, undefined, itemWantedResult)}
 <script>${webui}</script>
 </body>
 </html>`;

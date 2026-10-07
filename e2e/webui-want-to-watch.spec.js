@@ -222,6 +222,173 @@ test('taking a title off the wanted row removes its card; the row stays for its 
     await expect(page.locator('#mtgHomeWanted .mtgSearchInput')).toBeVisible();
 });
 
+// An owned title (from the user's want-to-watch playlist) carries its library item: the card shows the
+// library's own poster, opens the item's page rather than the TMDB dialog, and its bookmark takes it off the
+// playlist by item id.
+const ownedRow = () => ({
+    Titles: [
+        movie(9, { GapId: 'owned:item9', Title: 'Owned Movie', OnList: true, ItemId: 'item9' }),
+        movie(7, { GapId: 'filmography:movie:7', OnList: true })
+    ]
+});
+
+test('an owned title on the wanted row shows the library poster and opens its library page', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+
+    const image = card(page, 'owned:item9').locator('.cardImageContainer');
+    await expect(image).toHaveCSS('background-image', /Items\/item9\/Images\/Primary/);
+
+    await card(page, 'owned:item9').click();
+    await expect(page.locator('.mtgDialog')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__shownItems)).toEqual(['item9@test-server']);
+});
+
+test('an owned title opens its library page from the keyboard too', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+
+    await card(page, 'owned:item9').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.mtgDialog')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__shownItems)).toEqual(['item9@test-server']);
+});
+
+test('taking an owned title off the wanted row removes it by item id', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, ownedRow()));
+
+    await bookmark(page, 'owned:item9').click();
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    expect(await todoUrls(page)).toContain('Home/Wanted/Remove?itemId=item9');
+    await expect(card(page, 'filmography:movie:7')).toHaveCount(1);
+});
+
+// jellyfin-web only resumes its cached home view on a return, so the plugin asks for the row again itself.
+const returnHome = (page) => page.evaluate(() => {
+    document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+});
+
+test('returning to the cached home shows a title added since, keeping focus on the same card', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await card(page, 'recommendation:movie:8').focus();
+
+    await page.evaluate(() => {
+        __WANTED_RESULT__ = { Titles: [{ GapId: 'owned:item9', Title: 'Bookmarked Since', Kind: 'Movie', TmdbId: 9, OnList: true, ItemId: 'item9' }].concat(__WANTED_RESULT__.Titles) };
+    });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(3);
+    await expect(page.locator('#mtgHomeWanted .mtgCard').first()).toHaveAttribute('data-gapid', 'owned:item9');
+    expect(await page.evaluate(() => document.activeElement.getAttribute('data-gapid'))).toBe('recommendation:movie:8');
+});
+
+test('returning to the cached home drops a title removed since, moving focus to the first card', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await card(page, 'filmography:movie:7').focus();
+
+    await page.evaluate(() => { __WANTED_RESULT__ = { Titles: [__WANTED_RESULT__.Titles[1]] }; });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    await expect(card(page, 'filmography:movie:7')).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement.getAttribute('data-gapid'))).toBe('recommendation:movie:8');
+});
+
+test('returning to the cached home leaves an unchanged row alone', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await page.evaluate(() => { document.getElementById('mtgHomeWanted').__marker = true; });
+
+    await returnHome(page);
+    await page.waitForTimeout(300);
+
+    expect(await page.evaluate(() => document.getElementById('mtgHomeWanted').__marker === true)).toBe(true);
+});
+
+test('returning to the cached home keeps focus and the caret in the search box when the row changes', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    const input = page.locator('#mtgHomeWanted .mtgSearchInput');
+    await input.fill('matrix');
+    await input.evaluate((el) => { el.setSelectionRange(2, 4); });
+
+    await page.evaluate(() => { __WANTED_RESULT__ = { Titles: [__WANTED_RESULT__.Titles[1]] }; });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    expect(await page.evaluate(() => {
+        var el = document.activeElement;
+        return [el.className, el.value, el.selectionStart, el.selectionEnd];
+    })).toEqual(['mtgSearchInput', 'matrix', 2, 4]);
+});
+
+// jellyfin-web's focusManager (12.1, main bundle) moves a remote's D-pad focus only between elements matching
+// this selector. A card that does not match is unreachable: the D-pad lands on its bookmark button instead.
+const JELLYFIN_FOCUSABLE = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A']
+    .map((t) => (t === 'INPUT' ? t + ':not([type="range"]):not([type="file"])' : t) + ':not([tabindex="-1"]):not(:disabled)')
+    .join(',') + ',.focusable';
+
+test('every card on the wanted and Discover rows is reachable by jellyfin-web remote navigation', async ({ page }) => {
+    const discover = { CanTodo: true, Titles: [movie(1, { GapId: 'recommendation:movie:1' })] };
+    await openHomePage(page, buildWebUiHomeHarness(discover, null, 1, undefined, undefined, ownedRow()));
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+    await expect(page.locator('#mtgHomeDiscover .mtgCard')).toHaveCount(1);
+
+    const unreachable = await page.locator('.mtgCard').evaluateAll((cards, selector) => cards.filter((c) => !c.matches(selector)).map((c) => c.getAttribute('data-gapid')), JELLYFIN_FOCUSABLE);
+    expect(unreachable).toEqual([]);
+});
+
+// On a TV, jellyfin-web's own cards grow when focused (.card.show-animation:focus > .cardBox, scale 1.07) rather
+// than drawing an outline; the plugin's cards take the same classes, copied from a stock card on the page.
+// jellyfin-web 12.1's own rules for a card's focus (main bundle CSS), which the harness otherwise lacks.
+const JELLYFIN_CARD_CSS = '.card{outline:none!important}.card.show-animation:focus>.cardBox{transform:scale(1.07)}';
+const addJellyfinCardCss = (page) => page.evaluate((css) => {
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+}, JELLYFIN_CARD_CSS);
+
+const tvHome = async (page, stockClasses) => {
+    await page.goto('file://' + buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await page.evaluate((cls) => {
+        document.documentElement.classList.add('layout-tv');
+        const stock = document.createElement('div');
+        stock.className = 'verticalSection';
+        stock.innerHTML = '<button class="card portraitCard ' + cls + '"><div class="cardBox"></div></button>';
+        document.querySelector('#homeTab .sections').appendChild(stock);
+        document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+    }, stockClasses);
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(2);
+};
+
+test('on a TV a focused card grows like a stock card, with no outline', async ({ page }) => {
+    await tvHome(page, 'show-focus show-animation');
+    await addJellyfinCardCss(page);
+
+    const mtg = card(page, 'filmography:movie:7');
+    await expect(mtg).toHaveClass(/\bshow-focus\b/);
+    await expect(mtg).toHaveClass(/\bshow-animation\b/);
+    await mtg.focus();
+    await expect(mtg.locator('> .cardBox')).toHaveCSS('transform', 'matrix(1.07, 0, 0, 1.07, 0, 0)');
+    await expect(mtg).toHaveCSS('outline-style', 'none');
+});
+
+test('on a TV whose stock cards do not grow, the plugin cards do not either', async ({ page }) => {
+    await tvHome(page, 'show-focus');
+
+    await expect(card(page, 'filmography:movie:7')).toHaveClass(/\bshow-focus\b/);
+    await expect(card(page, 'filmography:movie:7')).not.toHaveClass(/\bshow-animation\b/);
+});
+
+test('off a TV a focused card keeps its outline and takes no TV focus classes', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    await addJellyfinCardCss(page);
+    const mtg = card(page, 'filmography:movie:7');
+    await expect(mtg).not.toHaveClass(/\bshow-focus\b/);
+    await mtg.focus();
+    await expect(mtg).toHaveCSS('outline-style', 'solid');
+});
+
 test('a title removed from the wanted row while its dialog is open leaves the dialog saying so', async ({ page }) => {
     await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
 

@@ -90,6 +90,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<WantedRowService>();
         serviceCollection.AddSingleton<WatchlistSearchService>();
         serviceCollection.AddSingleton<WatchlistPlaylistService>();
+        serviceCollection.AddHostedService<WatchedAutoRemover>();
         serviceCollection.AddSingleton<WebUiAccess>();
         serviceCollection.AddSingleton<ImageCache>();
         serviceCollection.AddSingleton<IStartupFilter, WebUiScriptInjection>();
