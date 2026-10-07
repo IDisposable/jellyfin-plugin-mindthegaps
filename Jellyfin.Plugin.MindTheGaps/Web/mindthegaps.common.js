@@ -1,7 +1,7 @@
 // Shared by both dashboard pages: the plugin id and the markup kit. Concatenated ahead of a page's
 // own script inside the shell's IIFE, so these stay private to the page rather than becoming globals.
 // Must not touch either page's DOM.
-var pluginId = '8c2a93cc-6cc5-493a-880a-2e67ae50e454';
+const pluginId = '8c2a93cc-6cc5-493a-880a-2e67ae50e454';
 
 function esc(s) {
     return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
@@ -13,7 +13,7 @@ function esc(s) {
 // API (TMDB watch page, a host link provider) cannot execute when rendered as an href. Anything
 // else collapses to '#'. The result is still passed through esc() at the call site.
 function safeUrl(u) {
-    var s = (u == null ? '' : String(u)).trim();
+    const s = (u == null ? '' : String(u)).trim();
     return /^https?:\/\//i.test(s) ? s : '#';
 }
 
@@ -23,10 +23,10 @@ function safeUrl(u) {
 // site. Callers serialize with .outerHTML (directly or via wrap) to compose into a row's markup;
 // an emby-* element is built plain and upgrades when that markup is parsed by innerHTML.
 function h(tag, attrs, text) {
-    var el = document.createElement(tag);
+    const el = document.createElement(tag);
     if (attrs) {
         Object.keys(attrs).forEach(function (k) {
-            var v = attrs[k];
+            const v = attrs[k];
             if (v == null || v === false) { return; }
             if (k === 'class') { el.className = v; }
             else if (k === 'href' || k === 'src') { el.setAttribute(k, safeUrl(v)); }
@@ -41,7 +41,7 @@ function h(tag, attrs, text) {
 // empty element, then splice the child string in front of its (non-void) closing tag. Containers
 // use this; pure-text leaves use h(tag, attrs, text).
 function wrap(tag, attrs, innerHtml) {
-    var outer = h(tag, attrs).outerHTML;
-    var close = '</' + tag + '>';
+    const outer = h(tag, attrs).outerHTML;
+    const close = '</' + tag + '>';
     return outer.slice(0, -close.length) + (innerHtml || '') + close;
 }

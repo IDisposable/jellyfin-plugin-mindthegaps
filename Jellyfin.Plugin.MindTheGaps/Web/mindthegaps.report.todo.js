@@ -6,9 +6,9 @@
 
 // Domain ordering for the TODO/fulfillment sections, mirroring the report's Movies/Shows/Music/Books order,
 // then anything else after.
-var TODO_DOMAIN_ORDER = ['Movies', 'Shows', 'Music', 'Books'];
+const TODO_DOMAIN_ORDER = ['Movies', 'Shows', 'Music', 'Books'];
 function todoDomainRank(name) {
-    var i = TODO_DOMAIN_ORDER.indexOf(name);
+    const i = TODO_DOMAIN_ORDER.indexOf(name);
     return i < 0 ? TODO_DOMAIN_ORDER.length : i;
 }
 
@@ -34,7 +34,7 @@ function todoAmazonUrl(entry) {
 // Add ids to the caller's own TODO list, then confirm. ids is an array of gap ids.
 function todoAdd(ids, btn) {
     if (!ids || !ids.length) { return; }
-    var html = btn ? btn.innerHTML : '';
+    const html = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; }
     ApiClient.ajax({
         type: 'POST',
@@ -62,16 +62,16 @@ function todoSourceLabel(entry) {
 
 // Plain "Label: Name", for the Markdown export.
 function todoSourceText(entry) {
-    var src = entry.Creator || '';
-    var label = src ? todoSourceLabel(entry) : '';
+    const src = entry.Creator || '';
+    const label = src ? todoSourceLabel(entry) : '';
     return label ? label + ': ' + src : src;
 }
 
 // The same for a row, with the label dimmed so the name stays the thing you scan for.
 function todoSourceCell(entry) {
-    var src = entry.Creator || '';
+    const src = entry.Creator || '';
     if (!src) { return ''; }
-    var label = todoSourceLabel(entry);
+    const label = todoSourceLabel(entry);
     return (label ? wrap('span', { 'class': 'cgTodoSrcKind' }, esc(label) + ':') + ' ' : '') + esc(src);
 }
 
@@ -79,7 +79,7 @@ function todoSourceCell(entry) {
 // only links owned items). Empty for any other kind, and for an entry that already has the link.
 function todoJustWatchUrl(entry) {
     if (entry.TargetKindName !== 'Movie' && entry.TargetKindName !== 'Series') { return ''; }
-    var hasJw = (entry.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
+    const hasJw = (entry.Links || []).some(function (l) { return /justwatch/i.test((l.Name || '') + ' ' + (l.Url || '')); });
     if (hasJw) { return ''; }
     return 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(entry.Name || '');
 }
@@ -88,11 +88,11 @@ function todoJustWatchUrl(entry) {
 // the JustWatch fallback. The row and the Markdown export both build from this. Provider marks a link
 // that came from the gap itself; the row gives those the provider-button treatment.
 function todoLinks(entry, template) {
-    var out = [{ Name: 'Amazon', Url: todoAmazonUrl(entry), Title: 'Search Amazon' }];
-    var webUrl = todoWebSearchUrl(template, entry);
+    const out = [{ Name: 'Amazon', Url: todoAmazonUrl(entry), Title: 'Search Amazon' }];
+    const webUrl = todoWebSearchUrl(template, entry);
     if (webUrl) { out.push({ Name: 'Web search', Url: webUrl, Title: 'Web search' }); }
     (entry.Links || []).forEach(function (l) { if (l && l.Url) { out.push({ Name: l.Name, Url: l.Url, Provider: true }); } });
-    var jwUrl = todoJustWatchUrl(entry);
+    const jwUrl = todoJustWatchUrl(entry);
     if (jwUrl) { out.push({ Name: 'JustWatch search', Url: jwUrl, Title: 'Search JustWatch for where to watch' }); }
     return out;
 }
@@ -110,9 +110,9 @@ function isTmdbWatchUrl(url) {
 // watchable row automatically on load (see primeFulfillmentAvailability): a household's queue is small
 // enough that there is no need to make the administrator ask for each one.
 function demandWatchCell(row) {
-    var tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
-    var watchable = !!tmdb && (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series');
-    var body = watchable
+    const tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
+    const watchable = !!tmdb && (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series');
+    const body = watchable
         ? (row.AvailabilityChecked ? serviceIcons(row) : wrap('span', { 'class': 'cgDimmed' }, 'Checking...'))
         : '';
     return wrap('span', { 'class': 'cgFulfillWatch', 'data-rowid': row.Id }, body);
@@ -122,30 +122,30 @@ function demandWatchCell(row) {
 // streaming-service icons (see demandWatchCell), and a Mark fetched action that closes the title out for
 // every requester at once.
 function demandRowHtml(row, template) {
-    var titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
-    var titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
-    var who = wrap('span', { 'class': 'cgTodoOwner' },
+    const titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
+    const titleCell = wrap('td', { 'class': 'cgTodoTitle' }, esc(titleMeta));
+    const who = wrap('span', { 'class': 'cgTodoOwner' },
         esc('Wanted by ' + (row.RequestedBy || []).join(', ') + ' (' + row.OpenCount + ' of ' + row.RequestCount + ' still open)'));
-    var creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, todoSourceCell(row) + who);
+    const creatorCell = wrap('td', { 'class': 'cgTodoCreator' }, todoSourceCell(row) + who);
 
-    var links = todoLinks(row, template).map(function (l) {
+    const links = todoLinks(row, template).map(function (l) {
         return l.Provider
             ? providerLink(l)
             : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
     });
-    var jwSearch = (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series')
+    const jwSearch = (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series')
         ? newTab(false, {
             'class': 'cgLink cgPopLink emby-button', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(row.Name || ''),
             title: 'Search JustWatch for where to watch'
         }, 'Search JustWatch')
         : '';
-    var linksCell = wrap('td', null, demandWatchCell(row) + wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + jwSearch);
+    const linksCell = wrap('td', null, demandWatchCell(row) + wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + jwSearch);
 
-    var fulfilled = row.OpenCount === 0;
-    var actions = fulfilled
+    const fulfilled = row.OpenCount === 0;
+    const actions = fulfilled
         ? wrap('span', { 'class': 'cgTodoNote' }, 'Fulfilled')
         : actionBtn('cgFulfillDone', { 'data-rowid': row.Id, title: 'Mark this title fetched for everyone who wants it' }, 'Mark fetched');
-    var actionsCell = wrap('td', { 'class': 'cgTodoActions' }, actions);
+    const actionsCell = wrap('td', { 'class': 'cgTodoActions' }, actions);
 
     return wrap('tr', { 'class': 'cgTodoRow' + (fulfilled ? ' cgTodoDone' : ''), 'data-rowid': row.Id },
         titleCell + creatorCell + linksCell + actionsCell);
@@ -155,9 +155,9 @@ function demandRowHtml(row, template) {
 // (nobody still waiting) are hidden unless "Show fulfilled" is ticked, the same convention as the
 // report's own "Show dismissed" filter.
 function renderFulfillment(modal) {
-    var body = document.getElementById('cgFulfillBody');
-    var showDone = document.getElementById('cgFulfillShowDone').checked;
-    var items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
+    const body = document.getElementById('cgFulfillBody');
+    const showDone = document.getElementById('cgFulfillShowDone').checked;
+    const items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
     if (!items.length) {
         body.innerHTML = h('div', { 'class': 'cgTodoEmpty' },
             (modal._data && modal._data.Items && modal._data.Items.length)
@@ -165,16 +165,16 @@ function renderFulfillment(modal) {
                 : 'Nobody has anything on their watchlist yet.').outerHTML;
         return;
     }
-    var template = modal._template || '';
-    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
+    const template = modal._template || '';
+    const byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
     byDomain.order.sort(function (a, b) {
-        var ra = todoDomainRank(a), rb = todoDomainRank(b);
+        const ra = todoDomainRank(a), rb = todoDomainRank(b);
         return ra !== rb ? ra - rb : ci(a, b);
     });
-    var html = '';
+    let html = '';
     byDomain.order.forEach(function (domain) {
         html += h('div', { 'class': 'cgTodoSection' }, domain).outerHTML;
-        var rows = byDomain.map[domain].map(function (r) { return demandRowHtml(r, template); }).join('');
+        const rows = byDomain.map[domain].map(function (r) { return demandRowHtml(r, template); }).join('');
         html += wrap('table', { 'class': 'cgTodoTable' }, wrap('tbody', null, rows));
     });
     body.innerHTML = html;
@@ -192,8 +192,8 @@ function loadFulfillment(modal) {
 // The distinct user ids represented anywhere in the loaded queue (a title can have several requesters,
 // and the queue holds many titles), for Verify all.
 function fulfillmentOwnersInView(modal) {
-    var seen = {};
-    var owners = [];
+    const seen = {};
+    const owners = [];
     ((modal._data && modal._data.Items) || []).forEach(function (row) {
         (row.Entries || []).forEach(function (e) {
             if (!seen[e.OwnerId]) { seen[e.OwnerId] = true; owners.push(e.OwnerId); }
@@ -207,8 +207,8 @@ function fulfillmentOwnersInView(modal) {
 // fetched - drops off or shrinks its open count. The caller re-primes availability afterward (this stays
 // page-agnostic, like the rest of this file).
 function verifyAllFulfillment(modal) {
-    var checked = 0;
-    var owned = 0;
+    let checked = 0;
+    let owned = 0;
     return fulfillmentOwnersInView(modal).reduce(function (chain, ownerId) {
         return chain.then(function () {
             return ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Todo/VerifyAll', { userId: ownerId }), dataType: 'json' })
@@ -228,9 +228,9 @@ function verifyAllFulfillment(modal) {
 // cached on the row itself (row.AvailabilityChecked), so a later re-render (the "Show fulfilled" toggle)
 // or a second open of the modal within the same page load does not look anything up twice.
 function primeFulfillmentAvailability(page, modal) {
-    var cssEsc = window.CSS && CSS.escape ? CSS.escape : function (s) { return s; };
-    var pending = ((modal._data && modal._data.Items) || []).filter(function (row) {
-        var tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
+    const cssEsc = window.CSS && CSS.escape ? CSS.escape : function (s) { return s; };
+    const pending = ((modal._data && modal._data.Items) || []).filter(function (row) {
+        const tmdb = row.ProviderIds && row.ProviderIds.Tmdb;
         return !row.AvailabilityChecked && tmdb && (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series');
     });
     return pending.reduce(function (chain, row) {
@@ -247,7 +247,7 @@ function primeFulfillmentAvailability(page, modal) {
             }).catch(function () {
                 // Left unchecked, so a later prime (a fresh open of the modal) tries again.
             }).then(function () {
-                var slot = document.querySelector('#cgFulfillBody .cgFulfillWatch[data-rowid="' + cssEsc(row.Id) + '"]');
+                const slot = document.querySelector('#cgFulfillBody .cgFulfillWatch[data-rowid="' + cssEsc(row.Id) + '"]');
                 if (slot) { slot.outerHTML = demandWatchCell(row); }
             });
         });
@@ -255,8 +255,8 @@ function primeFulfillmentAvailability(page, modal) {
 }
 
 function openFulfillment(page) {
-    var modal = document.getElementById('cgFulfillModal');
-    var body = document.getElementById('cgFulfillBody');
+    const modal = document.getElementById('cgFulfillModal');
+    const body = document.getElementById('cgFulfillBody');
     body.innerHTML = h('p', { 'class': 'fieldDescription' }, 'Loading the fulfillment queue...').outerHTML;
     modal.style.display = 'flex';
     loadFulfillment(modal)
@@ -267,7 +267,7 @@ function openFulfillment(page) {
 }
 
 function closeFulfillment() {
-    var modal = document.getElementById('cgFulfillModal');
+    const modal = document.getElementById('cgFulfillModal');
     if (modal && modal.style.display !== 'none') {
         modal.style.display = 'none';
         document.getElementById('cgFulfillBody').innerHTML = '';
@@ -278,14 +278,14 @@ function closeFulfillment() {
 // domain with a fetched checkbox cell, the title and year, who still wants it, the source, and the links
 // as Markdown links. Exports exactly what is on screen (respects "Show fulfilled"), same as the modal.
 function buildFulfillmentMarkdown(modal) {
-    var showDone = document.getElementById('cgFulfillShowDone').checked;
-    var items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
-    var template = modal._template || '';
-    var out = ['# Mind the Gaps: Fulfillment queue', ''];
+    const showDone = document.getElementById('cgFulfillShowDone').checked;
+    const items = ((modal._data && modal._data.Items) || []).filter(function (r) { return showDone || r.OpenCount > 0; });
+    const template = modal._template || '';
+    const out = ['# Mind the Gaps: Fulfillment queue', ''];
     out.push('_' + items.length + ' items, exported ' + new Date().toLocaleString() + '_', '');
-    var byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
+    const byDomain = groupBy(items, function (it) { return it.DomainName || 'Other'; });
     byDomain.order.sort(function (a, b) {
-        var ra = todoDomainRank(a), rb = todoDomainRank(b);
+        const ra = todoDomainRank(a), rb = todoDomainRank(b);
         return ra !== rb ? ra - rb : ci(a, b);
     });
     byDomain.order.forEach(function (domain) {
@@ -293,10 +293,10 @@ function buildFulfillmentMarkdown(modal) {
         out.push('| Fetched | Title | Wanted by | Source | Links |');
         out.push('| --- | --- | --- | --- | --- |');
         byDomain.map[domain].forEach(function (row) {
-            var box = row.OpenCount === 0 ? '[x]' : '[ ]';
-            var titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
-            var wanted = (row.RequestedBy || []).join(', ') + ' (' + row.OpenCount + ' of ' + row.RequestCount + ' still open)';
-            var links = todoLinks(row, template).map(function (l) {
+            const box = row.OpenCount === 0 ? '[x]' : '[ ]';
+            const titleMeta = (row.Name || '') + (row.Year ? ' (' + row.Year + ')' : '');
+            const wanted = (row.RequestedBy || []).join(', ') + ' (' + row.OpenCount + ' of ' + row.RequestCount + ' still open)';
+            const links = todoLinks(row, template).map(function (l) {
                 return '[' + mdEsc(l.Name || 'Link') + '](' + safeUrl(l.Url) + ')';
             });
             out.push('| ' + box + ' | ' + mdEsc(titleMeta) + ' | ' + mdEsc(wanted) + ' | ' + mdEsc(todoSourceText(row)) + ' | ' + links.join(' ') + ' |');

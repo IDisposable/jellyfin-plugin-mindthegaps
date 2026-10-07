@@ -3,10 +3,10 @@
 // The narrowing filters that are on: the search and the Hide checkboxes. Each says how the filter hint
 // names it, whether it hides a gap, and how to turn it off.
 function activeUserFilters(page) {
-    var out = [];
-    var search = page.querySelector('#cgSearch');
-    var raw = (search.value || '').trim();
-    var term = raw.toLowerCase();
+    const out = [];
+    const search = page.querySelector('#cgSearch');
+    const raw = (search.value || '').trim();
+    const term = raw.toLowerCase();
     if (term) {
         out.push({
             label: 'the search “' + raw + '”',
@@ -16,8 +16,8 @@ function activeUserFilters(page) {
             clear: function () { search.value = ''; }
         });
     }
-    var box = function (id, label, hides) {
-        var el = page.querySelector(id);
+    const box = function (id, label, hides) {
+        const el = page.querySelector(id);
         if (el.checked) { out.push({ label: label, hides: hides, clear: function () { el.checked = false; } }); }
     };
     box('#cgHideSpecials', 'Hide specials', function (it) { return it.Season != null && it.Season <= 0; });
@@ -33,15 +33,15 @@ function activeUserFilters(page) {
 // so a tab's badge shows how many gaps would appear if you opened it under the current filters.
 // Without the narrowing filters, it is what the list would hold with them all off (see renderFilterHint).
 function buildFilter(page, withoutNarrowing) {
-    var type = page._domain;
-    var showResolved = page.querySelector('#cgShowResolved').checked;
-    var narrowing = withoutNarrowing ? [] : activeUserFilters(page);
+    const type = page._domain;
+    const showResolved = page.querySelector('#cgShowResolved').checked;
+    const narrowing = withoutNarrowing ? [] : activeUserFilters(page);
     return function (it) {
         if (activeDismissal(it) && !showResolved) { return false; }
         if (it.PatternName === 'CreatorWorks' && creatorDismissed(it.SourceItemId) && !showResolved) { return false; }
         if (it.PatternName === 'Recommendation' && effectiveRecSourceCount(it) === 0 && !showResolved) { return false; }
         if (type && categoryOf(it) !== type) { return false; }
-        for (var i = 0; i < narrowing.length; i++) { if (narrowing[i].hides(it)) { return false; } }
+        for (let i = 0; i < narrowing.length; i++) { if (narrowing[i].hides(it)) { return false; } }
         return true;
     };
 }
@@ -49,22 +49,22 @@ function buildFilter(page, withoutNarrowing) {
 // The line above the list saying how many gaps the narrowing filters hide and which ones, with a button
 // that turns those off. A search left in the box otherwise looks exactly like an empty tab.
 function renderFilterHint(page, report) {
-    var el = page.querySelector('#cgFilterHint');
-    var filters = activeUserFilters(page);
-    var unfiltered = buildFilter(page, true);
-    var hidden = (report.Items || []).filter(function (it) {
+    const el = page.querySelector('#cgFilterHint');
+    const filters = activeUserFilters(page);
+    const unfiltered = buildFilter(page, true);
+    const hidden = (report.Items || []).filter(function (it) {
         return it.PatternName === page._pattern && unfiltered(it) && filters.some(function (f) { return f.hides(it); });
     });
-    var hiding = filters.filter(function (f) { return hidden.some(f.hides); });
-    var html = '';
+    const hiding = filters.filter(function (f) { return hidden.some(f.hides); });
+    let html = '';
     if (hidden.length) {
-        var names = hiding.map(function (f) { return f.label; });
-        var list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+        const names = hiding.map(function (f) { return f.label; });
+        const list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
         html += h('span', null, hidden.length + ' hidden by ' + list + '.').outerHTML
             + h('button', { is: 'emby-button', type: 'button', id: 'cgShowFiltered', 'class': 'raised', title: 'Turn off ' + list }, 'Show them').outerHTML;
     }
     // Hide items with no sources acts only on titles already looked up, so with none looked up it does nothing yet.
-    var streamable = page.querySelector('#cgStreamable').checked;
+    const streamable = page.querySelector('#cgStreamable').checked;
     if (streamable && !(report.Items || []).some(function (it) { return it.AvailabilityChecked; })) {
         html += h('span', null, '“Hide items with no sources” has nothing to act on until where to watch is looked up.').outerHTML
             + h('button', { is: 'emby-button', type: 'button', id: 'cgEnableAvail', 'class': 'raised' }, 'Look up where to watch').outerHTML;
@@ -79,14 +79,14 @@ function renderTabs(page) {
     // order, even one with zero entries this scan (Music when nothing music is owned) - a tab is
     // never missing just because this scan found nothing for it. The per-domain totals come from the
     // summary, so an inactive tab shows a count without its items being loaded, summed across patterns.
-    var domains = vocab().domains;
+    const domains = vocab().domains;
     // Stay on a domain that has any gaps at all, so toggling a filter down to zero does not yank
     // you to another tab; only fall back when the current domain is truly empty.
     if (!page._domain || !domainTotal(page, page._domain)) {
         page._domain = domains.filter(function (d) { return domainTotal(page, d); })[0] || domains[0];
     }
     page.querySelector('#cgTabs').innerHTML = domains.map(function (d) {
-        var active = d === page._domain ? ' cgActive' : '';
+        const active = d === page._domain ? ' cgActive' : '';
         return h('button', {
             type: 'button', is: 'emby-button', 'class': 'raised cgTab' + active, 'data-domain': d
         }, d + ' (' + domainTotal(page, d) + ')').outerHTML;
@@ -102,7 +102,7 @@ function patternCountsFor(page, domain) {
 // The raw total for a domain across every pattern, from the same summary counts, so a domain tab's
 // badge and its "does this tab have anything at all" check need no items downloaded either.
 function domainTotal(page, domain) {
-    var counts = patternCountsFor(page, domain);
+    const counts = patternCountsFor(page, domain);
     return Object.keys(counts).reduce(function (sum, k) { return sum + counts[k]; }, 0);
 }
 
@@ -113,15 +113,15 @@ function domainTotal(page, domain) {
 // Records the choice, so renderTypeFilter (which only reads the record) shows what was actually fetched.
 function pickPattern(page, domain) {
     page._patternByDomain = page._patternByDomain || {};
-    var patterns = vocab().patterns;
-    var chosen;
+    const patterns = vocab().patterns;
+    let chosen;
     if (page._wantPattern && patterns.indexOf(page._wantPattern) !== -1) {
         chosen = page._wantPattern;
         page._wantPattern = '';
     } else if (page._patternByDomain[domain] && patterns.indexOf(page._patternByDomain[domain]) !== -1) {
         chosen = page._patternByDomain[domain];
     } else {
-        var counts = patternCountsFor(page, domain);
+        const counts = patternCountsFor(page, domain);
         chosen = patterns.filter(function (p) { return counts[p]; })[0] || patterns[0];
     }
 
@@ -133,10 +133,10 @@ function pickPattern(page, domain) {
 // domain via patternLabel (e.g. "Series completion" under Shows) - the secondary axis now that
 // domain is the primary tab.
 function renderTypeFilter(page) {
-    var wrap = page.querySelector('#cgTypeFilterWrap');
-    var sel = page.querySelector('#cgTypeFilter');
-    var patterns = vocab().patterns;
-    var counts = patternCountsFor(page, page._domain);
+    const wrap = page.querySelector('#cgTypeFilterWrap');
+    const sel = page.querySelector('#cgTypeFilter');
+    const patterns = vocab().patterns;
+    const counts = patternCountsFor(page, page._domain);
     if (wrap) { wrap.style.display = 'inline-flex'; }
     sel.innerHTML = patterns.map(function (p) {
         return h('option', { value: p }, patternLabel(p, page._domain) + ' (' + (counts[p] || 0) + ')').outerHTML;
@@ -147,9 +147,9 @@ function renderTypeFilter(page) {
 // The element that actually scrolls the report (or the window), cached on the page.
 function scrollerFor(page) {
     if (page._scroller) { return page._scroller; }
-    var s = document.scrollingElement || document.documentElement;
-    for (var n = page.querySelector('#cgList'); n && n !== document.body; n = n.parentElement) {
-        var oy = getComputedStyle(n).overflowY;
+    let s = document.scrollingElement || document.documentElement;
+    for (let n = page.querySelector('#cgList'); n && n !== document.body; n = n.parentElement) {
+        const oy = getComputedStyle(n).overflowY;
         if (oy === 'auto' || oy === 'scroll') { s = n; break; }
     }
     page._scroller = s;
@@ -159,8 +159,8 @@ function scrollerFor(page) {
 // A stable key for a group: the chain of its and its ancestors' labels, so its collapsed state
 // can be matched back to the same group after a re-render.
 function groupKey(el) {
-    var parts = [];
-    for (var n = el; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) {
+    const parts = [];
+    for (let n = el; n; n = n.parentElement ? n.parentElement.closest('.cgGroup') : null) {
         parts.unshift(n.getAttribute('data-cglabel') || '');
     }
     return parts.join('');
@@ -169,9 +169,9 @@ function groupKey(el) {
 // Point each group header's aria-expanded at its current collapse state, after a render or a
 // bulk class change that did not set it inline.
 function syncGroupAria(listEl) {
-    var hdrs = listEl.querySelectorAll('.cgHdr');
-    for (var i = 0; i < hdrs.length; i++) {
-        var g = hdrs[i].parentElement;
+    const hdrs = listEl.querySelectorAll('.cgHdr');
+    for (let i = 0; i < hdrs.length; i++) {
+        const g = hdrs[i].parentElement;
         hdrs[i].setAttribute('aria-expanded', g && g.classList.contains('cgCollapsed') ? 'false' : 'true');
     }
 }

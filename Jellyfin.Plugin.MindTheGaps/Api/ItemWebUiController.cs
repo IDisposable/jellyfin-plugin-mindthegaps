@@ -141,6 +141,7 @@ public class ItemWebUiController : WebUiControllerBase
         {
             var (wantingUser, wanted) = Wanting();
             related.CanTodo = wantingUser is not null;
+            related.Placement = ItemPlacement.Of(config);
             WantedMarker.Mark(related.Titles, wanted);
         }
 
@@ -206,6 +207,7 @@ public class ItemWebUiController : WebUiControllerBase
         }
 
         result.CanTodo = wantingUser is not null;
+        result.Placement = ItemPlacement.Of(Plugin.Instance?.Configuration);
         return result;
     }
 

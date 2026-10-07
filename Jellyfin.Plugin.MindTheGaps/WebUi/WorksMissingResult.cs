@@ -32,6 +32,12 @@ public sealed class WorksMissingResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets where the row goes on the page: a side and one of jellyfin-web's own item page sections,
+    /// such as <c>after:similar</c>.
+    /// </summary>
+    public string Placement { get; set; } = ItemPlacement.Default;
+
+    /// <summary>
     /// Gets or sets why the list is empty when it could not be computed (the provider did not answer, or the
     /// item carries no id to look it up by). Null when the list is real, including when it is empty because
     /// nothing is missing.

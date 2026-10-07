@@ -25,7 +25,7 @@ without a server.
 toggles say: it carries nothing about the library. Send and `WebUi/Profiles` stay administrators only; the
 todo endpoints on each surface belong to the signed-in user whose list they touch (see Consequences).
 
-The audience of the surface reads is any signed-in user. The shapes are experimental and may change; an API
+The audience of the surface reads is any signed-in user. The shapes are not a versioned contract and may change; an API
 with no consumers cannot be shaped by them, so it is offered before there are any.
 
 ## Consequences

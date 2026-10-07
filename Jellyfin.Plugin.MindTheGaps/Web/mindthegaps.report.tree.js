@@ -18,8 +18,8 @@ function domainScope(domainName) {
 // A Jellyfin search URL for a name, optionally scoped to a collectionType. Built from the
 // current page URL so it targets this same server whatever the web root is.
 function searchUrl(name, collectionType) {
-    var base = window.location.href.split('#')[0] + '#/search?';
-    var scope = collectionType ? 'collectionType=' + encodeURIComponent(collectionType) + '&' : '';
+    const base = window.location.href.split('#')[0] + '#/search?';
+    const scope = collectionType ? 'collectionType=' + encodeURIComponent(collectionType) + '&' : '';
     return base + scope + 'query=' + encodeURIComponent(name).replace(/%20/g, '+');
 }
 
@@ -38,8 +38,8 @@ function searchIcon(name, collectionType) {
 function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyToken, selIds) {
     // A per-render id ties the header to its body for assistive tech (aria-controls), and
     // aria-expanded mirrors the collapse state (kept in sync on toggle and re-render).
-    var bodyId = 'cgBody' + (++cgGroupSeq);
-    var hdr = wrap('div', {
+    const bodyId = 'cgBody' + (++cgGroupSeq);
+    const hdr = wrap('div', {
         'class': 'cgHdr cgHdr' + level, role: 'button', tabindex: '0',
         'aria-expanded': collapsed ? 'false' : 'true', 'aria-controls': bodyId
     }, h('span', { 'class': 'cgCaret' }).outerHTML
@@ -58,7 +58,7 @@ function groupHtml(level, label, count, collapsed, inner, itemId, extra, lazyTok
 // A small dot for a group header when any of its items has a streaming source matching the
 // current provider filters, so a collapsed group's streamability shows at a glance. The
 // length guard keeps it cheap when no availability has been looked up (the common case).
-var STREAM_DOT = ' <span class="cgStreamDot" title="Has a streamable title" aria-hidden="true"></span>';
+const STREAM_DOT = ' <span class="cgStreamDot" title="Has a streamable title" aria-hidden="true"></span>';
 function anyStream(items) {
     return items.some(function (it) { return it.Availability && it.Availability.length && filterOffers(it.Availability).length; });
 }
@@ -68,7 +68,7 @@ function streamDot(items) { return anyStream(items) ? STREAM_DOT : ''; }
 // service icon, recolor it): "TMDB" -> "cgProvider-tmdb", "TheTVDB" -> "cgProvider-thetvdb",
 // "MusicBrainz" -> "cgProvider-musicbrainz". The raw name is also on a data-provider attribute.
 function providerClass(name) {
-    var slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     return slug ? ' cgProvider-' + slug : '';
 }
 
@@ -83,8 +83,8 @@ function sourceLinks(item) {
 
 function coverageBadge(item) {
     if (!item || !item.SetTotalCount || item.SetOwnedCount == null) { return ''; }
-    var pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
-    var full = item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%';
+    const pct = Math.round(item.SetOwnedCount / item.SetTotalCount * 100);
+    const full = item.SetOwnedCount + ' of ' + item.SetTotalCount + ' owned, ' + pct + '%';
     return ' ' + wrap('span', { 'class': 'cgCoverage', title: full },
         h('span', { 'class': 'cgCovFull' }, full).outerHTML + h('span', { 'class': 'cgCovPct' }, pct + '%').outerHTML);
 }
@@ -100,38 +100,38 @@ function seasonDiagnoseBtn(gapId, name) {
 // Body of a source group: episode gaps get an extra collapsible Season level (season 0 is
 // Specials); everything else lists rows directly.
 function sourceBody(items) {
-    var hasSeason = items.some(function (it) { return it.Season != null; });
+    const hasSeason = items.some(function (it) { return it.Season != null; });
     if (!hasSeason) { return sortRows(items).map(renderRow).join(''); }
 
-    var bySeason = groupBy(items, function (it) { return it.Season == null ? 'na' : String(it.Season); });
+    const bySeason = groupBy(items, function (it) { return it.Season == null ? 'na' : String(it.Season); });
     bySeason.order.sort(function (a, b) {
-        var na = a === 'na' ? 1e9 : Number(a);
-        var nb = b === 'na' ? 1e9 : Number(b);
+        let na = a === 'na' ? 1e9 : Number(a);
+        let nb = b === 'na' ? 1e9 : Number(b);
         if (na <= 0) { na = 1e9 + na; }   // specials (0) and unknown sort after numbered seasons
         if (nb <= 0) { nb = 1e9 + nb; }
         return na - nb;
     });
     return bySeason.order.map(function (key) {
-        var n = Number(key);
-        var label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
-        var seasonItems = bySeason.map[key];
+        const n = Number(key);
+        const label = key === 'na' ? 'Other' : (n <= 0 ? 'Specials' : 'Season ' + n);
+        const seasonItems = bySeason.map[key];
         // The season's open-in-Jellyfin link needs a season item, but only library-known
         // episodes carry one (a cross-check discovery for a wholly-unowned season has none).
         // Take it from any episode that has it, not just the first, so the link is not dropped
         // just because a linkless cross-check episode happens to sort first.
-        var seasonId = '';
-        for (var si = 0; si < seasonItems.length; si++) { if (seasonItems[si].SeasonItemId) { seasonId = seasonItems[si].SeasonItemId; break; } }
+        let seasonId = '';
+        for (let si = 0; si < seasonItems.length; si++) { if (seasonItems[si].SeasonItemId) { seasonId = seasonItems[si].SeasonItemId; break; } }
         // Always offer a search (for the series, since a "Season 3" query is useless) and an
         // open link: the season itself when owned, otherwise its series, so there is always
         // somewhere to go.
-        var seriesName = seasonItems[0].SourceItemName;
-        var openId = seasonId || seasonItems[0].SourceItemId;
+        const seriesName = seasonItems[0].SourceItemName;
+        const openId = seasonId || seasonItems[0].SourceItemId;
         // Diagnose the season via one of its episodes: does it belong to the series you own, or
         // to a same-named reboot? Skip Specials/Other (a year comparison there is meaningless).
-        var seasonDiag = (key !== 'na' && n > 0)
+        const seasonDiag = (key !== 'na' && n > 0)
             ? seasonDiagnoseBtn(seasonItems[0].Id, (seriesName ? seriesName + ' ' : '') + label)
             : '';
-        var seasonExtra = searchIcon(seriesName, 'tvshows')
+        const seasonExtra = searchIcon(seriesName, 'tvshows')
             + openIcon(openId)
             + clearBtn('season', (seriesName || '') + '|' + key, 'this season')
             + seasonDiag + batchDismissBtns(label);
@@ -144,14 +144,14 @@ function sourceBody(items) {
 function firstLetter(name) {
     // First letter or number in any script (the u flag makes this code-point aware, so
     // surrogate-pair letters such as CJK extensions are handled whole).
-    var m = (name || '').trim().match(/[\p{L}\p{N}]/u);
+    const m = (name || '').trim().match(/[\p{L}\p{N}]/u);
     if (!m) { return '#'; }
-    var c = m[0];
+    const c = m[0];
     if (/\p{N}/u.test(c)) { return '#'; }
     // Fold Latin diacritics so 'caf\u00e9' files under C, but keep other scripts (Cyrillic, Greek,
     // CJK, ...) under their own letter rather than tossing them together.
     if (c.normalize) {
-        var base = c.normalize('NFD').charAt(0);
+        const base = c.normalize('NFD').charAt(0);
         if ((base >= 'A' && base <= 'Z') || (base >= 'a' && base <= 'z')) { return base.toUpperCase(); }
     }
     return c.toUpperCase();
@@ -159,11 +159,11 @@ function firstLetter(name) {
 
 // A person is filed under both their first and last initial (Teri Hatcher -> T and H).
 function personLetters(name) {
-    var parts = (name || '').trim().split(/\s+/).filter(function (p) { return p; });
+    const parts = (name || '').trim().split(/\s+/).filter(function (p) { return p; });
     if (!parts.length) { return ['#']; }
-    var letters = [firstLetter(parts[0])];
+    const letters = [firstLetter(parts[0])];
     if (parts.length > 1) {
-        var last = firstLetter(parts[parts.length - 1]);
+        const last = firstLetter(parts[parts.length - 1]);
         if (last !== letters[0]) { letters.push(last); }
     }
     return letters;
@@ -172,10 +172,10 @@ function personLetters(name) {
 // A title is filed under its first letter, and if it leads with the article "The" also under the
 // next word's letter (The Highlander -> T and H), so it is found either way.
 function titleLetters(name) {
-    var letters = [firstLetter(name)];
-    var rest = (name || '').trim().replace(/^the\s+/i, '');
+    const letters = [firstLetter(name)];
+    const rest = (name || '').trim().replace(/^the\s+/i, '');
     if (rest && rest.length !== (name || '').trim().length) {
-        var next = firstLetter(rest);
+        const next = firstLetter(rest);
         if (letters.indexOf(next) === -1) { letters.push(next); }
     }
     return letters;
@@ -200,7 +200,7 @@ function itemLetters(it, pattern) {
 
 // The sorted distinct letters present across the items, for the current pattern.
 function lettersOf(items, pattern) {
-    var present = {};
+    const present = {};
     items.forEach(function (it) { itemLetters(it, pattern).forEach(function (L) { present[L] = true; }); });
     return Object.keys(present).sort(letterSort);
 }
@@ -209,7 +209,7 @@ function lettersOf(items, pattern) {
 // letters ("The Matrix" is findable at both T and M), so these do not sum to the item total; the "*"
 // pill's count is the caller's own items.length instead.
 function letterCounts(items, pattern) {
-    var counts = {};
+    const counts = {};
     items.forEach(function (it) {
         itemLetters(it, pattern).forEach(function (L) { counts[L] = (counts[L] || 0) + 1; });
     });
@@ -221,7 +221,7 @@ function letterCounts(items, pattern) {
 // The wording for each Set completion kind. The set of kinds and their order come from the server
 // (summary.SetKinds); this only says how each is spelled on screen. A kind with no entry here falls
 // back to its own name, so a new one reads as itself rather than being pooled into a bucket.
-var SET_KIND_LABELS = {
+const SET_KIND_LABELS = {
     BoxSet: 'Collections & franchises',
     Series: 'Series',
     MusicArtist: 'Discography',
@@ -238,7 +238,7 @@ function setKindLabel(sourceItemType) {
 // order come from the server (summary.DiscoverKinds), this only says how each is spelled. The two
 // recommendation kinds share one label on purpose, so per-title suggestions read as one section however
 // many owned titles are behind them.
-var DISCOVER_KIND_LABELS = {
+const DISCOVER_KIND_LABELS = {
     EveryoneWatchlist: "Everyone's watchlist",
     TmdbAccountList: 'TMDB account lists',
     TraktWatchlist: 'Trakt watchlist',
@@ -266,7 +266,7 @@ function kindLabelOf(it) {
 
 // Comparator for Discover section headings, ordered as the server lists their kinds.
 function discoverKindCompare() {
-    var order = [];
+    const order = [];
     vocab().discoverKinds.map(discoverKindLabel).forEach(function (l) {
         if (order.indexOf(l) === -1) { order.push(l); }
     });
@@ -277,13 +277,13 @@ function discoverKindCompare() {
 // keyed by label, so the served kinds are mapped through the wording once per sort rather than per
 // comparison.
 function setKindCompare() {
-    var order = vocab().setKinds.map(setKindLabel);
+    const order = vocab().setKinds.map(setKindLabel);
     return function (a, b) { return rankIn(order, a) - rankIn(order, b); };
 }
 
 // Comparator for media domains, ordered as the server lists them.
 function domainCompare() {
-    var order = vocab().domains;
+    const order = vocab().domains;
     return function (a, b) { return rankIn(order, a) - rankIn(order, b); };
 }
 
@@ -317,9 +317,10 @@ function mdAnchor(text) {
 // An allocator of unique heading anchors, called in heading order, de-duping like the renderer
 // does (a repeated heading gets "-1", "-2", ...), so a table of contents link resolves.
 function anchorAllocator() {
-    var used = {};
+    const used = {};
     return function (text) {
-        var base = mdAnchor(text), a = base, n = 1;
+        const base = mdAnchor(text);
+        let a = base, n = 1;
         while (used[a]) { a = base + '-' + n; n++; }
         used[a] = true;
         return a;
@@ -328,17 +329,17 @@ function anchorAllocator() {
 
 // One collapsed set cell (a collection, series, studio, ...) for the Set completion grid.
 function setSourceCell(src, srcItems) {
-    var covItem = srcItems[0];
-    for (var i = 0; i < srcItems.length; i++) { if (srcItems[i].SetTotalCount) { covItem = srcItems[i]; break; } }
-    var isEpisodic = srcItems.some(function (it) { return it.Season != null; });
+    let covItem = srcItems[0];
+    for (let i = 0; i < srcItems.length; i++) { if (srcItems[i].SetTotalCount) { covItem = srcItems[i]; break; } }
+    const isEpisodic = srcItems.some(function (it) { return it.Season != null; });
     // Scope the search to the right library kind for this set's domain: a movie collection
     // lives in box sets, a series in the shows libraries, an album artist in music.
-    var domain = categoryOf(srcItems[0]);
-    var searchScope = domain === 'Movies' ? 'boxsets' : domainScope(domain);
+    const domain = categoryOf(srcItems[0]);
+    const searchScope = domain === 'Movies' ? 'boxsets' : domainScope(domain);
     // Trailing controls: streamable dot, coverage, search, open-in-Jellyfin, then the batch
     // dismiss buttons (episodic sets only). The open icon goes in extra (itemId is '' so
     // groupHtml does not also append it).
-    var extra = streamDot(srcItems)
+    const extra = streamDot(srcItems)
         + coverageBadge(covItem)
         + searchIcon(src, searchScope)
         + openIcon(srcItems[0].SourceItemId)
@@ -347,20 +348,20 @@ function setSourceCell(src, srcItems) {
         + sourceLinks(srcItems[0]);
     // For a series, put the show's year in the header so same-named reboots are distinguishable
     // ("Quantum Leap (1989)" vs "Quantum Leap (2022)"); the plain name still drives search and dismiss.
-    var title = (isEpisodic && srcItems[0].SourceItemYear) ? src + ' (' + srcItems[0].SourceItemYear + ')' : src;
+    const title = (isEpisodic && srcItems[0].SourceItemYear) ? src + ' (' + srcItems[0].SourceItemYear + ')' : src;
     return groupHtml(2, title, srcItems.length, true, sourceBody(srcItems), '', extra, null, idsOf(srcItems));
 }
 
 // Below this many groups a section lists them directly; at or above it they go under letter buckets.
-var LETTER_LAYER_MIN = 20;
+const LETTER_LAYER_MIN = 20;
 
 // The first two letters or digits of a name's first word, accents folded and cased like "Ab", so a
 // bucket under an already-chosen letter splits on the next one.
 function twoLetterPrefix(name) {
-    var word = (name || '').trim().split(/\s+/)[0] || '';
-    var chars = word.match(/[\p{L}\p{N}]/gu) || [];
+    const word = (name || '').trim().split(/\s+/)[0] || '';
+    const chars = word.match(/[\p{L}\p{N}]/gu) || [];
     return chars.slice(0, 2).map(function (c, i) {
-        var folded = c.normalize ? c.normalize('NFD').charAt(0) : c;
+        let folded = c.normalize ? c.normalize('NFD').charAt(0) : c;
         if (!/[A-Za-z]/.test(folded)) { folded = c; }
         return i === 0 ? folded.toUpperCase() : folded.toLowerCase();
     }).join('') || '#';
@@ -371,10 +372,10 @@ function twoLetterPrefix(name) {
 // last name, a title's first word or the word after a leading "The" (see personLetters, titleLetters).
 function bucketOf(name, letter, person) {
     if (!letter || letter === '*') { return firstLetter(name); }
-    var trimmed = (name || '').trim();
-    var words = trimmed.split(/\s+/);
-    var candidates = person ? [words[0], words[words.length - 1]] : [trimmed, trimmed.replace(/^the\s+/i, '')];
-    for (var i = 0; i < candidates.length; i++) {
+    const trimmed = (name || '').trim();
+    const words = trimmed.split(/\s+/);
+    const candidates = person ? [words[0], words[words.length - 1]] : [trimmed, trimmed.replace(/^the\s+/i, '')];
+    for (let i = 0; i < candidates.length; i++) {
         if (firstLetter(candidates[i]) === letter) { return twoLetterPrefix(candidates[i]); }
     }
     return letter;
@@ -385,20 +386,20 @@ function bucketOf(name, letter, person) {
 // and wrapBody wraps a run of them (the Set completion grid). A short section, or one whose groups all
 // share a bucket, lists them directly.
 function letterBuckets(names, itemsOf, groupOf, person, wrapBody) {
-    var wrapRun = function (run) { var html = run.map(groupOf).join(''); return wrapBody ? wrapBody(html) : html; };
+    const wrapRun = function (run) { const html = run.map(groupOf).join(''); return wrapBody ? wrapBody(html) : html; };
     if (names.length < LETTER_LAYER_MIN) { return wrapRun(names); }
 
-    var page = reportPage();
-    var letter = page && page._letter;
-    var byBucket = groupBy(names, function (n) { return bucketOf(n, letter, person); });
+    const page = reportPage();
+    const letter = page && page._letter;
+    const byBucket = groupBy(names, function (n) { return bucketOf(n, letter, person); });
     if (byBucket.order.length < 2) { return wrapRun(names); }
 
     byBucket.order.sort(letterSort);
     return byBucket.order.map(function (key) {
-        var run = byBucket.map[key];
-        var ids = [];
+        const run = byBucket.map[key];
+        let ids = [];
         run.forEach(function (n) { ids = ids.concat(idsOf(itemsOf(n))); });
-        var token = 'lz' + (++cgGroupSeq);
+        const token = 'lz' + (++cgGroupSeq);
         lazyBodies[token] = function () { return wrapRun(run); };
         return groupHtml('Letter', key, ids.length, true, '', '', '', token, ids);
     }).join('');
@@ -409,7 +410,7 @@ function letterBuckets(names, itemsOf, groupOf, person, wrapBody) {
 // the set grid. A section with many groups files them under letter buckets (see letterBuckets).
 function buildTree(items) {
     if (!items.length) { return ''; }
-    var pattern = items[0].PatternName;
+    const pattern = items[0].PatternName;
     lazyBodies = {}; // tokens are per-render; drop the previous render's builders
 
     if (pattern === 'Recommendation') {
@@ -418,15 +419,15 @@ function buildTree(items) {
         // Flat, the list you keep and the title that happened to suggest something were peers with nothing
         // to tell them apart. A multi-source gap files under its primary source; its other sources stay on
         // the row ("Also recommended by").
-        var byKind = groupBy(items, kindLabelOf);
+        const byKind = groupBy(items, kindLabelOf);
         byKind.order.sort(discoverKindCompare());
         return byKind.order.map(function (kind) {
-            var bySource = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
+            const bySource = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
             bySource.order.sort(ci);
-            var itemsOf = function (src) { return bySource.map[src]; };
-            var groups = letterBuckets(bySource.order, itemsOf, function (src) {
-                var sItems = bySource.map[src];
-                var token = 'lz' + (++cgGroupSeq);
+            const itemsOf = function (src) { return bySource.map[src]; };
+            const groups = letterBuckets(bySource.order, itemsOf, function (src) {
+                const sItems = bySource.map[src];
+                const token = 'lz' + (++cgGroupSeq);
                 lazyBodies[token] = function () { return sortRows(sItems).map(renderRow).join(''); };
                 return groupHtml(2, src, sItems.length, true, '', sItems[0].SourceItemId,
                     streamDot(sItems)
@@ -440,13 +441,13 @@ function buildTree(items) {
     }
 
     if (pattern === 'CreatorWorks') {
-        var byCreator = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
+        const byCreator = groupBy(items, function (it) { return it.SourceItemName || '(no source)'; });
         byCreator.order.sort(ci);
         return letterBuckets(byCreator.order, function (src) { return byCreator.map[src]; }, function (src) {
-            var cItems = byCreator.map[src];
+            const cItems = byCreator.map[src];
             // Defer the rows: a creator's body is built only when its header is expanded, so a
             // tab with tens of thousands of rows renders just the headers up front.
-            var token = 'lz' + (++cgGroupSeq);
+            const token = 'lz' + (++cgGroupSeq);
             lazyBodies[token] = function () { return sortRows(cItems).map(renderRow).join(''); };
             return groupHtml(2, src, cItems.length, true, '', cItems[0].SourceItemId,
                 streamDot(cItems)
@@ -460,13 +461,13 @@ function buildTree(items) {
     // SetCompletion: split by the kind of set, then lay each kind's collapsed sources out in a
     // responsive grid. One domain can hold several kinds (Movies has collections, studios, and
     // keywords), so each kind gets a heading; with a single kind the heading is dropped.
-    var byKind = groupBy(items, function (it) { return setKindLabel(it.SourceItemType); });
+    const byKind = groupBy(items, function (it) { return setKindLabel(it.SourceItemType); });
     byKind.order.sort(setKindCompare());
-    var multiKind = byKind.order.length > 1;
+    const multiKind = byKind.order.length > 1;
     return byKind.order.map(function (kind) {
-        var bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
+        const bySrc = groupBy(byKind.map[kind], function (it) { return it.SourceItemName || '(no source)'; });
         bySrc.order.sort(ci);
-        var grid = letterBuckets(bySrc.order, function (src) { return bySrc.map[src]; },
+        const grid = letterBuckets(bySrc.order, function (src) { return bySrc.map[src]; },
             function (src) { return setSourceCell(src, bySrc.map[src]); },
             false, function (html) { return wrap('div', { 'class': 'cgGridWrap' }, html); });
         // A single kind needs no header; with several kinds in one domain (Movies has
@@ -480,7 +481,7 @@ function buildTree(items) {
 // A collapsible section heading over a kind's groups, reusing the group machinery so its caret, keyboard
 // toggle, and persisted collapse state all come for free. Shared by Set completion and Discover.
 function kindSection(kind, body, noClear, selIds) {
-    var hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
+    const hdr = wrap('div', { 'class': 'cgHdr cgKindHdr', role: 'button', tabindex: '0', 'aria-expanded': 'true' },
         h('span', { 'class': 'cgCaret' }).outerHTML + groupSelBox(selIds, kind) + h('span', { 'class': 'cgLabel' }, kind).outerHTML
         + (noClear ? '' : clearBtn('kind', kind, 'everything under ' + kind)));
     return wrap('div', { 'class': 'cgGroup cgKindGroup', 'data-cglabel': 'kind:' + kind },
@@ -491,22 +492,22 @@ function kindSection(kind, body, noClear, selIds) {
 // already own everything on it" and "it could not be read" stop looking exactly like "it never ran".
 // Suppressed in a filtered view: a run carries no domain or letter, so it cannot honestly be placed in one.
 function emptyRunSections(present) {
-    var page = reportPage();
+    const page = reportPage();
     if (!page || page._letter !== '*') { return ''; }
     if (page._domain) { return ''; }
 
-    var byLabel = {};
+    const byLabel = {};
     ((page._report && page._report.SourceRuns) || []).forEach(function (r) {
-        var label = discoverKindLabel(r.Kind);
+        const label = discoverKindLabel(r.Kind);
         if (present[label]) { return; }
-        var e = byLabel[label] || (byLabel[label] = { failed: false, names: [] });
+        const e = byLabel[label] || (byLabel[label] = { failed: false, names: [] });
         if (r.Failed) { e.failed = true; }
         if (r.Name && e.names.indexOf(r.Name) === -1) { e.names.push(r.Name); }
     });
 
     return Object.keys(byLabel).sort(discoverKindCompare()).map(function (label) {
-        var e = byLabel[label];
-        var msg = e.failed
+        const e = byLabel[label];
+        const msg = e.failed
             ? e.names.join(', ') + ' could not be read on the last scan, so nothing from it is listed here.'
             : 'Read on the last scan, and you own everything on it.';
         return kindSection(label, h('p', { 'class': 'fieldDescription cgEmptyRun' }, msg).outerHTML, true);

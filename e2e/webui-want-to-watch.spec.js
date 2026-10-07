@@ -463,3 +463,24 @@ test('no matches renders the typed query as plain text, never as markup', async 
     expect(await page.locator('#mtgSearchResults .mtgSearchNote').textContent()).toContain(hostile);
     await expect(page.locator('#mtgSearchResults img')).toHaveCount(0);
 });
+
+// An old TV browser has no Element.closest; the script adds its own, which the wanted row's refresh relies on to
+// tell its own cards from the search results and to find the card that had focus.
+test('without a native Element.closest, the script supplies one and the wanted row still refreshes', async ({ page }) => {
+    await page.addInitScript(() => { delete Element.prototype.closest; });
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    expect(await page.evaluate(() => String(Element.prototype.closest).indexOf('[native code]') === -1)).toBe(true);
+    await card(page, 'filmography:movie:7').focus();
+
+    await page.evaluate(() => { __WANTED_RESULT__ = { Titles: [__WANTED_RESULT__.Titles[1]] }; });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    expect(await page.evaluate(() => document.activeElement.getAttribute('data-gapid'))).toBe('recommendation:movie:8');
+    expect(await page.evaluate(() => window.__uiTestErrors)).toEqual([]);
+});
+
+test('a browser with a native Element.closest keeps its own', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    expect(await page.evaluate(() => String(Element.prototype.closest).indexOf('[native code]') !== -1)).toBe(true);
+});

@@ -72,7 +72,7 @@ them. Drafts in [docs/upstream/](upstream/).
   using it is explicitly the one fetching things by hand instead of through an arr); revisit only if that
   changes.
 
-### Web UI (experimental)
+### Web UI
 
 - **Certification filtering by the caller.** A user with a parental rating limit is shown no surface, and a
   page is shown only to a user who can see its item. A finer filter would check each listed title's

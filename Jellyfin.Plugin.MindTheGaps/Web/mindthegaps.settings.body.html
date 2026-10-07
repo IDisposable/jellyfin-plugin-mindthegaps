@@ -450,7 +450,7 @@
             </div>
         </div>
         <div class="verticalSection">
-            <h2 class="sectionTitle">Web UI (experimental)</h2>
+            <h2 class="sectionTitle">Web UI</h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page
                 load. Each surface below has its own switch. Turning one on also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
             <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Filtered lightly by who is asking.</strong> A user with a parental rating limit is not shown the surfaces at all, and a page is shown only to a user who can see the item it is about. Beyond that a title is listed if the library does not hold it, for everyone, whatever the signed-in user's library access, because checking each title's certification would cost a TMDB request per title.</div>
@@ -474,6 +474,17 @@
                     <span>Item pages: more you don't have (movies, series, artists, books)</span>
                 </label>
                 <div class="fieldDescription">On a movie or series page, shows TMDB's recommendations for the title that you do not own, with a Send button for administrators. Uses the same "Max related per item" and "Recommendations: minimum TMDB votes" limits under Limits below as the report's own Discover recommendations. On a music artist page, shows the albums by that artist you do not own, and on a book page the other works by its author, each with an Add to TODO button for administrators. Those follow the Music and Books scan switches, and need the artist or book to carry a MusicBrainz, Discogs or OpenLibrary id.</div>
+            </div>
+            <div class="selectContainer">
+                <label class="selectLabel" for="ItemPagePlacement">Item pages: where the row goes</label>
+                <select id="ItemPagePlacement" name="ItemPagePlacement" is="emby-select">
+                    <option value="before:children">Before Seasons and Episodes</option>
+                    <option value="after:children">After Seasons and Episodes</option>
+                    <option value="after:cast">After Cast and Crew</option>
+                    <option value="before:similar">Before More Like This</option>
+                    <option value="after:similar">After More Like This</option>
+                </select>
+                <div class="fieldDescription">Where the "you don't have" row sits among Jellyfin's own sections on a movie, series, artist or book page. A page without the chosen section gets the row after More Like This. Requires Item pages above.</div>
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
@@ -534,6 +545,23 @@
                 <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home Discover row: max titles</label>
                 <input id="HomeRowSize" name="HomeRowSize" type="number" is="emby-input" min="1" max="100" />
                 <div class="fieldDescription">The most titles the home Discover row shows.</div>
+            </div>
+            <div class="selectContainer">
+                <label class="selectLabel" for="HomeRowPlacement">Home rows: where they go</label>
+                <select id="HomeRowPlacement" name="HomeRowPlacement" is="emby-select">
+                    <option value="">At the bottom</option>
+                    <option value="top">At the top</option>
+                    <option value="smalllibrarytiles">After My Media</option>
+                    <option value="librarybuttons">After My Media (small)</option>
+                    <option value="resume">After Continue Watching</option>
+                    <option value="resumeaudio">After Continue Listening</option>
+                    <option value="resumebook">After Continue Reading</option>
+                    <option value="nextup">After Next Up</option>
+                    <option value="livetv">After Live TV</option>
+                    <option value="activerecordings">After Active Recordings</option>
+                    <option value="latestmedia">After Recently Added Media</option>
+                </select>
+                <div class="fieldDescription">Where the Want to watch and Discover rows sit on the home screen. The sections are the ones each user picks under Settings, Home, Home screen sections, by the names Jellyfin gives them there: My Media shows the libraries as cards with artwork, and My Media (small) as a compact row of buttons. Each user orders their own home screen, so the rows follow the chosen section wherever that user put it, and go to the bottom for a user who does not show it.</div>
             </div>
         </div>
         <div class="verticalSection">

@@ -3,11 +3,11 @@
 
 // Enable/disable and dim a secret field based on its toggle checkbox.
 function bindSettingsToggle(page, toggleId, inputId) {
-    var on = page.querySelector('#' + toggleId).checked;
-    var input = page.querySelector('#' + inputId);
+    const on = page.querySelector('#' + toggleId).checked;
+    const input = page.querySelector('#' + inputId);
     input.disabled = !on;
     input.required = on;
-    var container = input.closest('.inputContainer');
+    const container = input.closest('.inputContainer');
     if (container) { container.style.opacity = on ? '' : '0.5'; }
 }
 
@@ -15,7 +15,7 @@ function bindSettingsToggle(page, toggleId, inputId) {
 // or a credential set). Drives both the collapsed summary's on/off badge and which groups start
 // open, so a fresh install sees a clean menu of provider names and a configured one opens already
 // showing what it does.
-var PROVIDER_GROUPS = [
+const PROVIDER_GROUPS = [
     { id: 'cgProvTmdb', on: function (c) { return !!(c.ScanCuratedSets || c.ScanTmdbLists || c.ScanTmdbTopRated || c.ScanTmdbPopular || c.ScanTmdbUpcoming || c.ScanTmdbNowPlaying || c.ScanTmdbWatchlist || c.ScanTmdbFavorites || c.TmdbApiKey); } },
     { id: 'cgProvTrakt', on: function (c) { return !!(c.TraktEnabled || c.ScanTraktLists || c.ScanTraktWatchlist); } },
     { id: 'cgProvMdbList', on: function (c) { return !!(c.ScanMdbList || c.ScanMdbListWatchlist); } },
@@ -31,9 +31,9 @@ var PROVIDER_GROUPS = [
 
 function updateProviderGroups(page, config) {
     PROVIDER_GROUPS.forEach(function (g) {
-        var isOn = g.on(config);
-        var details = page.querySelector('#' + g.id);
-        var badge = page.querySelector('#' + g.id + 'Badge');
+        const isOn = g.on(config);
+        const details = page.querySelector('#' + g.id);
+        const badge = page.querySelector('#' + g.id + 'Badge');
         if (details) { details.open = isOn; }
         if (badge) {
             badge.textContent = isOn ? 'on' : 'off';
@@ -46,15 +46,15 @@ function updateProviderGroups(page, config) {
 // text opens the provider group it is in, so a hit is never hidden behind a collapsed summary;
 // clearing the box restores every container without touching what the user opened or closed by hand.
 function filterSettings(page, query) {
-    var q = (query || '').trim().toLowerCase();
-    var containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer');
-    for (var i = 0; i < containers.length; i++) {
-        var c = containers[i];
+    const q = (query || '').trim().toLowerCase();
+    const containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer');
+    for (let i = 0; i < containers.length; i++) {
+        const c = containers[i];
         if (!q) { c.style.display = ''; continue; }
-        var match = (c.textContent || '').toLowerCase().indexOf(q) !== -1;
+        const match = (c.textContent || '').toLowerCase().indexOf(q) !== -1;
         c.style.display = match ? '' : 'none';
         if (match) {
-            var details = c.closest('details.cgProvGroup');
+            const details = c.closest('details.cgProvGroup');
             if (details) { details.open = true; }
         }
     }
@@ -115,6 +115,7 @@ function loadConfig(page, config) {
     page.querySelector('#WebUiEnabled').checked = config.WebUiEnabled;
     page.querySelector('#PersonPageEnabled').checked = config.PersonPageEnabled;
     page.querySelector('#ItemPageEnabled').checked = config.ItemPageEnabled;
+    page.querySelector('#ItemPagePlacement').value = config.ItemPagePlacement || 'after:similar';
     page.querySelector('#StudioPageEnabled').checked = config.StudioPageEnabled;
     page.querySelector('#HomeRowEnabled').checked = config.HomeRowEnabled;
     page.querySelector('#WantToWatchEnabled').checked = config.WantToWatchEnabled;
@@ -124,6 +125,7 @@ function loadConfig(page, config) {
     page.querySelector('#WantToWatchRemoveWatched').checked = config.WantToWatchRemoveWatched;
     page.querySelector('#WantToWatchDetailBookmark').checked = config.WantToWatchDetailBookmark;
     page.querySelector('#HomeRowSize').value = config.HomeRowSize;
+    page.querySelector('#HomeRowPlacement').value = config.HomeRowPlacement || '';
     page.querySelector('#SeerrUrl').value = config.SeerrUrl || '';
     page.querySelector('#SeerrApiKey').value = config.SeerrApiKey || '';
     page.querySelector('#RadarrUrl').value = config.RadarrUrl || '';
@@ -151,7 +153,7 @@ function loadConfig(page, config) {
 
 function saveConfig(page, e) {
     if (e) { e.preventDefault(); }
-    var form = page.querySelector('#MindTheGapsConfigForm');
+    const form = page.querySelector('#MindTheGapsConfigForm');
 
     // Validate a secret only when its cross-check is on; bypass entirely when off.
     if (form.querySelector('#TraktEnabled').checked && !form.querySelector('#TraktClientId').value.trim()) {
@@ -169,7 +171,7 @@ function saveConfig(page, e) {
         config.ScanTmdbLists = form.querySelector('#ScanTmdbLists').checked;
         config.AutoSeedStudios = form.querySelector('#AutoSeedStudios').checked;
         // The chips hold the ids; nothing else to persist for these curated sets.
-        var chips = page._chipState || {};
+        const chips = page._chipState || {};
         config.CuratedCompanyIds = chips.studio ? chips.studio.ids() : (config.CuratedCompanyIds || '');
         config.CuratedKeywordIds = chips.keyword ? chips.keyword.ids() : (config.CuratedKeywordIds || '');
         config.CuratedTmdbListIds = chips.tmdblist ? chips.tmdblist.ids() : (config.CuratedTmdbListIds || '');
@@ -222,6 +224,7 @@ function saveConfig(page, e) {
         config.WebUiEnabled = form.querySelector('#WebUiEnabled').checked;
         config.PersonPageEnabled = form.querySelector('#PersonPageEnabled').checked;
         config.ItemPageEnabled = form.querySelector('#ItemPageEnabled').checked;
+        config.ItemPagePlacement = form.querySelector('#ItemPagePlacement').value;
         config.StudioPageEnabled = form.querySelector('#StudioPageEnabled').checked;
         config.HomeRowEnabled = form.querySelector('#HomeRowEnabled').checked;
         config.WantToWatchEnabled = form.querySelector('#WantToWatchEnabled').checked;
@@ -231,6 +234,7 @@ function saveConfig(page, e) {
         config.WantToWatchRemoveWatched = form.querySelector('#WantToWatchRemoveWatched').checked;
         config.WantToWatchDetailBookmark = form.querySelector('#WantToWatchDetailBookmark').checked;
         config.HomeRowSize = parseInt(form.querySelector('#HomeRowSize').value || '20', 10);
+        config.HomeRowPlacement = form.querySelector('#HomeRowPlacement').value;
         config.SeerrUrl = form.querySelector('#SeerrUrl').value.trim();
         config.SeerrApiKey = form.querySelector('#SeerrApiKey').value.trim();
         config.RadarrUrl = form.querySelector('#RadarrUrl').value.trim();
@@ -267,18 +271,18 @@ function saveConfig(page, e) {
 // {Id, Name}: the name shows, the id is what gets saved, so the numeric id is never exposed.
 // Suggestions come from the server's TheMovieDb search; wired once, populated by loadConfig.
 function setupChips(page, kind, boxId, listId, inputId, suggestId) {
-    var box = page.querySelector('#' + boxId);
-    var list = page.querySelector('#' + listId);
-    var input = page.querySelector('#' + inputId);
-    var suggest = page.querySelector('#' + suggestId);
-    var state = { chips: [], items: [], sel: -1, seq: 0, timer: 0 };
+    const box = page.querySelector('#' + boxId);
+    const list = page.querySelector('#' + listId);
+    const input = page.querySelector('#' + inputId);
+    const suggest = page.querySelector('#' + suggestId);
+    const state = { chips: [], items: [], sel: -1, seq: 0, timer: 0 };
     page._chipState = page._chipState || {};
     page._chipState[kind] = state;
 
-    function announce(msg) { var live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
+    function announce(msg) { const live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
     function render() {
         list.innerHTML = state.chips.map(function (c, i) {
-            var x = wrap('button', {
+            const x = wrap('button', {
                 type: 'button', 'class': 'cgChipX', 'data-i': i,
                 'aria-label': 'Remove ' + (c.Name || ''), title: 'Remove ' + (c.Name || '')
             }, '&times;');
@@ -295,7 +299,7 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
         input.value = ''; closeSuggest();
     }
     function removeAt(i) {
-        var removed = state.chips[i];
+        const removed = state.chips[i];
         state.chips.splice(i, 1); render(); page._settingsDirty = true;
         if (removed) { announce('Removed ' + removed.Name); }
         input.focus();
@@ -314,9 +318,9 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
         input.setAttribute('aria-activedescendant', state.sel >= 0 ? (suggestId + '-opt-' + state.sel) : '');
     }
     function search() {
-        var q = input.value.trim();
+        const q = input.value.trim();
         if (q.length < 2) { closeSuggest(); return; }
-        var mySeq = ++state.seq;
+        const mySeq = ++state.seq;
         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedSearch', { kind: kind, query: q }), dataType: 'json' }).then(function (res) {
             if (mySeq !== state.seq) { return; } // a newer keystroke superseded this response
             state.items = (res || []).filter(function (it) { return !has(it.Id); });
@@ -336,20 +340,20 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
     // A blur closes the dropdown, but after a beat so a click on a suggestion lands first.
     input.addEventListener('blur', function () { setTimeout(closeSuggest, 150); });
     suggest.addEventListener('mousedown', function (e) {
-        var el = e.target.closest('.cgSuggestItem');
+        const el = e.target.closest('.cgSuggestItem');
         if (el) { e.preventDefault(); addChip(state.items[parseInt(el.getAttribute('data-i'), 10)]); }
     });
     list.addEventListener('click', function (e) {
-        var x = e.target.closest('.cgChipX');
+        const x = e.target.closest('.cgChipX');
         if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); }
     });
     box.addEventListener('click', function (e) { if (e.target === box || e.target === list) { input.focus(); } });
 
     state.set = function (chips) {
-        var seen = {};
+        const seen = {};
         state.chips = [];
         (chips || []).forEach(function (c) {
-            var k = String(c.Id);
+            const k = String(c.Id);
             if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k }); }
         });
         render();
@@ -362,9 +366,9 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
 // URL (with or without a scheme, a www host, a name slug, or a query) - the same shapes
 // TmdbListInput.ParseId accepts server-side. Null when the token holds neither.
 function parseTmdbListToken(token) {
-    var trimmed = (token || '').trim();
+    const trimmed = (token || '').trim();
     if (/^[1-9]\d*$/.test(trimmed)) { return trimmed; }
-    var m = trimmed.match(/\/list\/(\d+)/i);
+    const m = trimmed.match(/\/list\/(\d+)/i);
     return m ? m[1] : null;
 }
 
@@ -374,17 +378,17 @@ function parseTmdbListToken(token) {
 // Shares the chip render/remove/state shape setupChips uses, so loadChips/saveConfig can treat every kind
 // the same way regardless of which of the two set it up.
 function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
-    var box = page.querySelector('#' + boxId);
-    var list = page.querySelector('#' + listId);
-    var input = page.querySelector('#' + inputId);
-    var state = { chips: [] };
+    const box = page.querySelector('#' + boxId);
+    const list = page.querySelector('#' + listId);
+    const input = page.querySelector('#' + inputId);
+    const state = { chips: [] };
     page._chipState = page._chipState || {};
     page._chipState[kind] = state;
 
-    function announce(msg) { var live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
+    function announce(msg) { const live = page.querySelector('#cgChipLive'); if (live) { live.textContent = msg; } }
     function render() {
         list.innerHTML = state.chips.map(function (c, i) {
-            var x = wrap('button', {
+            const x = wrap('button', {
                 type: 'button', 'class': 'cgChipX', 'data-i': i,
                 'aria-label': 'Remove ' + (c.Name || ''), title: 'Remove ' + (c.Name || '')
             }, '&times;');
@@ -393,13 +397,13 @@ function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
     }
     function has(id) { return state.chips.some(function (c) { return c.Id === id; }); }
     function removeAt(i) {
-        var removed = state.chips[i];
+        const removed = state.chips[i];
         state.chips.splice(i, 1); render(); page._settingsDirty = true;
         if (removed) { announce('Removed ' + removed.Name); }
         input.focus();
     }
     function addFromInput() {
-        var id = parseToken(input.value);
+        const id = parseToken(input.value);
         if (!id) { announce('Not a valid id or URL.'); return; }
         input.value = '';
         if (has(id)) { return; }
@@ -410,8 +414,8 @@ function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
         announce('Added ' + id);
         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedResolve', { kind: kind, ids: id }), dataType: 'json' })
             .then(function (res) {
-                var name = res && res[0] && res[0].Name;
-                var chip = name && state.chips.find(function (c) { return c.Id === id; });
+                const name = res && res[0] && res[0].Name;
+                const chip = name && state.chips.find(function (c) { return c.Id === id; });
                 if (chip) { chip.Name = name; render(); }
             }, function () { });
     }
@@ -421,16 +425,16 @@ function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
         else if (e.key === 'Backspace' && !input.value && state.chips.length) { removeAt(state.chips.length - 1); }
     });
     list.addEventListener('click', function (e) {
-        var x = e.target.closest('.cgChipX');
+        const x = e.target.closest('.cgChipX');
         if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); }
     });
     box.addEventListener('click', function (e) { if (e.target === box || e.target === list) { input.focus(); } });
 
     state.set = function (chips) {
-        var seen = {};
+        const seen = {};
         state.chips = [];
         (chips || []).forEach(function (c) {
-            var k = String(c.Id);
+            const k = String(c.Id);
             if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k }); }
         });
         render();
@@ -442,8 +446,8 @@ function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
 // Populate the studio/keyword chips from the saved config: resolve the stored ids to display
 // names server-side, then hand them to the chip controls.
 function loadChips(page, config) {
-    var resolve = function (kind, ids) {
-        var st = page._chipState && page._chipState[kind];
+    const resolve = function (kind, ids) {
+        const st = page._chipState && page._chipState[kind];
         if (!st) { return; }
         st.set([]);
         if (!ids) { return; }
@@ -462,14 +466,14 @@ function loadChips(page, config) {
 // The TMDB account connect flow. Two steps, because TMDB has the user approve a request token in their own
 // browser; the approval URL carries no redirect, so nothing calls back into this server.
 function setupTmdbAccount(page) {
-    var status = page.querySelector('#cgTmdbAccountStatus');
-    var connect = page.querySelector('#cgTmdbConnect');
-    var finish = page.querySelector('#cgTmdbFinish');
-    var disconnect = page.querySelector('#cgTmdbDisconnect');
-    var pendingToken = null;
+    const status = page.querySelector('#cgTmdbAccountStatus');
+    const connect = page.querySelector('#cgTmdbConnect');
+    const finish = page.querySelector('#cgTmdbFinish');
+    const disconnect = page.querySelector('#cgTmdbDisconnect');
+    let pendingToken = null;
 
     function show(s) {
-        var connected = s && s.Connected;
+        const connected = s && s.Connected;
         status.textContent = connected
             ? 'Connected as ' + s.Username + '.'
             : (s && s.Message ? s.Message : 'Not connected.');
@@ -517,7 +521,7 @@ function setupTmdbAccount(page) {
 function bindSettings(page) {
     // Any edit to a settings field marks the form dirty, so closing it can warn about unsaved
     // changes. loadConfig/save reset the flag; programmatic value assignment fires no events.
-    var markDirty = function () { page._settingsDirty = true; };
+    const markDirty = function () { page._settingsDirty = true; };
     page.querySelector('#MindTheGapsConfigForm').addEventListener('input', markDirty);
     page.querySelector('#MindTheGapsConfigForm').addEventListener('change', markDirty);
     page.querySelector('#TraktEnabled').addEventListener('change', function () { bindSettingsToggle(page, 'TraktEnabled', 'TraktClientId'); });
@@ -533,13 +537,13 @@ function bindSettings(page) {
     // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
     // type=password, so the browser never treats the settings form as a login and never offers to
     // save the keys. Reveal toggles the mask rather than the input type.
-    var revealBtns = page.querySelectorAll('.cgReveal');
-    for (var rb = 0; rb < revealBtns.length; rb++) {
+    const revealBtns = page.querySelectorAll('.cgReveal');
+    for (let rb = 0; rb < revealBtns.length; rb++) {
         revealBtns[rb].addEventListener('click', function () {
-            var input = page.querySelector('#' + this.getAttribute('data-target'));
+            const input = page.querySelector('#' + this.getAttribute('data-target'));
             if (!input) { return; }
-            var shown = input.classList.toggle('cgSecretShown');
-            var span = this.querySelector('span');
+            const shown = input.classList.toggle('cgSecretShown');
+            const span = this.querySelector('span');
             if (span) { span.textContent = shown ? 'Hide' : 'Show'; }
         });
     }
@@ -548,7 +552,7 @@ function bindSettings(page) {
     page.querySelector('#MindTheGapsConfigForm').addEventListener('submit', function (e) { saveConfig(page, e); });
 }
 document.querySelector('#MindTheGapsSettingsPage').addEventListener('pageshow', function () {
-    var page = this;
+    const page = this;
     // Jellyfin keeps the page element and re-fires pageshow on every navigation, so bind once or the
     // listeners stack and a delegated handler fires N times. The config is re-read on every show.
     if (!page._cgBound) {

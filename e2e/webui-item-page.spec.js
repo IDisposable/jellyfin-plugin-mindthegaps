@@ -50,6 +50,56 @@ test('renders the related row after similarCollapsible, in normal document flow'
     expect(order).toBe(true);
 });
 
+const PLACED_RELATED = (placement) => ({
+    ItemId: 'movie-1', ItemName: 'A Movie', Reason: null, Placement: placement,
+    Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, TmdbId: 2, ImageUrl: null, Upcoming: false }]
+});
+
+// Opens the item page with jellyfin-web's own cast section in place ahead of More Like This, hidden the way
+// the page leaves it until it knows the item has a cast.
+async function openItemPageWithCast(page, harnessPath) {
+    await page.goto('file://' + harnessPath);
+    await page.evaluate(() => {
+        var cast = document.createElement('div');
+        cast.id = 'castCollapsible';
+        cast.className = 'verticalSection detailVerticalSection hide';
+        var similar = document.getElementById('similarCollapsible');
+        similar.parentNode.insertBefore(cast, similar);
+        window.location.hash = '#/details?id=movie-1';
+        document.querySelector('.page').dispatchEvent(new Event('viewshow', { bubbles: true }));
+    });
+}
+
+async function contentIds(page) {
+    return page.evaluate(() => Array.prototype.map.call(document.querySelector('.detailPageContent').children, (c) => c.id));
+}
+
+test('the related row goes before similarCollapsible when the placement says so', async ({ page }) => {
+    await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, PLACED_RELATED('before:similar')));
+    await expect(page.locator('#mtgRelatedMissing')).toBeVisible();
+
+    const ids = await contentIds(page);
+    expect(ids.indexOf('mtgRelatedMissing')).toBe(ids.indexOf('similarCollapsible') - 1);
+});
+
+test('the related row goes beside the section the placement names, even a hidden one', async ({ page }) => {
+    await openItemPageWithCast(page, buildWebUiHarness(MOVIE_ITEM, PLACED_RELATED('after:cast')));
+    await expect(page.locator('#mtgRelatedMissing')).toBeVisible();
+
+    expect(await contentIds(page)).toEqual(['castCollapsible', 'mtgRelatedMissing', 'similarCollapsible']);
+});
+
+test('a placement naming a section the page lacks, or one the script does not know, lands after similarCollapsible', async ({ page }) => {
+    for (const placement of ['before:children', 'before:constructor']) {
+        await openItemPage(page, buildWebUiHarness(MOVIE_ITEM, PLACED_RELATED(placement)));
+        await expect(page.locator('#mtgRelatedMissing')).toBeVisible();
+        expect(await contentIds(page)).toEqual(['similarCollapsible', 'mtgRelatedMissing']);
+    }
+
+    const errors = await page.evaluate(() => window.__uiTestErrors);
+    expect(errors).toEqual([]);
+});
+
 test('no want-to-watch button when the caller cannot keep a list, but the TMDB link still works', async ({ page }) => {
     const related = { CanTodo: false, Reason: null, Titles: [{ GapId: 'recommendation:movie:2', Title: 'A Similar Movie', Year: 2005, Kind: 'Movie', TmdbId: 603, ImageUrl: null, Upcoming: false }] };
     const harnessPath = buildWebUiHarness(MOVIE_ITEM, related);

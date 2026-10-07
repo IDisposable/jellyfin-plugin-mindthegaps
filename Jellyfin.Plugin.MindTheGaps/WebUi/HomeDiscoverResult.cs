@@ -16,6 +16,18 @@ public sealed class HomeDiscoverResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets where the row goes on the home screen: empty for the bottom, <c>top</c>, or the home
+    /// section type it follows.
+    /// </summary>
+    public string Placement { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the caller's home slots in order, one section type each, when <see cref="Placement"/>
+    /// follows a section type; null otherwise.
+    /// </summary>
+    public IReadOnlyList<string>? HomeSections { get; set; }
+
+    /// <summary>
     /// Gets or sets the ranked titles.
     /// </summary>
     public IReadOnlyList<MissingTitle> Titles { get; set; } = Array.Empty<MissingTitle>();

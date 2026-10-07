@@ -5,10 +5,10 @@
 // renders only that letter's entities (so a huge tab does not render at once); "*" renders the
 // lot. Hidden when there is only one letter (nothing to choose).
 function renderLetterBar(page, letters, sel, counts, total) {
-    var bar = page.querySelector('#cgJump');
+    const bar = page.querySelector('#cgJump');
     if (letters.length < 2) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
-    var gapWord = function (n) { return n + (n === 1 ? ' gap' : ' gaps'); };
-    var html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters (' + gapWord(total) + ')' }, '*').outerHTML;
+    const gapWord = function (n) { return n + (n === 1 ? ' gap' : ' gaps'); };
+    let html = h('a', { 'class': 'cgJumpL cgJumpAll' + (sel === '*' ? ' cgJumpSel' : ''), 'data-l': '*', title: 'Show all letters (' + gapWord(total) + ')' }, '*').outerHTML;
     html += letters.map(function (L) {
         return h('a', { 'class': 'cgJumpL' + (sel === L ? ' cgJumpSel' : ''), 'data-l': L, title: gapWord((counts && counts[L]) || 0) }, L).outerHTML;
     }).join('');
@@ -20,29 +20,30 @@ function renderLetterBar(page, letters, sel, counts, total) {
 // coverage aggregate where sets carry counts (collections and series).
 function rollupHtml(items) {
     if (!items.length) { return ''; }
-    var noun = page_pattern_noun();
-    var byCat = groupBy(items, categoryOf);
+    const noun = page_pattern_noun();
+    const byCat = groupBy(items, categoryOf);
     byCat.order.sort(domainCompare());
-    var parts = byCat.order.map(function (cat) {
-        var catItems = byCat.map[cat];
-        var groups = {}, ownedSum = 0, totalSum = 0;
+    const parts = byCat.order.map(function (cat) {
+        const catItems = byCat.map[cat];
+        const groups = {};
+        let ownedSum = 0, totalSum = 0;
         catItems.forEach(function (it) {
-            var key = (it.SourceItemId || '') + '|' + (it.SourceItemName || '');
+            const key = (it.SourceItemId || '') + '|' + (it.SourceItemName || '');
             if (!groups[key]) {
                 groups[key] = true;
                 if (it.SetTotalCount) { ownedSum += (it.SetOwnedCount || 0); totalSum += it.SetTotalCount; }
             }
         });
-        var nGroups = Object.keys(groups).length;
-        var cov = totalSum ? ' ' + h('span', { 'class': 'cgRollupCov' }, '(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)').outerHTML : '';
-        var clear = clearBtn('domain', cat, 'everything shown for ' + cat);
+        const nGroups = Object.keys(groups).length;
+        const cov = totalSum ? ' ' + h('span', { 'class': 'cgRollupCov' }, '(' + ownedSum + ' of ' + totalSum + ' owned, ' + Math.round(ownedSum / totalSum * 100) + '%)').outerHTML : '';
+        const clear = clearBtn('domain', cat, 'everything shown for ' + cat);
         return h('b', null, cat).outerHTML + ': ' + catItems.length + ' gaps across ' + nGroups + ' ' + noun + (nGroups === 1 ? '' : 's') + cov + clear;
     });
     return parts.join(' &nbsp;&middot;&nbsp; ');
 }
 
 function page_pattern_noun() {
-    var p = (reportPage() || {})._pattern;
+    const p = (reportPage() || {})._pattern;
     if (p === 'CreatorWorks') { return 'creator'; }
     if (p === 'Recommendation') { return 'source'; }
     return 'set';
@@ -87,10 +88,10 @@ function refreshAcqConfig(page) {
 // one at a time. SendToArrBulk dispatches each gap to Radarr or Sonarr by its own kind, so one
 // button covers a selection mixing movies and series.
 function sendSelectedBulk(page, btn, endpoint, verb) {
-    var ids = selectedGapIds(page);
+    const ids = selectedGapIds(page);
     if (!ids.length) { return; }
     if (!window.confirm(verb + ' ' + ids.length + ' selected item(s)?')) { return; }
-    var html = btn.innerHTML;
+    const html = btn.innerHTML;
     btn.disabled = true;
     btn.textContent = verb + '…';
     ApiClient.ajax({
@@ -113,11 +114,11 @@ function sendSelectedBulk(page, btn, endpoint, verb) {
 // The multi-select bar's Resolve: one note applies to every checked row at once (ResolveBatch),
 // the same "ask once" shape the per-group batch-resolve button already uses.
 function resolveSelected(page, btn) {
-    var ids = selectedGapIds(page);
+    const ids = selectedGapIds(page);
     if (!ids.length) { return; }
-    var note = window.prompt('Resolve ' + ids.length + ' selected item(s) (not really missing).\nOptional note (e.g. why):', '');
+    const note = window.prompt('Resolve ' + ids.length + ' selected item(s) (not really missing).\nOptional note (e.g. why):', '');
     if (note === null) { return; }
-    var html = btn.innerHTML;
+    const html = btn.innerHTML;
     btn.disabled = true;
     ApiClient.ajax({
         type: 'POST',
@@ -139,7 +140,7 @@ function resolveSelected(page, btn) {
 // from the DOM: a collapsed Creator works or Discover group has no rows rendered yet, so reading the
 // DOM would silently verify nothing.
 function rowsInScope(page, scope, key) {
-    var shown = page._shown || [];
+    const shown = page._shown || [];
     if (scope === 'row') { return shown.filter(function (it) { return it.Id === key; }); }
     if (scope === 'domain') { return shown.filter(function (it) { return categoryOf(it) === key; }); }
     if (scope === 'kind') { return shown.filter(function (it) { return kindLabelOf(it) === key; }); }
@@ -150,9 +151,9 @@ function rowsInScope(page, scope, key) {
     if (scope === 'season') {
         // "<group name>|<season groupBy key>", where an episode with no season files under 'na',
         // matching how sourceBody groups them. Split on the last separator, since a name may contain one.
-        var cut = key.lastIndexOf('|');
-        var owner = key.slice(0, cut);
-        var season = key.slice(cut + 1);
+        const cut = key.lastIndexOf('|');
+        const owner = key.slice(0, cut);
+        const season = key.slice(cut + 1);
         return shown.filter(function (it) {
             return groupKeyOf(it) === owner && (it.Season == null ? 'na' : String(it.Season)) === season;
         });
@@ -181,7 +182,7 @@ function verifyGaps(page, ids) {
         contentType: 'application/json',
         data: JSON.stringify(ids)
     }).then(function (res) {
-        var removed = {};
+        const removed = {};
         ((res && res.RemovedIds) || []).forEach(function (id) { removed[id] = true; });
         if (!Object.keys(removed).length) { return res; }
 
@@ -203,8 +204,8 @@ function verifyGaps(page, ids) {
 // only thing that knows about rows removed from tabs this browser never loaded. The loaded tab is the
 // same object as its cached slice, so pruned reports are tracked to avoid filtering one twice.
 function pruneSlices(page, removed) {
-    var seen = [];
-    var prune = function (report) {
+    const seen = [];
+    const prune = function (report) {
         if (!report || !report.Items || seen.indexOf(report) !== -1) { return; }
         seen.push(report);
         report.Items = report.Items.filter(function (it) { return !removed[it.Id]; });
@@ -218,10 +219,10 @@ function pruneSlices(page, removed) {
 // they appear. A row whose owner has no per-item re-check contributes nothing, so the clear-down
 // never prompts for a pass the server would skip.
 function recheckableOwners(items) {
-    var seen = {};
-    var owners = [];
+    const seen = {};
+    const owners = [];
     items.forEach(function (it) {
-        var src = it.SourceItemId || '';
+        const src = it.SourceItemId || '';
         if (!ownerRecheckable(it) || seen[src]) { return; }
         seen[src] = true;
         owners.push(src);
@@ -235,13 +236,13 @@ function recheckableOwners(items) {
 function clearDownScope(page, items, label) {
     if (!items.length) { Dashboard.alert('Nothing shown to check.'); return Promise.resolve(); }
     return verifyGaps(page, items.map(function (it) { return it.Id; })).then(function (res) {
-        var cleared = (res && res.Owned) || 0;
-        var left = items.length - cleared;
+        const cleared = (res && res.Owned) || 0;
+        const left = items.length - cleared;
         // The server drops every gap about a title it confirms you own, so acquiring one film can clear
         // rows on tabs that are not even loaded (its collection, a studio set, a filmography). Say so,
         // rather than have the totals move by more than the rows that visibly went.
-        var elsewhere = Math.max(0, ((res && res.Removed) || cleared) - cleared);
-        var also = elsewhere ? ' (and ' + elsewhere + ' more elsewhere in the report)' : '';
+        const elsewhere = Math.max(0, ((res && res.Removed) || cleared) - cleared);
+        const also = elsewhere ? ' (and ' + elsewhere + ' more elsewhere in the report)' : '';
         if (cleared) { applyAndRender(page); }
         if (!left) {
             Dashboard.alert('Cleared all ' + cleared + ' item(s)' + label + also + '; you have them all now.');
@@ -249,9 +250,9 @@ function clearDownScope(page, items, label) {
         }
         // Re-check only the sources that still have something missing, not every source in scope, so a
         // mostly-clear heading costs a handful of provider calls instead of one per set.
-        var removed = (res && res.RemovedIds) || [];
-        var owners = recheckableOwners(items.filter(function (it) { return removed.indexOf(it.Id) === -1; }));
-        var msg = cleared
+        const removed = (res && res.RemovedIds) || [];
+        const owners = recheckableOwners(items.filter(function (it) { return removed.indexOf(it.Id) === -1; }));
+        const msg = cleared
             ? 'Cleared ' + cleared + ' item(s)' + label + also + '. ' + left + ' still missing.'
             : left + ' item(s)' + label + ' still missing.';
         if (!owners.length) { Dashboard.alert(msg); return; }

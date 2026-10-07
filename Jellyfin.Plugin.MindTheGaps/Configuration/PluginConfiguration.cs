@@ -75,6 +75,8 @@ public class PluginConfiguration : BasePluginConfiguration
         WantToWatchRemoveWatched = false;
         WantToWatchDetailBookmark = false;
         HomeRowSize = 20;
+        HomeRowPlacement = string.Empty;
+        ItemPagePlacement = string.Empty;
         PersonPageMinVotes = 0;
         PersonPageMinEpisodes = 2;
         MaxMissingEpisodesPerShow = 200;
@@ -537,6 +539,22 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the most titles the home Discover row shows.
     /// </summary>
     public int HomeRowSize { get; set; }
+
+    /// <summary>
+    /// Gets or sets where on the home screen the want-to-watch and Discover rows go: empty for the bottom,
+    /// <c>top</c>, or the name of one of jellyfin-web's home section types (<c>resume</c>, <c>nextup</c>, and
+    /// so on) to follow that section wherever the viewing user has placed it. A user whose home screen does
+    /// not show that section gets the rows at the bottom. See <see cref="WebUi.HomePlacement"/>.
+    /// </summary>
+    public string HomeRowPlacement { get; set; }
+
+    /// <summary>
+    /// Gets or sets where an item page's "you don't have" row goes: a side and one of jellyfin-web's own item
+    /// page sections (<c>after:similar</c>, <c>before:similar</c>, <c>after:cast</c>, and so on). Empty, or a
+    /// value the plugin does not know, is after "More Like This". A page that does not have the named section
+    /// gets the row after "More Like This". See <see cref="WebUi.ItemPlacement"/>.
+    /// </summary>
+    public string ItemPagePlacement { get; set; }
 
     /// <summary>
     /// Gets or sets the minimum TMDB vote count a movie credit needs to appear on the person page (0 shows

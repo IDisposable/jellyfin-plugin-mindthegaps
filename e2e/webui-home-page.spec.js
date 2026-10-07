@@ -24,6 +24,37 @@ async function simulateJellyfinsOwnSections(page) {
     });
 }
 
+// Lays out jellyfin-web's numbered home slots the way its homesections.js does, before it fills them.
+async function simulateNumberedSlots(page, count) {
+    await page.evaluate((n) => {
+        var sections = document.querySelector('#homeTab .sections');
+        for (var i = 0; i < n; i++) {
+            var slot = document.createElement('div');
+            slot.className = 'verticalSection section' + i;
+            sections.appendChild(slot);
+        }
+    }, count);
+}
+
+// The ids, or slot classes, of the home container's children in order.
+async function homeOrder(page) {
+    return page.evaluate(() => Array.prototype.map.call(document.querySelector('#homeTab .sections').children,
+        (c) => c.id || c.className.replace('verticalSection ', '')));
+}
+
+// sections: the user's slot order the server sends with a row when the placement follows a section type.
+const PLACED_DISCOVER = (placement, sections) => ({
+    Placement: placement,
+    HomeSections: sections || null,
+    Titles: [{ GapId: 'recommendation:movie:1', Title: 'A Recommended Movie', Kind: 'Movie', Year: 2001, TmdbId: 1, ImageUrl: null, Upcoming: false }]
+});
+const PLACED_WANTED = (placement, sections) => ({
+    Placement: placement,
+    HomeSections: sections || null,
+    Titles: [{ GapId: 'todo:1', Title: 'A Wanted Movie', Kind: 'Movie', Year: 1999, TmdbId: 9, ImageUrl: null, Upcoming: false, OnList: true }]
+});
+const SECTIONS = ['smalllibrarytiles', 'nextup', 'latestmedia', 'none', 'none', 'none', 'none', 'none', 'none', 'none'];
+
 async function openCardDialog(page, gapId) {
     await page.locator('[data-gapid="' + gapId + '"]').click();
     await expect(page.locator('.mtgDialogBackdrop')).toHaveClass(/mtgDialogOpen/);
@@ -117,4 +148,48 @@ test('the discover row uses the home markup: title in a padded-left container, s
     await expect(row).toBeVisible({ timeout: 2000 });
     await expect(row.locator('.sectionTitleContainer.sectionTitleContainer-cards.padded-left h2.sectionTitle')).toHaveText('Discover: not in your library');
     await expect(row.locator('[is="emby-scroller"]')).not.toHaveClass(/no-padding/);
+});
+
+test('placed after a section type, the rows follow the slot that holds it for this user, wanted first', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('nextup', SECTIONS), null, 1, undefined, undefined, PLACED_WANTED('nextup', SECTIONS)));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+
+    const order = await homeOrder(page);
+    expect(order.slice(0, 5)).toEqual(['section0', 'section1', 'mtgHomeWanted', 'mtgHomeDiscover', 'section2']);
+});
+
+test('the TV layout\'s extra library slot shifts the slots the way jellyfin-web does', async ({ page }) => {
+    const sections = ['resume', 'nextup', 'none', 'none', 'none', 'none', 'none', 'none', 'none', 'none'];
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('resume', sections)));
+    await page.evaluate(() => document.documentElement.classList.add('layout-tv'));
+    await simulateNumberedSlots(page, 11);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+
+    const order = await homeOrder(page);
+    expect(order.indexOf('mtgHomeDiscover')).toBe(order.indexOf('section1') + 1);
+});
+
+test('placed at the top, the rows go first', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('top'), null, 1, undefined, undefined, PLACED_WANTED('top')));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#mtgHomeWanted')).toBeVisible();
+
+    expect((await homeOrder(page)).slice(0, 3)).toEqual(['mtgHomeWanted', 'mtgHomeDiscover', 'section0']);
+});
+
+test('a section the user does not show, or no slot order from the server, leave the rows at the bottom', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('resume', SECTIONS)));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    expect((await homeOrder(page)).slice(-1)).toEqual(['mtgHomeDiscover']);
+
+    await openHomePage(page, buildWebUiHomeHarness(PLACED_DISCOVER('nextup')));
+    await simulateNumberedSlots(page, 10);
+    await expect(page.locator('#mtgHomeDiscover')).toBeVisible({ timeout: 2000 });
+    expect((await homeOrder(page)).slice(-1)).toEqual(['mtgHomeDiscover']);
+    const errors = await page.evaluate(() => window.__uiTestErrors);
+    expect(errors).toEqual([]);
 });

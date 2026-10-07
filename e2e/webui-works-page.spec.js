@@ -65,6 +65,15 @@ test('an artist page lists the missing albums after similarCollapsible, in norma
     expect(order).toBe(true);
 });
 
+test('the works row goes before similarCollapsible when the placement says so', async ({ page }) => {
+    const works = { ItemId: 'artist-1', ItemName: 'A Band', Kind: 'MusicAlbum', CanTodo: false, Reason: null, Placement: 'before:similar', Works: [ALBUM] };
+    await openItemPage(page, buildWebUiHarness(ARTIST_ITEM, works), 'artist-1');
+    await expect(page.locator('#mtgWorksMissing')).toBeVisible();
+
+    const ids = await page.evaluate(() => Array.prototype.map.call(document.querySelector('.detailPageContent').children, (c) => c.id));
+    expect(ids.indexOf('mtgWorksMissing')).toBeLessThan(ids.indexOf('similarCollapsible'));
+});
+
 test('an album card is square and a book card is portrait', async ({ page }) => {
     const albums = { Kind: 'MusicAlbum', CanTodo: false, Reason: null, Works: [ALBUM] };
     await openItemPage(page, buildWebUiHarness(ARTIST_ITEM, albums), 'artist-1');

@@ -3,7 +3,7 @@
 // this button do" always starts here.
 
 document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function () {
-    var page = this;
+    const page = this;
     // Jellyfin keeps this page element and re-fires pageshow on every navigation, so attach
     // the listeners once. Without this they stack, and a delegated handler fires N times (an
     // even count makes a header toggle a no-op, double-mints, etc.). The data still reloads
@@ -25,16 +25,16 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     page.querySelector('#RemovePreview').addEventListener('click', function () { runRemoval('RemoveMintedMovies?dryRun=true', null); });
     page.querySelector('#RemoveMinted').addEventListener('click', function () { runRemoval('RemoveMintedMovies', null); });
     page.querySelector('#cgAuditBtn').addEventListener('click', function () {
-        var btn = this;
-        var label = btn.querySelector('span');
-        var orig = label ? label.textContent : '';
+        const btn = this;
+        const label = btn.querySelector('span');
+        const orig = label ? label.textContent : '';
         btn.disabled = true;
         if (label) { label.textContent = 'Auditing…'; }
-        var auditDomain = page._domain || '';
-        var auditPattern = page._pattern || '';
+        const auditDomain = page._domain || '';
+        const auditPattern = page._pattern || '';
         // Name the file by domain and the domain-aware pattern label, the same as the gap export.
-        var auditLabel = auditPattern ? patternLabel(auditPattern, auditDomain) : '';
-        var auditParts = [auditDomain, auditLabel].filter(Boolean).map(slugify).join('-') || 'all';
+        const auditLabel = auditPattern ? patternLabel(auditPattern, auditDomain) : '';
+        const auditParts = [auditDomain, auditLabel].filter(Boolean).map(slugify).join('-') || 'all';
         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/DiagnoseAudit', { domain: auditDomain, pattern: auditPattern }), dataType: 'json' })
             .then(function (audit) {
                 downloadText('mind-the-gaps-identification-audit-' + auditParts + '.md', buildAuditMarkdown(audit));
@@ -88,7 +88,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (e.target === this) { closeDiagnose(); return; }
         if (e.target.closest('.cgDeepen')) { openDiagnose(this._gapId, this._name, true); return; }
         if (e.target.closest('.cgDiagExport')) {
-            var dx = this._res;
+            const dx = this._res;
             if (dx) { downloadText(diagFilename(dx, this._name), buildDiagnosisMarkdown(dx, this._name)); }
         }
     });
@@ -104,18 +104,18 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (e.target === this) { closeFulfillment(); }
     });
     document.getElementById('cgFulfillShowDone').addEventListener('change', function () {
-        var modal = document.getElementById('cgFulfillModal');
+        const modal = document.getElementById('cgFulfillModal');
         if (modal._data) { renderFulfillment(modal); }
     });
     document.getElementById('cgFulfillBody').addEventListener('click', function (e) {
         if (!e.target.closest) { return; }
         if (e.target.closest('a[href]')) { return; }
-        var doneBtn = e.target.closest('.cgFulfillDone');
+        const doneBtn = e.target.closest('.cgFulfillDone');
         if (doneBtn) {
-            var modal = document.getElementById('cgFulfillModal');
-            var rowId = doneBtn.getAttribute('data-rowid');
-            var items = (modal._data && modal._data.Items) || [];
-            var row = items.filter(function (r) { return r.Id === rowId; })[0];
+            const modal = document.getElementById('cgFulfillModal');
+            const rowId = doneBtn.getAttribute('data-rowid');
+            const items = (modal._data && modal._data.Items) || [];
+            const row = items.filter(function (r) { return r.Id === rowId; })[0];
             if (!row) { return; }
             doneBtn.disabled = true;
             ApiClient.ajax({
@@ -135,7 +135,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         }
     });
     document.getElementById('cgFulfillVerifyAll').addEventListener('click', function () {
-        var modal = document.getElementById('cgFulfillModal');
+        const modal = document.getElementById('cgFulfillModal');
         Dashboard.showLoadingMsg();
         verifyAllFulfillment(modal).then(function (res) {
             Dashboard.hideLoadingMsg();
@@ -147,13 +147,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         });
     });
     document.getElementById('cgFulfillExport').addEventListener('click', function () {
-        var modal = document.getElementById('cgFulfillModal');
+        const modal = document.getElementById('cgFulfillModal');
         downloadText('mind-the-gaps-fulfillment-queue.md', buildFulfillmentMarkdown(modal));
     });
     // A row's checkbox selects that row; a header's (and the rollup line's) selects every id it was built
     // over, whether or not the rows under it exist yet.
     function onSelectChange(e) {
-        var t = e.target;
+        const t = e.target;
         if (!t || !t.classList) { return; }
         if (t.classList.contains('cgSel')) { setSelected(page, [t.getAttribute('data-gapid')], t.checked); }
         else if (t.classList.contains('cgGrpSel')) { setSelected(page, selGroups[t.getAttribute('data-cgsel')] || [], t.checked); }
@@ -163,7 +163,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // "Hide items with no sources" needs before it can act.
     page.querySelector('#cgFilterHint').addEventListener('click', function (e) {
         if (!e.target.closest) { return; }
-        var enableAvail = e.target.closest('#cgEnableAvail');
+        const enableAvail = e.target.closest('#cgEnableAvail');
         if (enableAvail) { startAvailability(page, enableAvail); return; }
         if (e.target.closest('#cgShowFiltered')) {
             this._clear();
@@ -173,12 +173,12 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     });
     page.querySelector('#cgRollup').addEventListener('change', onSelectChange);
     page.querySelector('#cgMintSelected').addEventListener('click', function () {
-        var ids = mintableSelectedIds(page);
+        const ids = mintableSelectedIds(page);
         if (!ids.length) { return; }
         if (!window.confirm('Mint ' + ids.length + ' selected item(s) as virtual placeholders?')) { return; }
-        var btn = this;
-        var label = btn.querySelectorAll('span')[1];
-        var labelHtml = label ? label.innerHTML : '';
+        const btn = this;
+        const label = btn.querySelectorAll('span')[1];
+        const labelHtml = label ? label.innerHTML : '';
         btn.disabled = true;
 
         // Runs in the background so a big selection cannot time out the request.
@@ -231,7 +231,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         startScan(page, this);
     });
     page.querySelector('#cgTabs').addEventListener('click', function (e) {
-        var tab = e.target.closest ? e.target.closest('.cgTab') : null;
+        const tab = e.target.closest ? e.target.closest('.cgTab') : null;
         if (!tab) { return; }
         page._lettersByDomain = page._lettersByDomain || {};
         page._lettersByDomain[page._domain] = page._letter;
@@ -284,29 +284,29 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         startAvailability(page, this);
     });
     page.querySelector('#cgSaveView').addEventListener('click', function () {
-        var name = (window.prompt('Save current filters as a view named:', '') || '').trim().slice(0, 60);
+        const name = (window.prompt('Save current filters as a view named:', '') || '').trim().slice(0, 60);
         if (!name) { return; }
-        var views = loadViews();
+        const views = loadViews();
         views[name] = captureView(page);
         storeViews(views);
         renderViews(page);
         page.querySelector('#cgViews').value = name;
     });
     page.querySelector('#cgViews').addEventListener('change', function () {
-        var views = loadViews();
+        const views = loadViews();
         if (this.value && views[this.value]) { applyView(page, views[this.value]); }
     });
     page.querySelector('#cgDeleteView').addEventListener('click', function () {
-        var sel = page.querySelector('#cgViews').value;
+        const sel = page.querySelector('#cgViews').value;
         if (!sel) { return; }
-        var views = loadViews();
+        const views = loadViews();
         delete views[sel];
         storeViews(views);
         renderViews(page);
     });
     page.querySelector('#cgShareLink').addEventListener('click', function () {
-        var url = shareUrl(page);
-        var ok = function () { Dashboard.alert('Link copied. It opens this view (tab and filters) when pasted.'); };
+        const url = shareUrl(page);
+        const ok = function () { Dashboard.alert('Link copied. It opens this view (tab and filters) when pasted.'); };
         // Clipboard API needs a secure context; fall back to a prompt the user can copy from.
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url).then(ok, function () { window.prompt('Copy this link:', url); });
@@ -316,7 +316,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     });
     page.querySelector('#cgHiddenCreators').addEventListener('click', function (e) {
         if (!e.target.closest || !e.target.closest('#cgRestoreCreatorBtn')) { return; }
-        var sel = page.querySelector('#cgHiddenCreatorSel');
+        const sel = page.querySelector('#cgHiddenCreatorSel');
         if (!sel || !sel.value) { return; }
         ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('MindTheGaps/Unresolve', { id: sel.value }) })
             .then(function () { fetchResolved().then(function () { applyAndRender(page); }); })
@@ -328,13 +328,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // what it cleared rather than doing it silently.
     page.querySelector('#cgExport').addEventListener('click', function () {
         if (!page._report) { return; }
-        var write = function () {
+        const write = function () {
             // Name the file by the active domain and the domain-aware pattern label (the same words
             // shown on screen), each lowercased with all whitespace turned to hyphens, so it reads
             // consistently and each domain's export of a pattern keeps its own filename.
-            var domainValue = page._domain || '';
-            var label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
-            var parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
+            const domainValue = page._domain || '';
+            const label = page._pattern ? patternLabel(page._pattern, domainValue) : 'report';
+            const parts = [domainValue, label].filter(Boolean).map(slugify).join('-');
             Dashboard.showLoadingMsg();
             ensureFullForExport(page).then(function () {
                 Dashboard.hideLoadingMsg();
@@ -346,13 +346,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         };
 
         // Verify exactly what is about to be written, not just the letter on screen.
-        var toWrite = exportItems(page);
+        const toWrite = exportItems(page);
         if (!toWrite.length) { write(); return; }
 
         Dashboard.showLoadingMsg();
         verifyGaps(page, toWrite.map(function (it) { return it.Id; })).then(function (res) {
             Dashboard.hideLoadingMsg();
-            var cleared = (res && res.Removed) || 0;
+            const cleared = (res && res.Removed) || 0;
             if (cleared) {
                 applyAndRender(page);
                 Dashboard.alert('Cleared ' + cleared + ' item(s) you already have; the export leaves them out.');
@@ -374,10 +374,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // scopes to one media domain, which on a tab with no kind headings (Creator works, Discover, or a
     // Set completion whose domain has a single kind) is the only level between a group and the tab.
     page.querySelector('#cgRollup').addEventListener('click', function (e) {
-        var rEl = e.target.closest ? e.target.closest('.cgClear') : null;
+        const rEl = e.target.closest ? e.target.closest('.cgClear') : null;
         if (!rEl) { return; }
-        var rKey = rEl.getAttribute('data-key') || '';
-        var rRows = rowsInScope(page, 'domain', rKey);
+        const rKey = rEl.getAttribute('data-key') || '';
+        const rRows = rowsInScope(page, 'domain', rKey);
         if (!rRows.length) { return; }
         if (!window.confirm('Check all ' + rRows.length + ' item(s) under ' + rKey + ' against your library and clear the ones you have?')) { return; }
         rEl.classList.add('cgBusy');
@@ -389,7 +389,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // first because it is not undoable in place (a cleared row comes back on the next scan only if it
     // is genuinely still missing).
     page.querySelector('#cgVerifyShown').addEventListener('click', function () {
-        var shown = page._shown || [];
+        const shown = page._shown || [];
         if (!shown.length) { Dashboard.alert('Nothing shown to check.'); return; }
         if (!window.confirm('Check all ' + shown.length + ' shown item(s) against your library and clear the ones you have?')) { return; }
         Dashboard.showLoadingMsg();
@@ -398,13 +398,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             .then(function () { Dashboard.hideLoadingMsg(); });
     });
     page.querySelector('#cgJump').addEventListener('click', function (e) {
-        var a = e.target.closest ? e.target.closest('.cgJumpL') : null;
+        const a = e.target.closest ? e.target.closest('.cgJumpL') : null;
         if (!a) { return; }
         // Select the letter (or "*" for all): re-render that letter's items and scroll to top.
         page._letter = a.getAttribute('data-l');
         saveFilters(page);
         applyAndRender(page);
-        var sc = scrollerFor(page);
+        const sc = scrollerFor(page);
         if (sc) { sc.scrollTop = 0; }
     });
     page.querySelector('#cgMonFilter').addEventListener('change', function () {
@@ -413,9 +413,9 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (page._report) { applyAndRender(page); }
     });
     page.querySelector('#cgProviderFilter').addEventListener('change', function (e) {
-        var cb = e.target.closest ? e.target.closest('.cgProv') : null;
+        const cb = e.target.closest ? e.target.closest('.cgProv') : null;
         if (!cb) { return; }
-        var name = cb.getAttribute('data-prov');
+        const name = cb.getAttribute('data-prov');
         if (cb.checked) { delete disabledProviders[name]; } else { disabledProviders[name] = true; }
         renderProviderFilter(page);
         saveFilters(page);
@@ -429,8 +429,8 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             saveFilters(page);
             return;
         }
-        var all = e.target.closest ? e.target.closest('.cgProvAll') : null;
-        var none = e.target.closest ? e.target.closest('.cgProvNone') : null;
+        const all = e.target.closest ? e.target.closest('.cgProvAll') : null;
+        const none = e.target.closest ? e.target.closest('.cgProvNone') : null;
         if (!all && !none) { return; }
         disabledProviders = {};
         if (none) { knownProviders.forEach(function (n) { disabledProviders[n] = true; }); }
@@ -451,12 +451,12 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // wrapper rules out position:fixed ever landing in the right place here (see mindthegaps.css's
     // .cgRow comment), so .cgPop[open] claims the icon row's full width via flex-basis instead.
     page.querySelector('#cgList').addEventListener('toggle', function (e) {
-        var det = e.target;
+        const det = e.target;
         if (!det.matches || !det.matches('.cgPop')) { return; }
         if (det.open) {
-            var openOnes = page.querySelectorAll('#cgList .cgPop[open]');
-            for (var i = 0; i < openOnes.length; i++) {
-                var o = openOnes[i];
+            const openOnes = page.querySelectorAll('#cgList .cgPop[open]');
+            for (let i = 0; i < openOnes.length; i++) {
+                const o = openOnes[i];
                 if (o !== det && !o.contains(det) && !det.contains(o)) { o.open = false; }
             }
         }
@@ -468,11 +468,11 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // the title first, indistinguishable from moving away entirely. cgPinned, set by clicking
     // the title, is cleared only by clicking that title again or another row's (the click handler,
     // near the popover accordion above, keeps only one pinned at a time the same way).
-    var ensureExpandedDetailBuilt = function (row) {
-        var detailEl = row && row.querySelector('.cgTitleDetail');
+    const ensureExpandedDetailBuilt = function (row) {
+        const detailEl = row && row.querySelector('.cgTitleDetail');
         if (!detailEl || detailEl.dataset.built) { return detailEl; }
         detailEl.dataset.built = '1';
-        var item = findRowItem(page, row.getAttribute('data-gapid'));
+        const item = findRowItem(page, row.getAttribute('data-gapid'));
         if (item) {
             detailEl.innerHTML = wrap('div', { style: 'opacity:.7;' }, 'Loading');
             ensureItemDetail(item).then(function (full) { detailEl.innerHTML = buildExpandedDetailBody(full); primeSendProfilePickers(detailEl); });
@@ -483,9 +483,9 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // so it is fetched on the first hover and set as the title attribute, which the browser reads when it
     // decides to show the tooltip, a beat after the pointer settles.
     page.querySelector('#cgList').addEventListener('mouseover', function (e) {
-        var titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
+        const titleEl = e.target.closest ? e.target.closest('.cgTitle') : null;
         if (!titleEl || titleEl.hasAttribute('title')) { return; }
-        var item = findRowItem(page, titleEl.closest('.cgRow').getAttribute('data-gapid'));
+        const item = findRowItem(page, titleEl.closest('.cgRow').getAttribute('data-gapid'));
         if (!item || !item.HasOverview) { return; }
         ensureItemDetail(item).then(function (full) {
             if (full.Overview) { titleEl.setAttribute('title', full.Overview); }
@@ -497,17 +497,17 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // than showing the browser's broken-image icon. 'error' does not bubble, so this runs in the
     // capture phase to see it via delegation, the same reason 'toggle' does above.
     page.querySelector('#cgList').addEventListener('error', function (e) {
-        var img = e.target;
+        const img = e.target;
         // The server's route did not answer with an image (or a redirect to one): try the provider directly
         // before giving up on the image.
-        var direct = img.getAttribute && img.getAttribute('data-direct');
+        const direct = img.getAttribute && img.getAttribute('data-direct');
         if (direct && img.getAttribute('src') !== direct) {
             img.setAttribute('src', direct);
             return;
         }
         if (img.matches && img.matches('img.cgSvc')) {
             // A service logo that will not load falls back to the service's initial, like an absent one.
-            var initial = document.createElement('span');
+            const initial = document.createElement('span');
             initial.className = 'cgSvc cgSvcText';
             initial.title = img.title;
             initial.textContent = (img.alt || '?').charAt(0).toUpperCase();
@@ -515,7 +515,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
         if (!img.matches || !img.matches('img.cgThumb')) { return; }
-        var placeholder = document.createElement('span');
+        const placeholder = document.createElement('span');
         placeholder.className = 'cgThumb cgThumbEmpty';
         img.replaceWith(placeholder);
     }, true);
@@ -525,10 +525,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') { return; }
         // A key on a header's own control (its select-all checkbox) is that control's, not a toggle.
         if (e.target.matches && e.target.matches('input, a, button')) { return; }
-        var hdr = e.target.closest ? e.target.closest('.cgHdr') : null;
+        const hdr = e.target.closest ? e.target.closest('.cgHdr') : null;
         if (hdr && hdr.parentElement) {
             e.preventDefault();
-            var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
+            const nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
             if (!nowCollapsed && ensureGroupBody(hdr.parentElement)) { syncSelection(page); }
         }
@@ -536,8 +536,8 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     page.querySelector('#cgList').addEventListener('click', function (e) {
         if (!e.target.closest) { return; }
 
-        var summary = e.target.closest('summary');
-        var pop = summary && summary.parentElement;
+        const summary = e.target.closest('summary');
+        const pop = summary && summary.parentElement;
         if (pop && pop.matches && pop.matches('.cgPop[data-pop]')
             && pop.closest('#cgList') === e.currentTarget) {
             e.preventDefault();
@@ -548,14 +548,14 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
 
         // Clicking a title pins its detail open (cgPinned) until that title is clicked again or
         // another row's is: only one row is pinned at a time.
-        var clickedTitle = e.target.closest('.cgTitle');
+        const clickedTitle = e.target.closest('.cgTitle');
         if (clickedTitle) {
-            var pinnedRow = clickedTitle.closest('.cgRow');
-            var pinnedDetail = ensureExpandedDetailBuilt(pinnedRow);
+            const pinnedRow = clickedTitle.closest('.cgRow');
+            const pinnedDetail = ensureExpandedDetailBuilt(pinnedRow);
             if (pinnedDetail) {
-                var wasPinned = pinnedDetail.classList.contains('cgPinned');
-                var otherPinned = page.querySelectorAll('#cgList .cgTitleDetail.cgPinned');
-                for (var pi = 0; pi < otherPinned.length; pi++) {
+                const wasPinned = pinnedDetail.classList.contains('cgPinned');
+                const otherPinned = page.querySelectorAll('#cgList .cgTitleDetail.cgPinned');
+                for (let pi = 0; pi < otherPinned.length; pi++) {
                     if (otherPinned[pi] !== pinnedDetail) { otherPinned[pi].classList.remove('cgPinned'); }
                 }
                 pinnedDetail.classList.toggle('cgPinned', !wasPinned);
@@ -568,13 +568,13 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         // controls (Diagnose, dismiss, batch) carry no href, so they fall through to handling.
         if (e.target.closest('a[href]')) { return; }
 
-        var resolveBtn = e.target.closest('.cgResolve');
+        const resolveBtn = e.target.closest('.cgResolve');
         if (resolveBtn) {
-            var rid = resolveBtn.getAttribute('data-gapid');
-            var rItems = (page._report && page._report.Items) || [];
-            var rName = 'this item';
-            for (var ri = 0; ri < rItems.length; ri++) { if (rItems[ri].Id === rid) { rName = rItems[ri].Name || 'this item'; break; } }
-            var note = window.prompt('Resolve "' + rName + '" (not really missing).\nOptional note (e.g. why):', '');
+            const rid = resolveBtn.getAttribute('data-gapid');
+            const rItems = (page._report && page._report.Items) || [];
+            let rName = 'this item';
+            for (let ri = 0; ri < rItems.length; ri++) { if (rItems[ri].Id === rid) { rName = rItems[ri].Name || 'this item'; break; } }
+            let note = window.prompt('Resolve "' + rName + '" (not really missing).\nOptional note (e.g. why):', '');
             if (note === null) { return; }
             note = note.trim().slice(0, 100);
             ApiClient.ajax({
@@ -587,7 +587,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var niBtn = e.target.closest('.cgNotInterested');
+        const niBtn = e.target.closest('.cgNotInterested');
         if (niBtn) {
             ApiClient.ajax({
                 type: 'POST',
@@ -599,7 +599,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var snoozeBtn = e.target.closest('.cgSnooze');
+        const snoozeBtn = e.target.closest('.cgSnooze');
         if (snoozeBtn) {
             ApiClient.ajax({
                 type: 'POST',
@@ -611,7 +611,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var clearResBtn = e.target.closest('.cgClearResolve');
+        const clearResBtn = e.target.closest('.cgClearResolve');
         if (clearResBtn) {
             ApiClient.ajax({
                 type: 'POST',
@@ -622,20 +622,20 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         }
 
         // Batch resolve / not-interested for every listed gap under a series or season group.
-        var batchBtn = e.target.closest('.cgBatchResolve') || e.target.closest('.cgBatchNotInterested');
+        const batchBtn = e.target.closest('.cgBatchResolve') || e.target.closest('.cgBatchNotInterested');
         if (batchBtn) {
-            var notInterested = !!e.target.closest('.cgBatchNotInterested');
-            var grp = batchBtn.closest('.cgGroup');
+            const notInterested = !!e.target.closest('.cgBatchNotInterested');
+            const grp = batchBtn.closest('.cgGroup');
             if (!grp) { return; }
-            var rows = grp.querySelectorAll('.cgRow');
-            var ids = [];
-            for (var bi = 0; bi < rows.length; bi++) {
-                var bid = rows[bi].getAttribute('data-gapid');
+            const rows = grp.querySelectorAll('.cgRow');
+            const ids = [];
+            for (let bi = 0; bi < rows.length; bi++) {
+                const bid = rows[bi].getAttribute('data-gapid');
                 if (bid) { ids.push(bid); }
             }
             if (!ids.length) { return; }
-            var blabel = batchBtn.getAttribute('data-label') || 'this group';
-            var verb = notInterested ? 'mark as not interested' : 'resolve';
+            const blabel = batchBtn.getAttribute('data-label') || 'this group';
+            const verb = notInterested ? 'mark as not interested' : 'resolve';
             if (!window.confirm('This will ' + verb + ' all ' + ids.length + ' listed item(s) under ' + blabel + '. Continue?')) { return; }
             ApiClient.ajax({
                 type: 'POST',
@@ -649,11 +649,11 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
 
         // The one clear-down control, wherever it was clicked. The scope decides which of the rows on
         // screen it covers; the behavior past that is identical at every level.
-        var clearEl = e.target.closest('.cgClear');
+        const clearEl = e.target.closest('.cgClear');
         if (clearEl) {
-            var scope = clearEl.getAttribute('data-scope') || '';
-            var key = clearEl.getAttribute('data-key') || '';
-            var picked = rowsInScope(page, scope, key);
+            const scope = clearEl.getAttribute('data-scope') || '';
+            const key = clearEl.getAttribute('data-key') || '';
+            const picked = rowsInScope(page, scope, key);
             if (!picked.length) { return; }
             // Only the wide scopes confirm first: a row or a season is small enough to just do.
             if ((scope === 'domain' || scope === 'kind')
@@ -668,10 +668,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var dismissCreatorBtn = e.target.closest('.cgDismissCreator');
+        const dismissCreatorBtn = e.target.closest('.cgDismissCreator');
         if (dismissCreatorBtn) {
-            var dcGuid = dismissCreatorBtn.getAttribute('data-gapid');
-            var dcName = dismissCreatorBtn.getAttribute('data-name') || 'this creator';
+            const dcGuid = dismissCreatorBtn.getAttribute('data-gapid');
+            const dcName = dismissCreatorBtn.getAttribute('data-name') || 'this creator';
             if (!window.confirm('Stop scanning "' + dcName + '" and hide all their gaps?')) { return; }
             ApiClient.ajax({
                 type: 'POST',
@@ -683,10 +683,10 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var dismissRecSrcBtn = e.target.closest('.cgDismissRecSource');
+        const dismissRecSrcBtn = e.target.closest('.cgDismissRecSource');
         if (dismissRecSrcBtn) {
-            var rsGuid = dismissRecSrcBtn.getAttribute('data-gapid');
-            var rsName = dismissRecSrcBtn.getAttribute('data-name') || 'this title';
+            const rsGuid = dismissRecSrcBtn.getAttribute('data-gapid');
+            const rsName = dismissRecSrcBtn.getAttribute('data-name') || 'this title';
             if (!window.confirm('Stop recommendations from "' + rsName + '"?')) { return; }
             ApiClient.ajax({
                 type: 'POST',
@@ -698,7 +698,7 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var restoreCreatorBtn = e.target.closest('.cgRestoreCreator');
+        const restoreCreatorBtn = e.target.closest('.cgRestoreCreator');
         if (restoreCreatorBtn) {
             ApiClient.ajax({
                 type: 'POST',
@@ -708,11 +708,11 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var mintBtn = e.target.closest('.cgMint');
+        const mintBtn = e.target.closest('.cgMint');
         if (mintBtn) {
-            var gid = mintBtn.getAttribute('data-gapid');
+            const gid = mintBtn.getAttribute('data-gapid');
             if (!gid) { return; }
-            var mintHtml = mintBtn.innerHTML;
+            const mintHtml = mintBtn.innerHTML;
             mintBtn.textContent = 'Minting…';
             mintBtn.disabled = true;
             ApiClient.ajax({
@@ -731,21 +731,21 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var sendArrBtn = e.target.closest('.cgSendArr');
-        var sendSeerrBtn = e.target.closest('.cgSendSeerr');
-        var sendBtn = sendArrBtn || sendSeerrBtn;
+        const sendArrBtn = e.target.closest('.cgSendArr');
+        const sendSeerrBtn = e.target.closest('.cgSendSeerr');
+        const sendBtn = sendArrBtn || sendSeerrBtn;
         if (sendBtn) {
-            var sgid = sendBtn.getAttribute('data-gapid');
+            const sgid = sendBtn.getAttribute('data-gapid');
             if (!sgid) { return; }
-            var sendEndpoint = sendArrBtn ? 'SendToArr' : 'SendToSeerr';
-            var sendParams = { id: sgid };
+            const sendEndpoint = sendArrBtn ? 'SendToArr' : 'SendToSeerr';
+            const sendParams = { id: sgid };
             // The picker sits beside the button as a sibling, keyed by the same kind, and is only ever
             // populated once its lookup resolves; an empty/hidden select just leaves the param off, and
             // SendToArr falls back to the configured default profile.
-            var sendKind = sendArrBtn && sendArrBtn.getAttribute('data-kind');
-            var profileSelect = sendKind && sendBtn.parentNode && sendBtn.parentNode.querySelector('.cgSendProfile[data-kind="' + sendKind + '"]');
+            const sendKind = sendArrBtn && sendArrBtn.getAttribute('data-kind');
+            const profileSelect = sendKind && sendBtn.parentNode && sendBtn.parentNode.querySelector('.cgSendProfile[data-kind="' + sendKind + '"]');
             if (profileSelect && profileSelect.value) { sendParams.qualityProfileId = profileSelect.value; }
-            var sendHtml = sendBtn.innerHTML;
+            const sendHtml = sendBtn.innerHTML;
             sendBtn.textContent = 'Sending…';
             sendBtn.disabled = true;
             ApiClient.ajax({
@@ -764,20 +764,20 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
             return;
         }
 
-        var diagBtn = e.target.closest('.cgDiagnose');
+        const diagBtn = e.target.closest('.cgDiagnose');
         if (diagBtn) {
             openDiagnose(diagBtn.getAttribute('data-gapid'), diagBtn.getAttribute('data-name') || 'this title');
             return;
         }
 
-        var todoAddBtn = e.target.closest('.cgTodoAdd');
+        const todoAddBtn = e.target.closest('.cgTodoAdd');
         if (todoAddBtn) {
-            var tgid = todoAddBtn.getAttribute('data-gapid');
+            const tgid = todoAddBtn.getAttribute('data-gapid');
             if (tgid) { todoAdd([tgid], todoAddBtn); }
             return;
         }
 
-        var watchBtn = e.target.closest('.cgWatch');
+        const watchBtn = e.target.closest('.cgWatch');
         if (watchBtn) {
             handleWatchClick(page, watchBtn);
             return;
@@ -786,9 +786,9 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
         // A checkbox (a row's, or a header's select-all) keeps its own click; the change listener acts on it.
         if (e.target.closest('input[type=checkbox]')) { return; }
 
-        var hdr = e.target.closest('.cgHdr');
+        const hdr = e.target.closest('.cgHdr');
         if (hdr && hdr.parentElement) {
-            var nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
+            const nowCollapsed = hdr.parentElement.classList.toggle('cgCollapsed');
             hdr.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
             if (!nowCollapsed && ensureGroupBody(hdr.parentElement)) { syncSelection(page); }
             return;
@@ -797,11 +797,11 @@ document.querySelector('#MindTheGapsPage').addEventListener('pageshow', function
     // Floating "back to top" button: show it once scrolled down, and scroll the report's
     // own scroll container (or the window, whichever actually scrolls) back to the top.
     (function () {
-        var topBtn = page.querySelector('#cgScrollTop');
-        var scroller = scrollerFor(page);
-        var listenOn = (scroller === document.scrollingElement || scroller === document.documentElement) ? window : scroller;
+        const topBtn = page.querySelector('#cgScrollTop');
+        const scroller = scrollerFor(page);
+        const listenOn = (scroller === document.scrollingElement || scroller === document.documentElement) ? window : scroller;
         function onScroll() {
-            var y = scroller.scrollTop || window.pageYOffset || 0;
+            const y = scroller.scrollTop || window.pageYOffset || 0;
             topBtn.style.display = y > 300 ? 'inline-flex' : 'none';
         }
         listenOn.addEventListener('scroll', onScroll, { passive: true });

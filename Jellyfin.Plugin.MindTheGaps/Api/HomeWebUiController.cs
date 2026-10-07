@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
@@ -28,6 +29,7 @@ public class HomeWebUiController : WebUiControllerBase
     private readonly WantedRowService _wanted;
     private readonly WatchlistSearchService _search;
     private readonly WatchlistPlaylistService _playlist;
+    private readonly HomeSections _sections;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HomeWebUiController"/> class.
@@ -38,13 +40,15 @@ public class HomeWebUiController : WebUiControllerBase
     /// <param name="todo">The per-user todo-list store, for the want-to-watch row's removal.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="playlist">The want-to-watch playlist, for the row's removal of an owned title.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist)
+    /// <param name="sections">Reads the caller's home screen slot order, for where the rows go.</param>
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, HomeSections sections)
         : base(todo, access)
     {
         _home = home;
         _wanted = wanted;
         _search = search;
         _playlist = playlist;
+        _sections = sections;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);
@@ -70,6 +74,7 @@ public class HomeWebUiController : WebUiControllerBase
         var result = _home.Get(size);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
+        (result.Placement, result.HomeSections) = Placement(Plugin.Instance?.Configuration);
         WantedMarker.Mark(result.Titles, wanted);
         return result;
     }
@@ -122,8 +127,11 @@ public class HomeWebUiController : WebUiControllerBase
             return NotFound();
         }
 
-        var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
-        return _wanted.Get(id, size);
+        var config = Plugin.RequireConfiguration();
+        var size = limit is > 0 ? Math.Min(limit.Value, 100) : config.HomeRowSize;
+        var result = _wanted.Get(id, size);
+        (result.Placement, result.HomeSections) = Placement(config);
+        return result;
     }
 
     /// <summary>
@@ -220,4 +228,12 @@ public class HomeWebUiController : WebUiControllerBase
         => string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase)
             ? GapSourceKeys.WatchlistSearchSeries.Gap(tmdbId.ToString(CultureInfo.InvariantCulture))
             : GapSourceKeys.WatchlistSearchMovie.Gap(tmdbId.ToString(CultureInfo.InvariantCulture));
+
+    // Where the rows go, and the caller's slot order when that follows a section type.
+    private (string Placement, IReadOnlyList<string>? Sections) Placement(PluginConfiguration? config)
+    {
+        var placement = HomePlacement.Of(config);
+        Guid? userId = TodoOwner.TryGetUserId(User, out var id) ? id : null;
+        return (placement, _sections.For(userId, placement));
+    }
 }

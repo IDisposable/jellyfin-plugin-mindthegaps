@@ -6,9 +6,9 @@
 // its deferred body built now, so its rows are present for the open-row and selection restore (and
 // visible); what that build adds (a letter bucket's own groups) is restored the same way.
 function restoreCollapsed(root, collapsed) {
-    var groups = root.querySelectorAll('.cgGroup');
-    for (var i = 0; i < groups.length; i++) {
-        var k = groupKey(groups[i]);
+    const groups = root.querySelectorAll('.cgGroup');
+    for (let i = 0; i < groups.length; i++) {
+        const k = groupKey(groups[i]);
         if (k in collapsed) { groups[i].classList.toggle('cgCollapsed', collapsed[k]); }
         if (!groups[i].classList.contains('cgCollapsed') && ensureGroupBody(groups[i])) {
             restoreCollapsed(groups[i].querySelector('.cgBody'), collapsed);
@@ -17,24 +17,24 @@ function restoreCollapsed(root, collapsed) {
 }
 
 function applyAndRender(page) {
-    var report = page._report || { Items: [] };
+    const report = page._report || { Items: [] };
     currentSort = page.querySelector('#cgSort').value || 'title';
     renderTabs(page);
     renderTypeFilter(page);
-    var pass = buildFilter(page);
-    var items = (report.Items || []).filter(function (it) {
+    const pass = buildFilter(page);
+    const items = (report.Items || []).filter(function (it) {
         return it.PatternName === page._pattern && pass(it);
     });
 
     // Resolve the A-Z selection: keep the current letter if still present, else default to "*"
     // for a small list (show everything) or the first letter for a large one (render one letter
     // at a time). displayItems is what the list renders; the rollup still summarises the whole tab.
-    var letters = lettersOf(items, page._pattern);
-    var letter = page._letter;
+    const letters = lettersOf(items, page._pattern);
+    let letter = page._letter;
     if (letter !== '*' && letters.indexOf(letter) === -1) { letter = null; }
     if (!letter) { letter = (letters.length <= 1 || items.length <= 400) ? '*' : letters[0]; }
     page._letter = letter;
-    var displayItems = letter === '*' ? items
+    const displayItems = letter === '*' ? items
         : items.filter(function (it) { return itemLetters(it, page._pattern).indexOf(letter) !== -1; });
 
     // What the list is about to show, so a group's clear-down verifies exactly the rows on screen
@@ -46,12 +46,12 @@ function applyAndRender(page) {
     // under another pattern, say so. Both checks come from the summary counts, not report.Items, which
     // is already narrowed to this exact domain+pattern by the fetch and so cannot see what another
     // pattern has. A narrowing filter that hides rows is named by the filter hint above the list.
-    var patternCounts = patternCountsFor(page, page._domain);
-    var rawForPattern = patternCounts[page._pattern] || 0;
-    var rawForDomain = Object.keys(patternCounts).reduce(function (sum, k) { return sum + patternCounts[k]; }, 0);
-    var unfiltered = buildFilter(page, true);
-    var narrowedAway = (report.Items || []).some(function (it) { return it.PatternName === page._pattern && unfiltered(it); });
-    var empty;
+    const patternCounts = patternCountsFor(page, page._domain);
+    const rawForPattern = patternCounts[page._pattern] || 0;
+    const rawForDomain = Object.keys(patternCounts).reduce(function (sum, k) { return sum + patternCounts[k]; }, 0);
+    const unfiltered = buildFilter(page, true);
+    const narrowedAway = (report.Items || []).some(function (it) { return it.PatternName === page._pattern && unfiltered(it); });
+    let empty;
     if (rawForPattern === 0 && rawForDomain > 0) {
         empty = h('p', { 'class': 'fieldDescription' }, 'No ' + patternLabel(page._pattern, page._domain) + ' gaps in this domain. Pick another pattern from the menu above.').outerHTML;
     } else if (narrowedAway) {
@@ -63,21 +63,21 @@ function applyAndRender(page) {
         empty = h('p', { 'class': 'fieldDescription' }, 'No gaps on this tab. Pick another tab, or rescan to refresh.').outerHTML;
     }
 
-    var listEl = page.querySelector('#cgList');
+    const listEl = page.querySelector('#cgList');
 
     // Snapshot what the user has expanded/collapsed and where they are scrolled, so a re-render
     // (resolving a row, toggling a filter) does not throw it all away. The selection is kept apart
     // from the DOM, so it only needs trimming to what is still shown.
-    var collapsed = {};
-    var pg = listEl.querySelectorAll('.cgGroup');
-    for (var gi = 0; gi < pg.length; gi++) { collapsed[groupKey(pg[gi])] = pg[gi].classList.contains('cgCollapsed'); }
+    const collapsed = {};
+    const pg = listEl.querySelectorAll('.cgGroup');
+    for (let gi = 0; gi < pg.length; gi++) { collapsed[groupKey(pg[gi])] = pg[gi].classList.contains('cgCollapsed'); }
     pruneSelection(page, displayItems);
-    var scroller = scrollerFor(page);
-    var scrollY = scroller.scrollTop;
+    const scroller = scrollerFor(page);
+    const scrollY = scroller.scrollTop;
 
     // With nothing to list, Discover still says what its lists did, so a tab that is empty because every
     // list was read and holds nothing reads that way rather than as a tab that never ran.
-    var noneHtml = (page._pattern === 'Recommendation' && emptyRunSections({})) || empty;
+    const noneHtml = (page._pattern === 'Recommendation' && emptyRunSections({})) || empty;
     selGroups = {}; // per-render, like the lazy bodies; the tree and the rollup line register theirs below
     listEl.innerHTML = displayItems.length ? buildTree(displayItems) : noneHtml;
 
@@ -87,9 +87,9 @@ function applyAndRender(page) {
     scroller.scrollTop = scrollY;
 
     renderLetterBar(page, letters, letter, letterCounts(items, page._pattern), items.length);
-    var rollup = page.querySelector('#cgRollup');
+    const rollup = page.querySelector('#cgRollup');
     // The rollup line leads with the select-all over everything the list shows.
-    var rh = items.length ? groupSelBox(idsOf(displayItems), 'everything shown') + rollupHtml(items) : '';
+    const rh = items.length ? groupSelBox(idsOf(displayItems), 'everything shown') + rollupHtml(items) : '';
     rollup.innerHTML = rh;
     rollup.style.display = rh ? 'block' : 'none';
     renderFilterHint(page, report);
@@ -108,14 +108,14 @@ function selection(page) {
 function isSelected(id) { return !!selection()[id]; }
 
 function setSelected(page, ids, on) {
-    var sel = selection(page);
+    const sel = selection(page);
     ids.forEach(function (id) { if (on) { sel[id] = true; } else { delete sel[id]; } });
     syncSelection(page);
 }
 
 // Drop what the list no longer shows, so a bulk action never reaches a row a filter has hidden.
 function pruneSelection(page, shown) {
-    var sel = selection(page), keep = {};
+    const sel = selection(page), keep = {};
     shown.forEach(function (it) { if (sel[it.Id]) { keep[it.Id] = true; } });
     page._selected = keep;
 }
@@ -123,14 +123,14 @@ function pruneSelection(page, shown) {
 // Bring every checkbox in line with the selection: rows checked or not, and each header checked, clear,
 // or indeterminate by how many of its ids are selected. Run after a render and after a body is built.
 function syncSelection(page) {
-    var sel = selection(page);
-    var rows = page.querySelectorAll('#cgList .cgSel');
-    for (var i = 0; i < rows.length; i++) { rows[i].checked = !!sel[rows[i].getAttribute('data-gapid')]; }
-    var heads = page.querySelectorAll('#cgReportPanel .cgGrpSel');
-    for (var j = 0; j < heads.length; j++) {
-        var ids = selGroups[heads[j].getAttribute('data-cgsel')] || [];
-        var n = 0;
-        for (var k = 0; k < ids.length; k++) { if (sel[ids[k]]) { n++; } }
+    const sel = selection(page);
+    const rows = page.querySelectorAll('#cgList .cgSel');
+    for (let i = 0; i < rows.length; i++) { rows[i].checked = !!sel[rows[i].getAttribute('data-gapid')]; }
+    const heads = page.querySelectorAll('#cgReportPanel .cgGrpSel');
+    for (let j = 0; j < heads.length; j++) {
+        const ids = selGroups[heads[j].getAttribute('data-cgsel')] || [];
+        let n = 0;
+        for (let k = 0; k < ids.length; k++) { if (sel[ids[k]]) { n++; } }
         heads[j].checked = n > 0 && n === ids.length;
         heads[j].indeterminate = n > 0 && n < ids.length;
     }
@@ -138,8 +138,8 @@ function syncSelection(page) {
 }
 
 function updateSelection(page) {
-    var n = selectedGapIds(page).length;
-    var mintable = mintableSelectedIds(page).length;
+    const n = selectedGapIds(page).length;
+    const mintable = mintableSelectedIds(page).length;
     page.querySelector('#cgSelectBar').style.display = n ? 'flex' : 'none';
     page.querySelector('#cgSelCount').textContent = mintable;
     page.querySelector('#cgMintSelected').disabled = mintable === 0;
@@ -148,14 +148,14 @@ function updateSelection(page) {
 
     // Send/Request appear at all only once acqConfig says the matching target is set up (the same rule
     // a per-row Send button already follows), and are disabled with nothing checked either way.
-    var arrBtn = page.querySelector('#cgSendArrSelected');
-    var canArr = !!(acqConfig && (acqConfig.RadarrConfigured || acqConfig.SonarrConfigured));
+    const arrBtn = page.querySelector('#cgSendArrSelected');
+    const canArr = !!(acqConfig && (acqConfig.RadarrConfigured || acqConfig.SonarrConfigured));
     arrBtn.style.display = canArr ? '' : 'none';
     arrBtn.disabled = n === 0;
     page.querySelector('#cgSendArrSelCount').textContent = n;
 
-    var seerrBtn = page.querySelector('#cgSendSeerrSelected');
-    var canSeerr = !!(acqConfig && acqConfig.SeerrConfigured);
+    const seerrBtn = page.querySelector('#cgSendSeerrSelected');
+    const canSeerr = !!(acqConfig && acqConfig.SeerrConfigured);
     seerrBtn.style.display = canSeerr ? '' : 'none';
     seerrBtn.disabled = n === 0;
     page.querySelector('#cgSendSeerrSelCount').textContent = n;
@@ -172,17 +172,17 @@ function selectedGapIds(page) {
 
 // The selected ids the minter would accept; the rest of a selection is still good for every other action.
 function mintableSelectedIds(page) {
-    var sel = selection(page);
+    const sel = selection(page);
     return ((page._shown) || []).filter(function (it) { return sel[it.Id] && isMintable(it); })
         .map(function (it) { return it.Id; });
 }
 
 // Persist the report filters per browser (not server config; these are personal view prefs).
-var STORAGE_KEY = 'mindthegaps.filters';
+const STORAGE_KEY = 'mindthegaps.filters';
 
 function saveFilters(page) {
     try {
-        var state = {
+        const state = {
             pattern: page.querySelector('#cgTypeFilter').value,
             sort: page.querySelector('#cgSort').value,
             hideSpecials: page.querySelector('#cgHideSpecials').checked,
@@ -193,8 +193,8 @@ function saveFilters(page) {
             letter: page._letter,
             mon: {}
         };
-        var cbs = page.querySelectorAll('.cgMon');
-        for (var i = 0; i < cbs.length; i++) { state.mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
+        const cbs = page.querySelectorAll('.cgMon');
+        for (let i = 0; i < cbs.length; i++) { state.mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
         state.knownProviders = knownProviders;
         state.disabledProviders = disabledProviders;
         state.providersExpanded = providersExpanded;
@@ -203,7 +203,7 @@ function saveFilters(page) {
 }
 
 function restoreFilters(page) {
-    var state;
+    let state;
     try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { state = {}; }
     // The Pattern options are built per domain tab, so remember the wanted pattern and let
     // renderTypeFilter/pickPattern apply it once that domain's patterns are known.
@@ -218,9 +218,9 @@ function restoreFilters(page) {
     page.querySelector('#cgReportPanel').classList.toggle('cgCompactMode', page._compact);
     if (state.letter != null) { page._letter = state.letter; }
     if (state.mon) {
-        var cbs = page.querySelectorAll('.cgMon');
-        for (var i = 0; i < cbs.length; i++) {
-            var k = cbs[i].getAttribute('data-mon');
+        const cbs = page.querySelectorAll('.cgMon');
+        for (let i = 0; i < cbs.length; i++) {
+            const k = cbs[i].getAttribute('data-mon');
             if (state.mon[k] != null) { cbs[i].checked = !!state.mon[k]; }
         }
     }
@@ -233,7 +233,7 @@ function restoreFilters(page) {
 
 // Named saved views: a snapshot of every filter (and the active tab) the user can name and
 // re-apply later. Stored per browser, separate from the live filter state.
-var VIEWS_KEY = 'mindthegaps.views';
+const VIEWS_KEY = 'mindthegaps.views';
 
 function loadViews() {
     try { return JSON.parse(localStorage.getItem(VIEWS_KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -244,9 +244,9 @@ function storeViews(views) {
 }
 
 function captureView(page) {
-    var mon = {};
-    var cbs = page.querySelectorAll('.cgMon');
-    for (var i = 0; i < cbs.length; i++) { mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
+    const mon = {};
+    const cbs = page.querySelectorAll('.cgMon');
+    for (let i = 0; i < cbs.length; i++) { mon[cbs[i].getAttribute('data-mon')] = cbs[i].checked; }
     return {
         pattern: page._pattern,
         type: page._domain,
@@ -268,7 +268,7 @@ function captureView(page) {
 // the sharer's anyway. This keeps the link well under URL length limits. Saved views
 // (localStorage, no length limit) keep the full state via captureView.
 function compactView(page) {
-    var v = captureView(page);
+    const v = captureView(page);
     delete v.disabledProviders;
     if (!v.type) { delete v.type; }
     if (!v.search) { delete v.search; }
@@ -279,8 +279,8 @@ function compactView(page) {
     if (!v.streamable) { delete v.streamable; }
     if (!v.compact) { delete v.compact; }
     if (v.mon) {
-        var allOn = true;
-        for (var k in v.mon) { if (!v.mon[k]) { allOn = false; break; } }
+        let allOn = true;
+        for (const k in v.mon) { if (!v.mon[k]) { allOn = false; break; } }
         if (allOn) { delete v.mon; }
     }
     return v;
@@ -290,15 +290,15 @@ function compactView(page) {
 // param on the page's hash (Jellyfin is a hash router), so a paste re-opens the same tab and
 // filters. Any existing cgview is replaced.
 function shareUrl(page) {
-    var encoded = encodeURIComponent(JSON.stringify(compactView(page)));
-    var href = window.location.href;
-    var hashIdx = href.indexOf('#');
-    var base = hashIdx === -1 ? href : href.slice(0, hashIdx);
-    var hash = hashIdx === -1 ? '/configurationpage?name=MindTheGaps' : href.slice(hashIdx + 1);
-    var qIdx = hash.indexOf('?');
-    var path = qIdx === -1 ? hash : hash.slice(0, qIdx);
-    var query = qIdx === -1 ? '' : hash.slice(qIdx + 1);
-    var params = query ? query.split('&').filter(function (p) { return p && p.indexOf('cgview=') !== 0; }) : [];
+    const encoded = encodeURIComponent(JSON.stringify(compactView(page)));
+    const href = window.location.href;
+    const hashIdx = href.indexOf('#');
+    const base = hashIdx === -1 ? href : href.slice(0, hashIdx);
+    const hash = hashIdx === -1 ? '/configurationpage?name=MindTheGaps' : href.slice(hashIdx + 1);
+    const qIdx = hash.indexOf('?');
+    const path = qIdx === -1 ? hash : hash.slice(0, qIdx);
+    const query = qIdx === -1 ? '' : hash.slice(qIdx + 1);
+    const params = query ? query.split('&').filter(function (p) { return p && p.indexOf('cgview=') !== 0; }) : [];
     params.push('cgview=' + encoded);
     return base + '#' + path + '?' + params.join('&');
 }
@@ -307,13 +307,13 @@ function shareUrl(page) {
 // then strip it from the address bar with replaceState (no hashchange, so the router is undisturbed)
 // so a later reload falls back to the per-browser saved filters instead of snapping back.
 function consumeUrlView() {
-    var hash = window.location.hash || '';
-    var qIdx = hash.indexOf('?');
+    const hash = window.location.hash || '';
+    const qIdx = hash.indexOf('?');
     if (qIdx === -1) { return null; }
-    var parts = hash.slice(qIdx + 1).split('&');
-    var view = null;
-    var kept = [];
-    for (var i = 0; i < parts.length; i++) {
+    const parts = hash.slice(qIdx + 1).split('&');
+    let view = null;
+    const kept = [];
+    for (let i = 0; i < parts.length; i++) {
         if (parts[i].indexOf('cgview=') === 0) {
             try { view = JSON.parse(decodeURIComponent(parts[i].slice('cgview='.length))); } catch (e) { view = null; }
         } else if (parts[i]) {
@@ -322,8 +322,8 @@ function consumeUrlView() {
     }
     if (view) {
         try {
-            var path = hash.slice(0, qIdx);
-            var newHash = kept.length ? path + '?' + kept.join('&') : path;
+            const path = hash.slice(0, qIdx);
+            const newHash = kept.length ? path + '?' + kept.join('&') : path;
             window.history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
         } catch (e) { /* replaceState may be blocked; harmless, the view still applies */ }
     }
@@ -333,12 +333,13 @@ function consumeUrlView() {
 // Read and remove a deep-link to one diagnosis (cgdiag=<gapId>, optional cgdeep=1), so a link
 // from an exported audit opens the modal on load. Consume-once, like consumeUrlView.
 function consumeUrlDiag() {
-    var hash = window.location.hash || '';
-    var qIdx = hash.indexOf('?');
+    const hash = window.location.hash || '';
+    const qIdx = hash.indexOf('?');
     if (qIdx === -1) { return null; }
-    var parts = hash.slice(qIdx + 1).split('&');
-    var id = null, deep = false, kept = [];
-    for (var i = 0; i < parts.length; i++) {
+    const parts = hash.slice(qIdx + 1).split('&');
+    let id = null, deep = false;
+    const kept = [];
+    for (let i = 0; i < parts.length; i++) {
         if (parts[i].indexOf('cgdiag=') === 0) {
             id = decodeURIComponent(parts[i].slice('cgdiag='.length));
         } else if (parts[i].indexOf('cgdeep=') === 0) {
@@ -349,8 +350,8 @@ function consumeUrlDiag() {
     }
     if (id) {
         try {
-            var path = hash.slice(0, qIdx);
-            var newHash = kept.length ? path + '?' + kept.join('&') : path;
+            const path = hash.slice(0, qIdx);
+            const newHash = kept.length ? path + '?' + kept.join('&') : path;
             window.history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
         } catch (e) { /* replaceState may be blocked; harmless */ }
     }
@@ -377,9 +378,9 @@ function applyView(page, v) {
     page.querySelector('#cgCompact').checked = page._compact;
     page.querySelector('#cgReportPanel').classList.toggle('cgCompactMode', page._compact);
     if (v.mon) {
-        var cbs = page.querySelectorAll('.cgMon');
-        for (var i = 0; i < cbs.length; i++) {
-            var k = cbs[i].getAttribute('data-mon');
+        const cbs = page.querySelectorAll('.cgMon');
+        for (let i = 0; i < cbs.length; i++) {
+            const k = cbs[i].getAttribute('data-mon');
             if (v.mon[k] != null) { cbs[i].checked = !!v.mon[k]; }
         }
     }
@@ -394,7 +395,7 @@ function applyView(page, v) {
 // Lists creators and recommendation sources dismissed wholesale (with a Restore), so one can
 // be brought back even after a rescan has dropped its gaps from the report. Hidden when none.
 function renderHiddenCreators(page) {
-    var el = page.querySelector('#cgHiddenCreators');
+    const el = page.querySelector('#cgHiddenCreators');
 
     // Whole-source dismissals only make sense on the two pattern tabs that have them: a creator
     // on Creator works, a seed title on Recommendations. Hide the picker entirely elsewhere.
@@ -402,7 +403,7 @@ function renderHiddenCreators(page) {
         el.style.display = 'none'; el.innerHTML = ''; return;
     }
 
-    var entries = [];
+    const entries = [];
     Object.keys(resolvedMap).forEach(function (k) {
         if (page._pattern === 'CreatorWorks' && k.indexOf('creator:') === 0) {
             entries.push({ key: k, name: resolvedMap[k].Note || k.slice(8) });
@@ -413,8 +414,8 @@ function renderHiddenCreators(page) {
     if (!entries.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
     entries.sort(function (a, b) { return ci(a.name, b.name); });
 
-    var label = page._pattern === 'CreatorWorks' ? 'Muted creators:' : 'Muted sources:';
-    var help = page._pattern === 'CreatorWorks'
+    const label = page._pattern === 'CreatorWorks' ? 'Muted creators:' : 'Muted sources:';
+    const help = page._pattern === 'CreatorWorks'
         ? 'Creators you dismissed wholesale are not scanned for missing films. Pick one and Bring back to scan it again.'
         : 'Owned titles you dismissed as a recommendation seed produce no suggestions. Pick one and Bring back to suggest from it again.';
     el.style.display = '';
@@ -426,8 +427,8 @@ function renderHiddenCreators(page) {
 }
 
 function renderViews(page) {
-    var views = loadViews();
-    var names = Object.keys(views).sort(function (a, b) { return ci(a, b); });
+    const views = loadViews();
+    const names = Object.keys(views).sort(function (a, b) { return ci(a, b); });
     page.querySelector('#cgViews').innerHTML = h('option', { value: '' }, '(choose a saved view)').outerHTML
         + names.map(function (n) { return h('option', { value: n }, n).outerHTML; }).join('');
 }
@@ -459,8 +460,8 @@ function pruneOtherDomains(page, keepDomain) {
 // row shares, each distinct target kind, and each set's source links. Put them back on the rows, so the
 // rest of the page reads one flat shape whatever the wire did.
 function expandRows(report) {
-    var kinds = report.TargetKinds || [];
-    var linkSets = report.SourceLinkSets || [];
+    const kinds = report.TargetKinds || [];
+    const linkSets = report.SourceLinkSets || [];
     (report.Items || []).forEach(function (it) {
         if (it.PatternName == null) { it.PatternName = report.PatternName; }
         if (it.DomainName == null) { it.DomainName = report.DomainName; }
@@ -474,13 +475,13 @@ function expandRows(report) {
 // page._report to that slice.
 function ensureSlice(page, pattern, domain, loadId) {
     page._slices = page._slices || {};
-    var key = sliceKey(pattern, domain);
+    const key = sliceKey(pattern, domain);
     if (page._slices[key]) {
         page._report = page._slices[key];
         return Promise.resolve(page._report);
     }
     Dashboard.showLoadingMsg();
-    var query = domain ? { pattern: pattern, domain: domain } : { pattern: pattern };
+    const query = domain ? { pattern: pattern, domain: domain } : { pattern: pattern };
     return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/Gaps', query), dataType: 'json' })
         .then(function (report) {
             if (loadId != null && page._loadSeq !== loadId) { throw { stale: true }; }
@@ -489,7 +490,7 @@ function ensureSlice(page, pattern, domain, loadId) {
             page._report = report;
             // Seed the provider filter from this slice's offers too (a tab not yet loaded when
             // the summary was built still contributes once opened).
-            var offers = [];
+            let offers = [];
             (report.Items || []).forEach(function (it) {
                 if (it.Availability && it.Availability.length) { offers = offers.concat(it.Availability); }
             });
@@ -504,7 +505,7 @@ function ensureSlice(page, pattern, domain, loadId) {
 }
 
 function load(page) {
-    var loadId = (page._loadSeq || 0) + 1;
+    const loadId = (page._loadSeq || 0) + 1;
     page._loadSeq = loadId;
     Dashboard.showLoadingMsg();
     // Drop any cached slices so a reload (after a scan, mint, or availability pass) re-fetches.
@@ -517,7 +518,7 @@ function load(page) {
             // populated before any one tab (or "Where to watch" click) loads.
             noteProviders(page, (summary.Providers || []).map(function (n) { return { Provider: n }; }));
             updateAvailButton(page);
-            var when = summary.GeneratedUtc && summary.GeneratedUtc.indexOf('0001') !== 0
+            const when = summary.GeneratedUtc && summary.GeneratedUtc.indexOf('0001') !== 0
                 ? new Date(summary.GeneratedUtc).toLocaleString()
                 : 'never';
             page.querySelector('#cgSummary').textContent =
@@ -530,14 +531,14 @@ function load(page) {
             }
             // Pick a domain that has gaps before loading its slice.
             if (!page._domain || !domainTotal(page, page._domain)) {
-                var domains = vocab().domains;
+                const domains = vocab().domains;
                 page._domain = domains.filter(function (d) { return domainTotal(page, d); })[0] || domains[0];
             }
             return fetchResolved().then(function () {
                 // A shared link (cgview in the URL) overrides the default tab and the
                 // per-browser filters, once: it is stripped from the address bar on read.
-                var shared = consumeUrlView();
-                var render;
+                const shared = consumeUrlView();
+                let render;
                 if (shared) {
                     render = applyView(page, shared);
                 } else {
@@ -553,7 +554,7 @@ function load(page) {
                     Dashboard.hideLoadingMsg();
                     // A deep-link (cgdiag in the URL, e.g. from an exported audit) opens that
                     // gap's diagnosis straight away, optionally running the deeper pass.
-                    var diag = consumeUrlDiag();
+                    const diag = consumeUrlDiag();
                     if (diag) { openDiagnose(diag.id, '', diag.deep); }
                 });
             });
@@ -580,18 +581,18 @@ function fetchResolved() {
 // Nudge for a rescan when the saved report was built by a different plugin version (after
 // an upgrade the persisted links/fields may be stale until rebuilt).
 function checkStale(page, report) {
-    var stale = page.querySelector('#cgStale');
-    var rescan = page.querySelector('#cgRescan');
+    const stale = page.querySelector('#cgStale');
+    const rescan = page.querySelector('#cgRescan');
     stale.style.display = 'none';
     rescan.style.display = '';
-    var generated = report && report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0;
+    const generated = report && report.GeneratedUtc && report.GeneratedUtc.indexOf('0001') !== 0;
     if (!generated) { return; }
     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
-        var norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
-        var me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
-        var cur = me && me.Version;
+        const norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
+        const me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
+        const cur = me && me.Version;
         if (cur && report.GeneratedVersion !== cur) {
-            var built = report.GeneratedVersion ? ('version ' + report.GeneratedVersion) : 'an older version';
+            const built = report.GeneratedVersion ? ('version ' + report.GeneratedVersion) : 'an older version';
             page.querySelector('#cgStaleMsg').textContent =
                 'This list was built by ' + built + '. You are on ' + cur + '. Rescan to rebuild it with the current version.';
             stale.style.display = 'flex';
@@ -604,11 +605,11 @@ function checkStale(page, report) {
 
 // Show the installed plugin version next to the settings gear (best-effort).
 function showVersion(page) {
-    var el = page.querySelector('#cgVersion');
+    const el = page.querySelector('#cgVersion');
     if (!el) { return; }
     ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('Plugins'), dataType: 'json' }).then(function (plugins) {
-        var norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
-        var me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
+        const norm = function (s) { return (s || '').replace(/-/g, '').toLowerCase(); };
+        const me = (plugins || []).filter(function (p) { return norm(p.Id) === norm(pluginId); })[0];
         if (me && me.Version) { el.textContent = 'v' + me.Version; }
     }).catch(function () { /* best-effort */ });
 }
@@ -626,11 +627,11 @@ function pageActive(page) {
 // (no offers exist yet) unless availability is actually turned on, so it stays hidden until then
 // rather than always showing five checkboxes and an empty provider list.
 function updateAvailButton(page) {
-    var btn = page.querySelector('#cgLookupAvail');
+    const btn = page.querySelector('#cgLookupAvail');
     if (!btn) { return; }
-    var span = btn.querySelector('span');
-    var s = page._summary || {};
-    var panel = page.querySelector('#cgAvailPanel');
+    const span = btn.querySelector('span');
+    const s = page._summary || {};
+    const panel = page.querySelector('#cgAvailPanel');
     if (panel) { panel.style.display = s.AvailabilityEnabled ? '' : 'none'; }
     if (!s.AvailabilityEnabled) {
         if (span) { span.textContent = 'Look up where to watch'; }
@@ -638,7 +639,7 @@ function updateAvailButton(page) {
         btn.title = 'Availability is turned off in settings.';
         return;
     }
-    var pending = s.AvailabilityPending || 0;
+    const pending = s.AvailabilityPending || 0;
     if (pending > 0) {
         if (span) { span.textContent = 'Look up where to watch (' + pending + ')'; }
         btn.disabled = false;
@@ -654,8 +655,8 @@ function updateAvailButton(page) {
 // newly-enriched rows appear. The pass saves incrementally, so a reload mid-run shows partial
 // results too. Shared by the toolbar button and the empty-state nudge.
 function startAvailability(page, btn) {
-    var span = btn ? btn.querySelector('span') : null;
-    var orig = span ? span.textContent : null;
+    const span = btn ? btn.querySelector('span') : null;
+    const orig = span ? span.textContent : null;
     if (btn) { btn.disabled = true; }
 
     function done(msg) {
@@ -692,8 +693,8 @@ function startAvailability(page, btn) {
 // it. Shared by the toolbar "Rescan now" and the stale-banner "Rescan now" (the latter's bar is
 // hidden while the banner shows, so it must drive its own button, not the toolbar's).
 function startScan(page, btn) {
-    var span = btn ? btn.querySelector('span') : null;
-    var orig = span ? span.textContent : null;
+    const span = btn ? btn.querySelector('span') : null;
+    const orig = span ? span.textContent : null;
     if (btn) { btn.disabled = true; }
     if (span) { span.textContent = 'Scanning…'; }
 

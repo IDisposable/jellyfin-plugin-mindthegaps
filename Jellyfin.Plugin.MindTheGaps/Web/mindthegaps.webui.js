@@ -24,8 +24,26 @@
 // Sonarr. The dialog is appended to document.body rather than the page, since jellyfin-web's own page wrapper
 // sets CSS containment (see CLAUDE.md's "position: fixed is not safe" note) which would otherwise make it the
 // containing block for a fixed-position overlay and misplace it.
+//
+// This file stays ES5 (var, function expressions, no arrows or template strings), unlike the dashboard's. It runs
+// inside jellyfin-web on every client, including old TV browsers jellyfin-web still compiles its own code down
+// for, and nothing compiles this one: before Chrome 41 a strict-mode const is a syntax error, which would stop
+// the whole script.
 (function () {
     'use strict';
+
+    // Element.closest arrived in Chrome 41; older TV engines have only matches, some only under a prefix. Added
+    // only where missing, so a browser that has it keeps its own.
+    if (!Element.prototype.closest) {
+        Element.prototype.closest = function (selector) {
+            var matches = Element.prototype.matches || Element.prototype.webkitMatchesSelector;
+            for (var el = this; el && el.nodeType === 1; el = el.parentNode) {
+                if (matches.call(el, selector)) { return el; }
+            }
+
+            return null;
+        };
+    }
 
     var PERSON_ID = 'mtgPersonMissing';
     var RELATED_ID = 'mtgRelatedMissing';
@@ -34,6 +52,10 @@
     var HOME_ID = 'mtgHomeDiscover';
     var WANTED_ID = 'mtgHomeWanted';
     var SEARCH_RESULTS_ID = 'mtgSearchResults';
+
+    // jellyfin-web's own item page sections an item page placement can name. Their order on the page is fixed,
+    // and each is hidden or shown for the item at hand, so the row is placed beside one by name.
+    var ITEM_SECTIONS = { children: 'childrenCollapsible', cast: 'castCollapsible', similar: 'similarCollapsible' };
 
     // The classes every dialog button and link carries, so a link and a button look the same. .emby-button is
     // jellyfin-web's own box model (padding, weight, line height) as plain CSS, which is all that is needed:
@@ -687,11 +709,18 @@
         section.id = RELATED_ID;
         section.classList.add('detailVerticalSection', 'verticalSection-extrabottompadding');
 
-        // Right after jellyfin-web's own "More Like This" (which may be hidden when it has nothing), inside
-        // the same container so it takes the same padding.
-        var anchor = page.querySelector('#similarCollapsible');
+        placeOnItemPage(page, section, data.Placement);
+    }
+
+    // Beside the section the placement names ("after:similar", "before:cast"), inside the same container so it
+    // takes the same padding, even while that section is hidden. A page without that section gets the row after
+    // "More Like This", and one without that either at the end of its content.
+    function placeOnItemPage(page, section, placement) {
+        var parts = String(placement || '').split(':');
+        var named = Object.prototype.hasOwnProperty.call(ITEM_SECTIONS, parts[1]) ? page.querySelector('#' + ITEM_SECTIONS[parts[1]]) : null;
+        var anchor = named || page.querySelector('#' + ITEM_SECTIONS.similar);
         if (anchor) {
-            anchor.parentNode.insertBefore(section, anchor.nextSibling);
+            anchor.parentNode.insertBefore(section, named && parts[0] === 'before' ? anchor : anchor.nextSibling);
         } else {
             (page.querySelector('.detailPageContent') || page).appendChild(section);
         }
@@ -730,13 +759,8 @@
         section.id = WORKS_ID;
         section.classList.add('detailVerticalSection', 'verticalSection-extrabottompadding');
 
-        // Where the movie and series row goes: after jellyfin-web's own "More Like This" when the page has
-        // one, else at the end of the page's content.
-        if (anchor) {
-            anchor.parentNode.insertBefore(section, anchor.nextSibling);
-        } else {
-            (page.querySelector('.detailPageContent') || page).appendChild(section);
-        }
+        // Where the movie and series row goes.
+        placeOnItemPage(page, section, data.Placement);
     }
 
     // ---- Studio list page ----
@@ -772,6 +796,25 @@
 
     // ---- Home ----
 
+    // The node the home rows go in front of: the first slot for the top, the slot after the one holding the
+    // chosen type, or null (the end) for the bottom or a type this user's home screen does not show.
+    // jellyfin-web lays the home screen out as numbered slots (.section0 on), each holding the section type
+    // the user picked for it, and has no way to add a type of its own; the server sends the user's slot
+    // order (HomeSections) with the row. The TV layout adds a library slot ahead of them when the user shows
+    // none, as jellyfin-web's own homesections.js does, and only the page knows which layout it is in.
+    function homeAnchor(sectionsEl, data) {
+        if (data.Placement === 'top') { return sectionsEl.querySelector('.section0'); }
+        var order = (data.HomeSections || []).slice();
+        if (document.documentElement.classList.contains('layout-tv')
+            && order.indexOf('smalllibrarytiles') === -1 && order.indexOf('librarybuttons') === -1) {
+            order.unshift('smalllibrarytiles');
+        }
+
+        var index = data.Placement ? order.indexOf(data.Placement) : -1;
+        return index < 0 ? null : sectionsEl.querySelector('.section' + (index + 1));
+    }
+
+    // The Discover row follows the wanted row when that is there.
     function renderHome(sectionsEl, data) {
         remove(sectionsEl, HOME_ID);
         if (!data || !data.Titles.length) { return; }
@@ -779,7 +822,8 @@
         var ctx = { kind: 'Home', id: '', canTodo: !!data.CanTodo };
         var section = scroller(ctx, 'Discover: not in your library', data.Titles, true);
         section.id = HOME_ID;
-        sectionsEl.appendChild(section);
+        var wanted = sectionsEl.querySelector('#' + WANTED_ID);
+        sectionsEl.insertBefore(section, wanted ? wanted.nextSibling : homeAnchor(sectionsEl, data));
     }
 
     // The search box in the wanted row's own header: a movie or series no page already lists, found on
@@ -875,7 +919,7 @@
         var searchBox = buildSearchBox(sectionsEl, restoreState);
         var section = scroller(ctx, 'Want to watch', data.Titles || [], true, searchBox);
         section.id = WANTED_ID;
-        sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID));
+        sectionsEl.insertBefore(section, sectionsEl.querySelector('#' + HOME_ID) || homeAnchor(sectionsEl, data));
         if (restoreState && restoreState.query) { runSearch(sectionsEl, restoreState.kind, restoreState.query); }
     }
 

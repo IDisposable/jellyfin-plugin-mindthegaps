@@ -108,7 +108,7 @@ flowchart LR
   re-check the source for whatever is still missing.
 - **Send to your acquisition stack** (opt-in): hand a gap to Radarr, Sonarr, or Jellyseerr/Overseerr with a
   per-row **Send** action.
-- **Web UI on Jellyfin's own pages** (experimental, opt-in): the same "missing from your library" rows on
+- **Web UI on Jellyfin's own pages** (opt-in): the same "missing from your library" rows on
   a person, movie, series, artist, or book page, plus a "Discover" row on the home screen and a per-user
   **want to watch** list.
 - **Virtual placeholders** (opt-in): mint greyed-out "missing" placeholders in place, the way a missing

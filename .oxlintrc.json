@@ -16,6 +16,14 @@
     {
       "files": ["**/mindthegaps.common.js", "**/mindthegaps.report.*.js"],
       "rules": { "no-unused-vars": "off" }
+    },
+    {
+      "files": ["**/mindthegaps.common.js", "**/mindthegaps.report.*.js", "**/mindthegaps.settings.js"],
+      "rules": { "no-var": "error" }
+    },
+    {
+      "files": ["**/mindthegaps.settings.js"],
+      "rules": { "prefer-const": "error" }
     }
   ]
 }

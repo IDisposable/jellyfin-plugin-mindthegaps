@@ -86,6 +86,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<WorksMissingService>();
         serviceCollection.AddSingleton<StudioMissingService>();
         serviceCollection.AddSingleton<HomeDiscoverService>();
+        serviceCollection.AddSingleton<HomeSections>();
         serviceCollection.AddSingleton<JustWatchLinkIndex>();
         serviceCollection.AddSingleton<WantedRowService>();
         serviceCollection.AddSingleton<WatchlistSearchService>();

@@ -74,7 +74,7 @@ public class VocabularyTests
     public void EveryDiscoverKind_HasWordingInTheDashboard()
     {
         var js = DashboardScript();
-        var labels = Regex.Matches(js, @"var DISCOVER_KIND_LABELS = \{(?<body>[^}]*)\}", RegexOptions.Singleline)
+        var labels = Regex.Matches(js, @"const DISCOVER_KIND_LABELS = \{(?<body>[^}]*)\}", RegexOptions.Singleline)
             .Select(m => m.Groups["body"].Value)
             .FirstOrDefault();
 
@@ -128,7 +128,7 @@ public class VocabularyTests
         // The kinds and their order are served; only the wording lives in the page. An unworded kind falls
         // back to its raw name, which is readable but not what we want to ship, so pin it here.
         var js = DashboardScript();
-        var labels = Regex.Matches(js, @"var SET_KIND_LABELS = \{(?<body>[^}]*)\}", RegexOptions.Singleline)
+        var labels = Regex.Matches(js, @"const SET_KIND_LABELS = \{(?<body>[^}]*)\}", RegexOptions.Singleline)
             .Select(m => m.Groups["body"].Value)
             .FirstOrDefault();
 
