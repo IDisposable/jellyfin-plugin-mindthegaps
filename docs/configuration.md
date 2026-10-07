@@ -513,8 +513,11 @@ A bookmarked card and the home page's "Want to watch" row of what is still on th
 
 Each surface's data is served by the plugin whether or not the script is added, so another client can use it:
 
-- `GET MindTheGaps/Person/{personId}/Missing`, `GET MindTheGaps/Item/{itemId}/Related` and
-  `GET MindTheGaps/Home/Discover`, each answering 404 until its own toggle is on.
+- `GET MindTheGaps/Person/{personId}/Missing`, `GET MindTheGaps/Item/{itemId}/WantedOrRelated` and
+  `GET MindTheGaps/Home/Discover`, each answering 404 until its own toggle is on. A movie or series page's
+  `WantedOrRelated` carries its similar titles (`Related`) and, with **Want to watch: bookmark button on
+  movie and series pages** on, whether the title is on the caller's want-to-watch playlist (`OnList`);
+  either is null while its option is off.
 - `GET MindTheGaps/WebUi/Detail?tmdbId=&kind=` (`kind` is `Movie` or `Series`), a proxied TMDB lookup for a
   title, always available. There is no send-to-Radarr/Sonarr endpoint here; that stays on the report (see
   [Acquisition stack](#acquisition-stack-optional)).

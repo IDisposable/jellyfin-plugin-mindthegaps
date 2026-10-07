@@ -6,7 +6,8 @@
   },
   "globals": {
     "ApiClient": "readonly",
-    "Dashboard": "readonly"
+    "Dashboard": "readonly",
+    "Emby": "readonly"
   },
   "rules": {
     "no-unused-vars": ["warn", { "caughtErrors": "none" }]

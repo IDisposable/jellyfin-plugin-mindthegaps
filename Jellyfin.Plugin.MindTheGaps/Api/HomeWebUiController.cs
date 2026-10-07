@@ -41,10 +41,10 @@ public class HomeWebUiController : WebUiControllerBase
     public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist)
         : base(todo, access)
     {
-        _playlist = playlist;
         _home = home;
         _wanted = wanted;
         _search = search;
+        _playlist = playlist;
     }
 
     private static bool HomeRowEnabled => WebUiGate.HomeRow(Plugin.Instance?.Configuration);

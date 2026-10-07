@@ -46,13 +46,10 @@ public class WantToWatchOwnedTests
     {
         var a = OwnedMovie("Owned A", "10");
         var b = OwnedMovie("Owned B", "11");
+        var older = Missing("old", "1", "2026-01-01T00:00:00Z");
+        var newer = Missing("new", "2", "2026-03-01T00:00:00Z");
 
-        var row = WantedRowBuilder.Build(
-            [Missing("old", "1", "2026-01-01T00:00:00Z"), Missing("new", "2", "2026-03-01T00:00:00Z")],
-            OwnsNothing,
-            [b, a],
-            10,
-            Now);
+        var row = WantedRowBuilder.Build([older, newer], OwnsNothing, [b, a], 10, Now);
 
         Assert.Equal(["Owned B", "Owned A", "new", "old"], row.Select(c => c.Title));
         Assert.Equal([b.Id, a.Id, null, null], row.Select(c => c.ItemId));
@@ -63,8 +60,10 @@ public class WantToWatchOwnedTests
     {
         // The case that shipped wrong: as many owned titles as the limit, and the missing ones still show.
         var owned = Enumerable.Range(1, 3).Select(n => OwnedMovie("Owned " + n)).ToList();
+        var werwulf = Missing("Werwulf", "1");
+        var kungFuHustle = Missing("Kung Fu Hustle", "2", "2026-02-01T00:00:00Z");
 
-        var row = WantedRowBuilder.Build([Missing("Werwulf", "1"), Missing("Kung Fu Hustle", "2", "2026-02-01T00:00:00Z")], OwnsNothing, owned, 3, Now);
+        var row = WantedRowBuilder.Build([werwulf, kungFuHustle], OwnsNothing, owned, 3, Now);
 
         Assert.Equal(["Owned 1", "Owned 2", "Owned 3", "Kung Fu Hustle", "Werwulf"], row.Select(c => c.Title));
     }
@@ -75,13 +74,11 @@ public class WantToWatchOwnedTests
         var a = OwnedMovie("Owned A");
         var b = OwnedMovie("Owned B");
         var c = OwnedMovie("Owned C");
+        var m1 = Missing("m1", "1", "2026-03-01T00:00:00Z");
+        var m2 = Missing("m2", "2", "2026-02-01T00:00:00Z");
+        var m3 = Missing("m3", "3");
 
-        var row = WantedRowBuilder.Build(
-            [Missing("m1", "1", "2026-03-01T00:00:00Z"), Missing("m2", "2", "2026-02-01T00:00:00Z"), Missing("m3", "3")],
-            OwnsNothing,
-            [a, b, a, c],
-            2,
-            Now);
+        var row = WantedRowBuilder.Build([m1, m2, m3], OwnsNothing, [a, b, a, c], 2, Now);
 
         Assert.Equal(["Owned A", "Owned B", "m1", "m2"], row.Select(t => t.Title));
     }
@@ -89,8 +86,10 @@ public class WantToWatchOwnedTests
     [Fact]
     public void WantedRow_WithNoOwnedTitles_IsJustTheMissingOnes()
     {
-        var withOverload = WantedRowBuilder.Build([Missing("m", "1")], OwnsNothing, 10, Now);
-        var withEmpty = WantedRowBuilder.Build([Missing("m", "1")], OwnsNothing, [], 10, Now);
+        var missing = Missing("m", "1");
+
+        var withOverload = WantedRowBuilder.Build([missing], OwnsNothing, 10, Now);
+        var withEmpty = WantedRowBuilder.Build([missing], OwnsNothing, [], 10, Now);
 
         Assert.Equal(withOverload.Select(c => c.GapId), withEmpty.Select(c => c.GapId));
         Assert.Null(Assert.Single(withEmpty).ItemId);
@@ -132,11 +131,11 @@ public class WantToWatchOwnedTests
     }
 
     [Theory]
-    [InlineData(UserDataSaveReason.PlaybackFinished, true, true)]
     [InlineData(UserDataSaveReason.TogglePlayed, true, true)]
     [InlineData(UserDataSaveReason.TogglePlayed, false, false)]
     [InlineData(UserDataSaveReason.PlaybackProgress, true, false)]
     [InlineData(UserDataSaveReason.PlaybackStart, true, false)]
+    [InlineData(UserDataSaveReason.PlaybackFinished, true, true)]
     [InlineData(UserDataSaveReason.PlaybackFinished, false, false)]
     public void IsWatchedSave_OnlyFinishedOrToggledToPlayed(UserDataSaveReason reason, bool played, bool expected)
         => Assert.Equal(expected, WatchedAutoRemover.IsWatchedSave(reason, played));

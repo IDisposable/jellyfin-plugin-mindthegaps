@@ -241,7 +241,7 @@ test('an owned title on the wanted row shows the library poster and opens its li
 
     await card(page, 'owned:item9').click();
     await expect(page.locator('.mtgDialog')).toHaveCount(0);
-    expect(await page.evaluate(() => window.location.hash)).toBe('#/details?id=item9&serverId=test-server');
+    expect(await page.evaluate(() => window.__shownItems)).toEqual(['item9@test-server']);
 });
 
 test('an owned title opens its library page from the keyboard too', async ({ page }) => {
@@ -250,7 +250,7 @@ test('an owned title opens its library page from the keyboard too', async ({ pag
     await card(page, 'owned:item9').focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('.mtgDialog')).toHaveCount(0);
-    expect(await page.evaluate(() => window.location.hash)).toContain('id=item9');
+    expect(await page.evaluate(() => window.__shownItems)).toEqual(['item9@test-server']);
 });
 
 test('taking an owned title off the wanted row removes it by item id', async ({ page }) => {
@@ -304,6 +304,22 @@ test('returning to the cached home leaves an unchanged row alone', async ({ page
     await page.waitForTimeout(300);
 
     expect(await page.evaluate(() => document.getElementById('mtgHomeWanted').__marker === true)).toBe(true);
+});
+
+test('returning to the cached home keeps focus and the caret in the search box when the row changes', async ({ page }) => {
+    await openHomePage(page, buildWebUiHomeHarness(null, null, 1, undefined, undefined, wantedRow()));
+    const input = page.locator('#mtgHomeWanted .mtgSearchInput');
+    await input.fill('matrix');
+    await input.evaluate((el) => { el.setSelectionRange(2, 4); });
+
+    await page.evaluate(() => { __WANTED_RESULT__ = { Titles: [__WANTED_RESULT__.Titles[1]] }; });
+    await returnHome(page);
+
+    await expect(page.locator('#mtgHomeWanted .mtgCard')).toHaveCount(1);
+    expect(await page.evaluate(() => {
+        var el = document.activeElement;
+        return [el.className, el.value, el.selectionStart, el.selectionEnd];
+    })).toEqual(['mtgSearchInput', 'matrix', 2, 4]);
 });
 
 // jellyfin-web's focusManager (12.1, main bundle) moves a remote's D-pad focus only between elements matching

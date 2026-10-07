@@ -80,7 +80,7 @@
 
     // An owned title opens its own page in the library rather than the TMDB detail dialog.
     function openItem(itemId) {
-        window.location.hash = '#/details?id=' + encodeURIComponent(itemId) + '&serverId=' + encodeURIComponent(ApiClient.serverId());
+        Emby.Page.showItem(itemId, ApiClient.serverId());
     }
 
     function alertUser(message) {
@@ -158,7 +158,7 @@
 
     // The title search (ctx.scope === 'Search') has no persisted gap to rehydrate by id: the server looks
     // the title up fresh by kind and TMDB id instead, both of which every card already carries.
-    // An owned title on the wanted row is on the user's playlist, not their list, and is removed by its item.
+    // An owned title on the wanted row is on the user's playlist, not on their want-list, and is removed by its item.
     function wantParams(ctx, item) {
         if (item.ItemId) { return { itemId: item.ItemId }; }
         return ctx.scope === 'Search' ? { kind: item.Kind, tmdbId: item.TmdbId } : { gapId: item.GapId };
@@ -497,10 +497,8 @@
     // focus, opens the detail dialog. tabindex/role make it reachable at all from a keyboard or a
     // remote's D-pad: without them a plain div is invisible to Tab order and jellyfin-web's own focus
     // conventions do not apply to it (see the detail dialog's own header comment for why not).
-    // jellyfin-web's own TV focus look for a card, as its card builder gives it: show-focus in the TV layout,
-    // and show-animation (the card growing when focused) unless the browser is one it thinks too slow for that.
-    // That test (browser.slow/edge) is not reachable from an injected script, so the choice is copied from a
-    // stock card already on the page, and the scale-up is assumed when there is none to copy.
+    // jellyfin-web picks a card's TV focus look per device (a ring, or growing), and a plugin script cannot see
+    // that choice, so it is copied from a stock card on the page.
     function tvFocusClasses() {
         if (!document.documentElement.classList.contains('layout-tv')) { return ''; }
         var stock = document.querySelector('.card.show-focus:not(.mtgCard)');
@@ -510,8 +508,6 @@
     function card(ctx, item) {
         // An album cover is square; a poster or a book cover is portrait.
         var shape = item.Kind === 'MusicAlbum' ? 'square' : 'portrait';
-        // .focusable is what lets a remote reach it: jellyfin-web's D-pad navigation moves only between
-        // INPUT/TEXTAREA/SELECT/BUTTON/A and .focusable, so without it the bookmark button was all it could land on.
         var el = h('div', { 'class': 'card ' + shape + 'Card mtgCard card-hoverable focusable' + tvFocusClasses(), 'data-gapid': item.GapId, 'tabindex': '0', 'role': 'button' });
         var box = h('div', { 'class': 'cardBox cardBox-bottompadded' });
         var scalable = h('div', { 'class': 'cardScalable' });
@@ -543,7 +539,9 @@
         box.appendChild(secondary);
 
         el.appendChild(box);
-        var open = function () { if (item.ItemId) { openItem(item.ItemId); } else { openDialog(ctx, item); } };
+        var open = item.ItemId
+            ? function () { openItem(item.ItemId); }
+            : function () { openDialog(ctx, item); };
         el.addEventListener('click', open);
         el.addEventListener('keydown', function (e) {
             // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
@@ -925,7 +923,7 @@
         refreshWantedRow(sectionsEl);
     }
 
-    // The wanted row's own cards, in order, as one string: not the title search's results, which sit inside it.
+    // The wanted row's own cards' gap ids, in order, as one string: not the title search's results, which sit inside it.
     function wantedCardIds(section) {
         return Array.prototype.filter.call(section.querySelectorAll('.mtgCard'), function (c) { return !c.closest('#' + SEARCH_RESULTS_ID); })
             .map(function (c) { return c.getAttribute('data-gapid'); }).join('\n');
@@ -935,7 +933,7 @@
     // the wanted row would keep showing what it showed when the user left: a title bookmarked on its page, or
     // watched, or arrived since, would not be reflected. Ask again on every return, and rebuild only when the
     // cards differ, so an unchanged row keeps the card a remote had focus on; a rebuilt one puts focus back
-    // on the same card, or the first one if that card is gone.
+    // on the same card (or the first one if that card is gone), or on the search box with its caret.
     function refreshWantedRow(sectionsEl) {
         var section = sectionsEl.querySelector('#' + WANTED_ID);
         if (!section) { return; }
@@ -947,13 +945,28 @@
             var next = ((data && data.Titles) || []).map(function (t) { return t.GapId; }).join('\n');
             if (next === shown) { return; }
 
-            var focusedCard = document.activeElement && current.contains(document.activeElement) && document.activeElement.closest('.mtgCard');
+            var focused = current.contains(document.activeElement) ? document.activeElement : null;
+            var focusedCard = focused ? focused.closest('.mtgCard') : null;
             var focusedId = focusedCard ? focusedCard.getAttribute('data-gapid') : null;
+            var inSearchInput = !!focused && focused.classList.contains('mtgSearchInput');
+            var inSearchKind = !!focused && focused.classList.contains('mtgSearchKind');
+            var selectionStart = inSearchInput ? focused.selectionStart : 0;
+            var selectionEnd = inSearchInput ? focused.selectionEnd : 0;
+
             renderWanted(sectionsEl, data, currentSearchState(sectionsEl));
-            if (focusedId) {
-                var row = sectionsEl.querySelector('#' + WANTED_ID);
-                var again = row && (row.querySelector('.mtgCard[data-gapid="' + focusedId.replace(/["\\]/g, '') + '"]') || row.querySelector('.mtgCard'));
-                if (again) { again.focus(); }
+            var row = sectionsEl.querySelector('#' + WANTED_ID);
+            if (!row) { return; }
+
+            if (inSearchInput) {
+                var input = row.querySelector('.mtgSearchInput');
+                input.focus();
+                input.setSelectionRange(selectionStart, selectionEnd);
+            } else if (inSearchKind) {
+                row.querySelector('.mtgSearchKind').focus();
+            } else if (focusedId) {
+                var sameCard = row.querySelector('.mtgCard[data-gapid="' + focusedId.replace(/["\\]/g, '') + '"]');
+                var foundAgain = sameCard || row.querySelector('.mtgCard');
+                if (foundAgain) { foundAgain.focus(); }
             }
         }, function () { /* switched off, or signed out: leave the row as it is */ });
     }
@@ -1008,12 +1021,11 @@
             }
 
             if (item.Type === 'Movie' || item.Type === 'Series') {
-                // Independent of the related titles below, which have their own toggle and may 404.
-                api('GET', 'MindTheGaps/Item/' + item.Id + '/Wanted').then(function (state) {
-                    if (token === pending) { renderDetailWant(page, item.Id, state || {}); }
-                }, function () { /* off, or not a title the list keeps */ });
-                return api('GET', 'MindTheGaps/Item/' + item.Id + '/Related').then(function (data) {
-                    if (token === pending) { renderRelated(page, item.Id, data); }
+                // The bookmark and the related titles each have their own toggle; a part that is off is null.
+                return api('GET', 'MindTheGaps/Item/' + item.Id + '/WantedOrRelated').then(function (data) {
+                    if (token !== pending) { return; }
+                    if (data.OnList !== null && data.OnList !== undefined) { renderDetailWant(page, item.Id, data.OnList); }
+                    renderRelated(page, item.Id, data.Related);
                 });
             }
 
@@ -1030,8 +1042,7 @@
 
     // The bookmark on an owned movie or series page, beside jellyfin-web's own buttons and before "More", in
     // their markup so it takes the same size and TV focus style. It keeps the title on the user's
-    // want-to-watch playlist. Drawn only when the server answers for this item: a 404 means the option is off,
-    // the caller cannot keep a list, or the item is not one it keeps.
+    // want-to-watch playlist.
     var DETAIL_WANT_CLASS = 'mtgWantDetail';
 
     function paintDetailWant(btn, onList) {
@@ -1047,7 +1058,7 @@
         Array.prototype.forEach.call(page.querySelectorAll('.' + DETAIL_WANT_CLASS), function (b) { b.parentNode.removeChild(b); });
     }
 
-    function renderDetailWant(page, itemId, state) {
+    function renderDetailWant(page, itemId, onList) {
         removeDetailWant(page);
         var more = page.querySelector('.mainDetailButtons .btnMoreCommands');
         var host = more ? more.parentNode : page.querySelector('.mainDetailButtons');
@@ -1059,7 +1070,7 @@
         var content = h('div', { 'class': 'detailButton-content' });
         content.appendChild(h('span', { 'class': 'material-icons detailButton-icon', 'aria-hidden': 'true' }));
         btn.appendChild(content);
-        paintDetailWant(btn, !!state.OnList);
+        paintDetailWant(btn, !!onList);
         btn.addEventListener('click', function () {
             var next = !btn.mtgOnList;
             btn.disabled = true;

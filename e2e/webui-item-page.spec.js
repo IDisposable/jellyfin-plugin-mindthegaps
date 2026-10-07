@@ -158,7 +158,7 @@ test('the page bookmark adds the title, then takes it off again', async ({ page 
 
     const calls = (await page.evaluate(() => window.__itemWantedCalls)).map((c) => c.replace(/\?$/, ''));
     expect(calls).toEqual([
-        'GET MindTheGaps/Item/movie-1/Wanted',
+        'GET MindTheGaps/Item/movie-1/WantedOrRelated',
         'POST MindTheGaps/Item/movie-1/Wanted',
         'POST MindTheGaps/Item/movie-1/Wanted/Remove'
     ]);

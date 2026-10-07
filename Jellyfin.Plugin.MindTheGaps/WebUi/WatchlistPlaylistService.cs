@@ -128,13 +128,14 @@ public sealed class WatchlistPlaylistService
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var name = config.WantToWatchPlaylistName;
         try
         {
-            var added = await WithGateAsync(userId, () => AddLockedAsync(userId, itemIds, config.WantToWatchPlaylistName)).ConfigureAwait(false);
+            var added = await WithGateAsync(userId, () => AddLockedAsync(userId, itemIds, name)).ConfigureAwait(false);
             _logger.LogDebug(
                 "Want to watch: added {Count} title(s) to '{Name}' for user {UserId}",
                 added,
-                config.WantToWatchPlaylistName,
+                name,
                 userId);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -145,7 +146,7 @@ public sealed class WatchlistPlaylistService
                 ex,
                 "Could not add {Count} item(s) to the want-to-watch playlist '{Name}' for user {UserId}",
                 itemIds.Count,
-                config.WantToWatchPlaylistName,
+                name,
                 userId);
         }
     }
@@ -167,7 +168,8 @@ public sealed class WatchlistPlaylistService
             return false;
         }
 
-        var added = await WithGateAsync(userId, () => AddLockedAsync(userId, [itemId], config.WantToWatchPlaylistName)).ConfigureAwait(false);
+        var name = config.WantToWatchPlaylistName;
+        var added = await WithGateAsync(userId, () => AddLockedAsync(userId, [itemId], name)).ConfigureAwait(false);
         return added > 0;
     }
 
@@ -249,6 +251,7 @@ public sealed class WatchlistPlaylistService
         ArgumentNullException.ThrowIfNull(maySee);
 
         // An entry whose item has left the library resolves to nothing and is skipped.
+        // A playlist entry has no added date; its position is the only order kept, newest last.
         return entries
             .OfType<BaseItem>()
             .Reverse()
