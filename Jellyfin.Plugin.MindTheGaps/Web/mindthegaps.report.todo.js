@@ -133,13 +133,7 @@ function demandRowHtml(row, template) {
             ? providerLink(l)
             : newTab(true, { 'class': 'cgLink', href: l.Url, title: l.Title }, esc(l.Name));
     });
-    const jwSearch = (row.TargetKindName === 'Movie' || row.TargetKindName === 'Series')
-        ? newTab(false, {
-            'class': 'cgLink cgPopLink emby-button', href: 'https://www.justwatch.com/' + jwLocale() + '/search?q=' + encodeURIComponent(row.Name || ''),
-            title: 'Search JustWatch for where to watch'
-        }, 'Search JustWatch')
-        : '';
-    const linksCell = wrap('td', null, demandWatchCell(row) + wrap('div', { 'class': 'cgTodoLinks' }, links.join('')) + jwSearch);
+    const linksCell = wrap('td', null, demandWatchCell(row) + wrap('div', { 'class': 'cgTodoLinks' }, links.join('')));
 
     const fulfilled = row.OpenCount === 0;
     const actions = fulfilled
