@@ -68,24 +68,13 @@ them. Drafts in [docs/upstream/](upstream/).
   item, studio and home row. Needs a per-user store beside the want-to-watch list (per user, like `TodoStore`),
   a control on the card or in its dialog, and each surface leaving out what the caller dismissed as well as
   what the report resolved.
-- **A studio/network gaps shelf, without a dedicated studio/network page.** Jellyfin core has no studio or
-  TV-network page to inject a section into (the earlier blocker on this), but it does route two existing
-  pages by the same ids a shelf would need: the generic list page takes a `studioId` query param
-  (`#/list?studioId=<id>&serverId=<id>`), and the TV collection page takes a `topParentId`/`collectionType`
-  pair (`#/tv?topParentId=<id>&collectionType=tvshows&tab=<n>`). `mindthegaps.webui.js` already parses the
-  hash router for the item page's own `#/details?id=` the same way, so reading `studioId` off `#/list` and
-  `topParentId` off `#/tv` (scoped to `collectionType=tvshows`) is the same technique aimed at a different
-  route, not a new one. Needs: resolving a library studio to a TMDB company id (no library studio carries
-  one; auto-seed's own by-name resolution is the precedent) for the movie-studio case, and figuring out
-  what a TV network's equivalent id/source even is before building the network half. Sequenced after the
-  chip pickers.
-
-### Settings page
-
-- **A scroll-to-top button, matching the report's.** The settings form has grown long enough that the
-  report's own back-to-top affordance would help here too.
-- **Collapsible sections.** Each settings section (per source, per feature) could collapse like the
-  report's groups, so a page of mostly-unused toggles is not one long scroll to reach the one you want.
+- **A TV-network gaps shelf.** The movie-studio half shipped as the studio list page's "Missing from this
+  studio" row (`StudioMissingService`, behind `StudioPagePlacement`). The network half is blocked on
+  resolution, not on a page: Jellyfin keeps a series' network in the same `Studios` field a movie's studio
+  uses, so there is no distinct network entity to key off, and TMDB has no search by network name (only
+  `GetNetworkAsync(id)` and discover filtered by a network id already in hand), unlike the company search
+  the studio row resolves by. Revisit only once there is a reliable way to turn a library studio name into a
+  TMDB network id.
 
 ### Minting
 
@@ -104,13 +93,6 @@ them. Drafts in [docs/upstream/](upstream/).
   host prunes it automatically when the item is removed and it travels with the item, rather than the plugin
   maintaining a separate keyed file that can drift from the report. Gated on minting everything (a resolution
   needs an item to hang on); until then the JSON store stands.
-
-### Native page integration
-
-- **A menu entry that opens the report scoped to a library or a person.** A library "..." context-menu "Gaps"
-  entry that jumps to the report. Rides on the same `index.html` injection the Web UI uses, and shares its
-  fragility: jellyfin-web exposes no stable public JS API beyond `ApiClient` and `Dashboard`, so anything that
-  finds its place by DOM shape needs an upkeep pass per web release.
 
 ### Scale and architecture
 

@@ -231,4 +231,64 @@ function buildHarness(summary, itemsByDomain, todo, demand, acqConfig) {
     return outPath;
 }
 
-module.exports = { buildHarness };
+// The settings page, built the same way: its own shell, body and single script over the shared
+// stylesheet and common.js, inside the same containment wrapper. config is what getPluginConfiguration
+// answers; the page's other reads (chip names, the TMDB account) get empty answers.
+function buildSettingsHarness(config) {
+    const css = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.css'), 'utf8');
+    const common = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.common.js'), 'utf8');
+    const settingsJs = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.settings.js'), 'utf8');
+    const shell = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.settings.html'), 'utf8');
+    const body = fs.readFileSync(path.join(WEB_DIR, 'mindthegaps.settings.body.html'), 'utf8');
+
+    const bundle = '(function () {\n' + common + '\n' + settingsJs + '\n})();\n';
+    let page = shell
+        .replace('@@MTG_BODY@@', () => body)
+        .replace(/<link rel="stylesheet" href="[^"]*mindthegaps\.css[^"]*"\s*\/?>/, () => '<style>' + css + '</style>')
+        .replace(/<script type="text\/javascript" src="[^"]*settings\.js[^"]*"><\/script>/, () => '<script type="text/javascript">' + bundle + '</script>');
+    if (page.includes('@@MTG_') || !page.includes('function saveConfig(')) {
+        throw new Error('the settings shell does not match what the harness expects: update build-harness.js alongside mindthegaps.settings.html');
+    }
+
+    page = page.replace(
+        '<div id="MindTheGapsSettingsPage"',
+        '<div class="page type-interior mainAnimatedPage" style="contain:size style;position:relative;width:100%;height:100vh;overflow:auto;">\n<div id="MindTheGapsSettingsPage"'
+    );
+    page = page.replace('</html>', '</div>\n</html>');
+    const mock = `
+<script>
+window.__uiTestErrors = [];
+window.addEventListener('error', function (e) { window.__uiTestErrors.push(String(e.message)); });
+var __CONFIG__ = ${JSON.stringify(config || {})};
+window.ApiClient = {
+    ajax: function (opts) {
+        var url = opts.url || '';
+        if (url.indexOf('MindTheGaps/CuratedResolve') !== -1) { return Promise.resolve([]); }
+        if (url.indexOf('MindTheGaps/Tmdb/AccountStatus') !== -1) { return Promise.resolve({ Connected: false, CanConnect: false }); }
+        return Promise.resolve({});
+    },
+    getUrl: function (p, query) {
+        var q = query ? ('?' + Object.keys(query).map(function (k) { return k + '=' + encodeURIComponent(query[k]); }).join('&')) : '';
+        return p + q;
+    },
+    getPluginConfiguration: function () { return Promise.resolve(JSON.parse(JSON.stringify(__CONFIG__))); },
+    updatePluginConfiguration: function () { return Promise.resolve({}); }
+};
+window.Dashboard = {
+    alert: function (m) { console.log('Dashboard.alert: ' + m); },
+    showLoadingMsg: function () {},
+    hideLoadingMsg: function () {},
+    navigate: function (u) { console.log('Dashboard.navigate: ' + u); },
+    processPluginConfigurationUpdateResult: function () {}
+};
+</script>
+`;
+    page = page.replace('<script type="text/javascript">', mock + '<script type="text/javascript">');
+
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mtg-ui-test-'));
+    const outPath = path.join(outDir, 'settings.html');
+    fs.writeFileSync(outPath, page);
+    return outPath;
+}
+
+module.exports = { buildHarness, buildSettingsHarness };

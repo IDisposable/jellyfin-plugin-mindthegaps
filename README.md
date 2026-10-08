@@ -173,8 +173,8 @@ mint, dismiss).
 In the dashboard, go to **Plugins > Mind the Gaps**. Settings are grouped the way the data is: **What to
 scan** holds the plain toggles (collections, series, filmographies, recommendations, music, books), and
 **Sources** has one collapsible section per provider (TMDB, Trakt, MDBList, Discogs, OpenLibrary, TheTVDB,
-IMDb, JustWatch), each holding that provider's toggles, ids, and credential together. A search box above
-both narrows to whatever matches.
+IMDb, JustWatch), each holding that provider's toggles, ids, and credential together. Every section folds
+under its heading, and a search box above them narrows to whatever matches.
 
 Nothing is required to get a useful report: the defaults scan collections, series, filmographies, music,
 and books against the built-in TMDB key. Everything else, including the acquisition-stack handoff to

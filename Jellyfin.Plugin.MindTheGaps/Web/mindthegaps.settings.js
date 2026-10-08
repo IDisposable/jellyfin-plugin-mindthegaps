@@ -42,22 +42,40 @@ function updateProviderGroups(page, config) {
     });
 }
 
-// The settings search box: a plain-text filter over every checkbox/input's own container. Matching
-// text opens the provider group it is in, so a hit is never hidden behind a collapsed summary;
+// The settings search box: a plain-text filter over every field's own container. Matching text opens
+// the section and provider group it is in, so a hit is never hidden behind a collapsed summary;
 // clearing the box restores every container without touching what the user opened or closed by hand.
 function filterSettings(page, query) {
     const q = (query || '').trim().toLowerCase();
-    const containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer');
+    const containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer, #MindTheGapsConfigForm .selectContainer');
     for (let i = 0; i < containers.length; i++) {
         const c = containers[i];
         if (!q) { c.style.display = ''; continue; }
         const match = (c.textContent || '').toLowerCase().indexOf(q) !== -1;
         c.style.display = match ? '' : 'none';
         if (match) {
-            const details = c.closest('details.cgProvGroup');
-            if (details) { details.open = true; }
+            for (let d = c.closest('details'); d; d = d.parentElement ? d.parentElement.closest('details') : null) { d.open = true; }
         }
     }
+}
+
+// Floating "back to top" button: shown once scrolled down. jellyfin-web scrolls either the window or
+// an ancestor of the page, depending on layout, so the nearest scrolling ancestor is found once.
+function bindScrollTop(page) {
+    const topBtn = page.querySelector('#cgSettingsScrollTop');
+    let scroller = document.scrollingElement || document.documentElement;
+    for (let n = page.querySelector('#MindTheGapsConfigForm'); n && n !== document.body; n = n.parentElement) {
+        const oy = getComputedStyle(n).overflowY;
+        if (oy === 'auto' || oy === 'scroll') { scroller = n; break; }
+    }
+    const listenOn = (scroller === document.scrollingElement || scroller === document.documentElement) ? window : scroller;
+    function onScroll() {
+        const y = scroller.scrollTop || window.pageYOffset || 0;
+        topBtn.style.display = y > 300 ? 'inline-flex' : 'none';
+    }
+    listenOn.addEventListener('scroll', onScroll, { passive: true });
+    topBtn.addEventListener('click', function () { scroller.scrollTo({ top: 0, behavior: 'smooth' }); });
+    onScroll();
 }
 
 // Shows a placement in its dropdown. An empty or unknown value is a configuration saved before the placement
@@ -547,6 +565,7 @@ function bindSettings(page) {
     setupChips(page, 'openlibrarysubject', 'cgOpenLibrarySubjectBox', 'cgOpenLibrarySubjectChips', 'cgOpenLibrarySubjectInput', 'cgOpenLibrarySubjectSuggest');
     setupPasteChip(page, 'tmdblist', 'cgTmdbListBox', 'cgTmdbListChips', 'cgTmdbListInput', parseTmdbListToken);
     setupTmdbAccount(page);
+    bindScrollTop(page);
     // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
     // type=password, so the browser never treats the settings form as a login and never offers to
     // save the keys. Reveal toggles the mask rather than the input type.

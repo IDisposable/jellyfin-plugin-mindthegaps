@@ -11,8 +11,10 @@ in [Setting keys](#setting-keys) at the end.
 
 For how to read the results, see the [report guide](report-guide.md).
 
-A search box above the form narrows **What to scan** and **Sources** to whatever matches, and opens
-whichever provider section a match lands in. Turning a source off removes its gaps from the next report;
+Each section folds away under its heading. **What to scan**, **Sources**, and **Acquisition stack** start
+open, since the last two are already a list of collapsed providers; the rest start closed. A search box
+above the form narrows every section to whatever matches, and opens whichever section and provider a
+match lands in. Once you scroll down, a button in the lower right corner takes you back to the top. Turning a source off removes its gaps from the next report;
 it does not delete anything from your library. Leaving everything off produces an empty report.
 
 ## What to scan

@@ -106,6 +106,7 @@ public class DashboardResourceTests
         Assert.Contains("id=\"MindTheGapsSettingsPage\"", html, StringComparison.Ordinal);
         Assert.Contains("MindTheGapsConfigForm", html, StringComparison.Ordinal);
         Assert.Contains("function saveConfig(", js, StringComparison.Ordinal);
+        Assert.Contains("id=\"cgSettingsScrollTop\"", html, StringComparison.Ordinal);
 
         Assert.DoesNotContain("id=\"cgList\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"cgFulfillModal\"", html, StringComparison.Ordinal);

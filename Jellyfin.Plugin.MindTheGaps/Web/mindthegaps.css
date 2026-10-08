@@ -938,6 +938,48 @@ a.cgSvcs {
     background: rgba(255, 255, 255, .06);
 }
 
+/* A settings section that folds under its heading. The native marker is replaced by a drawn chevron
+    because a flex or block summary drops it in some browsers but not others. */
+.cgSection {
+    margin-bottom: .4em;
+}
+
+.cgSection[open] {
+    margin-bottom: 1.5em;
+}
+
+.cgSectionSummary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: .6em;
+}
+
+.cgSectionSummary::-webkit-details-marker {
+    display: none;
+}
+
+.cgSectionSummary::before {
+    content: "";
+    flex: none;
+    width: .5em;
+    height: .5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform .15s;
+    opacity: .7;
+}
+
+.cgSection[open] > .cgSectionSummary::before {
+    transform: rotate(45deg);
+}
+
+.cgSectionSummary .sectionTitle {
+    margin: .4em 0;
+}
+
 .cgRow .cgSel {
     cursor: pointer;
 }
