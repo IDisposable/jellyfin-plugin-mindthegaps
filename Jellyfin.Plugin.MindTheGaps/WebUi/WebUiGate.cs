@@ -62,6 +62,14 @@ internal static class WebUiGate
     public static bool WantToWatch(PluginConfiguration? config) => config?.WantToWatchEnabled == true;
 
     /// <summary>
+    /// Determines whether a user may say they are not interested in a title on the surfaces, and so whether the
+    /// surfaces leave out what they said that about.
+    /// </summary>
+    /// <param name="config">The configuration, or <see langword="null"/> before the plugin is initialized.</param>
+    /// <returns><see langword="true"/> when the not-interested toggle is on.</returns>
+    public static bool NotInterested(PluginConfiguration? config) => config?.NotInterestedEnabled == true;
+
+    /// <summary>
     /// Determines whether a movie or series page's bookmark, which keeps an owned title on the user's
     /// want-to-watch playlist, is served. It needs want to watch, its playlist, and its own toggle.
     /// </summary>

@@ -15,8 +15,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// report does not carry a gap. A user's file is deleted when the user is (see <see cref="TodoOwner"/>).
 /// </summary>
 /// <remarks>
-/// The lists live in the plugin's own data folder, not the server's cache path: the server's daily cache
-/// sweep deletes files that have not been written for thirty days, which would delete a list nobody edited.
+/// The files themselves are <see cref="UserListFiles{TEntry}"/>'s, shared with <see cref="NotInterestedStore"/>.
+/// A list that cannot be read just now reads as empty, so a page still renders, and a change to it, or one
+/// that could not be saved, fails with <see cref="UserListUnavailableException"/> rather than write over it or
+/// claim to have been made (see <see cref="UserListFiles{TEntry}.Load"/> and <see cref="UserListFiles{TEntry}.Save"/>).
 /// </remarks>
 public sealed class TodoStore
 {
@@ -24,15 +26,10 @@ public sealed class TodoStore
     private const string LegacyFileName = "todos.json";
     private const string ListsFolderName = "watchlists";
 
-    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
-
     private readonly ILogger<TodoStore> _logger;
     private readonly string? _dataFolderOverride;
     private readonly object _lock = new();
-    private readonly Dictionary<Guid, Dictionary<string, TodoEntry>> _cached = [];
+    private readonly UserListFiles<TodoEntry> _files;
     private bool _legacyResolved;
 
     /// <summary>
@@ -40,8 +37,8 @@ public sealed class TodoStore
     /// </summary>
     /// <param name="logger">The logger.</param>
     public TodoStore(ILogger<TodoStore> logger)
+        : this(logger, null)
     {
-        _logger = logger;
     }
 
     /// <summary>
@@ -50,10 +47,11 @@ public sealed class TodoStore
     /// </summary>
     /// <param name="logger">The logger.</param>
     /// <param name="dataFolder">The folder to persist the todo lists in.</param>
-    public TodoStore(ILogger<TodoStore> logger, string dataFolder)
+    public TodoStore(ILogger<TodoStore> logger, string? dataFolder)
     {
         _logger = logger;
         _dataFolderOverride = dataFolder;
+        _files = new UserListFiles<TodoEntry>(logger, () => DataFolder, ListsFolderName, "todo list");
     }
 
     private string DataFolder
@@ -65,8 +63,6 @@ public sealed class TodoStore
             return dataFolder;
         }
     }
-
-    private string ListsFolder => Path.Combine(DataFolder, ListsFolderName);
 
     /// <summary>
     /// Snapshots the given gaps and upserts them into a user's todo list, keyed by id. Re-adding a gap already
@@ -159,7 +155,7 @@ public sealed class TodoStore
         lock (_lock)
         {
             // The list copy decouples callers from the live cached map (a later Add/Remove must not mutate it).
-            return new List<TodoEntry>(LoadMap(userId).Values);
+            return new List<TodoEntry>(_files.Peek(userId).Values);
         }
     }
 
@@ -176,7 +172,7 @@ public sealed class TodoStore
         lock (_lock)
         {
             var keys = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var entry in LoadMap(userId).Values)
+            foreach (var entry in _files.Peek(userId).Values)
             {
                 keys.UnionWith(TodoKeys.For(entry));
             }
@@ -227,24 +223,7 @@ public sealed class TodoStore
     {
         lock (_lock)
         {
-            var owners = new List<Guid>();
-            var folder = ListsFolder;
-            if (!Directory.Exists(folder))
-            {
-                return owners;
-            }
-
-            foreach (var path in Directory.EnumerateFiles(folder, "*.json"))
-            {
-                if (Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var userId)
-                    && userId != Guid.Empty
-                    && LoadMap(userId).Count > 0)
-                {
-                    owners.Add(userId);
-                }
-            }
-
-            return owners;
+            return _files.Owners().Where(userId => _files.Peek(userId).Count > 0).ToList();
         }
     }
 
@@ -346,7 +325,7 @@ public sealed class TodoStore
             Dictionary<string, TodoEntry>? legacy;
             try
             {
-                legacy = JsonSerializer.Deserialize<Dictionary<string, TodoEntry>>(File.ReadAllText(legacyPath), _jsonOptions);
+                legacy = JsonSerializer.Deserialize<Dictionary<string, TodoEntry>>(File.ReadAllText(legacyPath), UserListFiles<TodoEntry>.JsonOptions);
             }
             catch (Exception ex)
             {
@@ -355,22 +334,28 @@ public sealed class TodoStore
                 return 0;
             }
 
-            var merged = new Dictionary<string, TodoEntry>(LoadMap(administratorId), StringComparer.Ordinal);
+            // Merged into a copy, so a failed save leaves the administrator's own list as it was.
             var adopted = 0;
-            foreach (var pair in legacy ?? [])
+            try
             {
-                if (merged.TryAdd(pair.Key, pair.Value))
+                var merged = new Dictionary<string, TodoEntry>(LoadMap(administratorId), StringComparer.Ordinal);
+                foreach (var pair in legacy ?? [])
                 {
-                    adopted++;
+                    if (merged.TryAdd(pair.Key, pair.Value))
+                    {
+                        adopted++;
+                    }
                 }
-            }
 
-            if (!Write(administratorId, merged))
+                _files.Save(administratorId, merged);
+            }
+            catch (UserListUnavailableException)
             {
+                // Merging into a list that could not be read would write over it, and a list that could not be
+                // saved has not taken the entries: either way the old file stays, to be adopted on a later call.
                 return 0;
             }
 
-            _cached[administratorId] = merged;
             _legacyResolved = true;
             try
             {
@@ -397,23 +382,7 @@ public sealed class TodoStore
 
         lock (_lock)
         {
-            _cached.Remove(userId);
-            var path = PathFor(userId);
-            if (!File.Exists(path))
-            {
-                return false;
-            }
-
-            try
-            {
-                File.Delete(path);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not delete the todo list of user {User}", userId);
-                return false;
-            }
+            return _files.Delete(userId);
         }
     }
 
@@ -429,33 +398,7 @@ public sealed class TodoStore
 
         lock (_lock)
         {
-            var folder = ListsFolder;
-            if (!Directory.Exists(folder))
-            {
-                return 0;
-            }
-
-            var deleted = 0;
-            foreach (var path in Directory.EnumerateFiles(folder, "*.json"))
-            {
-                if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var userId) || userId == Guid.Empty || userExists(userId))
-                {
-                    continue;
-                }
-
-                _cached.Remove(userId);
-                try
-                {
-                    File.Delete(path);
-                    deleted++;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not delete the orphaned todo list {Path}", path);
-                }
-            }
-
-            return deleted;
+            return _files.Prune(userExists);
         }
     }
 
@@ -490,59 +433,9 @@ public sealed class TodoStore
             AddedUtc = NowUtc()
         };
 
-    private string PathFor(Guid userId)
-        => Path.Combine(ListsFolder, userId.ToString("N", CultureInfo.InvariantCulture) + ".json");
+    // For a change: throws rather than hand back an empty list for one that could not be read. Caller holds _lock.
+    private Dictionary<string, TodoEntry> LoadMap(Guid userId) => _files.Load(userId);
 
-    // Caller holds _lock.
-    private Dictionary<string, TodoEntry> LoadMap(Guid userId)
-    {
-        if (_cached.TryGetValue(userId, out var cached))
-        {
-            return cached;
-        }
-
-        Dictionary<string, TodoEntry>? map = null;
-        try
-        {
-            var path = PathFor(userId);
-            if (File.Exists(path))
-            {
-                map = JsonSerializer.Deserialize<Dictionary<string, TodoEntry>>(File.ReadAllText(path), _jsonOptions);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to read the todo list of user {User}", userId);
-        }
-
-        map ??= new Dictionary<string, TodoEntry>(StringComparer.Ordinal);
-        _cached[userId] = map;
-        return map;
-    }
-
-    // Keeps the in-memory list and writes it; caller holds _lock.
-    private void Flush(Guid userId, Dictionary<string, TodoEntry> map)
-    {
-        _cached[userId] = map;
-        Write(userId, map);
-    }
-
-    // Atomic write (temp then replace); caller holds _lock.
-    private bool Write(Guid userId, Dictionary<string, TodoEntry> map)
-    {
-        try
-        {
-            Directory.CreateDirectory(ListsFolder);
-            var path = PathFor(userId);
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(map, _jsonOptions));
-            File.Move(tmp, path, overwrite: true);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to persist the todo list of user {User}", userId);
-            return false;
-        }
-    }
+    // Throws, and forgets the in-place change, when the list could not be saved. Caller holds _lock.
+    private void Flush(Guid userId, Dictionary<string, TodoEntry> map) => _files.Save(userId, map);
 }

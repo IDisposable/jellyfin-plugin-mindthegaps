@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,10 +27,11 @@ public class PersonWebUiController : WebUiControllerBase
     /// </summary>
     /// <param name="person">Computes a person's unowned filmography.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
+    /// <param name="notInterested">The per-user store of titles the user is not interested in.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
-    public PersonWebUiController(PersonMissingService person, TodoStore todo, WebUiAccess access, CertificationFilter certifications)
-        : base(todo, access, certifications)
+    public PersonWebUiController(PersonMissingService person, TodoStore todo, NotInterestedStore notInterested, WebUiAccess access, CertificationFilter certifications)
+        : base(todo, notInterested, access, certifications)
     {
         _person = person;
     }
@@ -60,10 +62,25 @@ public class PersonWebUiController : WebUiControllerBase
             return NotFound();
         }
 
-        result.Movies = await ForCallerAsync(result.Movies, cancellationToken).ConfigureAwait(false);
-        result.Series = await ForCallerAsync(result.Series, cancellationToken).ConfigureAwait(false);
+        // One pass over both lists rather than one per list: a restricted caller's certification lookups run a
+        // few at a time, and two passes would leave those slots idle while the movies' slowest lookups finish.
+        // Concurrent passes would instead double how many reach TMDB at once.
+        // A card's Kind is the kind PersonMissingBuilder.Split filed it under, so it says which list it goes back to.
+        var (notInterestedUser, notInterested, notInterestedCount) = NotInterested();
+        var allowed = await ForCallerAsync(NotInterestedFilter.Without([.. result.Movies, .. result.Series], notInterested), cancellationToken).ConfigureAwait(false);
+        var movies = new List<MissingTitle>(allowed.Count);
+        var series = new List<MissingTitle>();
+        foreach (var title in allowed)
+        {
+            (string.Equals(title.Kind, "Movie", StringComparison.Ordinal) ? movies : series).Add(title);
+        }
+
+        result.Movies = movies;
+        result.Series = series;
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
+        result.CanHide = notInterestedUser is not null;
+        result.NotInterestedCount = notInterestedCount;
         WantedMarker.Mark(result.Movies.Concat(result.Series), wanted);
         return result;
     }
@@ -100,4 +117,34 @@ public class PersonWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemovePersonGapFromTodo([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
         => WantOwnedGapAsync(PersonPageShown, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+
+    /// <summary>
+    /// Says the caller is not interested in one of a person's unowned credits, so no surface shows it to them.
+    /// </summary>
+    /// <param name="personId">The Jellyfin person id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1), or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Person/{personId}/NotInterested")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddPersonGapNotInterested([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(PersonPageShown, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes back the caller's "not interested" on one of a person's unowned credits.
+    /// </summary>
+    /// <param name="personId">The Jellyfin person id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles removed, or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Person/{personId}/NotInterested/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemovePersonGapNotInterested([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(PersonPageShown, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }

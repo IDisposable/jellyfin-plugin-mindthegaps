@@ -231,7 +231,9 @@ links only when you open it, which is what keeps a large tab quick.
       bookmark keeps.
     - **Resolve** (a nested popover; so a gap stops cluttering the list, surviving rescans): **Mark
       resolved** ("not really missing," with an optional note), **Not interested** (a real gap you do not
-      want), or, for an upcoming item, **Snooze until release** (hide until the release date). Once
+      want; this hides it for everyone, on the report and on the Web UI pages, unlike the pages' own **Not
+      interested**, which each user says for themselves), or, for an upcoming item, **Snooze until release**
+      (hide until the release date). Once
       dismissed, this popover instead shows the dismissal's note and a **Clear** button to undo it (also
       reachable via **Show dismissed**).
 - **Batch dismiss a series or season**: on the **Shows** Set completion tree, each series and season group

@@ -27,6 +27,17 @@ public sealed class StudioMissingResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the caller may say they are not interested in a title: the
+    /// feature is on and the caller is a signed-in user. The page offers "Not interested" when it is.
+    /// </summary>
+    public bool CanHide { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the caller is not interested in; 0 when they cannot keep the list.
+    /// </summary>
+    public int NotInterestedCount { get; set; }
+
+    /// <summary>
     /// Gets or sets why the list is empty when it could not be computed (the studio name could not be
     /// matched to a TMDB company). Null when the list is real.
     /// </summary>

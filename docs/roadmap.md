@@ -62,12 +62,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI
 
-- **A per-user dismissal.** Only an administrator can dismiss a gap, by resolving it on the report, and that
-  hides it for everyone (`ResolutionStore` is server-wide). A signed-in user on the Web UI surfaces has no
-  way to say "not interested" to a card, so a title they will never want keeps coming back on every person,
-  item, studio and home row. Needs a per-user store beside the want-to-watch list (per user, like `TodoStore`),
-  a control on the card or in its dialog, and each surface leaving out what the caller dismissed as well as
-  what the report resolved.
 - **A TV-network gaps shelf.** The movie-studio half shipped as the studio list page's "Missing from this
   studio" row (`StudioMissingService`, behind `StudioPagePlacement`). The network half is blocked on
   resolution, not on a page: Jellyfin keeps a series' network in the same `Studios` field a movie's studio

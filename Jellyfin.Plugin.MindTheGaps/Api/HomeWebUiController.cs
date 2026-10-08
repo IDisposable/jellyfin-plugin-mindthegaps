@@ -38,12 +38,13 @@ public class HomeWebUiController : WebUiControllerBase
     /// <param name="wanted">Builds the home screen's want-to-watch row.</param>
     /// <param name="search">Backs the want-to-watch row's title search.</param>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch row's removal.</param>
+    /// <param name="notInterested">The per-user store of titles the user is not interested in.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="playlist">The want-to-watch playlist, for the row's removal of an owned title.</param>
     /// <param name="sections">Reads the caller's home screen slot order, for where the rows go.</param>
     /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, HomeSections sections, CertificationFilter certifications)
-        : base(todo, access, certifications)
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, NotInterestedStore notInterested, WebUiAccess access, WatchlistPlaylistService playlist, HomeSections sections, CertificationFilter certifications)
+        : base(todo, notInterested, access, certifications)
     {
         _home = home;
         _wanted = wanted;
@@ -74,11 +75,15 @@ public class HomeWebUiController : WebUiControllerBase
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
 
-        // A restricted caller's limit leaves some of the ranked titles out, so ask for more than the row shows.
-        var result = _home.Get(CallerIsRestricted() ? size * 3 : size);
-        result.Titles = (await ForCallerAsync(result.Titles, cancellationToken).ConfigureAwait(false)).Take(size).ToList();
+        // A restricted caller's limit and the titles they are not interested in leave some of the ranked titles
+        // out, so ask for more than the row shows.
+        var (notInterestedUser, notInterested, notInterestedCount) = NotInterested();
+        var result = _home.Get((CallerIsRestricted() ? size * 3 : size) + notInterestedCount);
+        result.Titles = (await ForCallerAsync(NotInterestedFilter.Without(result.Titles, notInterested), cancellationToken).ConfigureAwait(false)).Take(size).ToList();
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
+        result.CanHide = notInterestedUser is not null;
+        result.NotInterestedCount = notInterestedCount;
         (result.Placement, result.HomeSections) = Placement(HomePlacement.Discover(Plugin.Instance?.Configuration));
         WantedMarker.Mark(result.Titles, wanted);
         return result;
@@ -112,6 +117,35 @@ public class HomeWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveHomeGapFromTodo([FromQuery] string? gapId, CancellationToken cancellationToken)
         => WantOwnedGapAsync(HomeDiscoverShown, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: false, cancellationToken);
+
+    /// <summary>
+    /// Says the caller is not interested in one of the home row's recommendations, so no surface shows it to
+    /// them.
+    /// </summary>
+    /// <param name="gapId">The gap id the row showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1), or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Home/NotInterested")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddHomeGapNotInterested([FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(HomeDiscoverShown, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes back the caller's "not interested" on one of the home row's recommendations.
+    /// </summary>
+    /// <param name="gapId">The gap id the row showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles removed, or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Home/NotInterested/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveHomeGapNotInterested([FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(HomeDiscoverShown, null, gapId, _ => Task.FromResult(_home.FindGap(gapId ?? string.Empty)), add: false, cancellationToken);
 
     /// <summary>
     /// The home screen's want-to-watch row: the movies and series on the caller's own list that are not done

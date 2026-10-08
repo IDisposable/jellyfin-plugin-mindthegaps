@@ -73,8 +73,8 @@ public sealed class WebUiAccess
             : null;
 
     /// <summary>
-    /// Gets the caller's id when they may keep a want-to-watch list: a signed-in user. An administrator's first
-    /// call also takes over the old server-wide todo list.
+    /// Gets the caller's id when they may keep a list of their own (want to watch, not interested): a signed-in
+    /// user. An administrator's first call also takes over the old server-wide todo list.
     /// </summary>
     /// <param name="principal">The request's principal.</param>
     /// <param name="isAdministrator">Whether the caller is an administrator.</param>

@@ -10,14 +10,16 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Identifies whose todo list a request is for, and deletes a list when its user is deleted.
+/// Identifies whose per-user lists a request is for (the todo list, and the titles the user is not interested
+/// in), and deletes a user's lists when the user is deleted.
 /// </summary>
 /// <remarks>
 /// The owner is the signed-in user, read from the id the server puts in the request's claims. A request that
 /// is not a user's, such as one made with an API key, has no owner and so no list. The first administrator to
 /// use the todo list after an upgrade also takes over the old server-wide list
-/// (<see cref="TodoStore.AdoptLegacy"/>). A list is deleted when the server reports its user deleted; lists
-/// of users deleted while the plugin was not listening are swept once per run, the first time a list is used.
+/// (<see cref="TodoStore.AdoptLegacy"/>). A user's lists are deleted when the server reports the user deleted;
+/// lists of users deleted while the plugin was not listening are swept once per run, the first time a list is
+/// used.
 /// </remarks>
 public sealed class TodoOwner : IEventConsumer<UserDeletedEventArgs>
 {
@@ -27,6 +29,7 @@ public sealed class TodoOwner : IEventConsumer<UserDeletedEventArgs>
     public const string UserIdClaim = "Jellyfin-UserId";
 
     private readonly TodoStore _store;
+    private readonly NotInterestedStore _notInterested;
     private readonly IUserManager _users;
     private readonly ILogger<TodoOwner> _logger;
     private int _swept;
@@ -35,11 +38,13 @@ public sealed class TodoOwner : IEventConsumer<UserDeletedEventArgs>
     /// Initializes a new instance of the <see cref="TodoOwner"/> class.
     /// </summary>
     /// <param name="store">The todo store.</param>
+    /// <param name="notInterested">The not-interested store.</param>
     /// <param name="users">The user manager.</param>
     /// <param name="logger">The logger.</param>
-    public TodoOwner(TodoStore store, IUserManager users, ILogger<TodoOwner> logger)
+    public TodoOwner(TodoStore store, NotInterestedStore notInterested, IUserManager users, ILogger<TodoOwner> logger)
     {
         _store = store;
+        _notInterested = notInterested;
         _users = users;
         _logger = logger;
     }
@@ -102,6 +107,11 @@ public sealed class TodoOwner : IEventConsumer<UserDeletedEventArgs>
             _logger.LogInformation("Deleted the todo list of the removed user {User}", eventArgs.Argument.Id);
         }
 
+        if (_notInterested.Delete(eventArgs.Argument.Id))
+        {
+            _logger.LogInformation("Deleted the not-interested list of the removed user {User}", eventArgs.Argument.Id);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -117,10 +127,11 @@ public sealed class TodoOwner : IEventConsumer<UserDeletedEventArgs>
         // Cleanup must never fail the request that happened to trigger it.
         try
         {
-            var deleted = _store.Prune(id => _users.GetUserById(id) is not null);
+            var deleted = _store.Prune(id => _users.GetUserById(id) is not null)
+                + _notInterested.Prune(id => _users.GetUserById(id) is not null);
             if (deleted > 0)
             {
-                _logger.LogInformation("Deleted {Count} todo lists whose users do not exist", deleted);
+                _logger.LogInformation("Deleted {Count} per-user lists whose users do not exist", deleted);
             }
         }
         catch (Exception ex)

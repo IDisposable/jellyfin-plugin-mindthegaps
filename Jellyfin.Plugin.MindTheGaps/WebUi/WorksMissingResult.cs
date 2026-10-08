@@ -32,6 +32,17 @@ public sealed class WorksMissingResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the caller may say they are not interested in a title: the
+    /// feature is on and the caller is a signed-in user. The page offers "Not interested" when it is.
+    /// </summary>
+    public bool CanHide { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the caller is not interested in; 0 when they cannot keep the list.
+    /// </summary>
+    public int NotInterestedCount { get; set; }
+
+    /// <summary>
     /// Gets or sets where the row goes on the page: a side and one of jellyfin-web's own item page sections,
     /// such as <c>after:similar</c>.
     /// </summary>

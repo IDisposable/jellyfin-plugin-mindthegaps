@@ -13,16 +13,18 @@ namespace Jellyfin.Plugin.MindTheGaps.Api;
 
 /// <summary>
 /// Shared plumbing for the web UI surface controllers (<see cref="PersonWebUiController"/>,
-/// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>, <see cref="StudioWebUiController"/>):
-/// the want-to-watch add/remove
-/// every surface offers on its cards. Abstract and carries no route of its own, so it is never itself
-/// discovered as a controller. Deliberately has no acquisition handoff: an administrator monitors what
-/// everyone wants through the report's own fulfillment queue instead, so this
-/// surface never talks to Radarr or Sonarr.
+/// <see cref="ItemWebUiController"/>, <see cref="HomeWebUiController"/>, <see cref="StudioWebUiController"/>,
+/// <see cref="NotInterestedWebUiController"/>): the want-to-watch add/remove and the "not interested" every
+/// surface offers on its cards. Abstract and carries no route of its own, so it is never itself discovered as
+/// a controller. Deliberately has no acquisition handoff: an administrator monitors what everyone wants
+/// through the report's own fulfillment queue instead, so this surface never talks to Radarr or Sonarr. And
+/// nothing here writes the report's resolutions: "not interested" is the caller's own, an administrator's
+/// included, and the report's server-wide dismissal stays on the report.
 /// </summary>
 public abstract class WebUiControllerBase : ControllerBase
 {
     private readonly TodoStore _todo;
+    private readonly NotInterestedStore _notInterested;
     private readonly WebUiAccess _access;
     private readonly CertificationFilter _certifications;
 
@@ -30,14 +32,21 @@ public abstract class WebUiControllerBase : ControllerBase
     /// Initializes a new instance of the <see cref="WebUiControllerBase"/> class.
     /// </summary>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch add/remove.</param>
+    /// <param name="notInterested">The per-user store of titles the user is not interested in.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
-    protected WebUiControllerBase(TodoStore todo, WebUiAccess access, CertificationFilter certifications)
+    protected WebUiControllerBase(TodoStore todo, NotInterestedStore notInterested, WebUiAccess access, CertificationFilter certifications)
     {
         _todo = todo;
+        _notInterested = notInterested;
         _access = access;
         _certifications = certifications;
     }
+
+    /// <summary>
+    /// Gets the per-user store of titles the user is not interested in.
+    /// </summary>
+    protected NotInterestedStore NotInterestedList => _notInterested;
 
     /// <summary>
     /// Gets a value indicating whether the caller is an administrator.
@@ -155,5 +164,64 @@ public abstract class WebUiControllerBase : ControllerBase
 
         var removed = gap is null ? 0 : Todo.RemoveMatching(userId, GapTargetKey.For(gap).ToList());
         return removed > 0 ? removed : Todo.Remove(userId, gapId ?? string.Empty);
+    }
+
+    /// <summary>
+    /// The caller's not-interested list when they may keep one (the feature is on, and they are a signed-in
+    /// user), with the identity keys of what is on it so a surface can leave those titles out.
+    /// </summary>
+    /// <returns>The caller's user id (null when they may not keep one), their keys, and how many titles.</returns>
+    protected (Guid? UserId, IReadOnlySet<string> Keys, int Count) NotInterested()
+    {
+        if (!WebUiGate.NotInterested(Plugin.Instance?.Configuration) || _access.WantingUser(User, IsAdministrator) is not { } userId)
+        {
+            return (null, new HashSet<string>(StringComparer.Ordinal), 0);
+        }
+
+        var (keys, count) = _notInterested.Keys(userId);
+        return (userId, keys, count);
+    }
+
+    /// <summary>
+    /// Says the caller is not interested in a card's title, or takes that back. The gap is rehydrated from the
+    /// same lookup the page listed it from rather than trusted from the client, the same rule as
+    /// <see cref="WantOwnedGapAsync"/>. Taking it back goes by the title, so it comes off however the title was
+    /// first dismissed, and by the id when the page no longer lists the gap. Only ever the caller's own list:
+    /// an administrator saying this on a page hides the title from themselves, not from anyone else.
+    /// </summary>
+    /// <param name="surfaceEnabled">Whether the calling surface is on.</param>
+    /// <param name="itemId">The owning item, for the may-see check; null for the home surface.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="findGap">Rehydrates the gap server-side from the same lookup the page listed it from.</param>
+    /// <param name="add">True to say not interested; false to take it back.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1) or removed; 404 while the surface or the feature is off, or
+    /// the caller may not see the item; 403 for a caller with no list of their own.</returns>
+    protected async Task<ActionResult<int>> NotInterestedGapAsync(
+        bool surfaceEnabled,
+        Guid? itemId,
+        string? gapId,
+        Func<CancellationToken, Task<GapItem?>> findGap,
+        bool add,
+        CancellationToken cancellationToken)
+    {
+        if (!surfaceEnabled || !WebUiGate.NotInterested(Plugin.Instance?.Configuration) || !_access.MaySee(User, itemId))
+        {
+            return NotFound();
+        }
+
+        if (_access.WantingUser(User, IsAdministrator) is not { } userId)
+        {
+            return Forbid();
+        }
+
+        var gap = await findGap(cancellationToken).ConfigureAwait(false);
+        if (add)
+        {
+            return gap is not null && _notInterested.Add(userId, gap) ? 1 : 0;
+        }
+
+        var removed = gap is null ? 0 : _notInterested.RemoveMatching(userId, GapTargetKey.For(gap).ToList());
+        return removed > 0 ? removed : _notInterested.Remove(userId, gapId ?? string.Empty);
     }
 }

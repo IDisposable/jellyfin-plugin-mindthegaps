@@ -47,24 +47,28 @@ internal static class WorksMissingBuilder
     }
 
     /// <summary>
-    /// Builds the card list: only albums and books, minus dismissed gaps, newest first, ties by title.
+    /// Builds the card list: only albums and books, minus gaps dismissed on the report and titles the user is
+    /// not interested in, newest first, ties by title.
     /// </summary>
     /// <param name="gaps">The gaps the artist's or author's sources produced.</param>
     /// <param name="dismissed">Whether a gap id has been dismissed on the report.</param>
     /// <param name="wanted">The identity keys of the titles on the user's want-to-watch list, or null for none.</param>
     /// <param name="searchUrlTemplate">The configured web-search URL template, or null to omit it.</param>
+    /// <param name="notInterested">The identity keys of the titles the user is not interested in, or null for none.</param>
     /// <returns>The cards.</returns>
     public static IReadOnlyList<MissingWork> Build(
         IEnumerable<GapItem> gaps,
         Func<string, bool> dismissed,
         IReadOnlySet<string>? wanted = null,
-        string? searchUrlTemplate = null)
+        string? searchUrlTemplate = null,
+        IReadOnlySet<string>? notInterested = null)
     {
         ArgumentNullException.ThrowIfNull(gaps);
         ArgumentNullException.ThrowIfNull(dismissed);
 
         return gaps
             .Where(g => (g.TargetKind is BaseItemKind.MusicAlbum or BaseItemKind.Book) && !dismissed(g.Id))
+            .Where(g => notInterested is null || !GapTargetKey.For(g).Any(notInterested.Contains))
             .Select(g => ToWork(g, wanted, searchUrlTemplate))
             .OrderByDescending(w => w.ReleaseDate ?? DateTime.MinValue)
             .ThenBy(w => w.Title, StringComparer.OrdinalIgnoreCase)

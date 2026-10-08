@@ -261,6 +261,170 @@
         return btn;
     }
 
+    // ---- Not interested ----
+    //
+    // A signed-in user's own list of titles they do not want to see, which every surface leaves out for them.
+    // This hides title from the one user who said so, an administrator included. Said from a title's dialog,
+    // after which its card stays where it was, greyed, with an Undo, until the page is next laid out. Every
+    // row's header carries a count of the list, which opens it to show a title again. The count is the user's
+    // whole list, not the row's.
+    var notInterestedCount = 0;
+
+    // A surface's ctx takes canHide and the list's size from its response.
+    function takeNotInterested(ctx, data) {
+        ctx.canHide = !!data.CanHide;
+        if (ctx.canHide) { notInterestedCount = data.NotInterestedCount || 0; }
+        return ctx;
+    }
+
+    function paintNotInterestedLinks() {
+        Array.prototype.forEach.call(document.querySelectorAll('.mtgNotInterestedLink'), function (btn) {
+            btn.textContent = 'Not interested (' + notInterestedCount + ')';
+            btn.style.display = notInterestedCount > 0 ? '' : 'none';
+        });
+    }
+
+    // The header control that opens the list; shown only while the list holds something.
+    function notInterestedLink(ctx) {
+        var btn = h('button', { 'type': 'button', 'class': 'mtgNotInterestedLink', 'title': 'Titles you have hidden from your pages' });
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openNotInterestedList(ctx);
+        });
+        btn.textContent = 'Not interested (' + notInterestedCount + ')';
+        btn.style.display = notInterestedCount > 0 ? '' : 'none';
+        return btn;
+    }
+
+    // Says the user is not interested in a card's title, or takes it back, and shows the result on the card
+    // (and on any other card of the same gap on the page, other than the user's own want-to-watch row).
+    function setNotInterested(ctx, item, on, control) {
+        if (control) { control.disabled = true; }
+        return api('POST', actionUrl(ctx, on ? 'NotInterested' : 'NotInterested/Remove'), { gapId: item.GapId }).then(function () {
+            notInterestedCount = Math.max(0, notInterestedCount + (on ? 1 : -1));
+            paintNotInterestedLinks();
+            if (on) { closeDialog(); }
+            var undo = paintHidden(ctx, item, on);
+            if (on && undo) { undo.focus(); }
+        }, function () {
+            alertUser('Could not update your list.');
+            if (control) { control.disabled = false; }
+        });
+    }
+
+    // Greys a card out with an Undo over its image, or puts it back. Returns the first Undo button, for focus.
+    function paintHidden(ctx, item, hidden) {
+        var id = item.GapId.replace(/["\\]/g, '');
+        var firstUndo = null;
+        Array.prototype.forEach.call(document.querySelectorAll('.mtgCard[data-gapid="' + id + '"]'), function (cardEl) {
+            if (cardEl.closest('#' + WANTED_ID)) { return; }
+            var old = cardEl.querySelector('.mtgHiddenOverlay');
+            if (old) { old.parentNode.removeChild(old); }
+            cardEl.classList.toggle('mtgHidden', hidden);
+            if (!hidden) { return; }
+
+            var overlay = h('div', { 'class': 'mtgHiddenOverlay' });
+            overlay.appendChild(h('span', null, 'Not interested'));
+            var undo = h('button', { 'type': 'button', 'class': 'mtgHiddenUndo', 'aria-label': 'Undo not interested in ' + item.Title }, 'Undo');
+            undo.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setNotInterested(ctx, item, false, undo).then(function () { cardEl.focus(); });
+            });
+            overlay.appendChild(undo);
+            cardEl.querySelector('.cardScalable').appendChild(overlay);
+            firstUndo = firstUndo || undo;
+        });
+        return firstUndo;
+    }
+
+    // The user's whole list, in the shared dialog, newest first. A title shown again comes back on the pages
+    // the next time they are laid out, so the page that opened the list is laid out again when it closes.
+    function openNotInterestedList(ctx) {
+        var body = h('div', { 'class': 'mtgDialogBody mtgNiBody' });
+        body.appendChild(h('h2', { 'class': 'mtgDialogTitle' }, 'Not interested'));
+        body.appendChild(h('p', { 'class': 'mtgNote' }, 'Titles you have hidden from your pages. This list is yours alone: it hides nothing from anyone else.'));
+        var list = h('div', { 'class': 'mtgNiList', 'role': 'list' });
+        var status = h('p', { 'class': 'mtgNote', 'role': 'status' }, 'Loading\u2026');
+        // Hidden until the list loads with something on it.
+        var clearAll = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgNiClear', 'style': 'display:none' });
+        body.appendChild(clearAll);
+        body.appendChild(status);
+        body.appendChild(list);
+
+        var restored = false;
+        var showButtons = [];
+        var token = showDialogBody(body, function () { if (restored && ctx.reload) { ctx.reload(); } });
+
+        function willShowAgain(show) {
+            show.parentNode.replaceChild(h('span', { 'class': 'mtgNote' }, 'Will show again'), show);
+            showButtons.splice(showButtons.indexOf(show), 1);
+            if (!showButtons.length) { clearAll.style.display = 'none'; } else { paintClearAll(false); }
+        }
+
+        // Emptying the whole list takes a second click (on the button that now asks), rather than a browser
+        // confirm(), which some TV shells do not show. Leaving the button disarms it.
+        function paintClearAll(armed) {
+            clearAll.mtgArmed = armed;
+            clearAll.textContent = armed ? 'Show all ' + showButtons.length + ' again?' : 'Show all again';
+            clearAll.setAttribute('aria-label', armed ? 'Confirm: show all ' + showButtons.length + ' titles again' : 'Show all ' + showButtons.length + ' titles again');
+        }
+
+        clearAll.addEventListener('blur', function () { if (clearAll.mtgArmed && !clearAll.disabled) { paintClearAll(false); } });
+        clearAll.addEventListener('click', function () {
+            if (!clearAll.mtgArmed) { paintClearAll(true); return; }
+            clearAll.disabled = true;
+            api('POST', 'MindTheGaps/WebUi/NotInterested/Clear').then(function () {
+                restored = true;
+                notInterestedCount = 0;
+                paintNotInterestedLinks();
+                showButtons.slice().forEach(willShowAgain);
+                status.textContent = 'Every title will show again.';
+                dialogCloseBtn.focus();
+            }, function () {
+                clearAll.disabled = false;
+                paintClearAll(false);
+                alertUser('Could not update your list.');
+            });
+        });
+
+        api('GET', 'MindTheGaps/WebUi/NotInterested').then(function (entries) {
+            if (token !== dialogToken) { return; }
+            entries = entries || [];
+            status.textContent = entries.length ? '' : 'Nothing is hidden.';
+            entries.forEach(function (entry) {
+                var row = h('div', { 'class': 'mtgNiRow', 'role': 'listitem' });
+                var thumb = h('div', { 'class': 'mtgNiThumb' });
+                setImage(thumb, entry.ImageUrl);
+                row.appendChild(thumb);
+                var label = entry.Name + (entry.Year ? ' (' + entry.Year + ')' : '');
+                row.appendChild(h('span', { 'class': 'mtgNiName' }, label));
+                var show = h('button', { 'type': 'button', 'class': ACTION_BUTTON, 'aria-label': 'Show ' + label + ' again' }, 'Show again');
+                show.addEventListener('click', function () {
+                    show.disabled = true;
+                    api('POST', 'MindTheGaps/WebUi/NotInterested/Restore', { id: entry.Id }).then(function () {
+                        restored = true;
+                        notInterestedCount = Math.max(0, notInterestedCount - 1);
+                        paintNotInterestedLinks();
+                        willShowAgain(show);
+                        status.textContent = label + ' will show again.';
+                    }, function () {
+                        show.disabled = false;
+                        alertUser('Could not update your list.');
+                    });
+                });
+                showButtons.push(show);
+                row.appendChild(show);
+                list.appendChild(row);
+            });
+            if (showButtons.length) {
+                paintClearAll(false);
+                clearAll.style.display = '';
+            }
+        }, function () {
+            if (token === dialogToken) { status.textContent = 'Could not load your list.'; }
+        });
+    }
+
     // ---- Detail dialog ----
     //
     // One dialog, built once and reused across opens (a fresh .mtgDialogBody replaces the old one each
@@ -285,6 +449,14 @@
     var dialogToken = 0;
     var dialogOpenerEl = null;
     var dialogHistoryPushed = false;
+    var dialogOnClose = null;
+
+    // Runs (once) whatever the open body asked to run when the dialog closes, however it closes.
+    function dialogClosed() {
+        var then = dialogOnClose;
+        dialogOnClose = null;
+        if (then) { then(); }
+    }
 
     function dialogFocusable() {
         var all = dialogInner.querySelectorAll('button, a[href], select, [tabindex="0"]');
@@ -326,6 +498,7 @@
 
         if (dialogOpenerEl && typeof dialogOpenerEl.focus === 'function') { dialogOpenerEl.focus(); }
         dialogOpenerEl = null;
+        dialogClosed();
     }
 
     function ensureDialog() {
@@ -356,6 +529,7 @@
                 backdrop.classList.remove('mtgDialogOpen');
                 if (dialogOpenerEl && typeof dialogOpenerEl.focus === 'function') { dialogOpenerEl.focus(); }
                 dialogOpenerEl = null;
+                dialogClosed();
             }
         });
         dialogEl = backdrop;
@@ -372,6 +546,12 @@
             paintWantButton(wantBtn, item);
             wantBtn.addEventListener('click', function () { setWanted(ctx, item, !item.OnList, wantBtn); });
             actionsEl.appendChild(wantBtn);
+        }
+
+        if (ctx.canHide) {
+            var hideBtn = h('button', { 'type': 'button', 'class': ACTION_BUTTON + ' mtgNotInterestedButton', 'title': 'Stop showing this title to you' }, 'Not interested');
+            hideBtn.addEventListener('click', function () { setNotInterested(ctx, item, true, hideBtn); });
+            actionsEl.appendChild(hideBtn);
         }
     }
 
@@ -475,15 +655,17 @@
         return { body: body, info: info, loading: loading, links: links, poster: poster, backdropImg: backdropImg };
     }
 
-    function openDialog(ctx, item) {
+    // Shows a body in the dialog, replacing whatever it showed, and returns the token a late answer checks
+    // against so it cannot land in a body that has since been replaced. onClose runs once the dialog closes.
+    function showDialogBody(body, onClose) {
         ensureDialog();
         var wasOpen = dialogEl.classList.contains('mtgDialogOpen');
         var token = ++dialogToken;
         var old = dialogInner.querySelector('.mtgDialogBody');
         if (old) { old.remove(); }
-        var refs = dialogBody(ctx, item);
-        dialogInner.appendChild(refs.body);
+        dialogInner.appendChild(body);
         dialogEl.classList.add('mtgDialogOpen');
+        dialogOnClose = onClose || null;
 
         if (!wasOpen) {
             dialogOpenerEl = document.activeElement;
@@ -491,9 +673,15 @@
             dialogHistoryPushed = true;
         }
 
-        // Autofocus the close button, not the want-to-watch button: a remote's Select right after opening
-        // must not risk triggering an action before the title has even loaded.
+        // Autofocus the close button, not an action: a remote's Select right after opening must not risk
+        // triggering one before the dialog has even loaded.
         dialogCloseBtn.focus();
+        return token;
+    }
+
+    function openDialog(ctx, item) {
+        var refs = dialogBody(ctx, item);
+        var token = showDialogBody(refs.body);
 
         if (isWork(item)) {
             if (item.Kind === 'Book') {
@@ -570,9 +758,11 @@
         box.appendChild(secondary);
 
         el.appendChild(box);
-        var open = item.ItemId
-            ? function () { openItem(item.ItemId); }
-            : function () { openDialog(ctx, item); };
+        // A card the user just said they are not interested in offers only its Undo until the page is laid out again.
+        var open = function () {
+            if (el.classList.contains('mtgHidden')) { return; }
+            if (item.ItemId) { openItem(item.ItemId); } else { openDialog(ctx, item); }
+        };
         el.addEventListener('click', open);
         el.addEventListener('keydown', function (e) {
             // The bookmark is a button of its own: Enter and Space on it act on it, not on the card.
@@ -654,13 +844,21 @@
     // On the item page the row sits in .detailVerticalSection, which already pads the left edge, so the
     // scroller takes no-padding of its own and the title goes straight in. A home section is not padded by its
     // parent: its title sits in a padded-left container and the scroller supplies the cards' own offset.
+    // The not-interested count sits beside the title, so a row that offers it takes a title container even on
+    // the item page; a row that does not keeps jellyfin-web's bare title.
     function scroller(ctx, name, items, onHome, extraHeader) {
         var section = h('div', { 'class': 'verticalSection' });
         if (onHome) {
             var head = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-left' });
             head.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name));
             if (extraHeader) { head.appendChild(extraHeader); }
+            if (ctx.canHide) { head.appendChild(notInterestedLink(ctx)); }
             section.appendChild(head);
+        } else if (ctx.canHide) {
+            var titled = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards padded-right' });
+            titled.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, name));
+            titled.appendChild(notInterestedLink(ctx));
+            section.appendChild(titled);
         } else {
             section.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards padded-right' }, name));
         }
@@ -679,10 +877,20 @@
         remove(page, PERSON_ID);
         if (!data || (!data.Reason && !data.Movies.length && !data.Series.length)) { return; }
 
-        var ctx = { kind: 'Person', id: personId, canTodo: !!data.CanTodo };
+        var ctx = takeNotInterested({ kind: 'Person', id: personId, canTodo: !!data.CanTodo }, data);
+        ctx.reload = function () { onViewShow({ target: page }); };
         var wrap = h('div', { 'id': PERSON_ID, 'class': 'detailPageSecondaryContainer padded-left padded-bottom-page' });
         var lead = h('div', { 'class': 'verticalSection' });
-        lead.appendChild(h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, 'Missing from your library'));
+        // The count goes on the section's own title, once, rather than on each of its two grids.
+        var leadTitle = h('h2', { 'class': 'sectionTitle sectionTitle-cards' }, 'Missing from your library');
+        if (ctx.canHide) {
+            var leadHead = h('div', { 'class': 'sectionTitleContainer sectionTitleContainer-cards' });
+            leadHead.appendChild(leadTitle);
+            leadHead.appendChild(notInterestedLink(ctx));
+            lead.appendChild(leadHead);
+        } else {
+            lead.appendChild(leadTitle);
+        }
         if (data.Reason) { lead.appendChild(h('p', { 'class': 'mtgNote' }, data.Reason)); }
         wrap.appendChild(lead);
         if (data.Movies.length) { wrap.appendChild(grid(ctx, 'Movies', data.Movies)); }
@@ -704,7 +912,8 @@
         remove(page, RELATED_ID);
         if (!data || (!data.Reason && !data.Titles.length)) { return; }
 
-        var ctx = { kind: 'Item', id: itemId, canTodo: !!data.CanTodo };
+        var ctx = takeNotInterested({ kind: 'Item', id: itemId, canTodo: !!data.CanTodo }, data);
+        ctx.reload = function () { onViewShow({ target: page }); };
         var section;
         if (data.Titles.length) {
             section = scroller(ctx, "More like this you don't have", data.Titles);
@@ -744,7 +953,8 @@
         if (!data || (!data.Reason && !data.Works.length)) { return; }
 
         var heading = data.Kind === 'Book' ? "More by this author you don't have" : "Albums you don't have";
-        var ctx = { kind: 'Item', id: itemId, canTodo: !!data.CanTodo, scope: 'Works' };
+        var ctx = takeNotInterested({ kind: 'Item', id: itemId, canTodo: !!data.CanTodo, scope: 'Works' }, data);
+        ctx.reload = function () { onViewShow({ target: page }); };
         var section;
         if (data.Works.length) {
             section = scroller(ctx, heading, data.Works);
@@ -783,7 +993,8 @@
         if (!data || (!data.Reason && !data.Titles.length)) { return; }
 
         var heading = 'Missing from ' + data.StudioName;
-        var ctx = { kind: 'Studio', id: studioId, canTodo: !!data.CanTodo };
+        var ctx = takeNotInterested({ kind: 'Studio', id: studioId, canTodo: !!data.CanTodo }, data);
+        ctx.reload = function () { onViewShow({ target: page }); };
         var section;
         if (data.Titles.length) {
             section = scroller(ctx, heading, data.Titles, true);
@@ -831,7 +1042,10 @@
         remove(sectionsEl, HOME_ID);
         if (!data || !data.Titles.length) { return; }
 
-        var ctx = { kind: 'Home', id: '', canTodo: !!data.CanTodo };
+        var ctx = takeNotInterested({ kind: 'Home', id: '', canTodo: !!data.CanTodo }, data);
+        ctx.reload = function () {
+            api('GET', 'MindTheGaps/Home/Discover').then(function (fresh) { renderHome(sectionsEl, fresh); }, function () { /* off, or signed out */ });
+        };
         var section = scroller(ctx, 'Discover: not in your library', data.Titles, true);
         section.id = HOME_ID;
         section.setAttribute('data-placement', String(data.Placement || ''));
@@ -1186,6 +1400,19 @@
         '.mtgSearchKind{flex:0 0 auto;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .4em}' +
         '.mtgSearchInput{flex:1 1 auto;min-width:0;background:rgba(255,255,255,.08);color:inherit;border:1px solid rgba(255,255,255,.3);border-radius:.3em;padding:.3em .6em}' +
         '.mtgSearchResultsBox{padding:0 0 .8em}' +
+        // A card the user is not interested in: greyed under an overlay holding its Undo, its bookmark gone.
+        '.mtgCard.mtgHidden .cardImageContainer{filter:grayscale(1);opacity:.35}' +
+        '.mtgCard.mtgHidden .mtgWant{display:none}' +
+        '.mtgCard.mtgHidden{cursor:default}' +
+        '.mtgHiddenOverlay{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6em;padding:.5em;text-align:center;color:#fff;background:rgba(0,0,0,.45)}' +
+        '.mtgHiddenUndo,.mtgNotInterestedLink{background:rgba(255,255,255,.12);color:inherit;border:1px solid rgba(255,255,255,.35);border-radius:.3em;padding:.3em .8em;cursor:pointer;font:inherit}' +
+        '.mtgNotInterestedLink{margin-left:1em;font-size:85%;opacity:.85}' +
+        '.mtgHiddenUndo:focus,.mtgNotInterestedLink:focus{outline:3px solid #00a4dc;outline-offset:2px}' +
+        '.mtgNiBody{padding:1.5em 3.5em 1.5em 1.5em}' +
+        '.mtgDialog .mtgNiClear{margin:.2em 0 .8em}' +
+        '.mtgNiRow{display:flex;align-items:center;gap:.8em;padding:.4em 0;border-top:1px solid rgba(255,255,255,.08)}' +
+        '.mtgNiThumb{flex:0 0 2.6em;height:3.9em;background-size:cover;background-position:center;background-color:#2b2b2b;border-radius:.2em}' +
+        '.mtgNiName{flex:1 1 auto;min-width:0}' +
         '.mtgSearchNote{padding-left:1.5em}';
     document.head.appendChild(style);
 

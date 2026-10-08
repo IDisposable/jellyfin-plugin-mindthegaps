@@ -64,6 +64,11 @@ window.__lastTodoUrl = null;
 window.__lastDetailUrl = null;
 window.__lastProfilesUrl = null;
 window.__lastWorkDetailUrl = null;
+// The user's not-interested list as WebUi/NotInterested serves it; a spec seeds it to test showing a title
+// again. Every call to a NotInterested route is recorded; set __notInterestedFails to make them fail.
+window.__notInterestedList = [];
+window.__notInterestedCalls = [];
+window.__notInterestedFails = false;
 
 window.ApiClient = {
     getCurrentUserId: function () { return 'user-1'; },
@@ -72,6 +77,22 @@ window.ApiClient = {
     },
     ajax: function (opts) {
         var url = opts.url || '';
+        if (url.indexOf('/NotInterested') !== -1) {
+            window.__notInterestedCalls.push(opts.type + ' ' + url);
+            if (window.__notInterestedFails) { return Promise.reject(new Error('500')); }
+            if (url.indexOf('/WebUi/NotInterested/Restore') !== -1) {
+                var restoreId = decodeURIComponent((url.match(/[?&]id=([^&]+)/) || [])[1] || '');
+                window.__notInterestedList = window.__notInterestedList.filter(function (e) { return e.Id !== restoreId; });
+                return Promise.resolve(1);
+            }
+            if (url.indexOf('/WebUi/NotInterested/Clear') !== -1) {
+                var cleared = window.__notInterestedList.length;
+                window.__notInterestedList = [];
+                return Promise.resolve(cleared);
+            }
+            if (url.indexOf('/WebUi/NotInterested') !== -1) { return Promise.resolve(window.__notInterestedList.slice()); }
+            return Promise.resolve(1);
+        }
         if (url.indexOf('/WebUi/Detail') !== -1) {
             window.__lastDetailUrl = url;
             return __DETAIL_RESULT__ && __DETAIL_RESULT__.reject ? Promise.reject(new Error('tmdb down')) : Promise.resolve(__DETAIL_RESULT__);

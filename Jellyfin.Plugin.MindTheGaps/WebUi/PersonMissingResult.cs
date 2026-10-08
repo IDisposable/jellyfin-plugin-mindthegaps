@@ -31,6 +31,17 @@ public sealed class PersonMissingResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the caller may say they are not interested in a title: the
+    /// feature is on and the caller is a signed-in user. The page offers "Not interested" when it is.
+    /// </summary>
+    public bool CanHide { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the caller is not interested in; 0 when they cannot keep the list.
+    /// </summary>
+    public int NotInterestedCount { get; set; }
+
+    /// <summary>
     /// Gets or sets why the lists are empty when they could not be computed (no TMDB id on the person, TMDB
     /// has no record), so the page can say so instead of showing nothing. Null when the lists are real.
     /// </summary>

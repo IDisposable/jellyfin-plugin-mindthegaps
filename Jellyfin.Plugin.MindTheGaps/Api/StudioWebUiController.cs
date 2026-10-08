@@ -26,10 +26,11 @@ public class StudioWebUiController : WebUiControllerBase
     /// </summary>
     /// <param name="studios">Computes a studio's unowned movies.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
+    /// <param name="notInterested">The per-user store of titles the user is not interested in.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
-    public StudioWebUiController(StudioMissingService studios, TodoStore todo, WebUiAccess access, CertificationFilter certifications)
-        : base(todo, access, certifications)
+    public StudioWebUiController(StudioMissingService studios, TodoStore todo, NotInterestedStore notInterested, WebUiAccess access, CertificationFilter certifications)
+        : base(todo, notInterested, access, certifications)
     {
         _studios = studios;
     }
@@ -60,9 +61,12 @@ public class StudioWebUiController : WebUiControllerBase
             return NotFound();
         }
 
-        result.Titles = await ForCallerAsync(result.Titles, cancellationToken).ConfigureAwait(false);
+        var (notInterestedUser, notInterested, notInterestedCount) = NotInterested();
+        result.Titles = await ForCallerAsync(NotInterestedFilter.Without(result.Titles, notInterested), cancellationToken).ConfigureAwait(false);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
+        result.CanHide = notInterestedUser is not null;
+        result.NotInterestedCount = notInterestedCount;
         WantedMarker.Mark(result.Titles, wanted);
         return result;
     }
@@ -97,4 +101,34 @@ public class StudioWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveStudioGapFromTodo([FromRoute] Guid studioId, [FromQuery] string? gapId, CancellationToken cancellationToken)
         => WantOwnedGapAsync(StudioPageShown, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+
+    /// <summary>
+    /// Says the caller is not interested in one of a studio's unowned movies, so no surface shows it to them.
+    /// </summary>
+    /// <param name="studioId">The Jellyfin studio item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1), or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Studio/{studioId}/NotInterested")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddStudioGapNotInterested([FromRoute] Guid studioId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(StudioPageShown, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes back the caller's "not interested" on one of a studio's unowned movies.
+    /// </summary>
+    /// <param name="studioId">The Jellyfin studio item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles removed, or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Studio/{studioId}/NotInterested/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveStudioGapNotInterested([FromRoute] Guid studioId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(StudioPageShown, studioId, gapId, ct => _studios.FindGapAsync(studioId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }

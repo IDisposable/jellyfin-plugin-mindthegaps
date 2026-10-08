@@ -68,10 +68,11 @@ public sealed class WorksMissingService
     /// </summary>
     /// <param name="itemId">The Jellyfin item id.</param>
     /// <param name="wanted">The identity keys of the titles on the caller's want-to-watch list.</param>
+    /// <param name="notInterested">The identity keys of the titles the caller is not interested in.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or <see langword="null"/> when the id is not an artist, a book, or an author, or no
     /// enabled source handles it.</returns>
-    public async Task<WorksMissingResult?> GetAsync(Guid itemId, IReadOnlySet<string> wanted, CancellationToken cancellationToken)
+    public async Task<WorksMissingResult?> GetAsync(Guid itemId, IReadOnlySet<string> wanted, IReadOnlySet<string> notInterested, CancellationToken cancellationToken)
     {
         var lookup = Prepare(itemId);
         if (lookup is null)
@@ -98,7 +99,7 @@ public sealed class WorksMissingService
         }
 
         var dismissed = _resolutions.GetAll();
-        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey, wanted, Plugin.Instance?.Configuration.SearchUrlTemplate);
+        result.Works = WorksMissingBuilder.Build(gaps, dismissed.ContainsKey, wanted, Plugin.Instance?.Configuration.SearchUrlTemplate, notInterested);
         return result;
     }
 

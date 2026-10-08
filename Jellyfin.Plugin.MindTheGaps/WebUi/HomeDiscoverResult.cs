@@ -16,6 +16,17 @@ public sealed class HomeDiscoverResult
     public bool CanTodo { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the caller may say they are not interested in a title: the
+    /// feature is on and the caller is a signed-in user. The row offers "Not interested" when it is.
+    /// </summary>
+    public bool CanHide { get; set; }
+
+    /// <summary>
+    /// Gets or sets how many titles the caller is not interested in; 0 when they cannot keep the list.
+    /// </summary>
+    public int NotInterestedCount { get; set; }
+
+    /// <summary>
     /// Gets or sets where the row goes on the home screen: empty for the bottom, <c>top</c>, or the home
     /// section type it follows.
     /// </summary>

@@ -284,20 +284,25 @@ public class TodoControllerTests
     }
 
     [Fact]
-    public async System.Threading.Tasks.Task DeletingAUserDeletesTheirList()
+    public async System.Threading.Tasks.Task DeletingAUserDeletesTheirLists()
     {
         var root = Path.Combine(Path.GetTempPath(), "mtg-todo-owner-" + Guid.NewGuid().ToString("N"));
         try
         {
             var todoStore = new TodoStore(NullLogger<TodoStore>.Instance, root);
+            var notInterested = new NotInterestedStore(NullLogger<NotInterestedStore>.Instance, root);
             todoStore.Add(Viewer, [Gap("known", "Known", "1")]);
             todoStore.Add(Admin, [Gap("known", "Known", "1")]);
-            var owner = new TodoOwner(todoStore, UserProxy.Create(Admin), NullLogger<TodoOwner>.Instance);
+            notInterested.Add(Viewer, Gap("other", "Other", "2"));
+            notInterested.Add(Admin, Gap("other", "Other", "2"));
+            var owner = new TodoOwner(todoStore, notInterested, UserProxy.Create(Admin), NullLogger<TodoOwner>.Instance);
 
             await owner.OnEvent(new Jellyfin.Data.Events.Users.UserDeletedEventArgs(new Jellyfin.Database.Implementations.Entities.User("viewer", "auth", "reset") { Id = Viewer }));
 
             Assert.Empty(todoStore.Load(Viewer));
             Assert.Single(todoStore.Load(Admin));
+            Assert.Empty(notInterested.Load(Viewer));
+            Assert.Single(notInterested.Load(Admin));
         }
         finally
         {
@@ -312,15 +317,20 @@ public class TodoControllerTests
         try
         {
             var todoStore = new TodoStore(NullLogger<TodoStore>.Instance, root);
+            var notInterested = new NotInterestedStore(NullLogger<NotInterestedStore>.Instance, root);
             var gone = Guid.NewGuid();
             todoStore.Add(gone, [Gap("known", "Known", "1")]);
             todoStore.Add(Admin, [Gap("known", "Known", "1")]);
+            notInterested.Add(gone, Gap("other", "Other", "2"));
+            notInterested.Add(Admin, Gap("other", "Other", "2"));
             var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(TodoOwner.UserIdClaim, Admin.ToString())], "test"));
 
-            new TodoOwner(todoStore, UserProxy.Create(Admin), NullLogger<TodoOwner>.Instance).Resolve(principal, isAdministrator: false);
+            new TodoOwner(todoStore, notInterested, UserProxy.Create(Admin), NullLogger<TodoOwner>.Instance).Resolve(principal, isAdministrator: false);
 
             Assert.Empty(todoStore.Load(gone));
             Assert.Single(todoStore.Load(Admin));
+            Assert.Empty(notInterested.Load(gone));
+            Assert.Single(notInterested.Load(Admin));
         }
         finally
         {
@@ -331,7 +341,8 @@ public class TodoControllerTests
     private static TodoController Controller(GapStore report, TodoStore todo, LibraryVerifier? verifier = null, Guid? user = null, bool administrator = true)
     {
         var id = user ?? Admin;
-        var owner = new TodoOwner(todo, UserProxy.Create(new Dictionary<Guid, string> { [Admin] = "Ann", [Viewer] = "Vic" }), NullLogger<TodoOwner>.Instance);
+        var notInterested = new NotInterestedStore(NullLogger<NotInterestedStore>.Instance, Path.Combine(Path.GetTempPath(), "mtg-notinterested-" + Guid.NewGuid().ToString("N")));
+        var owner = new TodoOwner(todo, notInterested, UserProxy.Create(new Dictionary<Guid, string> { [Admin] = "Ann", [Viewer] = "Vic" }), NullLogger<TodoOwner>.Instance);
         var claims = new List<Claim> { new(TodoOwner.UserIdClaim, id.ToString()) };
         if (administrator)
         {

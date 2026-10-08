@@ -549,6 +549,13 @@
                 </label>
                 <div class="fieldDescription">A movie or series page in the library gets a bookmark beside its own buttons that puts the title on the user's want-to-watch playlist and takes it off again. Requires the playlist above.</div>
             </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
+                    <input id="NotInterestedEnabled" name="NotInterestedEnabled" type="checkbox" is="emby-checkbox" />
+                    <span>Not interested: let each user hide titles from their own pages</span>
+                </label>
+                <div class="fieldDescription">A title's dialog on the surfaces above gets a "Not interested" button. The title then stops appearing on any surface for that user, wherever it would have come from, and each row's header lists what they have hidden so they can show it again. It is each user's own, an administrator's included: it hides nothing from anyone else and never touches the report, where resolving a gap is still what hides it for everyone. Off by default.</div>
+            </div>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="HomeRowSize">Home Discover row: max titles</label>
                 <input id="HomeRowSize" name="HomeRowSize" type="number" is="emby-input" min="1" max="100" />

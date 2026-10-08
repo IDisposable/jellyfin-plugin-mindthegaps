@@ -173,7 +173,7 @@ public class EveryoneWatchlistGapSourceTests
     }
 
     private static TodoOwner Owner(TodoStore todo, params Guid[] known)
-        => new(todo, UserProxy.Create(known.ToDictionary(id => id, id => id == Ann ? "Ann" : id == Vic ? "Vic" : "user")), NullLogger<TodoOwner>.Instance);
+        => new(todo, new NotInterestedStore(NullLogger<NotInterestedStore>.Instance, Path.Combine(Path.GetTempPath(), "mtg-notinterested-" + Guid.NewGuid().ToString("N"))), UserProxy.Create(known.ToDictionary(id => id, id => id == Ann ? "Ann" : id == Vic ? "Vic" : "user")), NullLogger<TodoOwner>.Instance);
 
     private static void Delete(string path)
     {

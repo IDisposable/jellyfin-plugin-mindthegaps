@@ -118,6 +118,15 @@ public class WebUiGateTests
         Assert.False(WebUiGate.HomeDiscover(off));
     }
 
+    [Fact]
+    public void NotInterestedIsItsOwnToggle_OffByDefault()
+    {
+        Assert.False(WebUiGate.NotInterested(null));
+        Assert.False(WebUiGate.NotInterested(new PluginConfiguration()));
+        Assert.False(WebUiGate.NotInterested(new PluginConfiguration { WantToWatchEnabled = true }));
+        Assert.True(WebUiGate.NotInterested(new PluginConfiguration { NotInterestedEnabled = true }));
+    }
+
     // The Want to watch row was shown wherever want to watch was on, so an upgraded configuration keeps it.
     [Fact]
     public void TheWantToWatchRowNeedsWantToWatchAndAPlacement()

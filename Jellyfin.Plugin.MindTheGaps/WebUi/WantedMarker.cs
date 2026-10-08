@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 
@@ -22,8 +23,20 @@ internal static class WantedMarker
 
         foreach (var title in titles)
         {
-            var kind = string.Equals(title.Kind, "Series", StringComparison.Ordinal) ? BaseItemKind.Series : BaseItemKind.Movie;
-            title.OnList = wanted.Contains(OwnershipIndex.MakeKey(kind, ProviderIds.Tmdb, title.TmdbId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            title.OnList = wanted.Contains(KeyOf(title));
         }
+    }
+
+    /// <summary>
+    /// The identity key of a card's title, as a per-user list keys it: its TMDB id under its kind.
+    /// </summary>
+    /// <param name="title">The card.</param>
+    /// <returns>The key.</returns>
+    public static string KeyOf(MissingTitle title)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+
+        var kind = string.Equals(title.Kind, "Series", StringComparison.Ordinal) ? BaseItemKind.Series : BaseItemKind.Movie;
+        return OwnershipIndex.MakeKey(kind, ProviderIds.Tmdb, title.TmdbId.ToString(CultureInfo.InvariantCulture));
     }
 }

@@ -179,7 +179,8 @@ under its heading, and a search box above them narrows to whatever matches.
 Nothing is required to get a useful report: the defaults scan collections, series, filmographies, music,
 and books against the built-in TMDB key. Everything else, including the acquisition-stack handoff to
 Radarr/Sonarr/Jellyseerr and every credential-gated source, is opt-in. For every setting, what it does, and
-what changes when you set or clear it, see the [configuration reference](docs/configuration.md).
+what changes when you set or clear it, see the [configuration reference](docs/configuration.md); for every
+HTTP route the plugin serves, the [API reference](docs/api.md).
 
 ## Virtual placeholders (opt-in)
 

@@ -74,6 +74,7 @@ public class PluginConfiguration : BasePluginConfiguration
         WantToWatchRowIncludesOwned = false;
         WantToWatchRemoveWatched = false;
         WantToWatchDetailBookmark = false;
+        NotInterestedEnabled = false;
         HomeRowSize = 20;
         HomeRowPlacement = string.Empty;
         HomeDiscoverPlacement = string.Empty;
@@ -568,6 +569,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// again. Requires <see cref="WantToWatchPlaylistEnabled"/>, since an owned title on the list lives there.
     /// </summary>
     public bool WantToWatchDetailBookmark { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a signed-in user can say they are not interested in a title on
+    /// the web UI surfaces, which leaves it out of every surface for that user from then on. Each user's list is
+    /// their own, an administrator's included; it never touches the report, whose own resolutions are the
+    /// server-wide dismissal.
+    /// </summary>
+    public bool NotInterestedEnabled { get; set; }
 
     /// <summary>
     /// Gets or sets the most titles the home Discover row shows.

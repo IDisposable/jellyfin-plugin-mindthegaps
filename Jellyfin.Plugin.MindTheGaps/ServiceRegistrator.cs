@@ -48,6 +48,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<GapStore>();
         serviceCollection.AddSingleton<ResolutionStore>();
         serviceCollection.AddSingleton<TodoStore>();
+        serviceCollection.AddSingleton<NotInterestedStore>();
         serviceCollection.AddSingleton<TodoOwner>();
         serviceCollection.AddSingleton<IEventConsumer<UserDeletedEventArgs>>(sp => sp.GetRequiredService<TodoOwner>());
         serviceCollection.AddSingleton<ScanCursorStore>();

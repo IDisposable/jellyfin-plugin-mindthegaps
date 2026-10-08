@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
 using Xunit;
@@ -115,6 +116,17 @@ public class WorksMissingBuilderTests
     public void Build_DropsDismissedGaps()
     {
         var works = WorksMissingBuilder.Build(new[] { Album("keep", "Keep"), Album("gone", "Gone") }, id => id == "gone");
+
+        Assert.Equal("keep", Assert.Single(works).GapId);
+    }
+
+    // Hidden by title, not by gap id: an album hidden from one source's row stays hidden on another's.
+    [Fact]
+    public void Build_DropsTitlesTheUserIsNotInterestedIn()
+    {
+        var hidden = GapTargetKey.For(Album("discogs:77", "Gone")).ToHashSet();
+
+        var works = WorksMissingBuilder.Build(new[] { Album("keep", "Keep"), Album("gone", "Gone") }, _ => false, notInterested: hidden);
 
         Assert.Equal("keep", Assert.Single(works).GapId);
     }

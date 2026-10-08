@@ -33,13 +33,14 @@ public class ItemWebUiController : WebUiControllerBase
     /// <param name="related">Computes a title's unowned similar titles.</param>
     /// <param name="works">Computes an artist's unowned albums and a book's unowned works by its author.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
+    /// <param name="notInterested">The per-user store of titles the user is not interested in.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="playlist">The want-to-watch playlist, for a movie or series page's bookmark.</param>
     /// <param name="library">The library manager, to tell what kind of item a page is about.</param>
     /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
     /// <param name="logger">The logger.</param>
-    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, ILibraryManager library, CertificationFilter certifications, ILogger<ItemWebUiController> logger)
-        : base(todo, access, certifications)
+    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, NotInterestedStore notInterested, WebUiAccess access, WatchlistPlaylistService playlist, ILibraryManager library, CertificationFilter certifications, ILogger<ItemWebUiController> logger)
+        : base(todo, notInterested, access, certifications)
     {
         _related = related;
         _works = works;
@@ -140,9 +141,12 @@ public class ItemWebUiController : WebUiControllerBase
 
         if (result.Related is { } related)
         {
-            related.Titles = await ForCallerAsync(related.Titles, cancellationToken).ConfigureAwait(false);
+            var (notInterestedUser, notInterested, notInterestedCount) = NotInterested();
+            related.Titles = await ForCallerAsync(NotInterestedFilter.Without(related.Titles, notInterested), cancellationToken).ConfigureAwait(false);
             var (wantingUser, wanted) = Wanting();
             related.CanTodo = wantingUser is not null;
+            related.CanHide = notInterestedUser is not null;
+            related.NotInterestedCount = notInterestedCount;
             related.Placement = ItemPlacement.Of(config);
             WantedMarker.Mark(related.Titles, wanted);
         }
@@ -182,6 +186,37 @@ public class ItemWebUiController : WebUiControllerBase
         => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 
     /// <summary>
+    /// Says the caller is not interested in one of an owned title's unowned similar titles, so no surface shows
+    /// it to them.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1), or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Item/{itemId}/NotInterested")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddItemGapNotInterested([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(ItemPageShown, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes back the caller's "not interested" on one of an owned title's unowned similar titles.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles removed, or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Item/{itemId}/NotInterested/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveItemGapNotInterested([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(ItemPageShown, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+
+    /// <summary>
     /// Lists the albums an owned artist made, or the other works by an owned book's author, that the library
     /// does not hold.
     /// </summary>
@@ -202,13 +237,16 @@ public class ItemWebUiController : WebUiControllerBase
         }
 
         var (wantingUser, wanted) = Wanting();
-        var result = await _works.GetAsync(itemId, wanted, cancellationToken).ConfigureAwait(false);
+        var (notInterestedUser, notInterested, notInterestedCount) = NotInterested();
+        var result = await _works.GetAsync(itemId, wanted, notInterested, cancellationToken).ConfigureAwait(false);
         if (result is null)
         {
             return NotFound();
         }
 
         result.CanTodo = wantingUser is not null;
+        result.CanHide = notInterestedUser is not null;
+        result.NotInterestedCount = notInterestedCount;
         result.Placement = ItemPlacement.Of(Plugin.Instance?.Configuration);
         return result;
     }
@@ -268,4 +306,35 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveItemWorkFromTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
         => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+
+    /// <summary>
+    /// Says the caller is not interested in one of an artist's or author's unowned works, so no surface shows it
+    /// to them.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles added (0 or 1), or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Item/{itemId}/Works/NotInterested")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> AddItemWorkNotInterested([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(ItemPageShown, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+
+    /// <summary>
+    /// Takes back the caller's "not interested" on one of an artist's or author's unowned works.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item id.</param>
+    /// <param name="gapId">The gap id the page showed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of titles removed, or 404 while the surface or the feature is off.</returns>
+    [HttpPost("Item/{itemId}/Works/NotInterested/Remove")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public Task<ActionResult<int>> RemoveItemWorkNotInterested([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
+        => NotInterestedGapAsync(ItemPageShown, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }

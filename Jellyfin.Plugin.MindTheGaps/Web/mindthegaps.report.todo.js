@@ -38,7 +38,7 @@ function todoAdd(ids, btn) {
     if (btn) { btn.disabled = true; }
     ApiClient.ajax({
         type: 'POST',
-        url: ApiClient.getUrl('MindTheGaps/Todo/Add'),
+        url: ApiClient.getUrl('MindTheGaps/Todo'),
         contentType: 'application/json',
         data: JSON.stringify(ids),
         dataType: 'json'

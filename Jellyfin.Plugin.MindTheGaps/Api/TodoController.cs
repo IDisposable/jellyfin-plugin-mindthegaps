@@ -178,7 +178,7 @@ public class TodoController : ControllerBase
     /// </summary>
     /// <param name="ids">The stable ids of the report gaps to add.</param>
     /// <returns>The number of entries newly added.</returns>
-    [HttpPost("Todo/Add")]
+    [HttpPost("Todo")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<int> AddTodo([FromBody] IReadOnlyList<string> ids)
     {
