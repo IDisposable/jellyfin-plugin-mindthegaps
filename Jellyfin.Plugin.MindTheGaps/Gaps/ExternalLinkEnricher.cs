@@ -116,21 +116,55 @@ public sealed class ExternalLinkEnricher
     }
 
     /// <summary>
-    /// Merges the host's external links into every gap's link list in place.
+    /// Builds every gap's links from its ids, in place: its own links from the host's providers merged over the
+    /// hand-built ones, and its source's links from the source's ids. A link is never stored (see
+    /// <see cref="StoredJson"/>), so this runs on every gap a scan, a re-check, or a load hands over, and a
+    /// change in how a link is made, or a provider plugin installed since, reaches every gap at once.
     /// </summary>
-    /// <param name="gaps">The gaps to enrich.</param>
-    public void Enrich(IReadOnlyList<GapItem> gaps)
+    /// <param name="gaps">The gaps to fill.</param>
+    public void Fill(IReadOnlyList<GapItem> gaps)
     {
+        ArgumentNullException.ThrowIfNull(gaps);
+
+        var trakt = TraktLinks();
         foreach (var gap in gaps)
         {
+            FillOne(gap, trakt);
             var hostLinks = HostLinksFor(gap);
-            if (hostLinks.Count == 0)
+            if (hostLinks.Count > 0)
             {
-                continue;
+                gap.Links = Merge(hostLinks, gap.Links);
             }
-
-            gap.Links = Merge(hostLinks, gap.Links);
         }
+    }
+
+    /// <summary>
+    /// Builds every gap's links from its ids with the hand-built builders alone, for a caller without the host
+    /// (a test, or a store constructed outside the server).
+    /// </summary>
+    /// <param name="gaps">The gaps to fill.</param>
+    internal static void FillWithoutHost(IEnumerable<GapItem> gaps)
+    {
+        ArgumentNullException.ThrowIfNull(gaps);
+
+        var trakt = TraktLinks();
+        foreach (var gap in gaps)
+        {
+            FillOne(gap, trakt);
+        }
+    }
+
+    /// <summary>
+    /// Gets whether to add a Trakt link to a movie or series: when the Trakt sources are on, since a server that
+    /// uses Trakt wants the link and one that does not would only gain clutter.
+    /// </summary>
+    /// <returns>True when the Trakt sources are on.</returns>
+    internal static bool TraktLinks() => Plugin.Instance?.Configuration?.TraktEnabled ?? false;
+
+    private static void FillOne(GapItem gap, bool trakt)
+    {
+        gap.Links = ProviderLinks.Build(gap.TargetKind, gap.ProviderIds, trakt);
+        gap.SourceLinks = CreatorLinks.Build(gap.SourceItemType, gap.SourceProviderIds);
     }
 
     // Resolve a BaseItemKind we do not construct directly via core's IItemTypeLookup, which maps the

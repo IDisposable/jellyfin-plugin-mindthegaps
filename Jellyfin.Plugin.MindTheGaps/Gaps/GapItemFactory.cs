@@ -31,7 +31,6 @@ internal static class GapItemFactory
     /// <param name="imageUrl">A poster/image URL.</param>
     /// <param name="overview">A short overview / role description.</param>
     /// <param name="season">The season number for episode gaps (0 is specials).</param>
-    /// <param name="extraLinks">Links to append beyond those derived from <paramref name="providerIds"/>.</param>
     /// <param name="sourceItemYear">The release year of the owning item, if known.</param>
     /// <param name="setOwnedCount">For a counted set, how many members the library already owns.</param>
     /// <param name="setTotalCount">For a counted set, the total number of members.</param>
@@ -52,20 +51,11 @@ internal static class GapItemFactory
         string? imageUrl = null,
         string? overview = null,
         int? season = null,
-        IEnumerable<ExternalLink>? extraLinks = null,
         int? sourceItemYear = null,
         int? setOwnedCount = null,
         int? setTotalCount = null,
         double? sortScore = null)
     {
-        var links = ProviderLinks.Build(targetKind, providerIds);
-        if (extraLinks is not null)
-        {
-            var combined = new List<ExternalLink>(links);
-            combined.AddRange(extraLinks);
-            links = combined;
-        }
-
         return new GapItem
         {
             Id = id,
@@ -80,7 +70,7 @@ internal static class GapItemFactory
             ImageUrl = imageUrl,
             Overview = HtmlText.ToPlainText(overview),
             ProviderIds = providerIds,
-            Links = links,
+            Links = ProviderLinks.Build(targetKind, providerIds),
             SourceItemId = sourceItemId,
             SourceItemName = sourceItemName,
             SourceItemType = sourceItemType,

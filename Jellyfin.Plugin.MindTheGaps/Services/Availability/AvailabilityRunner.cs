@@ -501,10 +501,7 @@ public sealed class AvailabilityRunner
         }
 
         gap.ProviderIds = merged;
-        // Keep any existing links (for example Trakt) and add the fallback links the new ids imply, then
-        // let the host's providers contribute (and win) on top.
-        gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
-        _externalLinks.Enrich(new[] { gap });
+        _externalLinks.Fill(new[] { gap });
     }
 
     // A gap that was already checked is never looked up again, so an offer stored before logos existed would

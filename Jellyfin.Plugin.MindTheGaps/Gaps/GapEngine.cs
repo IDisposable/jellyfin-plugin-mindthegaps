@@ -187,9 +187,9 @@ public sealed class GapEngine
             AvailabilityLogos.Fill(gaps, logos);
         }
 
-        // Let the host's external-url providers contribute links (TMDB/IMDb from core, JustWatch from
-        // that plugin if installed), keeping the hand-built links as a fallback for what core misses.
-        _externalLinks.Enrich(gaps);
+        // Build every gap's links from its ids: the host's url providers (TMDB/IMDb from core, JustWatch from
+        // that plugin if installed) over the hand-built ones, which cover what core misses.
+        _externalLinks.Fill(gaps);
 
         // "Upcoming" is relative to today, not a property of the gap, and the accumulate passes above append
         // prior GapItem objects untouched. Re-derive it across the whole report so a carried-forward gap
@@ -297,11 +297,11 @@ public sealed class GapEngine
         }
 
         // Re-adopt any external ids and "where to watch" the background pass resolved for these gaps before,
-        // and rebuild the links those ids imply, so an explore run does not throw away that enrichment.
+        // so an explore run does not throw away that enrichment.
         GapBackfill.CarryForward(gaps, _store.Load().Items);
 
-        // Let the host's external-url providers contribute links, as a full scan does.
-        _externalLinks.Enrich(gaps);
+        // Build the links from the ids, as a full scan does.
+        _externalLinks.Fill(gaps);
 
         _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", descriptor.Source.Name, gaps.Count);
 

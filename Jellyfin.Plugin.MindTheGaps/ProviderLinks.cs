@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Providers;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
@@ -41,8 +42,10 @@ internal static class ProviderLinks
     /// </summary>
     /// <param name="targetKind">The gap's target kind (Movie, Series, Episode, ...).</param>
     /// <param name="providerIds">The provider ids.</param>
+    /// <param name="trakt">Whether to add a Trakt link for a movie or series with an IMDb id. Set when the
+    /// Trakt sources are on, so a server that does not use Trakt does not gain a link on every title.</param>
     /// <returns>The links for known providers (unknown providers are skipped).</returns>
-    public static IReadOnlyList<ExternalLink> Build(BaseItemKind targetKind, IReadOnlyDictionary<string, string> providerIds)
+    public static IReadOnlyList<ExternalLink> Build(BaseItemKind targetKind, IReadOnlyDictionary<string, string> providerIds, bool trakt = false)
     {
         var links = new List<ExternalLink>();
 
@@ -84,16 +87,47 @@ internal static class ProviderLinks
                 case "discogs":
                     // The id is a Discogs release id (the label source, and the artist source's canonical
                     // main_release), so it resolves to a real release page.
-                    links.Add(new ExternalLink(ServiceNames.Discogs, string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/release/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.Discogs, ProviderUrls.Discogs("release", id)!));
                     break;
                 case "openlibrary":
                     // The id is a bare OpenLibrary work key (for example "OL45804W").
-                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/works/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, ProviderUrls.OpenLibrary(id)!));
                     break;
             }
         }
 
+        if (trakt && TraktUrl(targetKind, providerIds) is { } traktUrl)
+        {
+            links.Add(new ExternalLink(ServiceNames.Trakt, traktUrl));
+        }
+
         return links;
+    }
+
+    // Trakt resolves a movie or show page from its IMDb id, which is how the Trakt plugin links too, so no
+    // Trakt id of its own is needed.
+    private static string? TraktUrl(BaseItemKind targetKind, IReadOnlyDictionary<string, string> providerIds)
+    {
+        var path = targetKind switch
+        {
+            BaseItemKind.Movie => "movies",
+            BaseItemKind.Series => "shows",
+            _ => null
+        };
+        if (path is null)
+        {
+            return null;
+        }
+
+        foreach (var pair in providerIds)
+        {
+            if (string.Equals(pair.Key, ProviderIds.Imdb, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(pair.Value))
+            {
+                return string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/{path}/{pair.Value}");
+            }
+        }
+
+        return null;
     }
 
     // TheTVDB's dereferrer needs the right object type for the id; an episode id under "series" 404s.

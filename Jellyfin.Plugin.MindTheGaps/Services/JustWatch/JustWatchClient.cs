@@ -133,16 +133,6 @@ internal sealed class JustWatchClient
         return string.Create(CultureInfo.InvariantCulture, $"https://images.justwatch.com{path}");
     }
 
-    /// <summary>
-    /// Builds the justwatch.com address of a title from the path the API returns.
-    /// </summary>
-    /// <param name="fullPath">The title's path, or null.</param>
-    /// <returns>The title URL, or null.</returns>
-    public static string? TitleUrl(string? fullPath)
-        => string.IsNullOrWhiteSpace(fullPath)
-            ? null
-            : string.Create(CultureInfo.InvariantCulture, $"{Origin}{fullPath}");
-
     private async Task<JustWatchTitleList?> FetchPageAsync(
         string listType,
         string country,

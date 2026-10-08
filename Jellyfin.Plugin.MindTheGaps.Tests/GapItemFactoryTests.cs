@@ -12,7 +12,6 @@ public class GapItemFactoryTests
 {
     private static GapItem Create(
         DateTime? releaseDate = null,
-        IEnumerable<ExternalLink>? extraLinks = null,
         MediaDomain domain = MediaDomain.Movies)
         => GapItemFactory.Create(
             id: "gap:1",
@@ -26,8 +25,7 @@ public class GapItemFactoryTests
             sourceItemType: "BoxSet",
             releaseDate: releaseDate,
             imageUrl: "poster.jpg",
-            overview: "overview",
-            extraLinks: extraLinks);
+            overview: "overview");
 
     [Fact]
     public void Create_SetsCoreFields()
@@ -146,13 +144,5 @@ public class GapItemFactoryTests
         var gap = Create();
         var link = Assert.Single(gap.Links);
         Assert.Equal("TMDB", link.Name);
-    }
-
-    [Fact]
-    public void Create_AppendsExtraLinks()
-    {
-        var gap = Create(extraLinks: new[] { new ExternalLink("Trakt", "https://trakt.tv/movies/the-matrix") });
-        Assert.Equal(2, gap.Links.Count);
-        Assert.Contains(gap.Links, l => l.Name == "Trakt");
     }
 }

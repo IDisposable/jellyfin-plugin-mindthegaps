@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Providers;
 using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Tmdb;
 
@@ -65,11 +66,11 @@ internal static class CreatorLinks
                     break;
                 case "openlibrary":
                     // The source's OpenLibrary id is an author key (for example "OL79034A").
-                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/authors/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, ProviderUrls.OpenLibrary(id)!));
                     break;
                 case "discogs":
                     var discogsPath = string.Equals(sourceItemType, "MusicLabel", StringComparison.Ordinal) ? "label" : "artist";
-                    links.Add(new ExternalLink(ServiceNames.Discogs, string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/{discogsPath}/{id}")));
+                    links.Add(new ExternalLink(ServiceNames.Discogs, ProviderUrls.Discogs(discogsPath, id)!));
                     break;
             }
         }

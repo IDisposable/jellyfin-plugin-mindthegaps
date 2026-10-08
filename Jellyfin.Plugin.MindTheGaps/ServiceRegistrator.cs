@@ -10,6 +10,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Series;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Todo;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Trakt;
+using Jellyfin.Plugin.MindTheGaps.Providers;
 using Jellyfin.Plugin.MindTheGaps.Services.Acquisition;
 using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 using Jellyfin.Plugin.MindTheGaps.Services.Diagnostics;
@@ -53,6 +54,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IEventConsumer<UserDeletedEventArgs>>(sp => sp.GetRequiredService<TodoOwner>());
         serviceCollection.AddSingleton<ScanCursorStore>();
         serviceCollection.AddSingleton<SourceDurationStore>();
+        serviceCollection.AddSingleton<ProviderPrecedence>();
         serviceCollection.AddSingleton<ExternalLinkEnricher>();
         serviceCollection.AddSingleton<OwnershipIndexBuilder>();
         serviceCollection.AddSingleton<LibraryVerifier>();

@@ -50,7 +50,7 @@ Clearing a setting removes its gaps from the next report.
     An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works"
     (discover their wider catalog).
 
-[^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap).
+[^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). A book is matched by its OpenLibrary work id ("OL45804W"), which you can enter or correct in the book's metadata editor: the plugin adds an OpenLibrary field there, and steps aside for another installed plugin that provides one.
 
 [^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the report's Fulfillment queue already shows. A title drops off once every user who wanted it marks it done or the library picks it up.
 
@@ -207,7 +207,7 @@ availability); everything below is opt-in.
 | **Discogs username**                                               | Empty   | Whose wantlist to read.[^discogsuser]                                                                                                          |
 | **Discogs token**                                                  | Empty   | A Discogs personal access token. Create one on discogs.com under Settings, Developers.[^discogstoken]                                          |
 
-[^discogs]: The label source is the **Discogs labels** picker below, and the discography pass covers artists MusicBrainz cannot resolve. Needs the **Discogs token** below. Cleared, there are no Discogs gaps.
+[^discogs]: The label source is the **Discogs labels** picker below, and the discography pass covers artists MusicBrainz cannot resolve. Needs the **Discogs token** below. Cleared, there are no Discogs gaps. An album's Discogs release id and an artist's Discogs id can be entered in the metadata editor, where the plugin adds a Discogs field unless another installed plugin provides one.
 
 [^discogsuser]: Discogs addresses a wantlist by username, so the token says who is asking and this says whose list; your own always works, someone else's only if they have made it public.
 

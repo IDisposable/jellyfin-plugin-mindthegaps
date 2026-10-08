@@ -26,7 +26,7 @@ internal static class GapBackfill
     /// <summary>
     /// Re-adopts enrichment (resolved external ids, "where to watch" offers, the episode watch target) a
     /// background pass stored on a prior gap, for every gap this run reproduced under the same id. Done
-    /// before the host link pass so any newly re-adopted ids produce their links.
+    /// before the links are built, so any newly re-adopted ids produce theirs.
     /// </summary>
     /// <param name="gaps">This run's gaps, mutated in place.</param>
     /// <param name="priorItems">The previous report's gaps.</param>
@@ -54,7 +54,7 @@ internal static class GapBackfill
             }
 
             // Re-adopt any external ids the background pass resolved last time (the sources only stamp
-            // a TMDB id), and rebuild the fallback links the added ids imply.
+            // a TMDB id).
             var merged = new Dictionary<string, string>(gap.ProviderIds, StringComparer.OrdinalIgnoreCase);
             var added = false;
             foreach (var pair in before.ProviderIds)
@@ -69,7 +69,6 @@ internal static class GapBackfill
             if (added)
             {
                 gap.ProviderIds = merged;
-                gap.Links = ExternalLinkEnricher.Merge(gap.Links, ProviderLinks.Build(gap.TargetKind, merged));
             }
 
             // Carry the episode's watch target (its series' TMDB id, resolved by an earlier pass) so a

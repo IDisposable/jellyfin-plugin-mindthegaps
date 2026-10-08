@@ -26,6 +26,7 @@ public sealed class GapStore
 
     private readonly ILogger<GapStore> _logger;
     private readonly string? _dataFolderOverride;
+    private readonly ExternalLinkEnricher? _links;
     private readonly object _lock = new();
     private GapReport? _cached;
     private DateTime _lastWriteUtc = DateTime.MinValue;
@@ -61,6 +62,18 @@ public sealed class GapStore
     public GapStore(ILogger<GapStore> logger)
     {
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GapStore"/> class that builds a loaded report's links with the
+    /// host's url providers.
+    /// </summary>
+    /// <param name="logger">The logger.</param>
+    /// <param name="links">Builds each gap's links from its ids, since a report is stored without them.</param>
+    public GapStore(ILogger<GapStore> logger, ExternalLinkEnricher links)
+        : this(logger)
+    {
+        _links = links;
     }
 
     /// <summary>
@@ -525,6 +538,33 @@ public sealed class GapStore
         }
     }
 
+    // A report is stored without its links (see StoredJson), so a loaded one gets them back from its ids, after
+    // recovering any id an older file kept only in a link. A link that cannot be built leaves the gap without it
+    // rather than failing the load.
+    private void Hydrate(IReadOnlyList<GapItem> items)
+    {
+        foreach (var item in items)
+        {
+            LegacyLinkIds.Recover(item);
+        }
+
+        try
+        {
+            if (_links is null)
+            {
+                ExternalLinkEnricher.FillWithoutHost(items);
+            }
+            else
+            {
+                _links.Fill(items);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not build the links of the loaded gap report");
+        }
+    }
+
     // Load for a caller that already holds _lock.
     private GapReport LoadLocked()
     {
@@ -541,6 +581,11 @@ public sealed class GapStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to read gap report");
+        }
+
+        if (_cached is not null)
+        {
+            Hydrate(_cached.Items);
         }
 
         if (_cached is not null)

@@ -20,15 +20,13 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// <typeparam name="TEntry">The entry type, keyed by its own id.</typeparam>
 internal sealed class UserListFiles<TEntry>
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions _jsonOptions = StoredJson.Create();
 
     private readonly ILogger _logger;
     private readonly Func<string> _dataFolder;
     private readonly string _folderName;
     private readonly string _noun;
+    private readonly Action<TEntry>? _afterRead;
     private readonly Dictionary<Guid, Dictionary<string, TEntry>> _cached = [];
 
     /// <summary>
@@ -39,8 +37,10 @@ internal sealed class UserListFiles<TEntry>
     /// construction.</param>
     /// <param name="folderName">The folder the lists live in, under the data folder.</param>
     /// <param name="noun">What a list is called in the log ("todo list").</param>
-    public UserListFiles(ILogger logger, Func<string> dataFolder, string folderName, string noun)
+    /// <param name="afterRead">Rebuilds what an entry does not keep on disk, run on each entry read from a file.</param>
+    public UserListFiles(ILogger logger, Func<string> dataFolder, string folderName, string noun, Action<TEntry>? afterRead = null)
     {
+        _afterRead = afterRead;
         _logger = logger;
         _dataFolder = dataFolder;
         _folderName = folderName;
@@ -97,7 +97,16 @@ internal sealed class UserListFiles<TEntry>
 
         try
         {
-            return Keep(userId, JsonSerializer.Deserialize<Dictionary<string, TEntry>>(text, _jsonOptions));
+            var read = JsonSerializer.Deserialize<Dictionary<string, TEntry>>(text, _jsonOptions);
+            if (read is not null && _afterRead is not null)
+            {
+                foreach (var entry in read.Values)
+                {
+                    _afterRead(entry);
+                }
+            }
+
+            return Keep(userId, read);
         }
         catch (JsonException ex)
         {

@@ -20,6 +20,12 @@ internal static class ProviderIds
     /// <summary>OpenLibrary (a plugin provider, not in the core enum).</summary>
     public const string OpenLibrary = "OpenLibrary";
 
+    /// <summary>JustWatch: a title's page path, as the JustWatch plugin stamps it (not in the core enum).</summary>
+    public const string JustWatch = "JustWatch";
+
+    /// <summary>Trakt: a person's id on a filmography source (not in the core enum).</summary>
+    public const string Trakt = "Trakt";
+
     /// <summary>TheMovieDb.</summary>
     public static readonly string Tmdb = MetadataProvider.Tmdb.ToString();
 

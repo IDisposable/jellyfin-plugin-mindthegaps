@@ -80,7 +80,13 @@ internal static class JustWatchListMapper
                 continue;
             }
 
-            var titleUrl = JustWatchClient.TitleUrl(content?.FullPath);
+            // The title's page is its JustWatch id, the path the JustWatch plugin stamps on an item, so its link
+            // is built from the id like every other one.
+            if (!string.IsNullOrWhiteSpace(content?.FullPath))
+            {
+                providerIds[ProviderIds.JustWatch] = content.FullPath;
+            }
+
             emitted++;
             yield return GapItemFactory.Create(
                 id: string.Create(CultureInfo.InvariantCulture, $"{GapSourceKeys.JustWatch.GapPrefix}{listType.ToLowerInvariant()}:{idKey}"),
@@ -95,8 +101,7 @@ internal static class JustWatchListMapper
                 releaseDate: content?.OriginalReleaseYear is > 0
                     ? new DateTime(content.OriginalReleaseYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null,
-                imageUrl: JustWatchClient.PosterUrl(content?.PosterUrl),
-                extraLinks: titleUrl is null ? null : [new ExternalLink("JustWatch", titleUrl)]);
+                imageUrl: JustWatchClient.PosterUrl(content?.PosterUrl));
         }
     }
 }

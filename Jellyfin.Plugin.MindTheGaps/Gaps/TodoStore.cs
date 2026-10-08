@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Microsoft.Extensions.Logging;
 
@@ -51,7 +52,7 @@ public sealed class TodoStore
     {
         _logger = logger;
         _dataFolderOverride = dataFolder;
-        _files = new UserListFiles<TodoEntry>(logger, () => DataFolder, ListsFolderName, "todo list");
+        _files = new UserListFiles<TodoEntry>(logger, () => DataFolder, ListsFolderName, "todo list", Rehydrate);
     }
 
     private string DataFolder
@@ -326,6 +327,10 @@ public sealed class TodoStore
             try
             {
                 legacy = JsonSerializer.Deserialize<Dictionary<string, TodoEntry>>(File.ReadAllText(legacyPath), UserListFiles<TodoEntry>.JsonOptions);
+                foreach (var entry in legacy?.Values ?? Enumerable.Empty<TodoEntry>())
+                {
+                    Rehydrate(entry);
+                }
             }
             catch (Exception ex)
             {
@@ -408,6 +413,20 @@ public sealed class TodoStore
         {
             throw new ArgumentException("A todo list belongs to a user.", nameof(userId));
         }
+    }
+
+    /// <summary>
+    /// Rebuilds an entry's links from its ids when its list is read, since a list keeps the ids and not the links
+    /// (see <see cref="StoredJson"/>), after recovering an id an older list kept only in a link.
+    /// </summary>
+    /// <param name="entry">The entry, changed in place.</param>
+    internal static void Rehydrate(TodoEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        LegacyLinkIds.Recover(entry);
+        entry.Links = Enum.TryParse<BaseItemKind>(entry.TargetKindName, out var kind)
+            ? ProviderLinks.Build(kind, entry.ProviderIds, ExternalLinkEnricher.TraktLinks())
+            : [];
     }
 
     // A round-trippable UTC instant for the added/done timestamps.

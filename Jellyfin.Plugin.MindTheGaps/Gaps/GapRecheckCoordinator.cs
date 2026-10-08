@@ -221,10 +221,10 @@ public sealed class GapRecheckCoordinator
             }
         }
 
-        // Re-adopt the external ids and "where to watch" a prior pass resolved for these gaps, and let the
-        // host's external-url providers contribute links, exactly as a full scan and an explore do.
+        // Re-adopt the external ids and "where to watch" a prior pass resolved for these gaps, and build the
+        // links from the ids, exactly as a full scan and an explore do.
         GapBackfill.CarryForward(gaps, _store.Load().Items);
-        _externalLinks.Enrich(gaps);
+        _externalLinks.Fill(gaps);
 
         _logger.LogInformation("Re-check: {Series} has {Count} missing-episode gap(s)", series.Name, gaps.Count);
         return gaps;
@@ -287,7 +287,7 @@ public sealed class GapRecheckCoordinator
         }
 
         GapBackfill.CarryForward(gaps, _store.Load().Items);
-        _externalLinks.Enrich(gaps);
+        _externalLinks.Fill(gaps);
 
         _logger.LogInformation("Re-check: {Owner} has {Count} gap(s) across {Sources} source(s)", owner.Name, gaps.Count, claimants.Count);
         return (gaps, prefixes);

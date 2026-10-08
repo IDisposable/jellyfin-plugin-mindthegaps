@@ -107,15 +107,6 @@ internal static class TraktFilmographyMapper
             ? string.Create(CultureInfo.InvariantCulture, $"filmography:movie:{tmdbId.Value}")
             : string.Create(CultureInfo.InvariantCulture, $"filmography:movie:imdb:{imdbId}");
 
-        List<ExternalLink>? extraLinks = null;
-        if (movie.Ids?.Slug is { Length: > 0 } slug)
-        {
-            extraLinks = new List<ExternalLink>
-            {
-                new ExternalLink("Trakt", string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/movies/{slug}"))
-            };
-        }
-
         return GapItemFactory.Create(
             id: id,
             pattern: GapPattern.CreatorWorks,
@@ -127,7 +118,6 @@ internal static class TraktFilmographyMapper
             sourceItemName: sourceItemName,
             sourceItemType: SourceItemTypes.Person,
             releaseDate: movie.Year.HasValue ? new DateTime(movie.Year.Value, 1, 1) : null,
-            overview: role,
-            extraLinks: extraLinks);
+            overview: role);
     }
 }
