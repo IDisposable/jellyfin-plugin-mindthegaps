@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
 namespace Jellyfin.Plugin.MindTheGaps.Model;
 
 /// <summary>
@@ -25,4 +28,11 @@ public class GapSourceRef
     /// Gets or sets the owning item's release year, if known.
     /// </summary>
     public int? Year { get; set; }
+
+    /// <summary>
+    /// Gets or sets the owning item's own provider ids, which its source links are built from when it becomes
+    /// the gap's primary source. Null (and omitted) when it has none or was stored before they were kept.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? ProviderIds { get; set; }
 }

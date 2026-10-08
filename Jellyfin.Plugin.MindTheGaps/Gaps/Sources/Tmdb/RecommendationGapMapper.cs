@@ -26,6 +26,8 @@ internal static class RecommendationGapMapper
     /// <param name="gapPrefix">The gap-id prefix; defaults to <see cref="GapSourceKeys.RecommendationMovie"/>'s.
     /// A caller with its own <see cref="GapSourceKey"/> (the want-to-watch title search, which is not itself
     /// a recommendation) passes its own prefix instead.</param>
+    /// <param name="sourceTmdbId">The seed movie's own TMDB id, which the gaps' source links are built from;
+    /// null for a caller with no seed.</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildMovies(
         IEnumerable<SearchMovie> results,
@@ -36,9 +38,11 @@ internal static class RecommendationGapMapper
         Func<string?, string?> posterUrl,
         int perItem,
         int minVotes,
-        string? gapPrefix = null)
+        string? gapPrefix = null,
+        int? sourceTmdbId = null)
     {
         var prefix = gapPrefix ?? GapSourceKeys.RecommendationMovie.GapPrefix;
+        var sourceProviderIds = sourceTmdbId is int seed ? TmdbId(seed) : null;
         var emitted = 0;
         foreach (var rec in results)
         {
@@ -69,6 +73,7 @@ internal static class RecommendationGapMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: sourceItemName,
                 sourceItemType: SourceItemTypes.Movie,
+                sourceProviderIds: sourceProviderIds,
                 releaseDate: rec.ReleaseDate,
                 imageUrl: posterUrl(rec.PosterPath),
                 overview: rec.Overview,
@@ -91,6 +96,8 @@ internal static class RecommendationGapMapper
     /// <param name="gapPrefix">The gap-id prefix; defaults to <see cref="GapSourceKeys.RecommendationSeries"/>'s.
     /// A caller with its own <see cref="GapSourceKey"/> (the want-to-watch title search, which is not itself
     /// a recommendation) passes its own prefix instead.</param>
+    /// <param name="sourceTmdbId">The seed series' own TMDB id, which the gaps' source links are built from;
+    /// null for a caller with no seed.</param>
     /// <returns>The recommendation gaps.</returns>
     public static IEnumerable<GapItem> BuildSeries(
         IEnumerable<SearchTv> results,
@@ -101,9 +108,11 @@ internal static class RecommendationGapMapper
         Func<string?, string?> posterUrl,
         int perItem,
         int minVotes,
-        string? gapPrefix = null)
+        string? gapPrefix = null,
+        int? sourceTmdbId = null)
     {
         var prefix = gapPrefix ?? GapSourceKeys.RecommendationSeries.GapPrefix;
+        var sourceProviderIds = sourceTmdbId is int seed ? TmdbId(seed) : null;
         var emitted = 0;
         foreach (var rec in results)
         {
@@ -134,6 +143,7 @@ internal static class RecommendationGapMapper
                 sourceItemId: sourceItemId,
                 sourceItemName: sourceItemName,
                 sourceItemType: SourceItemTypes.Series,
+                sourceProviderIds: sourceProviderIds,
                 releaseDate: rec.FirstAirDate,
                 imageUrl: posterUrl(rec.PosterPath),
                 overview: rec.Overview,

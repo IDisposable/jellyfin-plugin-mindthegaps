@@ -45,6 +45,36 @@ public class TmdbRecommendationsCapturedDataTests
     }
 
     [Fact]
+    public void BuildMovies_LinksEachGapToTheSeedsOwnTmdbPage()
+    {
+        var similar = Load();
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
+
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, "leon", "Leon", 1994, ownership, Poster, 3, 0, sourceTmdbId: 101).ToList();
+
+        Assert.All(gaps, g =>
+        {
+            Assert.Equal("101", g.SourceProviderIds!["Tmdb"]);
+            Assert.Equal("https://www.themoviedb.org/movie/101", Assert.Single(g.SourceLinks).Url);
+        });
+    }
+
+    [Fact]
+    public void BuildMovies_WithoutASeedId_HasNoSourceLinks()
+    {
+        var similar = Load();
+        var ownership = new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal));
+
+        var gaps = RecommendationGapMapper.BuildMovies(similar.Results!, string.Empty, null, null, ownership, Poster, 3, 0).ToList();
+
+        Assert.All(gaps, g =>
+        {
+            Assert.Null(g.SourceProviderIds);
+            Assert.Empty(g.SourceLinks);
+        });
+    }
+
+    [Fact]
     public void BuildMovies_VoteGate_DropsObscureSuggestions()
     {
         var similar = Load();

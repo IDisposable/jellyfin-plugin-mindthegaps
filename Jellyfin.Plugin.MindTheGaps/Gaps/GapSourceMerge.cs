@@ -50,6 +50,7 @@ internal static class GapSourceMerge
             existing.SourceItemType = duplicate.SourceItemType;
             existing.SourceItemYear = duplicate.SourceItemYear;
             existing.SourceLinks = duplicate.SourceLinks;
+            existing.SourceProviderIds = duplicate.SourceProviderIds;
             AddOtherSource(existing, demoted);
             return;
         }
@@ -65,7 +66,8 @@ internal static class GapSourceMerge
         Id = gap.SourceItemId,
         Name = gap.SourceItemName,
         Type = gap.SourceItemType,
-        Year = gap.SourceItemYear
+        Year = gap.SourceItemYear,
+        ProviderIds = gap.SourceProviderIds
     };
 
     private static void AddOtherSource(GapItem existing, GapSourceRef add)

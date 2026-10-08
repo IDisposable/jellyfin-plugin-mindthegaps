@@ -23,6 +23,7 @@ public class GapRowProjectorTests
         nameof(GapItem.Overview),
         nameof(GapItem.Links),
         nameof(GapItem.SourceLinks),
+        nameof(GapItem.SourceProviderIds),
         nameof(GapItem.Adhoc)
     };
 
@@ -52,6 +53,22 @@ public class GapRowProjectorTests
         Assert.True(rows[0].HasOverview);
         Assert.DoesNotContain("A long overview.", json, System.StringComparison.Ordinal);
         Assert.DoesNotContain("themoviedb.org/movie", json, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_LeavesOffTheSourcesProviderIds()
+    {
+        var gap = Gap("g1");
+        gap.SourceProviderIds = new Dictionary<string, string> { ["Tmdb"] = "41077" };
+        gap.OtherSources = [new GapSourceRef { Id = "s2", Name = "Memento", Type = "Movie", Year = 2000, ProviderIds = new Dictionary<string, string> { ["Tmdb"] = "77" } }];
+
+        var row = GapRowProjector.Project([gap]).Items[0];
+
+        var other = Assert.Single(row.OtherSources!);
+        Assert.Equal("Memento", other.Name);
+        Assert.Equal(2000, other.Year);
+        Assert.Null(other.ProviderIds);
+        Assert.DoesNotContain("41077", JsonSerializer.Serialize(row), System.StringComparison.Ordinal);
     }
 
     [Fact]

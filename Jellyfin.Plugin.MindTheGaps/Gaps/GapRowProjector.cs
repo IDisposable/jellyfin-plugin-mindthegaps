@@ -61,7 +61,7 @@ internal static class GapRowProjector
         SourceItemType = item.SourceItemType,
         SourceItemYear = item.SourceItemYear,
         SourceLinksRef = tables.LinkSetIndex(item.SourceLinks),
-        OtherSources = item.OtherSources,
+        OtherSources = WithoutProviderIds(item.OtherSources),
         SetOwnedCount = item.SetOwnedCount,
         SetTotalCount = item.SetTotalCount,
         SortScore = item.SortScore,
@@ -72,6 +72,12 @@ internal static class GapRowProjector
         WatchUrl = WatchUrl(item.Availability),
         AvailabilityChecked = item.AvailabilityChecked
     };
+
+    // A secondary source's ids are only there to rebuild its links on the server if it is promoted.
+    private static IReadOnlyList<GapSourceRef>? WithoutProviderIds(IReadOnlyList<GapSourceRef>? sources)
+        => sources is null || sources.All(s => s.ProviderIds is null)
+            ? sources
+            : sources.Select(s => new GapSourceRef { Id = s.Id, Name = s.Name, Type = s.Type, Year = s.Year }).ToArray();
 
     // The offers of one title all carry TMDB's one watch page for it, so the first usable one stands for all.
     private static string? WatchUrl(IReadOnlyList<AvailabilityOffer> offers)

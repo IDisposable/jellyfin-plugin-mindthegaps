@@ -85,6 +85,7 @@ internal static class GapItemFactory
             SourceItemName = sourceItemName,
             SourceItemType = sourceItemType,
             SourceLinks = CreatorLinks.Build(sourceItemType, sourceProviderIds),
+            SourceProviderIds = sourceProviderIds is { Count: > 0 } ? sourceProviderIds : null,
             SourceItemYear = sourceItemYear,
             SetOwnedCount = setOwnedCount,
             SetTotalCount = setTotalCount,

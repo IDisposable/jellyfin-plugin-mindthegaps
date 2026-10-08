@@ -310,6 +310,69 @@ public sealed class GapStore
     }
 
     /// <summary>
+    /// Drops every source that names a deleted library item and saves (see <see cref="DeletedSourcePruner"/>):
+    /// a deleted secondary source comes off its gap, a deleted primary is replaced by the next source, and a
+    /// gap with none left is removed. Applied to the report as it is when the lock is taken, so a scan that
+    /// saved after the caller looked the ids up is pruned too. The report's scan time and version are kept.
+    /// </summary>
+    /// <param name="deletedIds">The library item ids (N format) that are gone.</param>
+    /// <returns>How many gaps were removed, and how many lost a source but stayed.</returns>
+    public (int Removed, int Rewritten) PruneDeletedSources(IReadOnlySet<string> deletedIds)
+    {
+        ArgumentNullException.ThrowIfNull(deletedIds);
+        if (deletedIds.Count == 0)
+        {
+            return (0, 0);
+        }
+
+        lock (_lock)
+        {
+            var current = LoadLocked();
+            var kept = new List<GapItem>(current.Items.Count);
+            var dirtyDomains = new HashSet<MediaDomain>();
+            var removed = 0;
+            var rewritten = 0;
+            foreach (var item in current.Items)
+            {
+                var pruned = DeletedSourcePruner.Prune(item, deletedIds);
+                if (ReferenceEquals(pruned, item))
+                {
+                    kept.Add(item);
+                    continue;
+                }
+
+                dirtyDomains.Add(item.Domain);
+                if (pruned is null)
+                {
+                    removed++;
+                }
+                else
+                {
+                    rewritten++;
+                    kept.Add(pruned);
+                }
+            }
+
+            if (dirtyDomains.Count == 0)
+            {
+                return (0, 0);
+            }
+
+            var report = new GapReport
+            {
+                GeneratedUtc = current.GeneratedUtc,
+                GeneratedVersion = current.GeneratedVersion,
+                TotalGaps = kept.Count,
+                Items = kept,
+                SourceRuns = current.SourceRuns
+            };
+            Publish(report);
+            Flush(report, dirtyDomains);
+            return (removed, rewritten);
+        }
+    }
+
+    /// <summary>
     /// Replaces one owning item's gaps with a fresh re-check and saves, leaving every other gap untouched.
     /// Used by the per-source re-check so a fix or an acquisition can be verified without a full rescan;
     /// unlike an additive merge, this also drops gaps the fix resolved. The report's scan time and version

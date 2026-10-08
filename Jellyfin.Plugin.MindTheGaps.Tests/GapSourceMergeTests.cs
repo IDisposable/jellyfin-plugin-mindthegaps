@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -67,6 +68,21 @@ public class GapSourceMergeTests
 
         Assert.Equal("Inception", existing.SourceItemName);
         Assert.Contains(existing.OtherSources!, s => s.Name == "The Matrix");
+    }
+
+    [Fact]
+    public void Merge_CarriesEachSourcesProviderIdsWithIt()
+    {
+        var existing = Rec("Inception", "rec-10");
+        existing.SourceProviderIds = new Dictionary<string, string> { ["Tmdb"] = "27205" };
+        var duplicate = List("Best Picture Winners", "tmdblist-28");
+        duplicate.SourceProviderIds = new Dictionary<string, string> { ["Tmdb"] = "28" };
+
+        GapSourceMerge.Merge(existing, duplicate);
+
+        // The promoted list brings its ids, and the demoted recommendation keeps its own on the secondary.
+        Assert.Equal("28", existing.SourceProviderIds!["Tmdb"]);
+        Assert.Equal("27205", Assert.Single(existing.OtherSources!).ProviderIds!["Tmdb"]);
     }
 
     [Fact]

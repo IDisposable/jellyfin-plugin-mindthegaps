@@ -131,6 +131,14 @@ public class GapItem
     public IReadOnlyList<ExternalLink> SourceLinks { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the source's own provider ids, which <see cref="SourceLinks"/> was built from. Kept so the
+    /// source can ride along on another gap as a <see cref="GapSourceRef"/> and have its links rebuilt if it is
+    /// promoted there. Null (and omitted) when the source carries none.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? SourceProviderIds { get; set; }
+
+    /// <summary>
     /// Gets or sets additional owned items that surfaced this same gap, beyond the primary one in
     /// <see cref="SourceItemName"/>. The engine accumulates these when the same recommendation target is
     /// surfaced by several owned titles, so the report can list every recommending source. Null (omitted
@@ -189,4 +197,11 @@ public class GapItem
     /// empty <see cref="Availability"/> means "checked, no sources" rather than "not looked up yet").
     /// </summary>
     public bool AvailabilityChecked { get; set; }
+
+    /// <summary>
+    /// Copies the gap, sharing its lists and dictionaries. An edit to a stored gap goes onto a copy so a
+    /// reader serializing the original never sees half of the edit.
+    /// </summary>
+    /// <returns>The copy.</returns>
+    internal GapItem ShallowCopy() => (GapItem)MemberwiseClone();
 }

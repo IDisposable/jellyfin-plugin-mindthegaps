@@ -139,7 +139,8 @@ internal sealed class RecommendationsGapSource : IGapSource
                     context.Ownership,
                     _tmdb.GetPosterUrl,
                     perItem,
-                    context.Config.MinRecommendationVotes))
+                    context.Config.MinRecommendationVotes,
+                    sourceTmdbId: tmdbId))
                 {
                     yield return gap;
                 }
@@ -165,7 +166,8 @@ internal sealed class RecommendationsGapSource : IGapSource
                     context.Ownership,
                     _tmdb.GetPosterUrl,
                     perItem,
-                    context.Config.MinRecommendationVotes))
+                    context.Config.MinRecommendationVotes,
+                    sourceTmdbId: tmdbId))
                 {
                     yield return gap;
                 }

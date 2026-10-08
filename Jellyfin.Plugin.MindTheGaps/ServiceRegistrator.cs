@@ -59,6 +59,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<ExploreRegistry>();
         serviceCollection.AddSingleton<GapScanPipeline>();
         serviceCollection.AddSingleton<GapRecheckCoordinator>();
+        serviceCollection.AddSingleton<GapScanGate>();
         serviceCollection.AddSingleton<GapEngine>();
         serviceCollection.AddSingleton<GapScanRunner>();
         serviceCollection.AddSingleton<ExploreRunner>();

@@ -36,6 +36,7 @@ public sealed class GapEngine
     private readonly TmdbProviderLogos _providerLogos;
     private readonly GapScanPipeline _scanPipeline;
     private readonly GapRecheckCoordinator _recheck;
+    private readonly GapScanGate _scanGate;
     private readonly ILogger<GapEngine> _logger;
 
     /// <summary>
@@ -52,6 +53,7 @@ public sealed class GapEngine
     /// <param name="providerLogos">Supplies streaming-provider logos for offers carried forward without one.</param>
     /// <param name="scanPipeline">Runs the enabled sources concurrently for a full scan.</param>
     /// <param name="recheck">Re-checks one or many owning items on demand, outside a full scan.</param>
+    /// <param name="scanGate">Keeps a scan from overlapping another scan or a report-wide prune.</param>
     /// <param name="logger">The logger.</param>
     public GapEngine(
         ILibraryManager libraryManager,
@@ -65,6 +67,7 @@ public sealed class GapEngine
         TmdbProviderLogos providerLogos,
         GapScanPipeline scanPipeline,
         GapRecheckCoordinator recheck,
+        GapScanGate scanGate,
         ILogger<GapEngine> logger)
     {
         _libraryManager = libraryManager;
@@ -78,16 +81,26 @@ public sealed class GapEngine
         _providerLogos = providerLogos;
         _scanPipeline = scanPipeline;
         _recheck = recheck;
+        _scanGate = scanGate;
         _logger = logger;
     }
 
     /// <summary>
-    /// Runs all enabled sources and saves the resulting report.
+    /// Runs all enabled sources and saves the resulting report. Waits first for any scan or report-wide prune
+    /// already running (see <see cref="GapScanGate"/>).
     /// </summary>
     /// <param name="progress">Optional progress reporter (0-100).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The generated report.</returns>
     public async Task<GapReport> RunAsync(IProgress<double>? progress, CancellationToken cancellationToken)
+    {
+        using (await _scanGate.EnterAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return await ScanAsync(progress, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<GapReport> ScanAsync(IProgress<double>? progress, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         var config = Plugin.RequireConfiguration();
