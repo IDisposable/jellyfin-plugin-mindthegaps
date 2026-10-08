@@ -27,13 +27,14 @@ public class PersonWebUiController : WebUiControllerBase
     /// <param name="person">Computes a person's unowned filmography.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public PersonWebUiController(PersonMissingService person, TodoStore todo, WebUiAccess access)
-        : base(todo, access)
+    /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
+    public PersonWebUiController(PersonMissingService person, TodoStore todo, WebUiAccess access, CertificationFilter certifications)
+        : base(todo, access, certifications)
     {
         _person = person;
     }
 
-    private static bool PersonPageEnabled => WebUiGate.PersonPage(Plugin.Instance?.Configuration);
+    private static bool PersonPageShown => WebUiGate.PersonPage(Plugin.Instance?.Configuration);
 
     /// <summary>
     /// Lists the movies and series this person is credited on that the library does not hold.
@@ -48,7 +49,7 @@ public class PersonWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PersonMissingResult>> GetPersonMissing([FromRoute] Guid personId, CancellationToken cancellationToken)
     {
-        if (!PersonPageEnabled || !Access.MaySee(User, personId))
+        if (!PersonPageShown || !Access.MaySee(User, personId))
         {
             return NotFound();
         }
@@ -59,6 +60,8 @@ public class PersonWebUiController : WebUiControllerBase
             return NotFound();
         }
 
+        result.Movies = await ForCallerAsync(result.Movies, cancellationToken).ConfigureAwait(false);
+        result.Series = await ForCallerAsync(result.Series, cancellationToken).ConfigureAwait(false);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
         WantedMarker.Mark(result.Movies.Concat(result.Series), wanted);
@@ -80,7 +83,7 @@ public class PersonWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddPersonGapToTodo([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(PersonPageEnabled, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+        => WantOwnedGapAsync(PersonPageShown, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: true, cancellationToken);
 
     /// <summary>
     /// Takes one of a person's unowned credits off the caller's want-to-watch list, by the title the credit is
@@ -96,5 +99,5 @@ public class PersonWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemovePersonGapFromTodo([FromRoute] Guid personId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(PersonPageEnabled, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+        => WantOwnedGapAsync(PersonPageShown, personId, gapId, ct => _person.FindGapAsync(personId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }

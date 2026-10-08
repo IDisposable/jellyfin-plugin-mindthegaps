@@ -36,16 +36,22 @@ public class WebUiController : ControllerBase
 
     private readonly TmdbClient _tmdb;
     private readonly JustWatchLinkIndex _justWatchLinks;
+    private readonly WebUiAccess _access;
+    private readonly CertificationFilter _certifications;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiController"/> class.
     /// </summary>
     /// <param name="tmdb">The TMDB client, for the detail dialog's title lookup.</param>
     /// <param name="justWatchLinks">Finds a title's own JustWatch page among the report's links.</param>
-    public WebUiController(TmdbClient tmdb, JustWatchLinkIndex justWatchLinks)
+    /// <param name="access">Tells a caller with a parental rating limit.</param>
+    /// <param name="certifications">Checks a title against that limit.</param>
+    public WebUiController(TmdbClient tmdb, JustWatchLinkIndex justWatchLinks, WebUiAccess access, CertificationFilter certifications)
     {
         _tmdb = tmdb;
         _justWatchLinks = justWatchLinks;
+        _access = access;
+        _certifications = certifications;
     }
 
     private static bool ScriptEnabled => WebUiGate.ScriptInjected(Plugin.Instance?.Configuration);
@@ -87,7 +93,8 @@ public class WebUiController : ControllerBase
     /// <param name="tmdbId">The TMDB id.</param>
     /// <param name="kind">The title's kind, <c>Movie</c> or <c>Series</c>.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The detail, or 404 when the kind is not recognized or TMDB has nothing for that id.</returns>
+    /// <returns>The detail, or 404 when the kind is not recognized, TMDB has nothing for that id, or the
+    /// caller's parental rating limit hides the title.</returns>
     [HttpGet("WebUi/Detail")]
     [Authorize]
     [Produces("application/json")]
@@ -95,6 +102,13 @@ public class WebUiController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MissingTitleDetail>> GetDetail([FromQuery] int tmdbId, [FromQuery] string? kind, CancellationToken cancellationToken)
     {
+        var titleKind = string.Equals(kind, "Series", StringComparison.OrdinalIgnoreCase) ? BaseItemKind.Series : BaseItemKind.Movie;
+        if (_access.RestrictedUser(User) is { } restricted
+            && !await _certifications.AllowsAsync(restricted, titleKind, tmdbId, cancellationToken).ConfigureAwait(false))
+        {
+            return NotFound();
+        }
+
         var config = Plugin.RequireConfiguration();
         if (string.Equals(kind, "Movie", StringComparison.OrdinalIgnoreCase))
         {

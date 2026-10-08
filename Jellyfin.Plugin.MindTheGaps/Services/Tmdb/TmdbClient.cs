@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -438,6 +439,45 @@ public sealed class TmdbClient : IDisposable
     /// <returns>The results and the total page count.</returns>
     public Task<(IReadOnlyList<SearchMovie> Results, int TotalPages)> GetNowPlayingMoviesAsync(int page, string? language, string? region, CancellationToken cancellationToken)
         => DiscoverFeedAsync("NowPlaying", async (l, p, r, ct) => await _client.GetMovieNowPlayingListAsync(l, p, r, ct).ConfigureAwait(false), page, language, region, cancellationToken);
+
+    /// <summary>
+    /// Gets a movie's or series' certification, spelled as Jellyfin writes a library item's official rating
+    /// (<see cref="TmdbCertification"/>), for checking it against a user's parental rating limit. Cached, an
+    /// unrated title included, since that is an answer rather than a failure; a failed request throws.
+    /// </summary>
+    /// <param name="isSeries">Whether the id is a series' rather than a movie's.</param>
+    /// <param name="tmdbId">The TMDB id.</param>
+    /// <param name="country">The metadata country code, or null for the US.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The certification, or <see langword="null"/> when TMDB has none.</returns>
+    internal async Task<TmdbCertification?> GetCertificationAsync(bool isSeries, int tmdbId, string? country, CancellationToken cancellationToken)
+    {
+        var key = string.Create(CultureInfo.InvariantCulture, $"certification-{(isSeries ? "tv" : "movie")}-{tmdbId}-{country}");
+        if (_cache.TryGetValue(key, out TmdbCertification? cached))
+        {
+            return cached;
+        }
+
+        _logger.Detailed("TMDB: certification of {Kind} {TmdbId}", isSeries ? "series" : "movie", tmdbId);
+        TmdbCertification? rating;
+        if (isSeries)
+        {
+            var ratings = await _client.GetTvShowContentRatingsAsync(tmdbId, cancellationToken).ConfigureAwait(false);
+            rating = TmdbCertification.Pick(
+                (ratings?.Results ?? []).Select(r => (r.Iso_3166_1, (IEnumerable<string?>)new[] { r.Rating })),
+                country);
+        }
+        else
+        {
+            var releases = await _client.GetMovieReleaseDatesAsync(tmdbId, cancellationToken).ConfigureAwait(false);
+            rating = TmdbCertification.Pick(
+                (releases?.Results ?? []).Select(r => (r.Iso_3166_1, (r.ReleaseDates ?? []).Select(d => d.Certification))),
+                country);
+        }
+
+        _cache.Set(key, rating, TimeSpan.FromHours(CacheDurationHours));
+        return rating;
+    }
 
     // *****
     // Shows

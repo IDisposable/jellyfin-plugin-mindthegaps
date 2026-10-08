@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using Jellyfin.Plugin.MindTheGaps.WebUi;
@@ -23,16 +24,19 @@ public abstract class WebUiControllerBase : ControllerBase
 {
     private readonly TodoStore _todo;
     private readonly WebUiAccess _access;
+    private readonly CertificationFilter _certifications;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WebUiControllerBase"/> class.
     /// </summary>
     /// <param name="todo">The per-user todo-list store, for the want-to-watch add/remove.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    protected WebUiControllerBase(TodoStore todo, WebUiAccess access)
+    /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
+    protected WebUiControllerBase(TodoStore todo, WebUiAccess access, CertificationFilter certifications)
     {
         _todo = todo;
         _access = access;
+        _certifications = certifications;
     }
 
     /// <summary>
@@ -56,9 +60,38 @@ public abstract class WebUiControllerBase : ControllerBase
     public TodoStore Todo => _todo;
 
     /// <summary>
-    /// The caller's own list when they may keep one (want to watch is on, and they are a signed-in user
-    /// without a parental rating limit), with the identity keys of what is on it so a card can say whether
-    /// its title is.
+    /// Narrows cards to what the caller may be shown: all of them, unless the caller has a parental rating
+    /// limit, when only the titles that limit allows, in their order.
+    /// </summary>
+    /// <param name="titles">The cards.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The cards the caller may be shown.</returns>
+    protected async Task<IReadOnlyList<MissingTitle>> ForCallerAsync(IReadOnlyList<MissingTitle> titles, CancellationToken cancellationToken)
+        => _access.RestrictedUser(User) is { } user
+            ? await _certifications.AllowedAsync(user, titles, cancellationToken).ConfigureAwait(false)
+            : titles;
+
+    /// <summary>
+    /// Whether the caller has a parental rating limit, so a surface that trims its list to a size asks for more
+    /// than it shows.
+    /// </summary>
+    /// <returns><see langword="true"/> for a restricted caller.</returns>
+    protected bool CallerIsRestricted() => _access.RestrictedUser(User) is not null;
+
+    /// <summary>
+    /// Whether the caller may be shown one title, for the detail lookup.
+    /// </summary>
+    /// <param name="kind">The title's kind.</param>
+    /// <param name="tmdbId">The title's TMDB id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><see langword="true"/> unless a restricted caller's limit hides it.</returns>
+    protected async Task<bool> CallerMaySeeAsync(BaseItemKind kind, int tmdbId, CancellationToken cancellationToken)
+        => _access.RestrictedUser(User) is not { } user
+            || await _certifications.AllowsAsync(user, kind, tmdbId, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// The caller's own list when they may keep one (want to watch is on, and they are a signed-in user), with
+    /// the identity keys of what is on it so a card can say whether its title is.
     /// </summary>
     /// <returns>The caller's user id (null when they may not keep a list) and their wanted keys.</returns>
     protected (Guid? UserId, IReadOnlySet<string> Wanted) Wanting()
@@ -85,8 +118,9 @@ public abstract class WebUiControllerBase : ControllerBase
     /// <param name="add">True to add the gap; false to remove it.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>
-    /// The number of entries added or removed; 404 while the surface or want to watch is off, or the caller
-    /// may not see the item; 403 for a caller with no list of their own.
+    /// The number of entries added or removed (none added for a title the caller's parental rating limit
+    /// hides); 404 while the surface or want to watch is off, or the caller may not see the item; 403 for a
+    /// caller with no list of their own.
     /// </returns>
     protected async Task<ActionResult<int>> WantOwnedGapAsync(
         bool surfaceEnabled,
@@ -109,6 +143,13 @@ public abstract class WebUiControllerBase : ControllerBase
         var gap = await findGap(cancellationToken).ConfigureAwait(false);
         if (add)
         {
+            // The same limit the page's list was narrowed by, so a request cannot add a title it would not show.
+            if (gap is not null && _access.RestrictedUser(User) is { } restricted
+                && !await _certifications.AllowsAsync(restricted, gap, cancellationToken).ConfigureAwait(false))
+            {
+                return 0;
+            }
+
             return gap is null ? 0 : Todo.Add(userId, [gap]);
         }
 

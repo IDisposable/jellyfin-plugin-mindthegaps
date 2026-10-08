@@ -49,6 +49,19 @@ test('opens from the library actions, sorted by demand, with who still wants eac
         .toHaveText('Wanted by Ann, Vic (2 of 2 still open)');
 });
 
+// One JustWatch link per row: the search when the title has no JustWatch link of its own, else that link.
+test('each row offers JustWatch once', async ({ page }) => {
+    const demand = demandData();
+    demand.Items[1].Links = [{ Name: 'JustWatch', Url: 'https://www.justwatch.com/us/movie/solo-want' }];
+    await open(page, demand);
+
+    const jw = (id) => page.locator('#cgFulfillBody .cgTodoRow[data-rowid="' + id + '"] a[href*="justwatch.com"]');
+    await expect(jw('both')).toHaveCount(1);
+    await expect(jw('both')).toHaveAttribute('href', /\/search\?q=Both%20Want%20It/);
+    await expect(jw('solo')).toHaveCount(1);
+    await expect(jw('solo')).toHaveAttribute('href', 'https://www.justwatch.com/us/movie/solo-want');
+});
+
 test('a fully fetched title is hidden until Show fulfilled is ticked', async ({ page }) => {
     await open(page, demandData());
     await expect(page.locator('#cgFulfillBody .cgTodoRow')).toHaveCount(2);

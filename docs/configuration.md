@@ -492,8 +492,9 @@ author you don't have":
     when the home page loads.
 
 [^wanttowatch]:
-    A user with a parental rating limit does not get the surfaces, so has no cards to bookmark from. An administrator sees everyone's lists folded into one queue from the
-    report's **Fulfillment queue**, and can verify or mark a title fetched for everyone still waiting on it in one action.
+    A user with a parental rating limit keeps a list of only what their limit allows; their row and title search are narrowed the same way as the pages. An administrator
+    sees everyone's lists folded into one queue from the report's **Fulfillment queue**, and can verify or mark a title fetched for everyone still waiting on it in one
+    action.
 
 [^wanttowatchplaylist]: The move happens the next time the entry is verified, not the instant the file arrives: an administrator's Fulfillment queue **Verify all**, or any future per-user verify. A title moves once, the first time it is found owned; verifying again does not add it a second time. Minting a placeholder never counts as arrived, whether or not minting is on elsewhere in the plugin.
 
@@ -523,12 +524,12 @@ A bookmarked card and the home page's "Want to watch" row of what is still on th
 Each surface's data is served by the plugin whether or not the script is added, so another client can use it:
 
 - `GET MindTheGaps/Person/{personId}/Missing`, `GET MindTheGaps/Item/{itemId}/WantedOrRelated` and
-  `GET MindTheGaps/Home/Discover`, each answering 404 until its own toggle is on. A movie or series page's
+  `GET MindTheGaps/Home/Discover`, each answering 404 while its own placement is **Do not show**. A movie or series page's
   `WantedOrRelated` carries its similar titles (`Related`) and, with **Want to watch: bookmark button on
   movie and series pages** on, whether the title is on the caller's want-to-watch playlist (`OnList`);
   either is null while its option is off.
 - `GET MindTheGaps/WebUi/Detail?tmdbId=&kind=` (`kind` is `Movie` or `Series`), a proxied TMDB lookup for a
-  title, always available. There is no send-to-Radarr/Sonarr endpoint here; that stays on the report (see
+  title, always available except for a title a restricted caller's limit hides. There is no send-to-Radarr/Sonarr endpoint here; that stays on the report (see
   [Acquisition stack](#acquisition-stack-optional)).
 - With **Want to watch** on, any signed-in user can put a title on their own list and take it off
   (`POST .../Todo` and `POST .../Todo/Remove` on each surface), and read the home row of what is still on it
@@ -540,10 +541,13 @@ Each surface's data is served by the plugin whether or not the script is added, 
   or remove a result, rehydrated fresh from TMDB by id rather than trusted from the client.
 
 All the reads are open to any signed-in user, and the shapes are not a versioned contract and may change. They are
-filtered lightly by who is asking: a user with a parental rating limit is not shown the surfaces at all, and
-a page is shown only to a user who can see the item it is about. Beyond that a title is listed if the
-library does not hold it, for everyone, whatever the caller's library access. Per-title certification
-filtering is not done, because TMDB's certifications would cost a request per title. The Discover row shows
+filtered by who is asking: a page is shown only to a user who can see the item it is about, and a user with
+a parental rating limit is shown only the movies and series that limit allows. Each title is judged by its
+TMDB certification for your metadata country (else the US, else the first country TMDB lists), the way
+Jellyfin judges a title in the library, the user's choice to block unrated titles included. A title whose
+certification cannot be looked up is left out for such a user. The lookups are cached, so a title costs one
+TMDB request however often it is shown. Albums and books carry no rating and are shown as they are. Beyond
+that a title is listed if the library does not hold it, whatever the caller's library access. The Discover row shows
 only recommendations made from titles you own and titles from public lists (TMDB lists, Trakt lists and
 TMDB's own feeds), never those from a watchlist, favorites, or an IMDb or MDBList list. See
 [ADR-0019](adr/0019-web-ui-surfaces-are-an-api.md).

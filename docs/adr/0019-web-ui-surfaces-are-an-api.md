@@ -34,13 +34,15 @@ with no consumers cannot be shaped by them, so it is offered before there are an
 
 - A surface turned on is available to any signed-in user through the API, not only to whoever sees the
   script's sections, and the settings help and the configuration reference say so.
-- The reads are filtered lightly by the caller, using only what the server already holds in memory. A user
-  with a parental rating limit is not shown the surfaces (`WebUiAccess.MaySee`), and a page is shown only to a
-  user who can see the item it is about (`BaseItem.IsVisible`). What a page lists is TMDB's, not the library's,
-  so nothing finer is done: each title's certification would take a TMDB request, and the ownership index is one
-  shared cache for the whole server, so a title is listed if the library does not hold it, whatever the
-  caller's library access. Certification filtering for restricted users is deferred until someone asks.
-- With want to watch on, any signed-in user without a rating limit may put a title on their own todo list and
+- The reads are filtered by the caller. A page is shown only to a user who can see the item it is about
+  (`WebUiAccess.MaySee`, `BaseItem.IsVisible`). A user with a parental rating limit is shown the surfaces,
+  narrowed to the movies and series that limit allows (`CertificationFilter`): each title's TMDB certification,
+  looked up and cached, is put on a throwaway item and judged by core's own `BaseItem.IsParentalAllowed`
+  (`RatingGate`), so the comparison and the user's choice to block unrated titles are the library's. A title
+  whose certification cannot be looked up is left out for such a user, and so is an add of it to their list.
+  Albums and books carry no certification and are not narrowed. The ownership index is one shared cache for
+  the whole server, so a title is listed if the library does not hold it, whatever the caller's library access.
+- With want to watch on, any signed-in user may put a title on their own todo list and
   take it off (`POST .../Todo`, `POST .../Todo/Remove` on each surface), and read the home row of what is
   still on it (`GET Home/Wanted`). The list is theirs alone: a request that is not a user's has none, and an
   administrator sees and manages everyone's only through the report's todo endpoints.

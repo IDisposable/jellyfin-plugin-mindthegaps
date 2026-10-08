@@ -42,7 +42,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ## Priorities (suggested, not committed)
 
-- **Per-title certification filtering for restricted users,** only if someone asks; see below.
 - **Upstream ask A** ([jellyfin-web #8094](https://github.com/jellyfin/jellyfin-web/pull/8094)): merged, it
   gives the virtual placeholders the plugin mints across every domain their native greyed "Missing" badge.
 
@@ -63,10 +62,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Web UI
 
-- **Certification filtering by the caller.** A user with a parental rating limit is shown no surface, and a
-  page is shown only to a user who can see its item. A finer filter would check each listed title's
-  certification against the limit, which costs a TMDB request per title, so it waits until someone asks. See
-  ADR-0019.
 - **A per-user dismissal.** Only an administrator can dismiss a gap, by resolving it on the report, and that
   hides it for everyone (`ResolutionStore` is server-wide). A signed-in user on the Web UI surfaces has no
   way to say "not interested" to a card, so a title they will never want keeps coming back on every person,

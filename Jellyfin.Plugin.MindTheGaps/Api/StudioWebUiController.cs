@@ -27,8 +27,9 @@ public class StudioWebUiController : WebUiControllerBase
     /// <param name="studios">Computes a studio's unowned movies.</param>
     /// <param name="todo">The per-user todo-list store, for the "Add to TODO" action.</param>
     /// <param name="access">Decides what the signed-in user may be shown.</param>
-    public StudioWebUiController(StudioMissingService studios, TodoStore todo, WebUiAccess access)
-        : base(todo, access)
+    /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
+    public StudioWebUiController(StudioMissingService studios, TodoStore todo, WebUiAccess access, CertificationFilter certifications)
+        : base(todo, access, certifications)
     {
         _studios = studios;
     }
@@ -59,6 +60,7 @@ public class StudioWebUiController : WebUiControllerBase
             return NotFound();
         }
 
+        result.Titles = await ForCallerAsync(result.Titles, cancellationToken).ConfigureAwait(false);
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
         WantedMarker.Mark(result.Titles, wanted);

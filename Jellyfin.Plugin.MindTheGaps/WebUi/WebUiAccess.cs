@@ -9,9 +9,9 @@ namespace Jellyfin.Plugin.MindTheGaps.WebUi;
 
 /// <summary>
 /// Decides what the signed-in user may be shown by the web UI surfaces, kept to lookups the server already
-/// has in memory so it costs a request nothing measurable. A user with a parental rating limit is not shown
-/// the surfaces at all: what they list is TMDB's, not the library's, and its certifications would take a
-/// TMDB request per title to check. A page is shown only to a user who can see the item it is about.
+/// has in memory so it costs a request nothing measurable. A page is shown only to a user who can see the item
+/// it is about. A user with a parental rating limit is shown the surfaces too, and <see cref="RestrictedUser"/>
+/// is what tells a surface to narrow its titles to that limit (<see cref="CertificationFilter"/>).
 /// </summary>
 public sealed class WebUiAccess
 {
@@ -46,11 +46,11 @@ public sealed class WebUiAccess
 
     /// <summary>
     /// Whether the caller may be shown a surface, and for a page, the item it is about. A request that is not
-    /// a user's (an API key) is not restricted.
+    /// a user's (an API key) sees every surface.
     /// </summary>
     /// <param name="principal">The request's principal.</param>
     /// <param name="itemId">The item a page is about, or <see langword="null"/> for the home screen.</param>
-    /// <returns><see langword="false"/> for a restricted user, or a user who cannot see the item.</returns>
+    /// <returns><see langword="false"/> for a user who cannot see the item.</returns>
     public bool MaySee(ClaimsPrincipal? principal, Guid? itemId = null)
     {
         if (!TodoOwner.TryGetUserId(principal, out var userId) || _users.GetUserById(userId) is not { } user)
@@ -58,28 +58,27 @@ public sealed class WebUiAccess
             return true;
         }
 
-        if (IsRestricted(user))
-        {
-            return false;
-        }
-
         return itemId is not { } id || _library.GetItemById(id) is not BaseItem item || item.IsVisible(user);
     }
 
     /// <summary>
-    /// Gets the caller's id when they may keep a want-to-watch list: a signed-in user without a parental rating
-    /// limit. An administrator's first call also takes over the old server-wide todo list.
+    /// Gets the caller when they have a parental rating limit, so a surface narrows its titles to it.
+    /// </summary>
+    /// <param name="principal">The request's principal.</param>
+    /// <returns>The user, or <see langword="null"/> for a caller with no limit or a request that is not a
+    /// user's.</returns>
+    public User? RestrictedUser(ClaimsPrincipal? principal)
+        => TodoOwner.TryGetUserId(principal, out var userId) && _users.GetUserById(userId) is { } user && IsRestricted(user)
+            ? user
+            : null;
+
+    /// <summary>
+    /// Gets the caller's id when they may keep a want-to-watch list: a signed-in user. An administrator's first
+    /// call also takes over the old server-wide todo list.
     /// </summary>
     /// <param name="principal">The request's principal.</param>
     /// <param name="isAdministrator">Whether the caller is an administrator.</param>
     /// <returns>The user's id, or <see langword="null"/>.</returns>
     public Guid? WantingUser(ClaimsPrincipal? principal, bool isAdministrator)
-    {
-        if (_owner.Resolve(principal, isAdministrator) is not { } userId || _users.GetUserById(userId) is not { } user || IsRestricted(user))
-        {
-            return null;
-        }
-
-        return userId;
-    }
+        => _owner.Resolve(principal, isAdministrator) is { } userId && _users.GetUserById(userId) is not null ? userId : null;
 }

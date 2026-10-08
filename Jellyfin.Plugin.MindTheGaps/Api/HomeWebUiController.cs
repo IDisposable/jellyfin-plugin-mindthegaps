@@ -41,8 +41,9 @@ public class HomeWebUiController : WebUiControllerBase
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="playlist">The want-to-watch playlist, for the row's removal of an owned title.</param>
     /// <param name="sections">Reads the caller's home screen slot order, for where the rows go.</param>
-    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, HomeSections sections)
-        : base(todo, access)
+    /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
+    public HomeWebUiController(HomeDiscoverService home, WantedRowService wanted, WatchlistSearchService search, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, HomeSections sections, CertificationFilter certifications)
+        : base(todo, access, certifications)
     {
         _home = home;
         _wanted = wanted;
@@ -57,13 +58,14 @@ public class HomeWebUiController : WebUiControllerBase
     /// The home screen's discovery row: the recommendation gaps the scan has accumulated, ranked.
     /// </summary>
     /// <param name="limit">The most titles to return; omitted uses the configured row size.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The row, or 404 while the surface is off.</returns>
     [HttpGet("Home/Discover")]
     [Authorize]
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<HomeDiscoverResult> GetHomeDiscover([FromQuery] int? limit)
+    public async Task<ActionResult<HomeDiscoverResult>> GetHomeDiscover([FromQuery] int? limit, CancellationToken cancellationToken)
     {
         if (!HomeDiscoverShown || !Access.MaySee(User))
         {
@@ -71,7 +73,10 @@ public class HomeWebUiController : WebUiControllerBase
         }
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : Plugin.RequireConfiguration().HomeRowSize;
-        var result = _home.Get(size);
+
+        // A restricted caller's limit leaves some of the ranked titles out, so ask for more than the row shows.
+        var result = _home.Get(CallerIsRestricted() ? size * 3 : size);
+        result.Titles = (await ForCallerAsync(result.Titles, cancellationToken).ConfigureAwait(false)).Take(size).ToList();
         var (wantingUser, wanted) = Wanting();
         result.CanTodo = wantingUser is not null;
         (result.Placement, result.HomeSections) = Placement(HomePlacement.Discover(Plugin.Instance?.Configuration));
@@ -113,6 +118,7 @@ public class HomeWebUiController : WebUiControllerBase
     /// and that the library does not hold yet.
     /// </summary>
     /// <param name="limit">The most titles to return; omitted uses the configured row size.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The row, or 404 while want to watch or the row is off, or for a request that cannot keep a
     /// list.</returns>
     [HttpGet("Home/Wanted")]
@@ -120,7 +126,7 @@ public class HomeWebUiController : WebUiControllerBase
     [Produces("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<WantedRowResult> GetHomeWanted([FromQuery] int? limit)
+    public async Task<ActionResult<WantedRowResult>> GetHomeWanted([FromQuery] int? limit, CancellationToken cancellationToken)
     {
         var config = Plugin.RequireConfiguration();
         var (userId, _) = Wanting();
@@ -131,6 +137,9 @@ public class HomeWebUiController : WebUiControllerBase
 
         var size = limit is > 0 ? Math.Min(limit.Value, 100) : config.HomeRowSize;
         var result = _wanted.Get(id, size);
+
+        // A title can reach the list from elsewhere (the report, or before the user's limit was set).
+        result.Titles = await ForCallerAsync(result.Titles, cancellationToken).ConfigureAwait(false);
         (result.Placement, result.HomeSections) = Placement(HomePlacement.Wanted(config));
         return result;
     }
@@ -187,6 +196,7 @@ public class HomeWebUiController : WebUiControllerBase
         }
 
         var titles = await _search.SearchAsync(kind ?? string.Empty, q ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        titles = await ForCallerAsync(titles.ToList(), cancellationToken).ConfigureAwait(false);
         WantedMarker.Mark(titles, wanted);
         return titles.ToList();
     }

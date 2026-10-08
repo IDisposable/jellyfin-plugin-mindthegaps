@@ -36,9 +36,10 @@ public class ItemWebUiController : WebUiControllerBase
     /// <param name="access">Decides what the signed-in user may be shown.</param>
     /// <param name="playlist">The want-to-watch playlist, for a movie or series page's bookmark.</param>
     /// <param name="library">The library manager, to tell what kind of item a page is about.</param>
+    /// <param name="certifications">Narrows a restricted user's titles to their parental rating limit.</param>
     /// <param name="logger">The logger.</param>
-    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, ILibraryManager library, ILogger<ItemWebUiController> logger)
-        : base(todo, access)
+    public ItemWebUiController(RelatedMissingService related, WorksMissingService works, TodoStore todo, WebUiAccess access, WatchlistPlaylistService playlist, ILibraryManager library, CertificationFilter certifications, ILogger<ItemWebUiController> logger)
+        : base(todo, access, certifications)
     {
         _related = related;
         _works = works;
@@ -47,7 +48,7 @@ public class ItemWebUiController : WebUiControllerBase
         _logger = logger;
     }
 
-    private static bool ItemPageEnabled => WebUiGate.ItemPage(Plugin.Instance?.Configuration);
+    private static bool ItemPageShown => WebUiGate.ItemPage(Plugin.Instance?.Configuration);
 
     /// <summary>
     /// Puts this owned movie or series on the caller's want-to-watch playlist.
@@ -124,7 +125,7 @@ public class ItemWebUiController : WebUiControllerBase
             result.OnList = _playlist.Contains(userId, itemId, config);
         }
 
-        if (ItemPageEnabled && Access.MaySee(User, itemId))
+        if (ItemPageShown && Access.MaySee(User, itemId))
         {
             try
             {
@@ -139,6 +140,7 @@ public class ItemWebUiController : WebUiControllerBase
 
         if (result.Related is { } related)
         {
+            related.Titles = await ForCallerAsync(related.Titles, cancellationToken).ConfigureAwait(false);
             var (wantingUser, wanted) = Wanting();
             related.CanTodo = wantingUser is not null;
             related.Placement = ItemPlacement.Of(config);
@@ -162,7 +164,7 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddItemGapToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+        => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
 
     /// <summary>
     /// Takes one of an owned title's unowned similar titles off the caller's want-to-watch list.
@@ -177,7 +179,7 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveItemGapFromTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+        => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _related.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 
     /// <summary>
     /// Lists the albums an owned artist made, or the other works by an owned book's author, that the library
@@ -194,7 +196,7 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<WorksMissingResult>> GetItemWorks([FromRoute] Guid itemId, CancellationToken cancellationToken)
     {
-        if (!ItemPageEnabled || !Access.MaySee(User, itemId))
+        if (!ItemPageShown || !Access.MaySee(User, itemId))
         {
             return NotFound();
         }
@@ -227,7 +229,7 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MissingWorkDetail>> GetItemWorkDetail([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
     {
-        if (!ItemPageEnabled || !Access.MaySee(User, itemId) || string.IsNullOrEmpty(gapId))
+        if (!ItemPageShown || !Access.MaySee(User, itemId) || string.IsNullOrEmpty(gapId))
         {
             return NotFound();
         }
@@ -250,7 +252,7 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> AddItemWorkToTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
+        => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: true, cancellationToken);
 
     /// <summary>
     /// Takes one of an artist's or author's unowned works off the caller's want-to-watch list.
@@ -265,5 +267,5 @@ public class ItemWebUiController : WebUiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public Task<ActionResult<int>> RemoveItemWorkFromTodo([FromRoute] Guid itemId, [FromQuery] string? gapId, CancellationToken cancellationToken)
-        => WantOwnedGapAsync(ItemPageEnabled, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
+        => WantOwnedGapAsync(ItemPageShown, itemId, gapId, ct => _works.FindGapAsync(itemId, gapId ?? string.Empty, ct), add: false, cancellationToken);
 }
