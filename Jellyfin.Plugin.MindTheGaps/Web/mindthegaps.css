@@ -938,29 +938,39 @@ a.cgSvcs {
     background: rgba(255, 255, 255, .06);
 }
 
-/* A settings section that folds under its heading. The native marker is replaced by a drawn chevron
-    because a flex or block summary drops it in some browsers but not others. */
+/* A settings section that folds under its heading: a button inside the h2, not a <details>, because a
+    heading inside a <summary> is flattened into button text by some screen readers and drops out of
+    their heading navigation. Collapsed, everything but the heading is hidden from sight and from them. */
 .cgSection {
-    margin-bottom: .4em;
-}
-
-.cgSection[open] {
     margin-bottom: 1.5em;
 }
 
-.cgSectionSummary {
+.cgSection.cgCollapsed {
+    margin-bottom: .4em;
+}
+
+.cgSection.cgCollapsed > :not(.cgSectionHead) {
+    display: none;
+}
+
+.cgSectionHead {
+    margin: .4em 0;
+}
+
+.cgSectionToggle {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     cursor: pointer;
-    list-style: none;
     display: flex;
     align-items: center;
     gap: .6em;
 }
 
-.cgSectionSummary::-webkit-details-marker {
-    display: none;
-}
-
-.cgSectionSummary::before {
+.cgSectionToggle::before {
     content: "";
     flex: none;
     width: .5em;
@@ -972,12 +982,8 @@ a.cgSvcs {
     opacity: .7;
 }
 
-.cgSection[open] > .cgSectionSummary::before {
+.cgSectionToggle[aria-expanded="true"]::before {
     transform: rotate(45deg);
-}
-
-.cgSectionSummary .sectionTitle {
-    margin: .4em 0;
 }
 
 .cgRow .cgSel {

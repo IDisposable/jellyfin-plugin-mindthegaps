@@ -42,21 +42,68 @@ function updateProviderGroups(page, config) {
     });
 }
 
+const FIELD_CONTAINERS = '#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer, #MindTheGapsConfigForm .selectContainer';
+
+function setSectionOpen(section, open) {
+    section.classList.toggle('cgCollapsed', !open);
+    section.querySelector('.cgSectionToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 // The settings search box: a plain-text filter over every field's own container. Matching text opens
-// the section and provider group it is in, so a hit is never hidden behind a collapsed summary;
+// the section and provider group it is in, so a hit is never hidden behind a collapsed heading;
 // clearing the box restores every container without touching what the user opened or closed by hand.
+// The count goes to a status region a beat after typing stops, so a screen reader hears one result
+// rather than one per keystroke.
 function filterSettings(page, query) {
     const q = (query || '').trim().toLowerCase();
-    const containers = page.querySelectorAll('#MindTheGapsConfigForm .checkboxContainer, #MindTheGapsConfigForm .inputContainer, #MindTheGapsConfigForm .selectContainer');
+    const containers = page.querySelectorAll(FIELD_CONTAINERS);
+    let matches = 0;
     for (let i = 0; i < containers.length; i++) {
         const c = containers[i];
         if (!q) { c.style.display = ''; continue; }
         const match = (c.textContent || '').toLowerCase().indexOf(q) !== -1;
         c.style.display = match ? '' : 'none';
         if (match) {
-            for (let d = c.closest('details'); d; d = d.parentElement ? d.parentElement.closest('details') : null) { d.open = true; }
+            matches++;
+            const section = c.closest('.cgSection');
+            if (section) { setSectionOpen(section, true); }
+            const details = c.closest('details.cgProvGroup');
+            if (details) { details.open = true; }
         }
     }
+    const status = page.querySelector('#cgSettingsSearchStatus');
+    clearTimeout(page._searchStatusTimer);
+    page._searchStatusTimer = setTimeout(function () {
+        status.textContent = !q ? '' : matches === 0 ? 'No settings match.' : matches === 1 ? '1 setting matches.' : matches + ' settings match.';
+    }, 500);
+}
+
+// Ties each field to the help text beneath it, so a screen reader reads the description along with
+// the label when the field takes focus. Done here rather than by hand on some seventy elements, so a
+// new field picks it up just by sitting in a container beside its description.
+function linkDescriptions(page) {
+    const containers = page.querySelectorAll(FIELD_CONTAINERS);
+    for (let i = 0; i < containers.length; i++) {
+        const descs = containers[i].querySelectorAll(':scope > .fieldDescription');
+        if (!descs.length) { continue; }
+        const ids = [];
+        for (let d = 0; d < descs.length; d++) {
+            if (!descs[d].id) { descs[d].id = 'cgDesc' + i + '_' + d; }
+            ids.push(descs[d].id);
+        }
+        const fields = containers[i].querySelectorAll('input, select, button:not(.cgReveal)');
+        for (let f = 0; f < fields.length; f++) { fields[f].setAttribute('aria-describedby', ids.join(' ')); }
+    }
+}
+
+// Every reveal button reads "Show", so its accessible name says which secret it reveals, and
+// aria-pressed carries the state the visible Show/Hide text shows.
+function labelRevealButton(page, btn) {
+    const id = btn.getAttribute('data-target');
+    const label = page.querySelector('label[for="' + id + '"]');
+    btn.setAttribute('aria-label', 'Show ' + (label ? label.textContent.trim() : id));
+    btn.setAttribute('aria-controls', id);
+    btn.setAttribute('aria-pressed', 'false');
 }
 
 // Floating "back to top" button: shown once scrolled down. jellyfin-web scrolls either the window or
@@ -566,15 +613,22 @@ function bindSettings(page) {
     setupPasteChip(page, 'tmdblist', 'cgTmdbListBox', 'cgTmdbListChips', 'cgTmdbListInput', parseTmdbListToken);
     setupTmdbAccount(page);
     bindScrollTop(page);
+    linkDescriptions(page);
+    page.querySelector('#MindTheGapsConfigForm').addEventListener('click', function (e) {
+        const toggle = e.target.closest('.cgSectionToggle');
+        if (toggle) { setSectionOpen(toggle.closest('.cgSection'), toggle.getAttribute('aria-expanded') !== 'true'); }
+    });
     // Reveal/hide a secret field. The inputs are type=text masked by the cgSecret CSS class, not
     // type=password, so the browser never treats the settings form as a login and never offers to
     // save the keys. Reveal toggles the mask rather than the input type.
     const revealBtns = page.querySelectorAll('.cgReveal');
     for (let rb = 0; rb < revealBtns.length; rb++) {
+        labelRevealButton(page, revealBtns[rb]);
         revealBtns[rb].addEventListener('click', function () {
             const input = page.querySelector('#' + this.getAttribute('data-target'));
             if (!input) { return; }
             const shown = input.classList.toggle('cgSecretShown');
+            this.setAttribute('aria-pressed', shown ? 'true' : 'false');
             const span = this.querySelector('span');
             if (span) { span.textContent = shown ? 'Hide' : 'Show'; }
         });

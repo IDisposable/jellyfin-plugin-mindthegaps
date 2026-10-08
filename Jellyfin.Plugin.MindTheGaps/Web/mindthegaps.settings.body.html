@@ -5,10 +5,11 @@
         <div class="inputContainer" style="margin-top:.6em;">
             <input id="cgSettingsSearch" type="text" is="emby-input" placeholder="search settings&hellip;" aria-label="Search settings" style="max-width:24em;" />
         </div>
+        <div id="cgSettingsSearchStatus" class="cgSrOnly" role="status" aria-live="polite"></div>
     </div>
     <form id="MindTheGapsConfigForm" onsubmit="return false;">
-        <details class="cgSection" id="cgSecScan" open>
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">What to scan</h2></summary>
+        <section class="cgSection" id="cgSecScan">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="true">What to scan</button></h2>
             <div class="fieldDescription">The plain toggles: no id, username, or key of their own to configure. Each source with its own account, list, or credential is under Sources below.</div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
@@ -53,9 +54,9 @@
                     <span>Scan books for other works by the author (OpenLibrary)</span>
                 </label>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecSources" open>
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Sources</h2></summary>
+        </section>
+        <section class="cgSection" id="cgSecSources">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="true">Sources</button></h2>
             <div class="fieldDescription">Every integration with its own account, list, or credential, one per provider: its toggles, ids, and key all live together instead of split across sections. Collapsed by default; a provider you already use opens on its own.</div>
             <details class="cgProvGroup" id="cgProvTmdb">
                 <summary class="cgProvSummary">TMDB <span class="cgProvBadge" id="cgProvTmdbBadge"></span></summary>
@@ -407,9 +408,9 @@
                     </div>
                 </div>
             </details>
-        </details>
-        <details class="cgSection" id="cgSecAvailability">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Where to watch</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecAvailability">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Where to watch</button></h2>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="IncludeAvailability" name="IncludeAvailability" type="checkbox" is="emby-checkbox" />
@@ -423,9 +424,9 @@
                 <input id="AvailabilityCacheHours" name="AvailabilityCacheHours" type="number" is="emby-input" min="1" max="720" />
                 <div class="fieldDescription">How long a looked-up "where to watch" result stays fresh before it is refreshed. A stale result is still shown instantly while a refresh runs behind the scenes, so this only trades how current the data is against how often TMDB is hit. Default 24.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecImages">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Images</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecImages">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Images</button></h2>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="ImageCacheEnabled" name="ImageCacheEnabled" type="checkbox" is="emby-checkbox" />
@@ -438,9 +439,9 @@
                 <input id="ImageCacheMaxMegabytes" name="ImageCacheMaxMegabytes" type="number" is="emby-input" min="10" max="100000" />
                 <div class="fieldDescription">The most the image cache may hold. The "Trim the image cache" scheduled task (at startup and daily) deletes the oldest images once it is over, and nothing more is fetched between runs if it reaches twice this size. The server's own daily cache task also removes any image not used for 30 days. Default 500.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecDiagnostics">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Diagnostics</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecDiagnostics">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Diagnostics</button></h2>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
                     <input id="DetailedApiLogging" name="DetailedApiLogging" type="checkbox" is="emby-checkbox" />
@@ -448,9 +449,9 @@
                 </label>
                 <div class="fieldDescription">Logs every external API request and response to the server log. Turn this on to debug a source or acquisition target that is not behaving, then turn it back off. Off by default to keep the log quiet; api keys and tokens are never logged.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecWebUi">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Web UI</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecWebUi">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Web UI</button></h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Adds sections directly to Jellyfin Web's own pages, alongside this plugin's Report page. The client script is added to Jellyfin Web at request time (jellyfin-web has no plugin hook for this); it takes effect on your next full page
                 load. Each surface below is placed by its own setting, and "Do not show" turns it off. Showing one also makes its data available to any signed-in user through the plugin's API, so another client can use it whether or not the script is added.</div>
             <div class="fieldDescription" style="margin-bottom:.5em;"><strong>Filtered by who is asking.</strong> A page is shown only to a user who can see the item it is about. A user with a parental rating limit sees only the movies and series their limit allows, judged by TMDB's certification for each title the same way Jellyfin judges the titles in your library, including their own choice to block titles with no rating; a title whose certification cannot be looked up is left out. Albums and books carry no rating and are shown as they are. The first visit to a page costs a TMDB request per title for such a user, and the answers are kept for later visits. Beyond that a title is listed if the library does not hold it, whatever the signed-in user's library access.</div>
@@ -571,9 +572,9 @@
                 </select>
                 <div class="fieldDescription">The signed-in user's own want-to-watch row, with its title search. Requires Want to watch above; "Do not show" hides only the row, and the bookmarks stay. On both home rows, the sections are the ones each user picks under Settings, Home, Home screen sections, by the names Jellyfin gives them there: My Media shows the libraries as cards with artwork, and My Media (small) as a compact row of buttons. Each user orders their own home screen, so a row follows the chosen section wherever that user put it, and goes to the bottom for a user who does not show it. Two rows given the same place show Want to watch first.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecAcquisition" open>
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Acquisition stack (optional)</h2></summary>
+        </section>
+        <section class="cgSection" id="cgSecAcquisition">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="true">Acquisition stack (optional)</button></h2>
             <div class="fieldDescription" style="margin-bottom:.5em;">Hand a gap off to your downloaders. A per-row Send button appears only for a target you fill in here. Keys stay on the server.</div>
             <details class="cgProvGroup" id="cgProvSeerr">
                 <summary class="cgProvSummary">Jellyseerr / Overseerr <span class="cgProvBadge" id="cgProvSeerrBadge"></span></summary>
@@ -642,9 +643,9 @@
                     </div>
                 </div>
             </details>
-        </details>
-        <details class="cgSection" id="cgSecLinks">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Links</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecLinks">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Links</button></h2>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="SearchUrlTemplate">Web search URL template</label>
                 <input id="SearchUrlTemplate" name="SearchUrlTemplate" type="text" is="emby-input" placeholder="https://www.google.com/search?q={0}" />
@@ -655,9 +656,9 @@
                 <input id="WebhookUrl" name="WebhookUrl" type="text" is="emby-input" />
                 <div class="fieldDescription">Posted to when a scan or the "where to watch" pass finishes (a summary, Discord-compatible). Leave blank to disable.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecRegion">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Region</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecRegion">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Region</button></h2>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="MetadataCountryCode">Country code</label>
                 <input id="MetadataCountryCode" name="MetadataCountryCode" type="text" is="emby-input" />
@@ -668,9 +669,9 @@
                 <input id="MetadataLanguage" name="MetadataLanguage" type="text" is="emby-input" />
                 <div class="fieldDescription">ISO 639-1, e.g. en, de.</div>
             </div>
-        </details>
-        <details class="cgSection" id="cgSecLimits">
-            <summary class="cgSectionSummary"><h2 class="sectionTitle">Limits</h2></summary>
+        </section>
+        <section class="cgSection cgCollapsed" id="cgSecLimits">
+            <h2 class="sectionTitle cgSectionHead"><button type="button" class="cgSectionToggle" aria-expanded="false">Limits</button></h2>
             <div class="inputContainer">
                 <label class="inputLabel inputLabelUnfocused" for="MaxRelatedPerItem">Max related per item</label>
                 <input id="MaxRelatedPerItem" name="MaxRelatedPerItem" type="number" is="emby-input" min="0" max="100" />
@@ -712,7 +713,7 @@
                 <input id="MaxCastBillingOrder" name="MaxCastBillingOrder" type="number" is="emby-input" min="0" max="100" />
                 <div class="fieldDescription">Drops minor (deeply billed) acting roles, so a bit part is not counted as the person's work. 0 keeps any billing; for example 10 keeps only roles billed in the top 10. Does not affect directing/writing.</div>
             </div>
-        </details>
+        </section>
         <div>
             <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                 <span>Save</span>
