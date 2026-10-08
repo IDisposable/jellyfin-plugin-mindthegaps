@@ -51,6 +51,17 @@ them. Drafts in [docs/upstream/](upstream/).
 
 - **Chips should record whether a list is public or private.** MDBList and IMDb lists cannot be told apart
   today, so their titles stay off the home Discover row until they can.
+- **Links on the want-list group headers.** The Discogs wantlist and OpenLibrary want-to-read groups have
+  no link to the list itself, since their mappers pass no source ids. Both pages have a fixed address built
+  from the configured user name (the Discogs wantlist, the OpenLibrary want-to-read shelf), so this needs no
+  new data: a `CreatorLinks` case per source type, or the mappers passing the link themselves.
+- **A "because you own X" source for music.** The music counterpart of the TMDB recommendations: seeded by
+  owned artists, with gap ids shared across seeds the way `recommendation:movie:` ids are, so several owned
+  artists fold onto one gap through `OtherSources` and the deleted-item prune can promote between them.
+  MusicBrainz, Discogs and OpenLibrary have no "similar" endpoint; the candidates are ListenBrainz's similar
+  artists (keyless) and Last.fm's `artist.getSimilar` (needs a key). Capture fixtures and confirm the
+  endpoint's shape and rate limits before building on either. Books have no such data source, so there is no
+  book counterpart.
 
 ### Acquisition handoff
 
