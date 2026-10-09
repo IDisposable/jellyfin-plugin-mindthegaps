@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/IDisposable/jellyfin-plugin-mindthegaps/main/assets/social.png",
         "versions": [
             {
+                "version": "12.0.10.2",
+                "changelog": "10.11.10.2 (beta) - A new scheduled task, Prune gaps from deleted items, takes library items that have been deleted out of the report: a gap they were the only source of is removed, and one with other sources moves to the next. It has no default schedule, so run it from the scheduled tasks page or give it one; it waits for a running scan, and a second scan now waits for the first. Recommendation groups link to the owned title they came from. Books get an OpenLibrary id field and albums and artists a Discogs id field in the metadata editor, with a link on the item's page; a separate OpenLibrary or Discogs plugin takes over automatically when installed. Links are built from each title's ids when the report loads rather than stored with it, so a TheTVDB, JustWatch or Trakt plugin installed later adds its links everywhere, and a Trakt link appears when the Trakt sources are on. The report takes far less memory and disk: on a library with 83,000 gaps it went from about 1.6 GB to about 200 MB in memory and from 245 MB to 131 MB on disk, loads in about half the time, and is written much less often during a scan or a where-to-watch lookup. Existing reports convert on first load. A report saved by this version cannot be read by an earlier one, so going back to an earlier version shows an empty report until its next scan.\n",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.10.2/mind-the-gaps_12.0.10.2.zip",
+                "checksum": "8897e9b9b8ffbc26e167edbfaea055b2",
+                "timestamp": "2026-10-09T04:41:09Z"
+            },
+            {
                 "version": "12.0.10.1",
                 "changelog": "10.11.10.1 (beta) - Want to watch gains three options, all off by default and all requiring the arrived-titles playlist (contributed by David Rappo, @rappo, in PR 21): the home row can lead with the titles already on your playlist, a title comes off the playlist once it is watched (a series once every episode is played), and a movie or series page gets a bookmark button among its own. Plugin rows are reachable with a TV remote's D-pad, and a focused card grows like the stock ones. Not interested, off by default, lets each user hide a title from their own Web UI pages without hiding it for anyone else, with a list to show hidden titles again. A user with a parental rating limit now sees the Web UI sections narrowed to the titles that limit allows, rather than none of them. The home Discover row, the Want to watch row, and the item page rows each have a placement setting: off, top, bottom, or after one of Jellyfin's own sections; existing settings carry over. The Gaps Report's toolbar is grouped by what each control acts on, every section, letter bucket, and group header has a select-all that works before the group is opened, a line above the list says how many rows the search and Hide filters are hiding, and Add to TODO is now Add to watchlist. A long section can be narrowed to two letters, the report is usable at phone width, and scan progress follows how long each stage took last time. The settings page has collapsible sections, a search, a back-to-top button, and better screen reader support. Amazon search links leave out the year, which made most of them miss, and the Fulfillment queue no longer shows a second JustWatch search.\n",
                 "targetAbi": "12.0.0.0",
@@ -167,6 +175,14 @@
                 "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.7.1/mind-the-gaps_12.0.7.1.zip",
                 "checksum": "19751b5335293555184d19b4ec2b1d19",
                 "timestamp": "2026-09-17T07:21:55Z"
+            },
+            {
+                "version": "10.11.10.2",
+                "changelog": "10.11.10.2 (beta) - A new scheduled task, Prune gaps from deleted items, takes library items that have been deleted out of the report: a gap they were the only source of is removed, and one with other sources moves to the next. It has no default schedule, so run it from the scheduled tasks page or give it one; it waits for a running scan, and a second scan now waits for the first. Recommendation groups link to the owned title they came from. Books get an OpenLibrary id field and albums and artists a Discogs id field in the metadata editor, with a link on the item's page; a separate OpenLibrary or Discogs plugin takes over automatically when installed. Links are built from each title's ids when the report loads rather than stored with it, so a TheTVDB, JustWatch or Trakt plugin installed later adds its links everywhere, and a Trakt link appears when the Trakt sources are on. The report takes far less memory and disk: on a library with 83,000 gaps it went from about 1.6 GB to about 200 MB in memory and from 245 MB to 131 MB on disk, loads in about half the time, and is written much less often during a scan or a where-to-watch lookup. Existing reports convert on first load. A report saved by this version cannot be read by an earlier one, so going back to an earlier version shows an empty report until its next scan.\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps/releases/download/v10.11.10.2/mind-the-gaps_10.11.10.2.zip",
+                "checksum": "8472d519311683fd9421c345352fd9c1",
+                "timestamp": "2026-10-09T04:40:30Z"
             },
             {
                 "version": "10.11.10.1",
