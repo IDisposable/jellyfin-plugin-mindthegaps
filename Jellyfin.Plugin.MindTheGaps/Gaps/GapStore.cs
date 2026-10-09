@@ -20,16 +20,18 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// </summary>
 public sealed class GapStore
 {
-    // Coalesce the frequent checkpoint saves the background enrichment makes so a large report is not
-    // fully rewritten every few lookups; the in-memory copy is always current, only the disk flush waits.
-    private static readonly TimeSpan _minWriteInterval = TimeSpan.FromSeconds(5);
-
     private readonly ILogger<GapStore> _logger;
     private readonly string? _dataFolderOverride;
     private readonly ExternalLinkEnricher? _links;
     private readonly object _lock = new();
+
+    // Paces the writes nothing waits on (an availability pass's saves, a bulk re-check's swaps): the in-memory
+    // report is always current, and only the disk write waits. What a paced save skipped is remembered in
+    // _pendingDomains (or _pendingAll), and the next write of the served report takes it along.
+    private readonly WriteThrottle _writes = new(TimeProvider.System);
+    private readonly HashSet<MediaDomain> _pendingDomains = [];
     private GapReport? _cached;
-    private DateTime _lastWriteUtc = DateTime.MinValue;
+    private bool _pendingAll;
 
     // What a cached copy of a response is validated against (see GetValidator). _generation counts every
     // change a reader could see, in-place merges included, which is why it cannot be inferred from the
@@ -134,7 +136,8 @@ public sealed class GapStore
     /// captured copy. That is the lost update a long background pass would otherwise cause.
     /// </summary>
     /// <param name="report">The report the pass has been enriching.</param>
-    /// <param name="throttle">When true, flush only if past the coalescing interval (checkpoint saves).</param>
+    /// <param name="throttle">When true, write only when a paced write is due (see <see cref="WriteThrottle"/>); a
+    /// skipped write goes with the next one, or <see cref="FlushPending"/>.</param>
     public void SaveAvailabilityMerge(GapReport report, bool throttle)
     {
         lock (_lock)
@@ -152,9 +155,13 @@ public sealed class GapStore
                 current = _cached;
             }
 
-            if (!throttle || DateTime.UtcNow - _lastWriteUtc >= _minWriteInterval)
+            if (!throttle || _writes.IsDue)
             {
                 Flush(current, null);
+            }
+            else
+            {
+                _pendingAll = true;
             }
         }
     }
@@ -398,8 +405,11 @@ public sealed class GapStore
     /// a filmography entry the same owning item also seeded.
     /// </param>
     /// <param name="recheck">The freshly computed gaps for that owning item.</param>
+    /// <param name="paced">When true, the swap is served at once but written only when a paced write is due (see
+    /// <see cref="WriteThrottle"/>): a bulk re-check swaps one item at a time, and rewriting a domain file for each
+    /// is most of its time on a large report. The caller writes the rest with <see cref="FlushPending"/>.</param>
     /// <returns>The updated report.</returns>
-    public GapReport ReplaceSourceGaps(string sourceItemId, IReadOnlyCollection<string> idPrefixes, GapReport recheck)
+    public GapReport ReplaceSourceGaps(string sourceItemId, IReadOnlyCollection<string> idPrefixes, GapReport recheck, bool paced = false)
     {
         ArgumentNullException.ThrowIfNull(idPrefixes);
         ArgumentNullException.ThrowIfNull(recheck);
@@ -432,7 +442,15 @@ public sealed class GapStore
                 SourceRuns = current.SourceRuns
             };
             Publish(report);
-            Flush(report, dirtyDomains);
+            if (paced && !_writes.IsDue)
+            {
+                _pendingDomains.UnionWith(dirtyDomains);
+            }
+            else
+            {
+                Flush(report, dirtyDomains);
+            }
+
             return report;
         }
     }
@@ -440,20 +458,53 @@ public sealed class GapStore
     // Writes only the domains dirtyDomains names (null means every implemented domain: a full scan or a
     // multi-source pass genuinely touches all of them, so there is nothing to gain from tracking it there).
     // Caller holds _lock.
+    // A write of the served report also takes along what a paced save skipped; a mid-scan checkpoint writes a
+    // different report and leaves that for the next write of the served one. Caller holds _lock.
     private void Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
     {
         AssertLocked();
+        var served = ReferenceEquals(report, _cached);
+        if (served && dirtyDomains is not null && (_pendingAll || _pendingDomains.Count > 0))
+        {
+            dirtyDomains = _pendingAll ? null : new HashSet<MediaDomain>(dirtyDomains.Concat(_pendingDomains));
+        }
+
         try
         {
-            var dataFolder = DataFolder;
-            GapReportFiles.WriteDirtyDomains(dataFolder, report.Items, dirtyDomains);
-            GapReportFiles.WriteMeta(dataFolder, report);
-            GapReportFiles.DeleteLegacyIfPresent(dataFolder);
-            _lastWriteUtc = DateTime.UtcNow;
+            _writes.Run(() =>
+            {
+                var dataFolder = DataFolder;
+                GapReportFiles.WriteDirtyDomains(dataFolder, report.Items, dirtyDomains);
+                GapReportFiles.WriteMeta(dataFolder, report);
+                GapReportFiles.DeleteLegacyIfPresent(dataFolder);
+            });
+
+            if (served)
+            {
+                _pendingAll = false;
+                _pendingDomains.Clear();
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist gap report");
+        }
+    }
+
+    /// <summary>
+    /// Writes whatever paced saves have skipped. A caller pacing its writes calls this once its batch ends, so a
+    /// finished batch is on disk whatever the pace.
+    /// </summary>
+    public void FlushPending()
+    {
+        lock (_lock)
+        {
+            if (_cached is null || (!_pendingAll && _pendingDomains.Count == 0))
+            {
+                return;
+            }
+
+            Flush(_cached, _pendingAll ? null : new HashSet<MediaDomain>(_pendingDomains));
         }
     }
 

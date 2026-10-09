@@ -101,31 +101,40 @@ public sealed class GapRecheckCoordinator
         var context = new GapScanContext(config, _ownershipIndexBuilder.Build(OwnedKindsOf(work.SelectMany(w => w.Claimants))));
 
         var done = 0;
-        foreach (var (owner, claimants) in work)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            List<GapItem> gaps;
-            IReadOnlyCollection<string> prefixes;
-            if (claimants.Count > 0)
+            foreach (var (owner, claimants) in work)
             {
-                (gaps, prefixes) = await RunClaimantsAsync(owner, claimants, context, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                gaps = await RunSeriesSourcesAsync(owner, config, context, cancellationToken).ConfigureAwait(false);
-                prefixes = SeriesPrefixes;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            // Swap each item in as it finishes rather than at the end, so a cancelled or failed batch still
-            // leaves the items it got through up to date.
-            _store.ReplaceSourceGaps(
-                owner.Id.ToString("N", CultureInfo.InvariantCulture),
-                prefixes,
-                new GapReport { TotalGaps = gaps.Count, Items = gaps });
+                List<GapItem> gaps;
+                IReadOnlyCollection<string> prefixes;
+                if (claimants.Count > 0)
+                {
+                    (gaps, prefixes) = await RunClaimantsAsync(owner, claimants, context, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    gaps = await RunSeriesSourcesAsync(owner, config, context, cancellationToken).ConfigureAwait(false);
+                    prefixes = SeriesPrefixes;
+                }
 
-            done++;
-            progress?.Report((double)done / work.Count * 100.0);
+                // Swap each item in as it finishes rather than at the end, so the report shows it at once and a
+                // cancelled or failed batch still leaves the items it got through up to date. The disk write is
+                // paced, and the finally below writes what is left.
+                _store.ReplaceSourceGaps(
+                    owner.Id.ToString("N", CultureInfo.InvariantCulture),
+                    prefixes,
+                    new GapReport { TotalGaps = gaps.Count, Items = gaps },
+                    paced: true);
+
+                done++;
+                progress?.Report((double)done / work.Count * 100.0);
+            }
+        }
+        finally
+        {
+            _store.FlushPending();
         }
 
         _logger.LogInformation("Bulk re-check: re-checked {Done} of {Asked} item(s)", done, ownerIds.Count);

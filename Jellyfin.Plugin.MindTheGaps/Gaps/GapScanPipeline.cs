@@ -61,24 +61,26 @@ public sealed class GapScanPipeline
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(priorReport);
 
-        var stopwatch = Stopwatch.StartNew();
         var gaps = new List<GapItem>();
         var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
         var total = enabled.Count;
 
         // Persist progress mid-scan so a crash or shutdown does not lose the batch. A checkpoint is the prior
         // report overlaid with the fresh gaps found so far (so it never drops gaps the report already had),
-        // written to disk only (the cache stays the prior report for carry-forward). It is throttled, except
-        // when forced after each source or when a service's circuit trips (an out-of-band "we gave up" save).
-        var lastCheckpoint = stopwatch.Elapsed;
+        // written to disk only (the cache stays the prior report for carry-forward). It is paced by
+        // WriteThrottle, except when forced: when a source finishes (a rotating source has just marked its
+        // seeds scanned, so their gaps must reach disk before anything can lose them), when a service's circuit
+        // trips, and at the end. One with nothing new since the last is skipped, forced or not.
+        var throttle = new WriteThrottle(TimeProvider.System);
+        var unsaved = 0;
         void Checkpoint(bool force)
         {
-            if (!force && stopwatch.Elapsed - lastCheckpoint < TimeSpan.FromSeconds(5))
+            if (unsaved == 0 || (!force && !throttle.IsDue))
             {
                 return;
             }
 
-            lastCheckpoint = stopwatch.Elapsed;
+            unsaved = 0;
             var merged = new Dictionary<string, GapItem>(StringComparer.Ordinal);
             foreach (var item in priorReport.Items)
             {
@@ -90,7 +92,7 @@ public sealed class GapScanPipeline
                 merged[fresh.Id] = fresh;
             }
 
-            _store.SaveCheckpoint(new GapReport
+            var checkpoint = new GapReport
             {
                 GeneratedUtc = priorReport.GeneratedUtc,
                 GeneratedVersion = priorReport.GeneratedVersion,
@@ -100,7 +102,8 @@ public sealed class GapScanPipeline
                 // The run in progress has not finished telling us what it read, so a checkpoint keeps the
                 // last completed scan's account rather than blanking the Discover sections mid-scan.
                 SourceRuns = priorReport.SourceRuns
-            });
+            };
+            throttle.Run(() => _store.SaveCheckpoint(checkpoint));
         }
 
         // Each scan starts with a clean circuit so a service given up on last run gets a fresh chance.
@@ -132,7 +135,8 @@ public sealed class GapScanPipeline
             progress?.Report(ScanProgressEstimate.Combine(fractions, expected) * 100.0);
         }
 
-        var channel = Channel.CreateUnbounded<GapItem>(new UnboundedChannelOptions { SingleReader = true });
+        // A null on the channel marks a source finishing, so the consumer checkpoints then even if no gap follows.
+        var channel = Channel.CreateUnbounded<GapItem?>(new UnboundedChannelOptions { SingleReader = true });
 
         async Task ProduceAsync(IGapSource source, int slot)
         {
@@ -181,6 +185,7 @@ public sealed class GapScanPipeline
             {
                 fractions[slot] = 1.0;
                 ReportAggregate();
+                channel.Writer.TryWrite(null);
                 if (discoverKind is not null)
                 {
                     runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
@@ -214,6 +219,13 @@ public sealed class GapScanPipeline
             // incrementally rather than in per-source batches.
             await foreach (var gap in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (gap is null)
+                {
+                    Checkpoint(force: true);
+                    continue;
+                }
+
+                unsaved++;
                 if (byId.TryGetValue(gap.Id, out var existing))
                 {
                     GapSourceMerge.Merge(existing, gap);

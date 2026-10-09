@@ -122,14 +122,11 @@ step aside for a dedicated plugin ([ADR-0021](adr/0021-links-are-built-from-ids.
 
 Measured against a real install's 82,958 gaps in [storage-evaluation.md](storage-evaluation.md). The report is
 read and written through streams, and its offers are stored lean (a gap's watch page once, a service's logo once in
-the meta file); together those took the real report from about 1.6 GB of heap to 205 MB and its files from 196 MB
-to 131 MB. In order:
+the meta file); together those took the real report from about 1.6 GB of heap to 205 MB and its files from
+196 MB to 131 MB. The writes nothing waits on are paced (`WriteThrottle`). In order:
 
 - **Write the report unindented.** About a quarter smaller and a little faster. The files stay readable through
   any JSON viewer.
-- **Write less often.** Scale the mid-scan checkpoint interval to how long the last write took (today a fixed five
-  seconds, which on a large report is a whole-report write most of that time), and have a bulk re-check flush its
-  swaps once per batch rather than rewriting a domain file per set.
 - **Then decide on SQLite for the gap report alone**, if a verify or a re-check is still slow: one row per gap,
   compile-only `Microsoft.Data.Sqlite` from the host pinned per ABI, writes as row deltas, reads unchanged from
   the in-memory report, the JSON imported once. The small stores stay JSON either way.

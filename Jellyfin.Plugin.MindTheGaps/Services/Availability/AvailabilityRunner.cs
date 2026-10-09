@@ -367,33 +367,40 @@ public sealed class AvailabilityRunner
         }
 
         var enriched = 0;
-        for (var i = 0; i < batch.Count; i++)
+        try
         {
-            ct.ThrowIfCancellationRequested();
-
-            if (await ProcessGroupAsync(batch[i], config, ct).ConfigureAwait(false))
+            for (var i = 0; i < batch.Count; i++)
             {
-                enriched++;
+                ct.ThrowIfCancellationRequested();
+
+                if (await ProcessGroupAsync(batch[i], config, ct).ConfigureAwait(false))
+                {
+                    enriched++;
+                }
+
+                var pct = (i + 1) * 100.0 / batch.Count;
+                lock (_lock)
+                {
+                    _processed = i + 1;
+                    _progress = pct;
+                }
+
+                progress?.Report(pct);
+
+                if ((i + 1) % SaveEvery == 0)
+                {
+                    _store.SaveAvailabilityMerge(report, throttle: true);
+                }
+
+                await Task.Delay(ThrottleMilliseconds, ct).ConfigureAwait(false);
             }
-
-            var pct = (i + 1) * 100.0 / batch.Count;
-            lock (_lock)
-            {
-                _processed = i + 1;
-                _progress = pct;
-            }
-
-            progress?.Report(pct);
-
-            if ((i + 1) % SaveEvery == 0)
-            {
-                _store.SaveAvailabilityMerge(report, throttle: true);
-            }
-
-            await Task.Delay(ThrottleMilliseconds, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Saves between lookups are paced, so a cancelled pass writes what it found since the last one.
+            _store.SaveAvailabilityMerge(report, throttle: false);
         }
 
-        _store.SaveAvailabilityMerge(report, throttle: false);
         return enriched;
     }
 

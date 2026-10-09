@@ -93,12 +93,15 @@ For the gap report, take the cheap fixes first and decide on SQLite with them me
 
 1. Stream I/O (done): about 1 GB less memory held, writes about four times faster.
 2. Leaner offers (done) and unindented files: half the disk, about five times faster writes than today.
+3. Write less often (done): the writes nothing waits on (scan checkpoints, availability saves, a bulk re-check's
+   swaps) are paced by `WriteThrottle`, due after the longer of two minutes and twenty times the last write, with
+   a forced write when a source finishes and when a batch ends. On this report that is about 90 timed writes in a
+   three-hour scan instead of about 2,160.
 
-With the first and the lean offers in place, the real report measured: files 131 MB (movies 102 MB, from 164 MB),
-cold load 1.26 s (from 2.96 s), 205 MB of heap held for all 82,958 gaps (about 2.6 KB a gap, from about 1.6 GB),
-and a one-gap removal 437 ms (from 749 ms). Every one of the 497,504 offers kept its page, and every one of the
-496,148 that had a logo kept it. 3. Write less often: scale the checkpoint interval to how long the last write took, and flush a bulk re-check's
-swaps once per batch rather than once per set.
+With the first two in place, the real report measured: files 131 MB (movies 102 MB, from 164 MB), cold load
+1.26 s (from 2.96 s), 205 MB of heap held for all 82,958 gaps (about 2.6 KB a gap, from about 1.6 GB), and a
+one-gap removal 437 ms (from 749 ms). Every one of the 497,504 offers kept its page, and every one of the 496,148
+that had a logo kept it.
 
 If a verify or a re-check still feels slow after that, SQLite for the gap report alone is the next step, as a
 storage swap that keeps the in-memory model (writes become row deltas, reads are unchanged). Moving the reads to
