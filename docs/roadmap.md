@@ -118,6 +118,26 @@ step aside for a dedicated plugin ([ADR-0021](adr/0021-links-are-built-from-ids.
   maintaining a separate keyed file that can drift from the report. Gated on minting everything (a resolution
   needs an item to hang on); until then the JSON store stands.
 
+### Storage
+
+Measured against a real install's 82,958 gaps in [storage-evaluation.md](storage-evaluation.md). The report is
+read and written through streams already, which is what took about 1 GB of held memory off a load. In order:
+
+- **Leaner offers.** Every offer of a gap repeats the gap's one TMDB watch URL, and every offer of a service
+  repeats that service's logo address; together they are about a third of the movies file. Keep the watch URL
+  once per gap (the row already carries one `WatchUrl`) and look a logo up by provider from the catalog
+  `TmdbProviderLogos` already reads, instead of storing either per offer. Share the provider, monetization and
+  quality strings across offers when a report loads, since 449,388 offers use 344 combinations. Old files keep
+  reading, since a stored URL on an offer is still accepted.
+- **Write the report unindented.** About a quarter smaller and a little faster. The files stay readable through
+  any JSON viewer.
+- **Write less often.** Scale the mid-scan checkpoint interval to how long the last write took (today a fixed five
+  seconds, which on a large report is a whole-report write most of that time), and have a bulk re-check flush its
+  swaps once per batch rather than rewriting a domain file per set.
+- **Then decide on SQLite for the gap report alone**, if a verify or a re-check is still slow: one row per gap,
+  compile-only `Microsoft.Data.Sqlite` from the host pinned per ABI, writes as row deltas, reads unchanged from
+  the in-memory report, the JSON imported once. The small stores stay JSON either way.
+
 ### Scale and architecture
 
 - **Virtualize the dashboard render.** A group's rows are built only when it is opened and the list itself

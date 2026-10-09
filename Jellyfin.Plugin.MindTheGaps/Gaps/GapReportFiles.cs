@@ -42,7 +42,7 @@ internal static class GapReportFiles
 
         var legacy = LegacyFilePath(dataFolder);
         return File.Exists(legacy)
-            ? JsonSerializer.Deserialize<GapReport>(File.ReadAllText(legacy), JsonOptions)
+            ? ReadJson<GapReport>(legacy)
             : null;
     }
 
@@ -123,7 +123,7 @@ internal static class GapReportFiles
         var metaPath = MetaFilePath(dataFolder);
         if (File.Exists(metaPath))
         {
-            meta = JsonSerializer.Deserialize<GapReport>(File.ReadAllText(metaPath), JsonOptions) ?? new GapReport();
+            meta = ReadJson<GapReport>(metaPath) ?? new GapReport();
         }
 
         var items = new List<GapItem>();
@@ -135,7 +135,7 @@ internal static class GapReportFiles
                 continue;
             }
 
-            var domainItems = JsonSerializer.Deserialize<List<GapItem>>(File.ReadAllText(path), JsonOptions);
+            var domainItems = ReadJson<List<GapItem>>(path);
             if (domainItems is not null)
             {
                 items.AddRange(domainItems);
@@ -168,11 +168,24 @@ internal static class GapReportFiles
         WriteJson(path, items);
     }
 
+    // Through a stream, never a whole string: a domain file runs to hundreds of megabytes, and as one string it
+    // costs several times that while it is read or written, and leaves the serializer's pooled buffers holding
+    // about as much again afterwards.
     private static void WriteJson<T>(string path, T value)
     {
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(value, JsonOptions));
+        using (var stream = File.Create(tmp))
+        {
+            JsonSerializer.Serialize(stream, value, JsonOptions);
+        }
+
         File.Move(tmp, path, overwrite: true);
+    }
+
+    private static T? ReadJson<T>(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return JsonSerializer.Deserialize<T>(stream, JsonOptions);
     }
 
     // The report is stored one file per domain, so a small, frequent update (a Verify, a Send) only has to
