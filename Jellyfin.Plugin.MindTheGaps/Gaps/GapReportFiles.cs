@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Jellyfin.Plugin.MindTheGaps.Model;
+using Jellyfin.Plugin.MindTheGaps.Services.Availability;
 
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
@@ -89,12 +91,13 @@ internal static class GapReportFiles
     /// <param name="report">The report being saved.</param>
     public static void WriteMeta(string dataFolder, GapReport report)
     {
-        var meta = new GapReport
+        var meta = new GapReportMeta
         {
             GeneratedUtc = report.GeneratedUtc,
             GeneratedVersion = report.GeneratedVersion,
             TotalGaps = report.TotalGaps,
-            SourceRuns = report.SourceRuns
+            SourceRuns = report.SourceRuns,
+            Logos = LogosOf(report.Items)
         };
         WriteJson(MetaFilePath(dataFolder), meta);
     }
@@ -119,11 +122,11 @@ internal static class GapReportFiles
     // process against a legacy-format install, or after a legacy import.
     private static GapReport LoadSplit(string dataFolder)
     {
-        var meta = new GapReport();
+        var meta = new GapReportMeta();
         var metaPath = MetaFilePath(dataFolder);
         if (File.Exists(metaPath))
         {
-            meta = ReadJson<GapReport>(metaPath) ?? new GapReport();
+            meta = ReadJson<GapReportMeta>(metaPath) ?? new GapReportMeta();
         }
 
         var items = new List<GapItem>();
@@ -142,6 +145,11 @@ internal static class GapReportFiles
             }
         }
 
+        if (meta.Logos is { Count: > 0 } logos)
+        {
+            AvailabilityLogos.Fill(items, new Dictionary<string, string>(logos, StringComparer.OrdinalIgnoreCase));
+        }
+
         return new GapReport
         {
             GeneratedUtc = meta.GeneratedUtc,
@@ -150,6 +158,25 @@ internal static class GapReportFiles
             Items = items,
             SourceRuns = meta.SourceRuns
         };
+    }
+
+    // One logo per service, from whichever offer of it carries one. Every domain's offers are read, not just the
+    // domains a partial save rewrites, since the meta file is rewritten on every save.
+    private static Dictionary<string, string>? LogosOf(IReadOnlyList<GapItem> items)
+    {
+        var logos = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            foreach (var offer in item.Availability)
+            {
+                if (!string.IsNullOrEmpty(offer.LogoUrl))
+                {
+                    logos.TryAdd(offer.Provider, offer.LogoUrl);
+                }
+            }
+        }
+
+        return logos.Count == 0 ? null : logos;
     }
 
     private static void WriteDomainFile(string dataFolder, MediaDomain domain, IReadOnlyList<GapItem> items)

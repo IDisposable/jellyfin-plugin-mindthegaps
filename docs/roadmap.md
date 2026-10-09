@@ -121,14 +121,10 @@ step aside for a dedicated plugin ([ADR-0021](adr/0021-links-are-built-from-ids.
 ### Storage
 
 Measured against a real install's 82,958 gaps in [storage-evaluation.md](storage-evaluation.md). The report is
-read and written through streams already, which is what took about 1 GB of held memory off a load. In order:
+read and written through streams, and its offers are stored lean (a gap's watch page once, a service's logo once in
+the meta file); together those took the real report from about 1.6 GB of heap to 205 MB and its files from 196 MB
+to 131 MB. In order:
 
-- **Leaner offers.** Every offer of a gap repeats the gap's one TMDB watch URL, and every offer of a service
-  repeats that service's logo address; together they are about a third of the movies file. Keep the watch URL
-  once per gap (the row already carries one `WatchUrl`) and look a logo up by provider from the catalog
-  `TmdbProviderLogos` already reads, instead of storing either per offer. Share the provider, monetization and
-  quality strings across offers when a report loads, since 449,388 offers use 344 combinations. Old files keep
-  reading, since a stored URL on an offer is still accepted.
 - **Write the report unindented.** About a quarter smaller and a little faster. The files stay readable through
   any JSON viewer.
 - **Write less often.** Scale the mid-scan checkpoint interval to how long the last write took (today a fixed five

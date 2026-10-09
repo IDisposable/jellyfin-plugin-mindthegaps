@@ -41,6 +41,10 @@ internal static class StoredJson
             {
                 property.ShouldSerialize = static (_, _) => false;
             }
+            else if (info.Type == typeof(GapItem) && name is nameof(GapItem.Availability))
+            {
+                property.CustomConverter = StoredAvailability.Instance;
+            }
             else if (property.PropertyType == typeof(string) && IsAddress(info.Type, name))
             {
                 property.CustomConverter = CompactUrlConverter.Instance;
