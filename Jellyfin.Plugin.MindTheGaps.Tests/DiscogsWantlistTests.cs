@@ -38,6 +38,7 @@ public class DiscogsWantlistTests
         Assert.Equal(BaseItemKind.MusicAlbum, want.TargetKind);
         Assert.Equal("DiscogsWantlist", want.SourceItemType);
         Assert.Equal("discogswantlist-soundsgood", want.SourceItemId);
+        Assert.Equal("https://www.discogs.com/wantlist?user=soundsgood", Assert.Single(want.SourceLinks).Url);
         Assert.Equal("discogswantlist:soundsgood:1542479", want.Id);
         Assert.Equal("Bye Bye Baby Goodbye", want.Name);
         Assert.Equal("1542479", want.ProviderIds["Discogs"]);

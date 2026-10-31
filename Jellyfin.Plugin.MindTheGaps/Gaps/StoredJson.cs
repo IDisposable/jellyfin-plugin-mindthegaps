@@ -20,10 +20,11 @@ internal static class StoredJson
     /// <summary>
     /// Creates the options.
     /// </summary>
+    /// <param name="indented">Whether to indent. The report is too large for it to pay, and a per-user list is small enough to stay readable.</param>
     /// <returns>Fresh options; the caller keeps one instance.</returns>
-    public static JsonSerializerOptions Create() => new(JsonSerializerDefaults.Web)
+    public static JsonSerializerOptions Create(bool indented) => new(JsonSerializerDefaults.Web)
     {
-        WriteIndented = true,
+        WriteIndented = indented,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { Trim } }
     };
 

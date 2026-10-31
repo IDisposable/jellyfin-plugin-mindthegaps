@@ -145,6 +145,23 @@ jobs:
           name: pkg-${{ matrix.abi }}
           path: artifacts/*.zip
 
+  # Later 12.x servers are offered the 12.0.0.0 build, which the matrix only ever compiles against 12.0.0. This
+  # compiles and tests against the newest one to catch a host API that moved. It sits outside the matrix so it
+  # can never package, and publish does not need it, so a new server cannot hold up a release. Raise the version
+  # as Jellyfin ships.
+  forward-check:
+    name: forward check (12.4)
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test Jellyfin.Plugin.MindTheGaps.sln -c Release -p:JellyfinVersion=12.4.0
+
   # Lint the dashboard JavaScript (oxlint). Independent of the .NET build/ABI matrix.
   lint:
     name: lint (dashboard js)

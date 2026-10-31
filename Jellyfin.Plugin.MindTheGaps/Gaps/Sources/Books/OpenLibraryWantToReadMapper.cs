@@ -36,6 +36,7 @@ internal static class OpenLibraryWantToReadMapper
         var emitted = 0;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var ownerId = GapSourceKeys.OpenLibraryWantToRead.Owner(username);
+        var sourceIds = new Dictionary<string, string> { [ProviderIds.OpenLibrary] = username };
 
         foreach (var work in works)
         {
@@ -75,6 +76,7 @@ internal static class OpenLibraryWantToReadMapper
                 sourceItemId: ownerId,
                 sourceItemName: "OpenLibrary want to read",
                 sourceItemType: SourceItemTypes.OpenLibraryShelf,
+                sourceProviderIds: sourceIds,
                 releaseDate: work.FirstPublishYear is > 0
                     ? new DateTime(work.FirstPublishYear.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null,

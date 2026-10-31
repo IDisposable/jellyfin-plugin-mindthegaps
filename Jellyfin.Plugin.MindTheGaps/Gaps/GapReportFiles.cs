@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// </summary>
 internal static class GapReportFiles
 {
-    private static readonly JsonSerializerOptions JsonOptions = StoredJson.Create();
+    private static readonly JsonSerializerOptions JsonOptions = StoredJson.Create(indented: false);
 
     // The lowercase file-name segment for each domain, computed once rather than on every DomainFilePath call.
     private static readonly IReadOnlyDictionary<MediaDomain, string> DomainFileNames =

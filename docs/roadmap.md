@@ -51,10 +51,6 @@ them. Drafts in [docs/upstream/](upstream/).
 
 - **Chips should record whether a list is public or private.** MDBList and IMDb lists cannot be told apart
   today, so their titles stay off the home Discover row until they can.
-- **Links on the want-list group headers.** The Discogs wantlist and OpenLibrary want-to-read groups have
-  no link to the list itself, since their mappers pass no source ids. Both pages have a fixed address built
-  from the configured user name (the Discogs wantlist, the OpenLibrary want-to-read shelf), so this needs no
-  new data: a `CreatorLinks` case per source type, or the mappers passing the link themselves.
 - **A "because you own X" source for music.** The music counterpart of the TMDB recommendations: seeded by
   owned artists, with gap ids shared across seeds the way `recommendation:movie:` ids are, so several owned
   artists fold onto one gap through `OtherSources` and the deleted-item prune can promote between them.
@@ -123,11 +119,9 @@ step aside for a dedicated plugin ([ADR-0021](adr/0021-links-are-built-from-ids.
 Measured against a real install's 82,958 gaps in [storage-evaluation.md](storage-evaluation.md). The report is
 read and written through streams, and its offers are stored lean (a gap's watch page once, a service's logo once in
 the meta file); together those took the real report from about 1.6 GB of heap to 205 MB and its files from
-196 MB to 131 MB. The writes nothing waits on are paced (`WriteThrottle`). In order:
+196 MB to 131 MB. The report is written unindented, and the writes nothing waits on are paced (`WriteThrottle`).
 
-- **Write the report unindented.** About a quarter smaller and a little faster. The files stay readable through
-  any JSON viewer.
-- **Then decide on SQLite for the gap report alone**, if a verify or a re-check is still slow: one row per gap,
+- **Decide on SQLite for the gap report alone**, if a verify or a re-check is still slow: one row per gap,
   compile-only `Microsoft.Data.Sqlite` from the host pinned per ABI, writes as row deltas, reads unchanged from
   the in-memory report, the JSON imported once. The small stores stay JSON either way.
 

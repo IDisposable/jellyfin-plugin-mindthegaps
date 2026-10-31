@@ -13,8 +13,9 @@ namespace Jellyfin.Plugin.MindTheGaps;
 /// to their TMDB/IMDb page, an author to their OpenLibrary page, a music artist to MusicBrainz or Discogs, a
 /// studio, keyword, label, or collection to its provider page. The source's <c>SourceItemType</c>
 /// disambiguates the ids whose page depends on it: a TMDB id is a person, company, keyword, collection, or
-/// title page, and a Discogs id is an artist or a label. A link is labeled with the service's canonical name
-/// (<see cref="ServiceNames"/>) where it is a service the plugin knows.
+/// title page, a Discogs id is an artist or a label, and on a personal list the Discogs or OpenLibrary id is the
+/// configured user name. A link is labeled with the service's canonical name (<see cref="ServiceNames"/>) where
+/// it is a service the plugin knows.
 /// </summary>
 internal static class CreatorLinks
 {
@@ -65,12 +66,20 @@ internal static class CreatorLinks
                     links.Add(new ExternalLink(ServiceNames.MusicBrainz, string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/artist/{id}")));
                     break;
                 case "openlibrary":
-                    // The source's OpenLibrary id is an author key (for example "OL79034A").
-                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, ProviderUrls.OpenLibrary(id)!));
+                    // Off a shelf, the source's OpenLibrary id is an author key (for example "OL79034A").
+                    var openLibraryUrl = string.Equals(sourceItemType, SourceItemTypes.OpenLibraryShelf, StringComparison.Ordinal)
+                        ? ProviderUrls.OpenLibraryWantToRead(id)
+                        : ProviderUrls.OpenLibrary(id)!;
+                    links.Add(new ExternalLink(ServiceNames.OpenLibrary, openLibraryUrl));
                     break;
                 case "discogs":
-                    var discogsPath = string.Equals(sourceItemType, "MusicLabel", StringComparison.Ordinal) ? "label" : "artist";
-                    links.Add(new ExternalLink(ServiceNames.Discogs, ProviderUrls.Discogs(discogsPath, id)!));
+                    var discogsUrl = sourceItemType switch
+                    {
+                        SourceItemTypes.DiscogsWantlist => ProviderUrls.DiscogsWantlist(id),
+                        "MusicLabel" => ProviderUrls.Discogs("label", id)!,
+                        _ => ProviderUrls.Discogs("artist", id)!
+                    };
+                    links.Add(new ExternalLink(ServiceNames.Discogs, discogsUrl));
                     break;
             }
         }

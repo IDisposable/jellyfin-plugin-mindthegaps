@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Plugin.MindTheGaps;
+using Jellyfin.Plugin.MindTheGaps.Model;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -59,6 +60,25 @@ public class CreatorLinksTests
     {
         var links = CreatorLinks.Build("MusicLabel", new Dictionary<string, string> { ["Discogs"] = "157" });
         Assert.Equal("https://www.discogs.com/label/157", Assert.Single(links).Url);
+    }
+
+    [Fact]
+    public void DiscogsWantlist_LinksToTheUsersWantlist()
+    {
+        var links = CreatorLinks.Build(SourceItemTypes.DiscogsWantlist, new Dictionary<string, string> { ["Discogs"] = "sounds good" });
+        var link = Assert.Single(links);
+        Assert.Equal("Discogs", link.Name);
+        Assert.Equal("https://www.discogs.com/wantlist?user=sounds%20good", link.Url);
+    }
+
+    [Fact]
+    public void OpenLibraryShelf_LinksToTheUsersShelf()
+    {
+        // A user name ending in "A" must not read as an author key.
+        var links = CreatorLinks.Build(SourceItemTypes.OpenLibraryShelf, new Dictionary<string, string> { ["OpenLibrary"] = "mekA" });
+        var link = Assert.Single(links);
+        Assert.Equal("OpenLibrary", link.Name);
+        Assert.Equal("https://openlibrary.org/people/mekA/books/want-to-read", link.Url);
     }
 
     [Fact]

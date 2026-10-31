@@ -36,6 +36,7 @@ internal static class DiscogsWantlistMapper
         var emitted = 0;
         var seen = new HashSet<long>();
         var ownerId = GapSourceKeys.DiscogsWantlist.Owner(username);
+        var sourceIds = new Dictionary<string, string> { [ProviderIds.Discogs] = username };
 
         foreach (var want in wants)
         {
@@ -73,6 +74,7 @@ internal static class DiscogsWantlistMapper
                 sourceItemId: ownerId,
                 sourceItemName: "Discogs wantlist",
                 sourceItemType: SourceItemTypes.DiscogsWantlist,
+                sourceProviderIds: sourceIds,
                 releaseDate: info?.Year is > 0
                     ? new DateTime(info.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null,

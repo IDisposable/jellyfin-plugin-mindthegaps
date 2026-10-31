@@ -34,6 +34,22 @@ internal static class ProviderUrls
     }
 
     /// <summary>
+    /// The page of a reader's OpenLibrary want-to-read shelf.
+    /// </summary>
+    /// <param name="username">The OpenLibrary user name.</param>
+    /// <returns>The page address.</returns>
+    public static string OpenLibraryWantToRead(string username)
+        => string.Create(CultureInfo.InvariantCulture, $"https://openlibrary.org/people/{Uri.EscapeDataString(username)}/books/want-to-read");
+
+    /// <summary>
+    /// The page of a collector's Discogs wantlist.
+    /// </summary>
+    /// <param name="username">The Discogs user name.</param>
+    /// <returns>The page address.</returns>
+    public static string DiscogsWantlist(string username)
+        => string.Create(CultureInfo.InvariantCulture, $"https://www.discogs.com/wantlist?user={Uri.EscapeDataString(username)}");
+
+    /// <summary>
     /// The Discogs page for a release, artist, or label id.
     /// </summary>
     /// <param name="kind">"release", "artist", or "label".</param>

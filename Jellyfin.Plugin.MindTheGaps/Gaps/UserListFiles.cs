@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// <typeparam name="TEntry">The entry type, keyed by its own id.</typeparam>
 internal sealed class UserListFiles<TEntry>
 {
-    private static readonly JsonSerializerOptions _jsonOptions = StoredJson.Create();
+    private static readonly JsonSerializerOptions _jsonOptions = StoredJson.Create(indented: true);
 
     private readonly ILogger _logger;
     private readonly Func<string> _dataFolder;

@@ -144,7 +144,18 @@ public sealed class StoredLinksTests : IDisposable
         store.Save(store.Load());
         var json = File.ReadAllText(Path.Combine(_dir, "gaps-movies.json"));
         Assert.DoesNotContain("\"links\"", json, StringComparison.Ordinal);
-        Assert.Contains("\"JustWatch\": \"/us/movie/the-matrix\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"JustWatch\":\"/us/movie/the-matrix\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Store_WritesTheReportUnindented()
+    {
+        var store = new GapStore(NullLogger<GapStore>.Instance, _dir);
+
+        store.Save(new GapReport { GeneratedUtc = DateTime.UtcNow, TotalGaps = 1, Items = [Gap()] });
+
+        Assert.DoesNotContain("\n", File.ReadAllText(Path.Combine(_dir, "gaps-movies.json")), StringComparison.Ordinal);
+        Assert.DoesNotContain("\n", File.ReadAllText(Path.Combine(_dir, "gaps-meta.json")), StringComparison.Ordinal);
     }
 
     [Fact]

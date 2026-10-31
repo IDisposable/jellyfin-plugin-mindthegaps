@@ -34,6 +34,7 @@ public class OpenLibraryWantToReadTests
         Assert.All(gaps, g => Assert.Equal(BaseItemKind.Book, g.TargetKind));
         Assert.All(gaps, g => Assert.Equal("OpenLibraryShelf", g.SourceItemType));
         Assert.All(gaps, g => Assert.Equal("openlibrarywanttoread-mekBot", g.SourceItemId));
+        Assert.All(gaps, g => Assert.Equal("https://openlibrary.org/people/mekBot/books/want-to-read", Assert.Single(g.SourceLinks).Url));
 
         var fifth = gaps.Single(g => g.Name == "The Fifth Season");
         Assert.Equal("openlibrarywanttoread:mekBot:OL17363125W", fifth.Id);

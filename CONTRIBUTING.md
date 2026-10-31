@@ -48,6 +48,9 @@ here instead of only in a live install.
   (`Jellyfin.Plugin.MindTheGaps/` and `.Tests/`, both pulling `Version` from `build.yaml`); each explicitly
   imports the repo-root one first, since MSBuild only auto-imports the closest `Directory.Build.props` to a
   project, not every one on the way up.
+- **A forward check.** The `forward-check` CI job compiles and tests against the newest 12.x NuGet, since
+  later 12.x servers are offered the 12.0.0.0 build. It never packages and cannot hold up a release; raise its
+  pinned version as Jellyfin ships.
 - **Two ABIs today.** The [CI matrix](.github/workflows/build.yaml) builds `net9.0` / Jellyfin ABI
   `10.11.0.0` and `net10.0` / ABI `12.0.0.0`, passing `-p:JellyfinVersion=` (and, for the single-project
   `Build` step only, `-p:TargetFramework=` too). The solution-level `Test` step passes `JellyfinVersion`

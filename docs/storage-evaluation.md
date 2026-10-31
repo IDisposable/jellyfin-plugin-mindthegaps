@@ -92,7 +92,7 @@ anything a database would save.
 For the gap report, take the cheap fixes first and decide on SQLite with them measured:
 
 1. Stream I/O (done): about 1 GB less memory held, writes about four times faster.
-2. Leaner offers (done) and unindented files: half the disk, about five times faster writes than today.
+2. Leaner offers and unindented files (done): half the disk, about five times faster writes than today.
 3. Write less often (done): the writes nothing waits on (scan checkpoints, availability saves, a bulk re-check's
    swaps) are paced by `WriteThrottle`, due after the longer of two minutes and twenty times the last write, with
    a forced write when a source finishes and when a batch ends. On this report that is about 90 timed writes in a
