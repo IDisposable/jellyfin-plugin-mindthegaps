@@ -12,6 +12,7 @@ using TMDbLib.Client;
 using TMDbLib.Objects.Collections;
 using TMDbLib.Objects.Find;
 using TMDbLib.Objects.General;
+using TMDbLib.Objects.Lists;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.People;
 using TMDbLib.Objects.Search;
@@ -327,8 +328,8 @@ public sealed class TmdbClient : IDisposable
     }
 
     /// <summary>
-    /// Gets a TMDB list's movie members and the list's display name. The list is fetched whole (TMDB lists
-    /// are not paginated); non-movie members are ignored, since the curated-set source is movies only.
+    /// Gets a TMDB list's movie members and the list's display name. All pages are fetched;
+    /// non-movie members are ignored, since the curated-set source is movies only.
     /// </summary>
     /// <param name="listId">The TMDB list id.</param>
     /// <param name="language">The metadata language.</param>
@@ -338,27 +339,52 @@ public sealed class TmdbClient : IDisposable
     {
         var idText = listId.ToString(CultureInfo.InvariantCulture);
         _logger.Detailed("TMDB: GetList {ListId} lang {Language}", idText, language);
-        var list = await _client.GetListAsync(idText, language, cancellationToken).ConfigureAwait(false);
+        var list = await _client.GetListAsync(listId, language, 1, cancellationToken).ConfigureAwait(false);
         if (list is null)
         {
             _logger?.LogWarning("TMDB: GetList {ListId} returned nothing", idText);
         }
 
-        if (list?.Items is null || list.Items.Count == 0)
+        if (list is null)
         {
-            return (list?.Name, []);
+            return (null, []);
         }
 
+        return (list.Name, await CollectListMoviesAsync(
+            list,
+            (page, ct) => _client.GetListAsync(listId, language, page, ct),
+            cancellationToken).ConfigureAwait(false));
+    }
+
+    internal static async Task<IReadOnlyList<SearchMovie>> CollectListMoviesAsync(
+        GenericList list,
+        Func<int, CancellationToken, Task<GenericList?>> fetchPage,
+        CancellationToken cancellationToken)
+    {
         var movies = new List<SearchMovie>();
-        foreach (var item in list.Items)
+        var totalPages = list.TotalPages;
+        for (var page = 1; ; page++)
         {
-            if (item is SearchMovie movie)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (list.Items is not null)
             {
-                movies.Add(movie);
+                foreach (var item in list.Items)
+                {
+                    if (item is SearchMovie movie)
+                    {
+                        movies.Add(movie);
+                    }
+                }
             }
-        }
 
-        return (list.Name, movies);
+            if (page >= totalPages)
+            {
+                return movies;
+            }
+
+            list = await fetchPage(page + 1, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("TMDB list page could not be retrieved.");
+        }
     }
 
     /// <summary>
@@ -381,7 +407,7 @@ public sealed class TmdbClient : IDisposable
 
         var idText = listId.ToString(CultureInfo.InvariantCulture);
         _logger.Detailed("TMDB: GetList {ListId} (name only)", idText);
-        var list = await _client.GetListAsync(idText, null, cancellationToken).ConfigureAwait(false);
+        var list = await _client.GetListAsync(listId, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (list is null)
         {
             _logger?.LogWarning("TMDB: GetList {ListId} returned nothing", idText);
@@ -530,7 +556,7 @@ public sealed class TmdbClient : IDisposable
     public async Task<IReadOnlyList<SearchTv>> SearchSeriesAsync(string query, string? language, CancellationToken cancellationToken)
     {
         _logger.Detailed("TMDB: SearchTvShow '{Query}' lang {Language}", query, language);
-        var page = await _client.SearchTvShowAsync(query, NormalizeLanguage(language, null), 1, false, 0, cancellationToken).ConfigureAwait(false);
+        var page = await _client.SearchTvShowAsync(query, NormalizeLanguage(language, null), page: 1, cancellationToken: cancellationToken).ConfigureAwait(false);
         return page?.Results ?? [];
     }
 
@@ -831,7 +857,7 @@ public sealed class TmdbClient : IDisposable
             if (ids is not null)
             {
                 imdb = ids.ImdbId;
-                tvdb = string.IsNullOrEmpty(ids.TvdbId) ? null : ids.TvdbId;
+                tvdb = ids.TvdbId?.ToString(CultureInfo.InvariantCulture);
             }
             else
             {
