@@ -99,9 +99,11 @@ internal static class TraktListMapper
             }
 
             // Nothing to diff against or key on without at least one external id.
-            var idKey = providerIds.TryGetValue(ProviderIds.Tmdb, out var tmdb) ? tmdb
-                : providerIds.TryGetValue(ProviderIds.Imdb, out var imdb) ? imdb
-                : null;
+            var idKey = providerIds.TryGetValue(ProviderIds.Tmdb, out var tmdb)
+                ? tmdb
+                : providerIds.TryGetValue(ProviderIds.Imdb, out var imdb)
+                    ? imdb
+                    : null;
             if (idKey is null)
             {
                 continue;
