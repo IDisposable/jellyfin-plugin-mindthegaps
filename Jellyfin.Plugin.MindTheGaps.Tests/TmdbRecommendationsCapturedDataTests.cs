@@ -4,9 +4,9 @@ using System.Linq;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
-using Newtonsoft.Json;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Search;
+using TMDbLib.Utilities.Serializer;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 public class TmdbRecommendationsCapturedDataTests
 {
     private static SearchContainer<SearchMovie> Load()
-        => JsonConvert.DeserializeObject<SearchContainer<SearchMovie>>(TestData.Read("tmdb_similar.json"))!;
+        => TMDbJsonSerializer.Instance.DeserializeFromString<SearchContainer<SearchMovie>>(TestData.Read("tmdb_similar.json"))!;
 
     private static string? Poster(string? path) => path;
 
