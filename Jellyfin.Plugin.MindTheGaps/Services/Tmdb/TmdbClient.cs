@@ -357,12 +357,12 @@ public sealed class TmdbClient : IDisposable
     }
 
     internal static async Task<IReadOnlyList<SearchMovie>> CollectListMoviesAsync(
-        GenericList firstPage,
+        GenericList list,
         Func<int, CancellationToken, Task<GenericList?>> fetchPage,
         CancellationToken cancellationToken)
     {
         var movies = new List<SearchMovie>();
-        var list = firstPage;
+        var totalPages = list.TotalPages;
         for (var page = 1; ; page++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -377,7 +377,7 @@ public sealed class TmdbClient : IDisposable
                 }
             }
 
-            if (page >= firstPage.TotalPages)
+            if (page >= totalPages)
             {
                 return movies;
             }
