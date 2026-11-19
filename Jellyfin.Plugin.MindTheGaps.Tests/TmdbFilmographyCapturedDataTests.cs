@@ -7,7 +7,7 @@ using Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Tmdb;
 using Jellyfin.Plugin.MindTheGaps.Model;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
-using Newtonsoft.Json;
+using TMDbLib.Utilities.Serializer;
 using Xunit;
 using TmdbPerson = TMDbLib.Objects.People.Person;
 
@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 public class TmdbFilmographyCapturedDataTests
 {
     private static TmdbPerson Load()
-        => JsonConvert.DeserializeObject<TmdbPerson>(TestData.Read("tmdb_person.json"))!;
+        => TMDbJsonSerializer.Instance.DeserializeFromString<TmdbPerson>(TestData.Read("tmdb_person.json"))!;
 
     private static string? Poster(string? path) => path;
 
