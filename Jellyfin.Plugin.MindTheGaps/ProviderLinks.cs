@@ -107,8 +107,8 @@ internal static class ProviderLinks
         return links;
     }
 
-    // Trakt resolves a movie or show page from its IMDb id, which is how the Trakt plugin links too, so no
-    // Trakt id of its own is needed.
+    // Trakt resolves a movie or show page from its IMDb id, which is how the Trakt plugin links too. A title
+    // with no IMDb id links by the slug a Trakt source kept for it.
     private static string? TraktUrl(BaseItemKind targetKind, IReadOnlyDictionary<string, string> providerIds)
     {
         var path = targetKind switch
@@ -122,12 +122,28 @@ internal static class ProviderLinks
             return null;
         }
 
+        string? slug = null;
         foreach (var pair in providerIds)
         {
-            if (string.Equals(pair.Key, ProviderIds.Imdb, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(pair.Value))
+            if (string.IsNullOrWhiteSpace(pair.Value))
+            {
+                continue;
+            }
+
+            if (string.Equals(pair.Key, ProviderIds.Imdb, StringComparison.OrdinalIgnoreCase))
             {
                 return string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/{path}/{pair.Value}");
             }
+
+            if (string.Equals(pair.Key, ProviderIds.TraktSlug, StringComparison.OrdinalIgnoreCase))
+            {
+                slug = pair.Value.Trim();
+            }
+        }
+
+        if (slug is not null)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"https://trakt.tv/{path}/{Uri.EscapeDataString(slug)}");
         }
 
         return null;

@@ -29,7 +29,6 @@ public sealed class GapEngine
     private readonly IEnumerable<IGapSource> _sources;
     private readonly ExploreRegistry _explore;
     private readonly GapStore _store;
-    private readonly ExternalLinkEnricher _externalLinks;
     private readonly Services.Webhook.WebhookNotifier _webhook;
     private readonly ResolutionStore _resolutions;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
@@ -46,7 +45,6 @@ public sealed class GapEngine
     /// <param name="sources">The registered gap sources.</param>
     /// <param name="explore">The explore-kind registry, for ad-hoc explore runs.</param>
     /// <param name="store">The gap store.</param>
-    /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="resolutions">Holds dismissals, including whole-creator dismissals not to carry forward.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned library for the sources to check candidates against.</param>
@@ -60,7 +58,6 @@ public sealed class GapEngine
         IEnumerable<IGapSource> sources,
         ExploreRegistry explore,
         GapStore store,
-        ExternalLinkEnricher externalLinks,
         Services.Webhook.WebhookNotifier webhook,
         ResolutionStore resolutions,
         OwnershipIndexBuilder ownershipIndexBuilder,
@@ -74,7 +71,6 @@ public sealed class GapEngine
         _sources = sources;
         _explore = explore;
         _store = store;
-        _externalLinks = externalLinks;
         _webhook = webhook;
         _resolutions = resolutions;
         _ownershipIndexBuilder = ownershipIndexBuilder;
@@ -217,7 +213,7 @@ public sealed class GapEngine
 
         // Build every gap's links from its ids: the host's url providers (TMDB/IMDb from core, JustWatch from
         // that plugin if installed) over the hand-built ones, which cover what core misses.
-        _externalLinks.Fill(gaps);
+        ExternalLinkEnricher.FillStored(gaps);
 
         // "Upcoming" is relative to today, not a property of the gap, and the accumulate passes above append
         // prior GapItem objects untouched. Re-derive it across the whole report so a carried-forward gap
@@ -329,7 +325,7 @@ public sealed class GapEngine
         GapBackfill.CarryForward(gaps, _store.Load().Items);
 
         // Build the links from the ids, as a full scan does.
-        _externalLinks.Fill(gaps);
+        ExternalLinkEnricher.FillStored(gaps);
 
         _logger.LogInformation("Ad-hoc explore: source {Source} produced {Count} gaps", descriptor.Source.Name, gaps.Count);
 

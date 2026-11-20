@@ -93,7 +93,12 @@ internal static class TraktFilmographyMapper
             providerIds[ProviderIds.Imdb] = imdbId;
         }
 
-        if (providerIds.Count == 0)
+        if (!string.IsNullOrWhiteSpace(movie.Ids?.Slug))
+        {
+            providerIds[ProviderIds.TraktSlug] = movie.Ids.Slug.Trim();
+        }
+
+        if (!tmdbId.HasValue && string.IsNullOrEmpty(imdbId))
         {
             return null;
         }

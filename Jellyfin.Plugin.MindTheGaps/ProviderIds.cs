@@ -26,6 +26,9 @@ internal static class ProviderIds
     /// <summary>Trakt: a person's id on a filmography source (not in the core enum).</summary>
     public const string Trakt = "Trakt";
 
+    /// <summary>Trakt: a title's slug, which links it when it has no IMDb id (not in the core enum).</summary>
+    public const string TraktSlug = "TraktSlug";
+
     /// <summary>TheMovieDb.</summary>
     public static readonly string Tmdb = MetadataProvider.Tmdb.ToString();
 

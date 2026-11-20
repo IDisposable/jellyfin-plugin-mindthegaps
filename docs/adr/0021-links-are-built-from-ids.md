@@ -18,14 +18,18 @@ either, so there was no way to give a book the id the book sources need.
 
 ## Decision
 
-- **Links are built from ids, on every read.** `ExternalLinkEnricher.Fill` builds a gap's links from its
-  provider ids (the host's url providers over the hand-built `ProviderLinks`) and its source's links from
-  `SourceProviderIds` (`CreatorLinks`). It runs on whatever a scan, an explore, a re-check or the
-  availability pass hands over, and on the report when `GapStore` loads it. `StoredJson` never writes
-  `Links`, `SourceLinks` or a TODO entry's `Links`; a TODO entry's links are rebuilt when its list is read.
+- **Links are built from ids, on every read.** `ExternalLinkEnricher.FillStored` builds a gap's links from
+  its provider ids with the hand-built `ProviderLinks`, and its source's links from `SourceProviderIds`
+  (`CreatorLinks`). It runs on whatever a scan, an explore, a re-check or the availability pass hands over,
+  and on the report when `GapStore` loads it. The host's url providers run only when a gap is sent in full
+  (`GapDetail` and the full export, through `ExternalLinkEnricher.ForServing`): on a copy, merged over the
+  hand-built links, with the configuration as it is then, so those responses carry the configuration's
+  generation in their tag. `StoredJson` never writes `Links`, `SourceLinks` or a TODO entry's `Links`; a TODO
+  entry's links are rebuilt when its list is read.
 - **Nothing a link needs lives only in the link.** The JustWatch title path is the `JustWatch` provider id,
   which is what the JustWatch plugin stamps on an item. Trakt is linked from the IMDb id, as the Trakt plugin
-  does, when the Trakt sources are on.
+  does, when the Trakt sources are on, and from the `TraktSlug` id a Trakt source keeps when a title has no
+  IMDb id.
 - **Existing files convert on load.** `LegacyLinkIds` reads the JustWatch path and a source's ids back out of
   the links an older file stored, before they are dropped, so nothing is lost before the next scan. The first
   save after a load writes the new shape.
@@ -44,10 +48,10 @@ either, so there was no way to give a book the id the book sources need.
 
 ## Consequences
 
-- A report on disk holds ids, not links, and a link format change or a newly installed provider plugin
-  reaches every gap on the next load.
-- Loading a report builds every gap's links through the host's url providers once per process, which is the
-  same pass a scan already made over every gap.
+- A report on disk holds ids, not links. A change in a hand-built link reaches every gap on the next load;
+  a newly installed provider plugin, or a changed configuration, reaches the next gap sent in full.
+- A load or a scan never calls the host's url providers, which for an episode look up its series in the
+  library. Only the gaps a request sends in full pay for them, once per request.
 - The provider-id map is the one input to a link, so a source that wants a link it cannot build from a
   standard id adds the id, not the link.
 - A dedicated OpenLibrary or Discogs plugin takes over by being installed. Its id and url provider classes

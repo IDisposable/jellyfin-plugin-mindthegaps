@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
@@ -7,6 +8,10 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Persistence;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.Providers;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Jellyfin.Plugin.MindTheGaps.Tests;
@@ -155,6 +160,47 @@ public class ExternalLinkEnricherTests
         };
 
         Assert.Null(ExternalLinkEnricher.Synthesize(BaseItemKind.Studio, EmptyIds, lookup));
+    }
+
+    [Fact]
+    public void ForServing_AddsTheHostLinksToACopy_AndLeavesTheStoredGapAlone()
+    {
+        var enricher = new ExternalLinkEnricher(HostLinksProxy.Create(), EmptyLookup, NullLogger<ExternalLinkEnricher>.Instance);
+        var stored = new GapItem
+        {
+            Id = "recommendation:movie:603",
+            Name = "The Matrix",
+            TargetKind = BaseItemKind.Movie,
+            ProviderIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["Tmdb"] = "603" }
+        };
+        ExternalLinkEnricher.FillStored([stored]);
+        var storedLinks = stored.Links;
+
+        var served = enricher.ForServing(stored);
+        var servedAll = enricher.ForServing([stored]);
+
+        Assert.NotSame(stored, served);
+        Assert.Same(storedLinks, stored.Links);
+        Assert.DoesNotContain(stored.Links, l => l.Name == "Host");
+        Assert.Contains(served.Links, l => l.Name == "Host" && l.Url == "https://host.example/603");
+        Assert.Contains(served.Links, l => l.Name == "TMDB");
+        Assert.Contains(Assert.Single(servedAll).Links, l => l.Name == "Host");
+    }
+
+    private class HostLinksProxy : DispatchProxy
+    {
+        public static IProviderManager Create() => DispatchProxy.Create<IProviderManager, HostLinksProxy>();
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(IProviderManager.GetExternalUrls))
+            {
+                var item = (BaseItem)args![0]!;
+                return new[] { new ExternalUrl { Name = "Host", Url = "https://host.example/" + item.GetProviderId("Tmdb") } };
+            }
+
+            return targetMethod?.ReturnType.IsValueType == true ? Activator.CreateInstance(targetMethod.ReturnType) : null;
+        }
     }
 
     private sealed class FakeItemTypeLookup : IItemTypeLookup

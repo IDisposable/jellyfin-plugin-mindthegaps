@@ -33,7 +33,6 @@ public sealed class AvailabilityRunner
     private readonly GapStore _store;
     private readonly AvailabilityService _availabilityService;
     private readonly TmdbClient _tmdb;
-    private readonly ExternalLinkEnricher _externalLinks;
     private readonly TmdbProviderLogos _providerLogos;
     private readonly Webhook.WebhookNotifier _webhook;
     private readonly PluginLifetime _lifetime;
@@ -61,17 +60,15 @@ public sealed class AvailabilityRunner
     /// <param name="store">The gap store.</param>
     /// <param name="availabilityService">The availability service.</param>
     /// <param name="tmdb">The TMDB client (used to resolve external ids).</param>
-    /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="providerLogos">Supplies the logo for an offer that was stored without one.</param>
     /// <param name="webhook">Posts a completion notification, if a webhook is configured.</param>
     /// <param name="lifetime">The plugin-lifetime cancellation, so a pass stops on shutdown.</param>
     /// <param name="logger">The logger.</param>
-    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, ExternalLinkEnricher externalLinks, TmdbProviderLogos providerLogos, Webhook.WebhookNotifier webhook, PluginLifetime lifetime, ILogger<AvailabilityRunner> logger)
+    public AvailabilityRunner(GapStore store, AvailabilityService availabilityService, TmdbClient tmdb, TmdbProviderLogos providerLogos, Webhook.WebhookNotifier webhook, PluginLifetime lifetime, ILogger<AvailabilityRunner> logger)
     {
         _store = store;
         _availabilityService = availabilityService;
         _tmdb = tmdb;
-        _externalLinks = externalLinks;
         _providerLogos = providerLogos;
         _webhook = webhook;
         _lifetime = lifetime;
@@ -508,7 +505,7 @@ public sealed class AvailabilityRunner
         }
 
         gap.ProviderIds = merged;
-        _externalLinks.Fill(new[] { gap });
+        ExternalLinkEnricher.FillStored([gap]);
     }
 
     // A gap that was already checked is never looked up again, so an offer stored before logos existed would

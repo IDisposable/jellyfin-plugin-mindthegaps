@@ -44,4 +44,29 @@ public class TraktFilmographyCapturedDataTests
             Assert.StartsWith("filmography:movie:", g.Id, System.StringComparison.Ordinal);
         });
     }
+
+    [Fact]
+    public void Build_KeepsTheSlug_LinksByImdbFirst_AndSkipsACreditWithNoTmdbOrImdbId()
+    {
+        var credits = new TraktPersonMovieCredits
+        {
+            Cast =
+            [
+                new TraktMovieCastCredit { Movie = new TraktMovie { Title = "No Imdb", Year = 2020, Ids = new TraktIds { Tmdb = 123, Slug = "no-imdb-2020" } } },
+                new TraktMovieCastCredit { Movie = new TraktMovie { Title = "Both", Year = 2022, Ids = new TraktIds { Tmdb = 456, Imdb = "tt0000456", Slug = "both-2022" } } },
+                new TraktMovieCastCredit { Movie = new TraktMovie { Title = "Slug Only", Year = 2021, Ids = new TraktIds { Slug = "slug-only-2021" } } }
+            ]
+        };
+
+        var gaps = TraktFilmographyMapper.Build(credits, "person-id", "Someone", new OwnershipIndex(new HashSet<string>(StringComparer.Ordinal))).ToList();
+
+        Assert.Equal(["filmography:movie:123", "filmography:movie:456"], gaps.Select(g => g.Id));
+        var noImdb = gaps[0];
+        var both = gaps[1];
+        Assert.Equal("no-imdb-2020", noImdb.ProviderIds[ProviderIds.TraktSlug]);
+        Assert.Equal("both-2022", both.ProviderIds[ProviderIds.TraktSlug]);
+        Assert.Contains(ProviderLinks.Build(BaseItemKind.Movie, noImdb.ProviderIds, trakt: true), l => l.Url == "https://trakt.tv/movies/no-imdb-2020");
+        Assert.Contains(ProviderLinks.Build(BaseItemKind.Movie, both.ProviderIds, trakt: true), l => l.Url == "https://trakt.tv/movies/tt0000456");
+        Assert.DoesNotContain(ProviderLinks.Build(BaseItemKind.Movie, noImdb.ProviderIds, trakt: false), l => l.Name == "Trakt");
+    }
 }

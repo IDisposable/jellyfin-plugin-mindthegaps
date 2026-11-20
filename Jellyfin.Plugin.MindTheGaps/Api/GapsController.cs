@@ -35,6 +35,7 @@ public class GapsController : ControllerBase
     private readonly GapEngine _engine;
     private readonly RecheckRunner _recheckRunner;
     private readonly AvailabilityRunner _availability;
+    private readonly ExternalLinkEnricher _links;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GapsController"/> class.
@@ -48,7 +49,8 @@ public class GapsController : ControllerBase
     /// <param name="engine">The gap engine, which reports what it is able to re-check per item.</param>
     /// <param name="recheckRunner">The background bulk re-check runner.</param>
     /// <param name="availability">The availability runner, for the summary's pending-lookup count.</param>
-    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, GapEngine engine, RecheckRunner recheckRunner, AvailabilityRunner availability)
+    /// <param name="links">Builds a gap's links, the host's included, when it is sent in full.</param>
+    public GapsController(GapStore store, GapScanRunner scanRunner, ExploreRunner exploreRunner, ScanCursorStore cursors, ExploreRegistry explore, LibraryVerifier verifier, GapEngine engine, RecheckRunner recheckRunner, AvailabilityRunner availability, ExternalLinkEnricher links)
     {
         _store = store;
         _scanRunner = scanRunner;
@@ -59,6 +61,7 @@ public class GapsController : ControllerBase
         _engine = engine;
         _recheckRunner = recheckRunner;
         _availability = availability;
+        _links = links;
     }
 
     /// <summary>
@@ -79,8 +82,9 @@ public class GapsController : ControllerBase
         var wantedDomain = !string.IsNullOrEmpty(domain) && Enum.TryParse<MediaDomain>(domain, ignoreCase: true, out var d) ? d : (MediaDomain?)null;
 
         // The URL already carries pattern, domain and full, so the report's own change tag is all that has
-        // to vary. Answered before any of the work below: an unchanged report costs a header comparison.
-        var (tag, changedUtc) = _store.GetValidator();
+        // to vary, plus the configuration for full gaps, whose links follow it. Answered before any of the work
+        // below: an unchanged report costs a header comparison.
+        var (tag, changedUtc) = full ? ValidatorWithConfiguration() : _store.GetValidator();
         if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
         {
             return StatusCode(StatusCodes.Status304NotModified);
@@ -98,7 +102,7 @@ public class GapsController : ControllerBase
                 GeneratedUtc = report.GeneratedUtc,
                 GeneratedVersion = report.GeneratedVersion,
                 TotalGaps = report.TotalGaps,
-                Items = items,
+                Items = _links.ForServing(items),
                 SourceRuns = report.SourceRuns
             });
         }
@@ -127,14 +131,14 @@ public class GapsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<GapItem> GetGapDetail([FromQuery] string? id)
     {
-        var (tag, changedUtc) = _store.GetValidator();
+        var (tag, changedUtc) = ValidatorWithConfiguration();
         if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
         {
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
         var gap = _store.FindById(id);
-        return gap is null ? NotFound() : gap;
+        return gap is null ? NotFound() : _links.ForServing(gap);
     }
 
     /// <summary>
@@ -147,10 +151,8 @@ public class GapsController : ControllerBase
     public ActionResult<GapSummary> GetSummary()
     {
         // Depends on the configuration as well as the report (which sources are enabled, whether
-        // availability is on), so both generations go into the tag.
-        var (storeTag, storeChangedUtc) = _store.GetValidator();
-        var tag = string.Concat(storeTag, ".c", ConfigurationGeneration.Value.ToString(CultureInfo.InvariantCulture));
-        var changedUtc = storeChangedUtc > ConfigurationGeneration.LastChangedUtc ? storeChangedUtc : ConfigurationGeneration.LastChangedUtc;
+        // availability is on).
+        var (tag, changedUtc) = ValidatorWithConfiguration();
         if (ConditionalGet.IsNotModified(Request, Response, tag, changedUtc))
         {
             return StatusCode(StatusCodes.Status304NotModified);
@@ -247,6 +249,15 @@ public class GapsController : ControllerBase
         Total = _recheckRunner.Total,
         Done = _recheckRunner.Done
     };
+
+    // The report's change tag and the configuration's together, for a response that depends on both.
+    private (string Tag, DateTime ChangedUtc) ValidatorWithConfiguration()
+    {
+        var (storeTag, storeChangedUtc) = _store.GetValidator();
+        var tag = string.Concat(storeTag, ".c", ConfigurationGeneration.Value.ToString(CultureInfo.InvariantCulture));
+        var changedUtc = storeChangedUtc > ConfigurationGeneration.LastChangedUtc ? storeChangedUtc : ConfigurationGeneration.LastChangedUtc;
+        return (tag, changedUtc);
+    }
 
     /// <summary>
     /// Verifies gaps against the library and drops the ones it now holds, so a filled gap can be cleared from

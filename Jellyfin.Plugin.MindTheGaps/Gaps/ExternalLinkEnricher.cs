@@ -20,7 +20,10 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 /// whatever its registered <c>IExternalUrlProvider</c>s emit (TMDB and IMDb from core, JustWatch from
 /// that plugin if it is installed, anything else later) is merged in. The hand-built
 /// <see cref="ProviderLinks"/> list stays as a fallback for what core does not ship a provider for
-/// (TheTVDB, and season/episode urls that need a Series the synthetic item does not have).
+/// (TheTVDB, and season/episode urls that need a Series the synthetic item does not have). A gap the
+/// plugin keeps carries the hand-built links only (<see cref="FillStored"/>); the host's are added to a copy
+/// when a gap is sent in full (<see cref="ForServing(GapItem)"/>), so a load or a scan never calls every
+/// provider for every gap, and the links follow the configuration as it is now.
 /// </summary>
 public sealed class ExternalLinkEnricher
 {
@@ -116,13 +119,12 @@ public sealed class ExternalLinkEnricher
     }
 
     /// <summary>
-    /// Builds every gap's links from its ids, in place: its own links from the host's providers merged over the
-    /// hand-built ones, and its source's links from the source's ids. A link is never stored (see
-    /// <see cref="StoredJson"/>), so this runs on every gap a scan, a re-check, or a load hands over, and a
-    /// change in how a link is made, or a provider plugin installed since, reaches every gap at once.
+    /// Builds every gap's links from its ids with the hand-built builders, in place: its own links and its
+    /// source's. A link is never stored (see <see cref="StoredJson"/>), so this runs on every gap a scan, a
+    /// re-check, an availability lookup or a load hands over.
     /// </summary>
     /// <param name="gaps">The gaps to fill.</param>
-    public void Fill(IReadOnlyList<GapItem> gaps)
+    internal static void FillStored(IEnumerable<GapItem> gaps)
     {
         ArgumentNullException.ThrowIfNull(gaps);
 
@@ -130,28 +132,38 @@ public sealed class ExternalLinkEnricher
         foreach (var gap in gaps)
         {
             FillOne(gap, trakt);
-            var hostLinks = HostLinksFor(gap);
-            if (hostLinks.Count > 0)
-            {
-                gap.Links = Merge(hostLinks, gap.Links);
-            }
         }
     }
 
     /// <summary>
-    /// Builds every gap's links from its ids with the hand-built builders alone, for a caller without the host
-    /// (a test, or a store constructed outside the server).
+    /// A copy of a gap to send in full: its links built now, the host's providers merged over the hand-built
+    /// ones. The stored gap is not changed, since other readers hold it.
     /// </summary>
-    /// <param name="gaps">The gaps to fill.</param>
-    internal static void FillWithoutHost(IEnumerable<GapItem> gaps)
+    /// <param name="gap">The stored gap.</param>
+    /// <returns>The copy.</returns>
+    public GapItem ForServing(GapItem gap)
+    {
+        ArgumentNullException.ThrowIfNull(gap);
+        return Serve(gap, TraktLinks());
+    }
+
+    /// <summary>
+    /// Copies of gaps to send in full, as <see cref="ForServing(GapItem)"/>.
+    /// </summary>
+    /// <param name="gaps">The stored gaps.</param>
+    /// <returns>The copies, in order.</returns>
+    public IReadOnlyList<GapItem> ForServing(IReadOnlyList<GapItem> gaps)
     {
         ArgumentNullException.ThrowIfNull(gaps);
 
         var trakt = TraktLinks();
-        foreach (var gap in gaps)
+        var served = new GapItem[gaps.Count];
+        for (var i = 0; i < gaps.Count; i++)
         {
-            FillOne(gap, trakt);
+            served[i] = Serve(gaps[i], trakt);
         }
+
+        return served;
     }
 
     /// <summary>
@@ -191,6 +203,19 @@ public sealed class ExternalLinkEnricher
         {
             return null;
         }
+    }
+
+    private GapItem Serve(GapItem gap, bool trakt)
+    {
+        var copy = gap.ShallowCopy();
+        FillOne(copy, trakt);
+        var hostLinks = HostLinksFor(copy);
+        if (hostLinks.Count > 0)
+        {
+            copy.Links = Merge(hostLinks, copy.Links);
+        }
+
+        return copy;
     }
 
     private IReadOnlyList<ExternalLink> HostLinksFor(GapItem gap)

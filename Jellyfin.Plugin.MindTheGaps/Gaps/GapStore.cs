@@ -22,7 +22,6 @@ public sealed class GapStore
 {
     private readonly ILogger<GapStore> _logger;
     private readonly string? _dataFolderOverride;
-    private readonly ExternalLinkEnricher? _links;
     private readonly object _lock = new();
 
     // Paces the writes nothing waits on (an availability pass's saves, a bulk re-check's swaps): the in-memory
@@ -68,18 +67,6 @@ public sealed class GapStore
     public GapStore(ILogger<GapStore> logger)
     {
         _logger = logger;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GapStore"/> class that builds a loaded report's links with the
-    /// host's url providers.
-    /// </summary>
-    /// <param name="logger">The logger.</param>
-    /// <param name="links">Builds each gap's links from its ids, since a report is stored without them.</param>
-    public GapStore(ILogger<GapStore> logger, ExternalLinkEnricher links)
-        : this(logger)
-    {
-        _links = links;
     }
 
     /// <summary>
@@ -652,9 +639,9 @@ public sealed class GapStore
         }
     }
 
-    // A report is stored without its links (see StoredJson), so a loaded one gets them back from its ids, after
-    // recovering any id an older file kept only in a link. A link that cannot be built leaves the gap without it
-    // rather than failing the load.
+    // A report is stored without its links (see StoredJson), so a loaded one gets the hand-built ones back from
+    // its ids, after recovering any id an older file kept only in a link. A link that cannot be built leaves the
+    // gap without it rather than failing the load.
     private void Hydrate(IReadOnlyList<GapItem> items)
     {
         foreach (var item in items)
@@ -665,14 +652,7 @@ public sealed class GapStore
 
         try
         {
-            if (_links is null)
-            {
-                ExternalLinkEnricher.FillWithoutHost(items);
-            }
-            else
-            {
-                _links.Fill(items);
-            }
+            ExternalLinkEnricher.FillStored(items);
         }
         catch (Exception ex)
         {

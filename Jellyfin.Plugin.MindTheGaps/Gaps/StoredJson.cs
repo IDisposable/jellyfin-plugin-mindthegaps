@@ -9,7 +9,7 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
 /// How the report and the per-user lists are written to disk, which is not how the API sends them. A link is
-/// never written: every link is built from the ids beside it (see <see cref="ExternalLinkEnricher.Fill"/>), so
+/// never written: every link is built from the ids beside it (see <see cref="ExternalLinkEnricher.FillStored"/>), so
 /// storing it would only keep an old copy of what the ids already say. An image or offer address on a host the
 /// plugin knows is written as a short token (see <see cref="StoredUrls"/>). Reading still accepts both as they
 /// were written before, which is what lets <see cref="LegacyLinkIds"/> recover the ids an old file only kept in

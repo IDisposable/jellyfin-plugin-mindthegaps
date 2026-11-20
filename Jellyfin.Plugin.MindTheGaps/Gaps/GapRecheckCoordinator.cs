@@ -28,7 +28,6 @@ public sealed class GapRecheckCoordinator
     private readonly ILibraryManager _libraryManager;
     private readonly IEnumerable<IGapSource> _sources;
     private readonly GapStore _store;
-    private readonly ExternalLinkEnricher _externalLinks;
     private readonly OwnershipIndexBuilder _ownershipIndexBuilder;
     private readonly ILogger<GapRecheckCoordinator> _logger;
 
@@ -38,21 +37,18 @@ public sealed class GapRecheckCoordinator
     /// <param name="libraryManager">The library manager, for resolving owning items.</param>
     /// <param name="sources">The registered gap sources.</param>
     /// <param name="store">The gap store, into which a re-checked owner's gaps are swapped.</param>
-    /// <param name="externalLinks">Folds the host's external-url providers into each gap's links.</param>
     /// <param name="ownershipIndexBuilder">Indexes the owned library for the batch's ownership check.</param>
     /// <param name="logger">The logger.</param>
     public GapRecheckCoordinator(
         ILibraryManager libraryManager,
         IEnumerable<IGapSource> sources,
         GapStore store,
-        ExternalLinkEnricher externalLinks,
         OwnershipIndexBuilder ownershipIndexBuilder,
         ILogger<GapRecheckCoordinator> logger)
     {
         _libraryManager = libraryManager;
         _sources = sources;
         _store = store;
-        _externalLinks = externalLinks;
         _ownershipIndexBuilder = ownershipIndexBuilder;
         _logger = logger;
     }
@@ -233,7 +229,7 @@ public sealed class GapRecheckCoordinator
         // Re-adopt the external ids and "where to watch" a prior pass resolved for these gaps, and build the
         // links from the ids, exactly as a full scan and an explore do.
         GapBackfill.CarryForward(gaps, _store.Load().Items);
-        _externalLinks.Fill(gaps);
+        ExternalLinkEnricher.FillStored(gaps);
 
         _logger.LogInformation("Re-check: {Series} has {Count} missing-episode gap(s)", series.Name, gaps.Count);
         return gaps;
@@ -296,7 +292,7 @@ public sealed class GapRecheckCoordinator
         }
 
         GapBackfill.CarryForward(gaps, _store.Load().Items);
-        _externalLinks.Fill(gaps);
+        ExternalLinkEnricher.FillStored(gaps);
 
         _logger.LogInformation("Re-check: {Owner} has {Count} gap(s) across {Sources} source(s)", owner.Name, gaps.Count, claimants.Count);
         return (gaps, prefixes);
