@@ -34,6 +34,11 @@ public sealed class GapScanContext
     public OwnershipIndex Ownership { get; }
 
     /// <summary>
+    /// Gets a value indicating whether the source said it read nothing of its own this scan.
+    /// </summary>
+    internal bool NothingRead { get; private set; }
+
+    /// <summary>
     /// Sets the sink the engine uses to fold the current source's 0..1 progress into the overall scan
     /// bar. Set per source by the engine.
     /// </summary>
@@ -46,6 +51,12 @@ public sealed class GapScanContext
     /// </summary>
     /// <param name="fraction">Completion of the current source, from 0 to 1.</param>
     public void ReportProgress(double fraction) => _progressSink?.Invoke(fraction);
+
+    /// <summary>
+    /// Says the current source found nothing of its own to read, as when every configured id belongs to a
+    /// sibling source. The engine then records no run for it, so the Discover tab shows no empty section.
+    /// </summary>
+    public void ReportNothingRead() => NothingRead = true;
 
     /// <summary>
     /// Determines whether an item of the given kind is owned under ANY of the supplied provider ids.

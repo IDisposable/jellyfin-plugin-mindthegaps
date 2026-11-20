@@ -186,7 +186,7 @@ public sealed class GapScanPipeline
                 fractions[slot] = 1.0;
                 ReportAggregate();
                 channel.Writer.TryWrite(null);
-                if (discoverKind is not null)
+                if (discoverKind is not null && (failed || !sourceContext.NothingRead))
                 {
                     runs[slot] = new SourceRun { Kind = discoverKind, Name = source.Name, Gaps = discovered, Failed = failed };
                 }

@@ -117,14 +117,15 @@ public sealed class GapStore
     {
         lock (_lock)
         {
-            Flush(report, null);
-            _checkpointOnDisk = true;
+            // A failed write leaves no new checkpoint, so the served report's writes are not held back for it.
+            _checkpointOnDisk |= Flush(report, null);
         }
     }
 
     /// <summary>
     /// Ends a scan's checkpoints. A scan that saved has already ended them; one that failed or was cancelled
-    /// leaves the checkpoint on disk, and this writes the changes to the cached report it held back.
+    /// leaves the checkpoint on disk. When a change to the cached report was held back, this writes the whole
+    /// cached report over the checkpoint, so the files on disk never mix two reports.
     /// </summary>
     public void EndCheckpoint()
     {
@@ -138,7 +139,7 @@ public sealed class GapStore
             _checkpointOnDisk = false;
             if (_cached is not null && (_pendingAll || _pendingDomains.Count > 0))
             {
-                Flush(_cached, _pendingAll ? null : new HashSet<MediaDomain>(_pendingDomains));
+                Flush(_cached, null);
             }
         }
     }
@@ -472,8 +473,9 @@ public sealed class GapStore
 
     // Writes the domains dirtyDomains names, null meaning every implemented domain. A write of the served report
     // is held back while a checkpoint is on disk, takes along what is pending, and on failure stays pending. A
-    // checkpoint is not the served report and leaves pending alone. Caller holds _lock.
-    private void Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
+    // checkpoint is not the served report and leaves pending alone. Returns whether the files were written.
+    // Caller holds _lock.
+    private bool Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
     {
         AssertLocked();
         var served = ReferenceEquals(report, _cached);
@@ -482,7 +484,7 @@ public sealed class GapStore
             if (_checkpointOnDisk)
             {
                 Remember(dirtyDomains);
-                return;
+                return false;
             }
 
             dirtyDomains = WithPending(dirtyDomains);
@@ -503,6 +505,8 @@ public sealed class GapStore
                 _pendingAll = false;
                 _pendingDomains.Clear();
             }
+
+            return true;
         }
         catch (Exception ex)
         {
@@ -511,6 +515,8 @@ public sealed class GapStore
             {
                 Remember(dirtyDomains);
             }
+
+            return false;
         }
     }
 

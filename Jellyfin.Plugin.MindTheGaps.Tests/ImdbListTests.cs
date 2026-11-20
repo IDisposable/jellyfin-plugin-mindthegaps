@@ -99,6 +99,21 @@ public class ImdbListTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task TheListSource_GivenOnlyAUserId_SaysItReadNothing()
+    {
+        var config = new Configuration.PluginConfiguration { ScanImdbLists = true, ImdbListIds = "ur1000000" };
+        var source = new ImdbListGapSource(null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<ImdbListGapSource>.Instance);
+        var context = new GapScanContext(config, Owns());
+
+        await foreach (var unused in source.FindGapsAsync(context, System.Threading.CancellationToken.None))
+        {
+            Assert.Fail("A user id is a watchlist, which the list source does not read.");
+        }
+
+        Assert.True(context.NothingRead);
+    }
+
+    [Fact]
     public void WatchlistQuery_ReturnsAListUnderItsOwnId()
     {
         var response = JsonSerializer.Deserialize<ImdbGraphResponse>(

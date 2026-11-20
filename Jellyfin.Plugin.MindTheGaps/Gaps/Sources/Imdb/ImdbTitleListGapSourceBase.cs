@@ -95,10 +95,14 @@ internal abstract class ImdbTitleListGapSourceBase : IGapSource, IDiscoverSource
         var total = Math.Max(1, ids.Count);
         var done = 0;
 
+        // An id that fails to read may be of either class, so it counts as read for both sources.
+        var readOwn = false;
+
         foreach (var id in ids)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (id.StartsWith("ur", StringComparison.Ordinal) && !ReadsWatchlists)
+            var byUser = id.StartsWith("ur", StringComparison.Ordinal);
+            if (byUser && !ReadsWatchlists)
             {
                 context.ReportProgress((double)++done / total);
                 continue;
@@ -107,6 +111,7 @@ internal abstract class ImdbTitleListGapSourceBase : IGapSource, IDiscoverSource
             if (ServiceCircuit.IsOpen(ServiceNames.Imdb))
             {
                 _logger.LogWarning("IMDb: service unavailable this run; skipping the remaining lists");
+                readOwn = true;
                 break;
             }
 
@@ -118,6 +123,7 @@ internal abstract class ImdbTitleListGapSourceBase : IGapSource, IDiscoverSource
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "IMDb: failed to read {Id}", id);
+                readOwn = true;
                 context.ReportProgress((double)++done / total);
                 continue;
             }
@@ -125,18 +131,21 @@ internal abstract class ImdbTitleListGapSourceBase : IGapSource, IDiscoverSource
             if (list is null)
             {
                 _logger.LogWarning("IMDb: {Id} could not be read; it may be private or may not exist", id);
+                readOwn = true;
                 context.ReportProgress((double)++done / total);
                 continue;
             }
 
-            // A people list is the people source's input, and the other title source reads the other class.
+            // A people list is the people source's input, and the other title source reads the other class. A
+            // user id is always read as that user's watchlist.
             if (string.Equals(list.ListType, ImdbListContents.PeopleType, StringComparison.Ordinal)
-                || list.IsWatchlist != ReadsWatchlists)
+                || (byUser || list.IsWatchlist) != ReadsWatchlists)
             {
                 context.ReportProgress((double)++done / total);
                 continue;
             }
 
+            readOwn = true;
             var titles = list.Titles.ToList();
             var name = list.Name ?? string.Create(CultureInfo.InvariantCulture, $"IMDb {list.Id}");
             _logger.LogInformation("IMDb: list '{Name}' ({Id}) has {Count} titles", name, list.Id, titles.Count);
@@ -147,6 +156,11 @@ internal abstract class ImdbTitleListGapSourceBase : IGapSource, IDiscoverSource
             }
 
             context.ReportProgress((double)++done / total);
+        }
+
+        if (!readOwn)
+        {
+            context.ReportNothingRead();
         }
     }
 }

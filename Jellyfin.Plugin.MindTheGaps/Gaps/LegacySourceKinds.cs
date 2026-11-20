@@ -4,10 +4,9 @@ using Jellyfin.Plugin.MindTheGaps.Model;
 namespace Jellyfin.Plugin.MindTheGaps.Gaps;
 
 /// <summary>
-/// Retags a stored gap whose kind an earlier version did not tell apart: an IMDb watchlist entered by its own
-/// "ls" id was stored as <see cref="SourceItemTypes.ImdbList"/>, which may show to other users. IMDb names
-/// every watchlist "WATCHLIST", so that name reads as a watchlist. Runs on every load, and does nothing once
-/// the kind is right.
+/// Retags an IMDb watchlist gap stored under <see cref="SourceItemTypes.ImdbList"/>, a kind that may show to
+/// other users, as <see cref="SourceItemTypes.ImdbWatchlist"/>. IMDb names every watchlist "WATCHLIST", so
+/// that name reads as a watchlist. Runs on every load, and does nothing once the kind is right.
 /// </summary>
 internal static class LegacySourceKinds
 {
@@ -21,7 +20,7 @@ internal static class LegacySourceKinds
     {
         ArgumentNullException.ThrowIfNull(gap);
         if (string.Equals(gap.SourceItemType, SourceItemTypes.ImdbList, StringComparison.Ordinal)
-            && string.Equals(gap.SourceItemName, ImdbWatchlistName, StringComparison.Ordinal))
+            && string.Equals(gap.SourceItemName, ImdbWatchlistName, StringComparison.OrdinalIgnoreCase))
         {
             gap.SourceItemType = SourceItemTypes.ImdbWatchlist;
         }

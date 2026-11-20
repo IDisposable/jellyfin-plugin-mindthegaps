@@ -357,6 +357,58 @@ public class GapStoreTests
     }
 
     [Fact]
+    public void AScanThatEndsWithoutSaving_DoesNotLeaveTheCheckpointInAnotherDomain()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(new GapReport { Items = [Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows)] });
+            store.SaveCheckpoint(new GapReport
+            {
+                Items = [Gap("m1", MediaDomain.Movies), Gap("s1", MediaDomain.Shows), Gap("s2", MediaDomain.Shows)]
+            });
+            store.RemoveGaps(["m1"]);
+
+            store.EndCheckpoint();
+
+            Assert.Equal(["s1"], OnDisk(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ACheckpointThatFails_DoesNotHoldBackTheServedWrites()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            store.SaveCheckpoint(ReportOf("a", "b", "fresh"));
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+            store.RemoveGaps(["a"]);
+
+            Assert.Equal(["b"], OnDisk(dir));
+        }
+        finally
+        {
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void AWriteThatFails_StaysPending_AndTheNextFlushWritesIt()
     {
         if (OperatingSystem.IsWindows())
