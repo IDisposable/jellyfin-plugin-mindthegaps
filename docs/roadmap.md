@@ -49,17 +49,11 @@ them. Drafts in [docs/upstream/](upstream/).
 
 ### Sources and curated sets
 
-- **Chips should record whether a list is public or private.** MDBList and IMDb lists cannot be told apart
-  today, so their titles stay off the home Discover row until they can.
-- **A "because you own X" source for music.** The music counterpart of the TMDB recommendations: seeded by
-  owned artists, with gap ids shared across seeds the way `recommendation:movie:` ids are, so several owned
-  artists fold onto one gap through `OtherSources` and the deleted-item prune can promote between them.
-  MusicBrainz, Discogs and OpenLibrary have no "similar" endpoint. On the 12.0 ABI, core has a similar-items
-  API (`ISimilarItemsManager`, `IRemoteSimilarItemsProvider<T>`) and ships a ListenBrainz similar-artists
-  provider for it, so the source can ask core rather than carry a client; 10.11 has neither, so there it needs
-  its own client (ListenBrainz's similar artists, keyless, or Last.fm's `artist.getSimilar`, which needs a
-  key) or goes without. Capture fixtures and confirm the shape and rate limits before building on either.
-  Books have no such data source, so there is no book counterpart.
+- **Ask core for similar artists on the 12.0 ABI.** The music recommendations read ListenBrainz through the
+  plugin's own client on both ABIs. Core 12.0 has a similar-items API (`IRemoteSimilarItemsProvider<T>`), but
+  its `SimilarItemReference` carries an id and a score and no name, and `ISimilarItemsManager` resolves the
+  references to library items, which are owned by definition. A gap needs a name, so using core costs one
+  paced MusicBrainz lookup per similar artist. Revisit if the reference gains a name.
 
 ### Ids and links
 
@@ -70,10 +64,6 @@ step aside for a dedicated plugin ([ADR-0021](adr/0021-links-are-built-from-ids.
   to an installed plugin that provides the same key, so this plugin's providers can stay until those plugins
   ship and then be deleted. Give their id and url provider classes parameterless constructors, which makes the
   takeover exact rather than matched by the plugin's name.
-- **Let an author's OpenLibrary id steer the bibliography.** The url provider already links a person's
-  OpenLibrary author key, but no external id is registered for a person and `BooksBibliographyGapSource`
-  resolves the author from the book's work id, then by name. Registering the field for a person and preferring
-  that key would let a user fix a wrong namesake by hand (the author disambiguation rough edge).
 - **Derive the images that ids already name.** Images are stored as host tokens (`StoredUrls`), not built from
   ids. Two could be: a Cover Art Archive cover is fully named by the release-group id, and a TMDB poster by its
   path. Doing it means storing the path rather than the address and building the address on read, as links are.

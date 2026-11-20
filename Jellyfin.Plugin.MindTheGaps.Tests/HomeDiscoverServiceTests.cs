@@ -121,7 +121,7 @@ public class HomeDiscoverServiceTests
     [InlineData(SourceItemTypes.MdbListWatchlist)]
     [InlineData(SourceItemTypes.JustWatchList)]
     [InlineData(SourceItemTypes.TvdbFavorites)]
-    [InlineData(SourceItemTypes.ImdbList)]
+    [InlineData(SourceItemTypes.ImdbWatchlist)]
     [InlineData(SourceItemTypes.MdbList)]
     public void Rank_LeavesOutATitleFromAListThatMayBePersonal(string listKind)
     {
@@ -206,6 +206,26 @@ public class HomeDiscoverServiceTests
         Assert.True(HomeDiscoverService.IsShownOnRow(Rec("c", "C", 3, sourceItemType: SourceItemTypes.TraktList)));
         Assert.False(HomeDiscoverService.IsShownOnRow(Rec("d", "D", 4, sourceItemType: SourceItemTypes.TraktWatchlist)));
         Assert.Throws<ArgumentNullException>(() => HomeDiscoverService.IsShownOnRow(null!));
+    }
+
+    [Fact]
+    public void IsShownOnRow_AnImdbListIsPublic_AnImdbWatchlistIsNot()
+    {
+        Assert.True(HomeDiscoverService.IsShownOnRow(Rec("a", "A", 1, sourceItemId: "imdblist-ls022958322", sourceItemType: SourceItemTypes.ImdbList)));
+        Assert.False(HomeDiscoverService.IsShownOnRow(Rec("b", "B", 2, sourceItemId: "imdblist-ls000023761", sourceItemType: SourceItemTypes.ImdbWatchlist)));
+    }
+
+    [Fact]
+    public void IsShownOnRow_AnMdbListListOnlyWhenMarkedPublic()
+    {
+        var config = new Configuration.PluginConfiguration { MdbListListIds = "10,20,30", MdbListPublicListIds = "20,40" };
+        var owners = HomeDiscoverService.PublicListOwners(config);
+
+        Assert.Equal(["mdblist-20"], owners);
+        Assert.True(HomeDiscoverService.IsShownOnRow(Rec("a", "A", 1, sourceItemId: "mdblist-20", sourceItemType: SourceItemTypes.MdbList), owners));
+        Assert.False(HomeDiscoverService.IsShownOnRow(Rec("b", "B", 2, sourceItemId: "mdblist-10", sourceItemType: SourceItemTypes.MdbList), owners));
+        Assert.False(HomeDiscoverService.IsShownOnRow(Rec("c", "C", 3, sourceItemId: "mdblist-20", sourceItemType: SourceItemTypes.MdbList)));
+        Assert.Empty(HomeDiscoverService.PublicListOwners(null));
     }
 
     [Theory]

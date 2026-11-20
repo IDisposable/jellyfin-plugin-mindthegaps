@@ -51,7 +51,7 @@ internal static class ProviderLinks
 
         foreach (var providerId in providerIds)
         {
-            if (string.IsNullOrEmpty(providerId.Value))
+            if (string.IsNullOrWhiteSpace(providerId.Value))
             {
                 continue;
             }
@@ -83,6 +83,9 @@ internal static class ProviderLinks
                     break;
                 case "musicbrainzreleasegroup":
                     links.Add(new ExternalLink(ServiceNames.MusicBrainz, string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/release-group/{id}")));
+                    break;
+                case "musicbrainzartist" when targetKind == BaseItemKind.MusicArtist:
+                    links.Add(new ExternalLink(ServiceNames.MusicBrainz, string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/artist/{id}")));
                     break;
                 case "discogs":
                     // The id is a Discogs release id (the label source, and the artist source's canonical

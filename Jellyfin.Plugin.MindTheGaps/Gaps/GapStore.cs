@@ -33,6 +33,10 @@ public sealed class GapStore
     private GapReport? _cached;
     private bool _pendingAll;
 
+    // Set while disk holds a scan's checkpoint, which is newer than the served report. A write of the served
+    // report then goes to pending, and the scan's final Save (or EndCheckpoint) writes it.
+    private bool _checkpointOnDisk;
+
     // What a cached copy of a response is validated against (see GetValidator). _generation counts every
     // change a reader could see, in-place merges included, which is why it cannot be inferred from the
     // _cached reference alone. The instance token keeps a restart from reusing a number a browser still
@@ -108,6 +112,7 @@ public sealed class GapStore
     {
         lock (_lock)
         {
+            _checkpointOnDisk = false;
             Publish(report);
             Flush(report, null);
         }
@@ -117,7 +122,8 @@ public sealed class GapStore
     /// Writes a mid-scan checkpoint to disk without replacing the cached report. The cache stays the prior
     /// report (so the engine's carry-forward and the dashboard keep reading it during the scan), while disk
     /// holds the latest progress so a crash or shutdown mid-scan does not lose the batch. The engine throttles
-    /// how often it calls this. The final <see cref="Save(GapReport)"/> updates both cache and disk as usual.
+    /// how often it calls this. Until the final <see cref="Save(GapReport)"/> or <see cref="EndCheckpoint"/>,
+    /// a change to the cached report is served but not written, so it cannot write over the checkpoint.
     /// </summary>
     /// <param name="report">The in-progress report to persist.</param>
     public void SaveCheckpoint(GapReport report)
@@ -125,6 +131,28 @@ public sealed class GapStore
         lock (_lock)
         {
             Flush(report, null);
+            _checkpointOnDisk = true;
+        }
+    }
+
+    /// <summary>
+    /// Ends a scan's checkpoints. A scan that saved has already ended them; one that failed or was cancelled
+    /// leaves the checkpoint on disk, and this writes the changes to the cached report it held back.
+    /// </summary>
+    public void EndCheckpoint()
+    {
+        lock (_lock)
+        {
+            if (!_checkpointOnDisk)
+            {
+                return;
+            }
+
+            _checkpointOnDisk = false;
+            if (_cached is not null && (_pendingAll || _pendingDomains.Count > 0))
+            {
+                Flush(_cached, _pendingAll ? null : new HashSet<MediaDomain>(_pendingDomains));
+            }
         }
     }
 
@@ -161,7 +189,7 @@ public sealed class GapStore
             }
             else
             {
-                _pendingAll = true;
+                Remember(null);
             }
         }
     }
@@ -444,7 +472,7 @@ public sealed class GapStore
             Publish(report);
             if (paced && !_writes.IsDue)
             {
-                _pendingDomains.UnionWith(dirtyDomains);
+                Remember(dirtyDomains);
             }
             else
             {
@@ -455,18 +483,22 @@ public sealed class GapStore
         }
     }
 
-    // Writes only the domains dirtyDomains names (null means every implemented domain: a full scan or a
-    // multi-source pass genuinely touches all of them, so there is nothing to gain from tracking it there).
-    // Caller holds _lock.
-    // A write of the served report also takes along what a paced save skipped; a mid-scan checkpoint writes a
-    // different report and leaves that for the next write of the served one. Caller holds _lock.
+    // Writes the domains dirtyDomains names, null meaning every implemented domain. A write of the served report
+    // is held back while a checkpoint is on disk, takes along what is pending, and on failure stays pending. A
+    // checkpoint is not the served report and leaves pending alone. Caller holds _lock.
     private void Flush(GapReport report, IReadOnlySet<MediaDomain>? dirtyDomains)
     {
         AssertLocked();
         var served = ReferenceEquals(report, _cached);
-        if (served && dirtyDomains is not null && (_pendingAll || _pendingDomains.Count > 0))
+        if (served)
         {
-            dirtyDomains = _pendingAll ? null : new HashSet<MediaDomain>(dirtyDomains.Concat(_pendingDomains));
+            if (_checkpointOnDisk)
+            {
+                Remember(dirtyDomains);
+                return;
+            }
+
+            dirtyDomains = WithPending(dirtyDomains);
         }
 
         try
@@ -488,7 +520,38 @@ public sealed class GapStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to persist gap report");
+            if (served)
+            {
+                Remember(dirtyDomains);
+            }
         }
+    }
+
+    // Marks domains as written in memory but not on disk, null meaning every domain. Caller holds _lock.
+    private void Remember(IReadOnlySet<MediaDomain>? domains)
+    {
+        AssertLocked();
+        if (domains is null)
+        {
+            _pendingAll = true;
+        }
+        else
+        {
+            _pendingDomains.UnionWith(domains);
+        }
+    }
+
+    // The domains a write of the served report has to cover: its own and whatever is pending. Null (every
+    // domain) already covers anything pending. Caller holds _lock.
+    private IReadOnlySet<MediaDomain>? WithPending(IReadOnlySet<MediaDomain>? domains)
+    {
+        AssertLocked();
+        if (domains is null || _pendingAll)
+        {
+            return null;
+        }
+
+        return _pendingDomains.Count == 0 ? domains : new HashSet<MediaDomain>(domains.Concat(_pendingDomains));
     }
 
     /// <summary>
@@ -597,6 +660,7 @@ public sealed class GapStore
         foreach (var item in items)
         {
             LegacyLinkIds.Recover(item);
+            LegacySourceKinds.Recover(item);
         }
 
         try

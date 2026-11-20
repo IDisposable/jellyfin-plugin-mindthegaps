@@ -47,12 +47,15 @@ with no consumers cannot be shaped by them, so it is offered before there are an
   still on it (`GET Home/Wanted`). The list is theirs alone: a request that is not a user's has none, and an
   administrator sees and manages everyone's only through the report's todo endpoints.
 - The home Discover row shows a recommendation only when its primary source is an owned movie or series, or a
-  list that is public by construction (`HomeDiscoverService.IsShownOnRow`, `SourceItemTypes.PublicListKinds`:
-  TMDB lists, Trakt lists, and TMDB's own feeds, since a private list of either cannot be read with the
-  plugin's credentials). The personal-list sources (watchlists and favorites from JustWatch, MDBList, Trakt,
-  TMDB accounts, and TheTVDB) emit the same `Recommendation` pattern, and MDBList and IMDb lists cannot be
-  told apart from an account's private ones, so the row keys on the gap's primary source rather than the
-  pattern, and a source is off the row until it is listed. A title an owned title also suggests but that a
+  list that is public (`HomeDiscoverService.IsShownOnRow`). `SourceItemTypes.PublicListKinds` holds the kinds
+  that are public by construction: TMDB and Trakt lists, since a private one cannot be read with the
+  plugin's credentials, IMDb lists, since IMDb serves a list keyless only when it is published, and TMDB's own
+  feeds. An IMDb watchlist is its own kind (IMDb reports a watchlist's class however it is addressed). An
+  MDBList key also reads the account's private lists, so an MDBList list is shown only when the administrator
+  marks it public (`MdbListPublicListIds`). The personal-list sources (watchlists and favorites from
+  JustWatch, IMDb, MDBList, Trakt, TMDB accounts, and TheTVDB) emit the same `Recommendation` pattern, so the
+  row keys on the gap's primary source rather than the pattern, and a source is off the row until it is
+  listed. A title an owned title also suggests but that a
   private list claimed first is left out with it, because the merge makes the list the gap's primary source.
 - Each read can spend a TMDB request and a library read on the server's behalf. Both are cached, and this is
   accepted.

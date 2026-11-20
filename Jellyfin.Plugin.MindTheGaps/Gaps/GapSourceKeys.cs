@@ -42,6 +42,9 @@ internal static class GapSourceKeys
     /// <summary>Gets the key for a series recommended from an owned series; owned by that series.</summary>
     public static GapSourceKey RecommendationSeries { get; } = GapSourceKey.GapOnly("recommendation:series");
 
+    /// <summary>Gets the key for a music artist recommended from an owned artist; owned by that artist.</summary>
+    public static GapSourceKey RecommendationArtist { get; } = GapSourceKey.GapOnly("recommendation:artist");
+
     /// <summary>Gets the key for an unowned work from an owned author's bibliography; owned by the owned book.</summary>
     public static GapSourceKey Bibliography { get; } = GapSourceKey.GapOnly("bibliography");
 

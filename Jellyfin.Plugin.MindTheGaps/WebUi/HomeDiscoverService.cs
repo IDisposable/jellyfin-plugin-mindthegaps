@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.MindTheGaps.Configuration;
 using Jellyfin.Plugin.MindTheGaps.Gaps;
 using Jellyfin.Plugin.MindTheGaps.Model;
 
@@ -37,7 +38,7 @@ public sealed class HomeDiscoverService
     /// <returns>The row; empty when the scan has not produced recommendations yet.</returns>
     public HomeDiscoverResult Get(int limit)
     {
-        var titles = Rank(_store.LoadSnapshot().Items, _resolutions.GetAll(), limit);
+        var titles = Rank(_store.LoadSnapshot().Items, _resolutions.GetAll(), limit, PublicListOwners(Plugin.Instance?.Configuration));
         return new HomeDiscoverResult { Titles = titles };
     }
 
@@ -49,25 +50,48 @@ public sealed class HomeDiscoverService
     public GapItem? FindGap(string gapId)
     {
         var gap = _store.FindById(gapId);
-        return gap is { Pattern: GapPattern.Recommendation } && IsShownOnRow(gap) ? gap : null;
+        return gap is { Pattern: GapPattern.Recommendation } && IsShownOnRow(gap, PublicListOwners(Plugin.Instance?.Configuration)) ? gap : null;
+    }
+
+    /// <summary>
+    /// The owners of the MDBList lists the administrator marked public, among the lists still configured.
+    /// </summary>
+    /// <param name="config">The configuration.</param>
+    /// <returns>The owner ids.</returns>
+    public static IReadOnlySet<string> PublicListOwners(PluginConfiguration? config)
+    {
+        if (config is null)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        var configured = ConfigIds.ParseInts(config.MdbListListIds);
+        return ConfigIds.ParseInts(config.MdbListPublicListIds)
+            .Where(configured.Contains)
+            .Select(id => GapSourceKeys.MdbList.Owner(id))
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>
     /// Whether a recommendation may be shown on the row. The row is any signed-in user's, so it is limited to
-    /// what owned titles suggest and to lists that are public by construction
-    /// (<see cref="SourceItemTypes.PublicListKinds"/>). A gap from a watchlist, a wantlist, favorites, or a
-    /// list the plugin cannot tell is public belongs to the account that follows it. A title an owned title
-    /// also suggests but that a private list claimed first is left out with it, since the gap's primary source
-    /// is the list.
+    /// what owned titles suggest and to public lists: the kinds that are public by construction
+    /// (<see cref="SourceItemTypes.PublicListKinds"/>) and an MDBList list the administrator marked public. A
+    /// gap from a watchlist, a wantlist, favorites, or a list not known to be public belongs to the account that
+    /// follows it. A title an owned title also suggests but that a private list claimed first is left out with
+    /// it, since the gap's primary source is the list.
     /// </summary>
     /// <param name="gap">The recommendation gap.</param>
+    /// <param name="publicListOwners">The owners of the lists marked public (<see cref="PublicListOwners"/>).</param>
     /// <returns><see langword="true"/> when the gap's primary source is an owned movie or series, or a public list.</returns>
-    public static bool IsShownOnRow(GapItem gap)
+    public static bool IsShownOnRow(GapItem gap, IReadOnlySet<string>? publicListOwners = null)
     {
         ArgumentNullException.ThrowIfNull(gap);
 
         return FromOwnedTitle(gap)
-            || (gap.SourceItemType is { } type && SourceItemTypes.PublicListKinds.Contains(type, StringComparer.Ordinal));
+            || (gap.SourceItemType is { } type && SourceItemTypes.PublicListKinds.Contains(type, StringComparer.Ordinal))
+            || (gap.SourceItemType == SourceItemTypes.MdbList
+                && gap.SourceItemId is { } mdbOwner
+                && publicListOwners?.Contains(mdbOwner) == true);
     }
 
     /// <summary>
@@ -78,8 +102,9 @@ public sealed class HomeDiscoverService
     /// <param name="items">The report's gaps.</param>
     /// <param name="resolutions">The current dismissals, keyed by gap id or "recsource:{guid}".</param>
     /// <param name="limit">The most titles to return.</param>
+    /// <param name="publicListOwners">The owners of the lists marked public (<see cref="PublicListOwners"/>).</param>
     /// <returns>The ranked cards.</returns>
-    public static IReadOnlyList<MissingTitle> Rank(IEnumerable<GapItem> items, IReadOnlyDictionary<string, GapResolution> resolutions, int limit)
+    public static IReadOnlyList<MissingTitle> Rank(IEnumerable<GapItem> items, IReadOnlyDictionary<string, GapResolution> resolutions, int limit, IReadOnlySet<string>? publicListOwners = null)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(resolutions);
@@ -93,7 +118,7 @@ public sealed class HomeDiscoverService
         return items
             .Where(g => g.Pattern == GapPattern.Recommendation
                 && (g.TargetKind == BaseItemKind.Movie || g.TargetKind == BaseItemKind.Series)
-                && IsShownOnRow(g)
+                && IsShownOnRow(g, publicListOwners)
                 && !g.Adhoc
                 && !resolutions.ContainsKey(g.Id)
                 && (g.SourceItemId is null || !muted.Contains(g.SourceItemId)))

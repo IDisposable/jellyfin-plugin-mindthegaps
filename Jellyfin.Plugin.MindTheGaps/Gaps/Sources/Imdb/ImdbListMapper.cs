@@ -19,18 +19,23 @@ internal static class ImdbListMapper
     /// <summary>
     /// Builds gaps for a list's unowned titles, de-duplicated by IMDb id and capped.
     /// </summary>
-    /// <param name="listId">The list's "ls" id.</param>
+    /// <param name="listId">The list's "ls" id, which the gap id carries.</param>
+    /// <param name="configuredId">The id as configured, which the owner carries: the same "ls" id for a list,
+    /// the "ur" user id for a watchlist.</param>
     /// <param name="listName">The list's display name (the gap's source).</param>
     /// <param name="titles">The titles on the list.</param>
     /// <param name="ownership">The library ownership index.</param>
     /// <param name="maxResults">The most gaps to emit for this list.</param>
+    /// <param name="sourceItemType"><see cref="SourceItemTypes.ImdbList"/> or <see cref="SourceItemTypes.ImdbWatchlist"/>.</param>
     /// <returns>The discovery gaps for unowned titles.</returns>
     public static IEnumerable<GapItem> Build(
         string listId,
+        string configuredId,
         string? listName,
         IEnumerable<ImdbListEntry> titles,
         OwnershipIndex ownership,
-        int maxResults)
+        int maxResults,
+        string sourceItemType)
     {
         ArgumentNullException.ThrowIfNull(titles);
         ArgumentNullException.ThrowIfNull(ownership);
@@ -72,9 +77,9 @@ internal static class ImdbListMapper
                 targetKind: kind,
                 name: name,
                 providerIds: providerIds,
-                sourceItemId: GapSourceKeys.ImdbList.Owner(listId),
+                sourceItemId: GapSourceKeys.ImdbList.Owner(configuredId),
                 sourceItemName: listName,
-                sourceItemType: SourceItemTypes.ImdbList,
+                sourceItemType: sourceItemType,
                 releaseDate: title.ReleaseYear?.Year is > 0
                     ? new DateTime(title.ReleaseYear.Year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     : null,

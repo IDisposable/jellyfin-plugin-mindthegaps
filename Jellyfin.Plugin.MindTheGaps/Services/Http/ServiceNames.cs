@@ -39,4 +39,7 @@ internal static class ServiceNames
 
     /// <summary>JustWatch (its GraphQL endpoint, for the account's own lists).</summary>
     public const string JustWatch = "JustWatch";
+
+    /// <summary>ListenBrainz (its labs similar-artists endpoint).</summary>
+    public const string ListenBrainz = "ListenBrainz";
 }

@@ -50,8 +50,11 @@ public static class SourceItemTypes
     /// <summary>A Trakt list.</summary>
     public const string TraktList = "TraktList";
 
-    /// <summary>An IMDb watchlist or list.</summary>
+    /// <summary>An IMDb list.</summary>
     public const string ImdbList = "ImdbList";
+
+    /// <summary>An IMDb watchlist, addressed by its user's "ur" id or by its own "ls" id.</summary>
+    public const string ImdbWatchlist = "ImdbWatchlist";
 
     /// <summary>A JustWatch account list (the watchlist or the likes).</summary>
     public const string JustWatchList = "JustWatchList";
@@ -90,6 +93,7 @@ public static class SourceItemTypes
         MdbList,
         TraktList,
         ImdbList,
+        ImdbWatchlist,
         JustWatchList,
         MdbListWatchlist,
         DiscogsWantlist,
@@ -102,15 +106,16 @@ public static class SourceItemTypes
     /// <summary>
     /// Gets the list kinds whose contents are public by construction, so a title from one may be shown to
     /// users other than the account that follows it. A private TMDB or Trakt list cannot be read with the
-    /// plugin's credentials at all, and TMDB's own feeds are public. Deliberately absent: an MDBList list
-    /// (the account's own private lists are readable with its key), an IMDb list (the same source reads the
-    /// personal watchlist), and every watchlist, wantlist, favorites and account list. A new source is absent
-    /// until someone decides it belongs here.
+    /// plugin's credentials at all, IMDb serves a list keyless only when it is published, and TMDB's own feeds
+    /// are public. An MDBList list is decided per list (<c>HomeDiscoverService.IsShownOnRow</c>), since its key
+    /// also reads the account's private lists, and every watchlist, wantlist, favorites and account list is
+    /// absent. A new source is absent until someone decides it belongs here.
     /// </summary>
     public static IReadOnlyList<string> PublicListKinds { get; } =
     [
         TmdbList,
         TraktList,
+        ImdbList,
         TmdbMovieDiscover
     ];
 
@@ -129,16 +134,18 @@ public static class SourceItemTypes
         TraktWatchlist,
         MdbListWatchlist,
         JustWatchList,
-        ImdbList,
+        ImdbWatchlist,
         DiscogsWantlist,
         OpenLibraryShelf,
         TvdbFavorites,
         TmdbList,
         MdbList,
         TraktList,
+        ImdbList,
         TmdbMovieDiscover,
         Movie,
-        Series
+        Series,
+        MusicArtist
     ];
 
     /// <summary>

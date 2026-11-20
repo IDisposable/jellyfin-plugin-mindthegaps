@@ -71,22 +71,14 @@ public sealed class ProviderPrecedence
                     continue;
                 }
 
-                var created = TryCreate(type);
-                if (created is null)
+                var provided = TryRead(type);
+                if (provided is null)
                 {
                     opaque = true;
                     continue;
                 }
 
-                if (created is IExternalId id && !string.IsNullOrEmpty(id.Key))
-                {
-                    claimed.Add(id.Key);
-                }
-
-                if (created is IExternalUrlProvider url && !string.IsNullOrEmpty(url.Name))
-                {
-                    claimed.Add(url.Name);
-                }
+                claimed.UnionWith(provided);
             }
 
             if (opaque)
@@ -102,18 +94,30 @@ public sealed class ProviderPrecedence
         return claimed;
     }
 
-    private static object? TryCreate(Type type)
+    private static List<string>? TryRead(Type type)
     {
-        if (type.GetConstructor(Type.EmptyTypes) is null)
-        {
-            return null;
-        }
-
         try
         {
-            return Activator.CreateInstance(type);
+            if (type.GetConstructor(Type.EmptyTypes) is null)
+            {
+                return null;
+            }
+
+            var created = Activator.CreateInstance(type);
+            var provided = new List<string>(2);
+            if (created is IExternalId id && !string.IsNullOrEmpty(id.Key))
+            {
+                provided.Add(id.Key);
+            }
+
+            if (created is IExternalUrlProvider url && !string.IsNullOrEmpty(url.Name))
+            {
+                provided.Add(url.Name);
+            }
+
+            return provided;
         }
-        catch (Exception ex) when (ex is TargetInvocationException or MemberAccessException or MissingMethodException or TypeLoadException)
+        catch (Exception)
         {
             return null;
         }
@@ -128,7 +132,7 @@ public sealed class ProviderPrecedence
         {
             return assembly.GetExportedTypes();
         }
-        catch (Exception ex) when (ex is ReflectionTypeLoadException or TypeLoadException or System.IO.FileNotFoundException)
+        catch (Exception)
         {
             return [];
         }

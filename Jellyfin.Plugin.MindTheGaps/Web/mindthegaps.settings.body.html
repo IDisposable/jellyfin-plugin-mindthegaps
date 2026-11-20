@@ -50,6 +50,13 @@
             </div>
             <div class="checkboxContainer checkboxContainer-withDescription">
                 <label class="emby-checkbox-label">
+                    <input id="ScanMusicRecommendations" name="ScanMusicRecommendations" type="checkbox" is="emby-checkbox" />
+                    <span>Include artists similar to the ones you own (ListenBrainz, discovery)</span>
+                </label>
+                <div class="fieldDescription">Keyless. Reads up to 100 owned artists with a MusicBrainz id per scan, the ones checked longest ago first, about one a second, and lists the similar artists you own nothing by.</div>
+            </div>
+            <div class="checkboxContainer checkboxContainer-withDescription">
+                <label class="emby-checkbox-label">
                     <input id="ScanBooks" name="ScanBooks" type="checkbox" is="emby-checkbox" />
                     <span>Scan books for other works by the author (OpenLibrary)</span>
                 </label>
@@ -244,7 +251,7 @@
                             </div>
                             <div class="cgSuggest" id="cgMdbListSuggest" role="listbox" aria-label="MDBList list matches"></div>
                         </div>
-                        <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps.</div>
+                        <div class="fieldDescription">Search MDBList for a public list (such as a toplist) and pick it; titles on it that you do not own become discovery gaps. Mark a list Public to let its titles show on the home Discover row; a list stays Private until you do, since the key also reads your own private lists.</div>
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">

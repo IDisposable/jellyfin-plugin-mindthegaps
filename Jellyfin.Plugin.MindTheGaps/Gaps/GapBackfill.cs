@@ -103,6 +103,7 @@ internal static class GapBackfill
     /// <param name="pattern">The pattern to accumulate (CreatorWorks or Recommendation).</param>
     /// <param name="dismissedSourceItemIds">The <see cref="GapItem.SourceItemId"/> values dismissed wholesale for this pattern.</param>
     /// <param name="maxAccumulated">The cap on how many gaps of this pattern this call will carry in total.</param>
+    /// <param name="include">When set, only prior gaps it accepts are carried.</param>
     /// <returns>How many gaps were carried, and whether the cap was reached before every eligible prior gap was considered.</returns>
     public static BackfillResult AccumulateUnowned(
         List<GapItem> gaps,
@@ -111,7 +112,8 @@ internal static class GapBackfill
         OwnershipIndex ownership,
         GapPattern pattern,
         IReadOnlySet<string> dismissedSourceItemIds,
-        int maxAccumulated = DefaultMaxAccumulated)
+        int maxAccumulated = DefaultMaxAccumulated,
+        Func<GapItem, bool>? include = null)
     {
         ArgumentNullException.ThrowIfNull(gaps);
         ArgumentNullException.ThrowIfNull(byId);
@@ -126,7 +128,10 @@ internal static class GapBackfill
         {
             // Ad-hoc "explore" gaps are deliberately not carried forward: a scheduled scan clears any
             // exploration the user did not keep in config (a kept source re-produces them as permanent).
-            if (item.Pattern != pattern || byId.ContainsKey(item.Id) || item.Adhoc)
+            if (item.Pattern != pattern
+                || byId.ContainsKey(item.Id)
+                || item.Adhoc
+                || (include is not null && !include(item)))
             {
                 continue;
             }

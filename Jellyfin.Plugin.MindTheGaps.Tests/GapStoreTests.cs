@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -274,6 +275,133 @@ public class GapStoreTests
             Assert.Contains(updated.Items, i => i.Id == "discography:mb:2");
             Assert.Contains(updated.Items, i => i.Id == "artistworks:mb:1");
             Assert.Equal(2, updated.TotalGaps);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    private static GapReport ReportOf(params string[] ids)
+        => new() { GeneratedUtc = DateTime.UtcNow, TotalGaps = ids.Length, Items = Array.ConvertAll(ids, Gap) };
+
+    private static string[] Ids(GapReport report) => report.Items.Select(g => g.Id).ToArray();
+
+    private static string[] OnDisk(string dir) => Ids(Store(dir).Load());
+
+    [Fact]
+    public void AChangeDuringAScan_IsServedButDoesNotWriteOverTheCheckpoint()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            store.SaveCheckpoint(ReportOf("a", "b", "fresh"));
+
+            store.RemoveGaps(["a"]);
+            store.FlushPending();
+
+            Assert.Equal(["b"], Ids(store.Load()));
+            Assert.Equal(["a", "b", "fresh"], OnDisk(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void TheScansSave_WritesItsReport_AndEndsTheCheckpoint()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            store.SaveCheckpoint(ReportOf("a", "b", "fresh"));
+            store.RemoveGaps(["a"]);
+
+            store.Save(ReportOf("b", "fresh"));
+            store.EndCheckpoint();
+            Assert.Equal(["b", "fresh"], OnDisk(dir));
+
+            store.RemoveGaps(["fresh"]);
+            Assert.Equal(["b"], OnDisk(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void AScanThatEndsWithoutSaving_WritesTheChangesItHeldBack()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            store.SaveCheckpoint(ReportOf("a", "b", "fresh"));
+            store.RemoveGaps(["a"]);
+
+            store.EndCheckpoint();
+
+            Assert.Equal(["b"], OnDisk(dir));
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void AWriteThatFails_StaysPending_AndTheNextFlushWritesIt()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+            store.RemoveGaps(["a"]);
+
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Assert.Equal(["a", "b"], OnDisk(dir));
+            store.FlushPending();
+            Assert.Equal(["b"], OnDisk(dir));
+        }
+        finally
+        {
+            File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ACheckpointWhileWritesArePaced_HoldsThemUntilTheScanEnds()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = Store(dir);
+            store.Save(ReportOf("a", "b"));
+            store.SaveCheckpoint(ReportOf("a", "b", "fresh"));
+
+            store.SaveAvailabilityMerge(store.Load(), throttle: true);
+            store.RemoveGaps(["b"]);
+            store.FlushPending();
+            Assert.Equal(["a", "b", "fresh"], OnDisk(dir));
+
+            store.EndCheckpoint();
+            Assert.Equal(["a"], OnDisk(dir));
         }
         finally
         {

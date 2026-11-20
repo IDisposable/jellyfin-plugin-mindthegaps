@@ -70,11 +70,13 @@ flowchart LR
 
     etw["Everyone's TODO list (household watchlist)"] --> DIS
     sim["TMDB similar titles"] --> DIS
+    lbs["ListenBrainz similar artists"]:::music --> DIS
     tdf["TMDB's own feeds (Top Rated, Popular, Upcoming, Now Playing)"] --> DIS
     tli["TMDB lists"] --> DIS
     mli["MDBList lists"] --> DIS
     trl["Trakt lists"] --> DIS
-    ili["IMDb watchlists and lists"] --> DIS
+    ili["IMDb lists"] --> DIS
+    iwl["IMDb watchlists"] --> DIS
     jwl["JustWatch watchlist"] --> DIS
     mwl["MDBList watchlist"] --> DIS
     twl["Trakt watchlist"] --> DIS
@@ -95,7 +97,8 @@ flowchart LR
   label, or book-subject set, and a collected music artist's missing discography.
 - **Creator works**: an owned actor, director, or writer's filmography (TMDB, Trakt, or an IMDb people
   list), a music artist's wider catalog, and an author's other books.
-- **Discover** (opt-in): TMDB "similar" titles for what you own, TMDB's own feeds, any TMDB/MDBList/
+- **Discover** (opt-in): TMDB "similar" titles for what you own, ListenBrainz artists similar to the ones
+  you own, TMDB's own feeds, any TMDB/MDBList/
   Trakt/IMDb list or JustWatch watchlist you point it at, your own want-lists across eight services, and
   every user's TODO list folded into one household watchlist, shown first.
 - **Where to watch**: streaming availability per item, looked up on demand or in the background, never

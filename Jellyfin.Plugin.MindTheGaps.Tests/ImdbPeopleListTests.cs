@@ -68,6 +68,6 @@ public class ImdbPeopleListTests
             .Where(e => e is not null)
             .Select(e => e!)
             .ToList();
-        return new ImdbListContents(list.Id!, list.Name?.Value, list.ListType?.Id, entries);
+        return new ImdbListContents(list.Id!, list.Name?.Value, list.ListType?.Id, list.ListClass?.Id, entries);
     }
 }

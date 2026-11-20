@@ -146,6 +146,7 @@ function loadConfig(page, config) {
     page.querySelector('#AutoSeedStudios').checked = config.AutoSeedStudios;
     loadChips(page, config);
     page.querySelector('#ScanMusic').checked = config.ScanMusic;
+    page.querySelector('#ScanMusicRecommendations').checked = config.ScanMusicRecommendations;
     page.querySelector('#ScanBooks').checked = config.ScanBooks;
     page.querySelector('#ScanCuratedBooks').checked = config.ScanCuratedBooks;
     page.querySelector('#ScanDiscogs').checked = config.ScanDiscogs;
@@ -256,6 +257,7 @@ function saveConfig(page, e) {
         config.CuratedKeywordIds = chips.keyword ? chips.keyword.ids() : (config.CuratedKeywordIds || '');
         config.CuratedTmdbListIds = chips.tmdblist ? chips.tmdblist.ids() : (config.CuratedTmdbListIds || '');
         config.ScanMusic = form.querySelector('#ScanMusic').checked;
+        config.ScanMusicRecommendations = form.querySelector('#ScanMusicRecommendations').checked;
         config.ScanBooks = form.querySelector('#ScanBooks').checked;
         config.ScanCuratedBooks = form.querySelector('#ScanCuratedBooks').checked;
         config.CuratedOpenLibrarySubjects = chips.openlibrarysubject ? chips.openlibrarysubject.ids() : (config.CuratedOpenLibrarySubjects || '');
@@ -265,6 +267,7 @@ function saveConfig(page, e) {
         config.ScanMdbList = form.querySelector('#ScanMdbList').checked;
         config.MdbListApiKey = form.querySelector('#MdbListApiKey').value.trim();
         config.MdbListListIds = chips.mdblist ? chips.mdblist.ids() : (config.MdbListListIds || '');
+        config.MdbListPublicListIds = chips.mdblist ? chips.mdblist.publicIds() : (config.MdbListPublicListIds || '');
         config.ScanTraktLists = form.querySelector('#ScanTraktLists').checked;
         config.CuratedTraktListIds = chips.traktlist ? chips.traktlist.ids() : (config.CuratedTraktListIds || '');
         config.ScanTmdbWatchlist = form.querySelector('#ScanTmdbWatchlist').checked;
@@ -350,7 +353,8 @@ function saveConfig(page, e) {
 // A type-ahead chip control over a curated-set kind ('studio' or 'keyword'). Each chip holds
 // {Id, Name}: the name shows, the id is what gets saved, so the numeric id is never exposed.
 // Suggestions come from the server's TheMovieDb search; wired once, populated by loadConfig.
-function setupChips(page, kind, boxId, listId, inputId, suggestId) {
+// With publicToggle, each chip also carries a Public/Private toggle, private when added.
+function setupChips(page, kind, boxId, listId, inputId, suggestId, publicToggle) {
     const box = page.querySelector('#' + boxId);
     const list = page.querySelector('#' + listId);
     const input = page.querySelector('#' + inputId);
@@ -366,7 +370,11 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
                 type: 'button', 'class': 'cgChipX', 'data-i': i,
                 'aria-label': 'Remove ' + (c.Name || ''), title: 'Remove ' + (c.Name || '')
             }, '&times;');
-            return wrap('span', { 'class': 'cgChip', role: 'listitem' }, esc(c.Name) + x);
+            const toggle = publicToggle ? wrap('button', {
+                type: 'button', 'class': 'cgChipPublic', 'data-i': i, 'aria-pressed': c.Public ? 'true' : 'false',
+                'aria-label': 'Public: ' + (c.Name || ''), title: 'Public lists may show on the home Discover row'
+            }, c.Public ? 'Public' : 'Private') : '';
+            return wrap('span', { 'class': 'cgChip', role: 'listitem' }, esc(c.Name) + toggle + x);
         }).join('');
     }
     function closeSuggest() {
@@ -425,20 +433,33 @@ function setupChips(page, kind, boxId, listId, inputId, suggestId) {
     });
     list.addEventListener('click', function (e) {
         const x = e.target.closest('.cgChipX');
-        if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); }
+        if (x) { removeAt(parseInt(x.getAttribute('data-i'), 10)); return; }
+        const p = e.target.closest('.cgChipPublic');
+        if (p) {
+            const i = parseInt(p.getAttribute('data-i'), 10);
+            const c = state.chips[i];
+            if (!c) { return; }
+            c.Public = !c.Public; render(); page._settingsDirty = true;
+            announce((c.Name || c.Id) + (c.Public ? ' is public' : ' is private'));
+            const again = list.querySelector('.cgChipPublic[data-i="' + i + '"]');
+            if (again) { again.focus(); }
+        }
     });
     box.addEventListener('click', function (e) { if (e.target === box || e.target === list) { input.focus(); } });
 
-    state.set = function (chips) {
+    state.set = function (chips, publicIds) {
         const seen = {};
+        const pub = {};
+        String(publicIds || '').split(',').forEach(function (s) { if (s.trim()) { pub[s.trim()] = 1; } });
         state.chips = [];
         (chips || []).forEach(function (c) {
             const k = String(c.Id);
-            if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k }); }
+            if (c.Id && !seen[k]) { seen[k] = 1; state.chips.push({ Id: c.Id, Name: c.Name || k, Public: !!pub[k] }); }
         });
         render();
     };
     state.ids = function () { return state.chips.map(function (c) { return c.Id; }).join(','); };
+    state.publicIds = function () { return state.chips.filter(function (c) { return c.Public; }).map(function (c) { return c.Id; }).join(','); };
     return state;
 }
 
@@ -526,18 +547,18 @@ function setupPasteChip(page, kind, boxId, listId, inputId, parseToken) {
 // Populate the studio/keyword chips from the saved config: resolve the stored ids to display
 // names server-side, then hand them to the chip controls.
 function loadChips(page, config) {
-    const resolve = function (kind, ids) {
+    const resolve = function (kind, ids, publicIds) {
         const st = page._chipState && page._chipState[kind];
         if (!st) { return; }
         st.set([]);
         if (!ids) { return; }
         ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('MindTheGaps/CuratedResolve', { kind: kind, ids: ids }), dataType: 'json' })
-            .then(function (res) { st.set(res || []); }, function () { });
+            .then(function (res) { st.set(res || [], publicIds); }, function () { });
     };
     resolve('studio', config.CuratedCompanyIds || '');
     resolve('keyword', config.CuratedKeywordIds || '');
     resolve('label', config.DiscogsLabelIds || '');
-    resolve('mdblist', config.MdbListListIds || '');
+    resolve('mdblist', config.MdbListListIds || '', config.MdbListPublicListIds || '');
     resolve('tmdblist', config.CuratedTmdbListIds || '');
     resolve('traktlist', config.CuratedTraktListIds || '');
     resolve('openlibrarysubject', config.CuratedOpenLibrarySubjects || '');
@@ -609,7 +630,7 @@ function bindSettings(page) {
     setupChips(page, 'studio', 'cgStudioBox', 'cgStudioChips', 'cgStudioInput', 'cgStudioSuggest');
     setupChips(page, 'keyword', 'cgKeywordBox', 'cgKeywordChips', 'cgKeywordInput', 'cgKeywordSuggest');
     setupChips(page, 'label', 'cgLabelBox', 'cgLabelChips', 'cgLabelInput', 'cgLabelSuggest');
-    setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest');
+    setupChips(page, 'mdblist', 'cgMdbListBox', 'cgMdbListChips', 'cgMdbListInput', 'cgMdbListSuggest', true);
     setupChips(page, 'traktlist', 'cgTraktListBox', 'cgTraktListChips', 'cgTraktListInput', 'cgTraktListSuggest');
     setupChips(page, 'openlibrarysubject', 'cgOpenLibrarySubjectBox', 'cgOpenLibrarySubjectChips', 'cgOpenLibrarySubjectInput', 'cgOpenLibrarySubjectSuggest');
     setupPasteChip(page, 'tmdblist', 'cgTmdbListBox', 'cgTmdbListChips', 'cgTmdbListInput', parseTmdbListToken);

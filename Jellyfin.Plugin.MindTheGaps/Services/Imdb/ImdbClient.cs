@@ -34,12 +34,12 @@ internal sealed class ImdbClient
         "... on Name { id nameText { text } primaryImage { url } } } } } }";
 
     private const string ListQuery =
-        "query MtgList($id: ID!, $first: Int!, $after: ID) { list(id: $id) { id name { originalText } listType { id } " +
+        "query MtgList($id: ID!, $first: Int!, $after: ID) { list(id: $id) { id name { originalText } listType { id } listClass { id } " +
         ItemsFragment + " } }";
 
     private const string WatchlistQuery =
         "query MtgWatchlist($id: ID!, $first: Int!, $after: ID) { predefinedList(classType: WATCH_LIST, userId: $id) " +
-        "{ id name { originalText } listType { id } " + ItemsFragment + " } }";
+        "{ id name { originalText } listType { id } listClass { id } " + ItemsFragment + " } }";
 
     // A personal list is edited between scans, so it is cached only long enough to de-duplicate the calls
     // within one scan and a quick re-scan, not for the half-day a catalog lookup is held.
@@ -84,6 +84,7 @@ internal sealed class ImdbClient
         string? name = null;
         string? listId = null;
         string? listType = null;
+        string? listClass = null;
         string? cursor = null;
 
         while (entries.Count < maxItems)
@@ -93,12 +94,13 @@ internal sealed class ImdbClient
             if (page is null)
             {
                 // A failed first page is "could not read"; a failed later page still returns what was read.
-                return entries.Count > 0 ? new ImdbListContents(listId ?? id, name, listType, entries) : null;
+                return entries.Count > 0 ? new ImdbListContents(listId ?? id, name, listType, listClass, entries) : null;
             }
 
             name ??= page.Name?.Value;
             listId ??= page.Id;
             listType ??= page.ListType?.Id;
+            listClass ??= page.ListClass?.Id;
             foreach (var edge in page.Items?.Edges ?? [])
             {
                 if (edge.Node?.Item is { Id.Length: > 0 } entry)
@@ -114,7 +116,7 @@ internal sealed class ImdbClient
             }
         }
 
-        return new ImdbListContents(listId ?? id, name, listType, entries);
+        return new ImdbListContents(listId ?? id, name, listType, listClass, entries);
     }
 
     private async Task<ImdbList?> FetchPageAsync(

@@ -129,6 +129,26 @@ public class GapBackfillTests
     }
 
     [Fact]
+    public void AccumulateUnowned_WithAFilter_CarriesOnlyWhatItAccepts()
+    {
+        var gaps = new List<GapItem>();
+        var byId = new Dictionary<string, GapItem>(StringComparer.Ordinal);
+        var prior = new[] { Gap("recommendation:artist:x"), Gap("recommendation:movie:603"), Gap("discogswantlist:1") };
+
+        var result = GapBackfill.AccumulateUnowned(
+            gaps,
+            byId,
+            prior,
+            OwnsNothing(),
+            GapPattern.Recommendation,
+            new HashSet<string>(StringComparer.Ordinal),
+            include: g => g.Id.StartsWith(GapSourceKeys.RecommendationArtist.GapPrefix, StringComparison.Ordinal));
+
+        Assert.Equal(1, result.Carried);
+        Assert.Equal("recommendation:artist:x", Assert.Single(gaps).Id);
+    }
+
+    [Fact]
     public void AccumulateUnowned_SkipsAGapAlreadyReemittedThisRun()
     {
         var reemitted = Gap("a", GapPattern.CreatorWorks);

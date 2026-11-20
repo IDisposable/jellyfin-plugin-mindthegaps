@@ -96,7 +96,14 @@ public sealed class GapEngine
     {
         using (await _scanGate.EnterAsync(cancellationToken).ConfigureAwait(false))
         {
-            return await ScanAsync(progress, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await ScanAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _store.EndCheckpoint();
+            }
         }
     }
 
@@ -143,7 +150,28 @@ public sealed class GapEngine
         {
             LogBackfill(
                 "Recommendation",
-                GapBackfill.AccumulateUnowned(gaps, byId, priorReport.Items, context.Ownership, GapPattern.Recommendation, DismissedSourceItemIds(GapResolution.RecSourcePrefix)));
+                GapBackfill.AccumulateUnowned(
+                    gaps,
+                    byId,
+                    priorReport.Items,
+                    context.Ownership,
+                    GapPattern.Recommendation,
+                    DismissedSourceItemIds(GapResolution.RecSourcePrefix),
+                    include: g => !IsArtistRecommendation(g)));
+        }
+
+        if (config.ScanMusicRecommendations)
+        {
+            LogBackfill(
+                "music Recommendation",
+                GapBackfill.AccumulateUnowned(
+                    gaps,
+                    byId,
+                    priorReport.Items,
+                    context.Ownership,
+                    GapPattern.Recommendation,
+                    DismissedSourceItemIds(GapResolution.RecSourcePrefix),
+                    include: IsArtistRecommendation));
         }
 
         // The provider cross-checks scan only a slice of provider-resolvable series each run, so an episode
@@ -362,6 +390,9 @@ public sealed class GapEngine
 
         return dismissed;
     }
+
+    private static bool IsArtistRecommendation(GapItem gap)
+        => gap.Id.StartsWith(GapSourceKeys.RecommendationArtist.GapPrefix, StringComparison.Ordinal);
 
     private static HashSet<MediaDomain> SetCompletionDomains(PluginConfiguration config)
     {

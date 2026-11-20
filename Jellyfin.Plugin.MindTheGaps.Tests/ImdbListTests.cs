@@ -24,6 +24,8 @@ namespace Jellyfin.Plugin.MindTheGaps.Tests;
 // imdb_watchlist_envelope.json is the watchlist query's envelope, captured with first=0 so it holds the shape
 // (the predefinedList root field, the list's own "ls" id) and none of that account's titles. Re-capture with
 // the same call, swapping the query for the MtgWatchlist one in ImdbClient and passing {"id":"ur1000000","first":0}.
+// imdb_watchlist_by_list_id.json and imdb_list_class.json are the MtgList query with first=0 for that
+// watchlist's own id (ls000023761) and for ls022958322, which pin listClass for both kinds.
 public class ImdbListTests
 {
     private const string ListId = "ls022958322";
@@ -37,7 +39,7 @@ public class ImdbListTests
     [Fact]
     public void Build_EmitsRecommendationGaps_RoutedByTitleType()
     {
-        var gaps = ImdbListMapper.Build(ListId, ListName, LoadTitles(), Owns(), 100).ToList();
+        var gaps = ImdbListMapper.Build(ListId, ListId, ListName, LoadTitles(), Owns(), 100, SourceItemTypes.ImdbList).ToList();
 
         // The capture holds 37 movies, one tvMovie, and two tvMiniSeries; only the episodic pair is a Series.
         Assert.Equal(40, gaps.Count);
@@ -52,7 +54,7 @@ public class ImdbListTests
     [Fact]
     public void Build_CarriesImdbIdAndYear()
     {
-        var gaps = ImdbListMapper.Build(ListId, ListName, LoadTitles(), Owns(), 100).ToList();
+        var gaps = ImdbListMapper.Build(ListId, ListId, ListName, LoadTitles(), Owns(), 100, SourceItemTypes.ImdbList).ToList();
 
         var movie = gaps.First(g => g.TargetKind == BaseItemKind.Movie);
         Assert.StartsWith("tt", movie.ProviderIds["Imdb"], System.StringComparison.Ordinal);
@@ -68,7 +70,7 @@ public class ImdbListTests
         var titles = LoadTitles();
         var owned = titles.First(t => t.TitleType?.CanHaveEpisodes != true).Id!;
 
-        var gaps = ImdbListMapper.Build(ListId, ListName, titles, Owns(BaseItemKind.Movie, owned), 100).ToList();
+        var gaps = ImdbListMapper.Build(ListId, ListId, ListName, titles, Owns(BaseItemKind.Movie, owned), 100, SourceItemTypes.ImdbList).ToList();
 
         Assert.DoesNotContain(gaps, g => g.ProviderIds["Imdb"] == owned);
         Assert.Equal(39, gaps.Count);
@@ -77,9 +79,23 @@ public class ImdbListTests
     [Fact]
     public void Build_RespectsCap()
     {
-        var gaps = ImdbListMapper.Build(ListId, ListName, LoadTitles(), Owns(), 3).ToList();
+        var gaps = ImdbListMapper.Build(ListId, ListId, ListName, LoadTitles(), Owns(), 3, SourceItemTypes.ImdbList).ToList();
 
         Assert.Equal(3, gaps.Count);
+    }
+
+    [Fact]
+    public void Build_AWatchlistStaysInScopeUnderTheUserIdItWasConfiguredBy()
+    {
+        var config = new Configuration.PluginConfiguration { ScanImdbLists = true, ImdbListIds = "ur1000000" };
+        var source = new ImdbWatchlistGapSource(null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<ImdbWatchlistGapSource>.Instance);
+
+        var gap = ImdbListMapper.Build("ls000023761", "ur1000000", "WATCHLIST", LoadTitles(), Owns(), 1, SourceItemTypes.ImdbWatchlist).Single();
+
+        Assert.StartsWith("imdblist:ls000023761:tt", gap.Id, StringComparison.Ordinal);
+        Assert.Equal("imdblist-ur1000000", gap.SourceItemId);
+        Assert.Equal(SourceItemTypes.ImdbWatchlist, gap.SourceItemType);
+        Assert.True(source.StillInScope(gap, config));
     }
 
     [Fact]
@@ -95,7 +111,18 @@ public class ImdbListTests
         Assert.Null(response!.Data!.List);
         Assert.StartsWith("ls", response.Data.PredefinedList!.Id, System.StringComparison.Ordinal);
         Assert.Equal("WATCHLIST", response.Data.PredefinedList.Name?.Value);
+        Assert.Equal(ImdbListContents.WatchlistClass, response.Data.PredefinedList.ListClass?.Id);
         Assert.True(response.Data.PredefinedList.Items?.Total > 0);
+    }
+
+    [Fact]
+    public void AWatchlistReadByItsListId_StillSaysItIsAWatchlist()
+    {
+        var watchlist = JsonSerializer.Deserialize<ImdbGraphResponse>(TestData.Read("imdb_watchlist_by_list_id.json"), _jsonOptions)?.Data?.List;
+        var list = JsonSerializer.Deserialize<ImdbGraphResponse>(TestData.Read("imdb_list_class.json"), _jsonOptions)?.Data?.List;
+
+        Assert.Equal(ImdbListContents.WatchlistClass, watchlist?.ListClass?.Id);
+        Assert.Equal("LIST", list?.ListClass?.Id);
     }
 
     [Fact]

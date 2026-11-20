@@ -23,6 +23,7 @@ public class PluginContractTests
         ["CuratedKeywordIds"] = "keyword chip picker",
         ["DiscogsLabelIds"] = "label chip picker",
         ["MdbListListIds"] = "MDBList chip picker",
+        ["MdbListPublicListIds"] = "MDBList chip picker's Public toggle",
         ["CuratedTmdbListIds"] = "TMDB list chip picker",
         ["CuratedTraktListIds"] = "Trakt list chip picker",
         ["CuratedOpenLibrarySubjects"] = "OpenLibrary subject chip picker",

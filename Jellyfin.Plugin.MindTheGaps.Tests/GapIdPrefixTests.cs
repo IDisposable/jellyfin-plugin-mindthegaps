@@ -16,6 +16,7 @@ public class GapIdPrefixTests
     [InlineData("filmography:series:")]
     [InlineData("recommendation:movie:")]
     [InlineData("recommendation:series:")]
+    [InlineData("recommendation:artist:")]
     [InlineData("bibliography:")]
     [InlineData("openlibrarysubject:")]
     [InlineData("discogslabel:")]
@@ -44,7 +45,7 @@ public class GapIdPrefixTests
     public void GapIdPrefixesAreTheCompleteSet()
     {
         // Guards the list above: a new prefix must be added to the theory, not just the table.
-        Assert.Equal(28, AllGapIdPrefixes().Length);
+        Assert.Equal(29, AllGapIdPrefixes().Length);
     }
 
     [Fact]
@@ -142,6 +143,7 @@ public class GapIdPrefixTests
         GapSourceKeys.FilmographySeries.GapPrefix,
         GapSourceKeys.RecommendationMovie.GapPrefix,
         GapSourceKeys.RecommendationSeries.GapPrefix,
+        GapSourceKeys.RecommendationArtist.GapPrefix,
         GapSourceKeys.Bibliography.GapPrefix,
         GapSourceKeys.OpenLibrarySubject.GapPrefix,
         GapSourceKeys.DiscogsLabel.GapPrefix,

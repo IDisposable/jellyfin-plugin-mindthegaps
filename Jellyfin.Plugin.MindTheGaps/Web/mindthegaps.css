@@ -673,6 +673,27 @@ a.cgSvcs {
     opacity: 1;
 }
 
+.cgChipPublic {
+    background: rgba(255, 255, 255, .1);
+    border: 1px solid rgba(255, 255, 255, .25);
+    color: inherit;
+    font: inherit;
+    font-size: .8em;
+    padding: 0 .5em;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.cgChipPublic[aria-pressed="true"] {
+    background: rgba(0, 164, 220, .45);
+    border-color: #00a4dc;
+}
+
+.cgChipPublic:focus-visible {
+    outline: 2px solid #00a4dc;
+    outline-offset: 1px;
+}
+
 /* Visually hidden but available to screen readers (the chip add/remove live region). */
 .cgSrOnly {
     position: absolute;

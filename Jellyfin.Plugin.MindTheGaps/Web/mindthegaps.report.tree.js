@@ -244,16 +244,18 @@ const DISCOVER_KIND_LABELS = {
     TraktWatchlist: 'Trakt watchlist',
     MdbListWatchlist: 'MDBList watchlist',
     JustWatchList: 'JustWatch watchlist',
-    ImdbList: 'IMDb lists',
+    ImdbWatchlist: 'IMDb watchlists',
     DiscogsWantlist: 'Discogs wantlist',
     OpenLibraryShelf: 'OpenLibrary shelves',
     TvdbFavorites: 'TheTVDB favorites',
     List: 'TMDB lists',
     MdbList: 'MDBList community lists',
     TraktList: 'Trakt lists',
+    ImdbList: 'IMDb lists',
     TmdbMovieDiscover: 'TMDB discover feeds',
     Movie: 'Recommended by what you own',
-    Series: 'Recommended by what you own'
+    Series: 'Recommended by what you own',
+    MusicArtist: 'Recommended by what you own'
 };
 function discoverKindLabel(sourceItemType) {
     return DISCOVER_KIND_LABELS[sourceItemType] || sourceItemType || 'Other';

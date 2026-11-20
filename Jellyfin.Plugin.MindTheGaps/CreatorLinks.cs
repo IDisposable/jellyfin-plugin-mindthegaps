@@ -35,7 +35,7 @@ internal static class CreatorLinks
         var links = new List<ExternalLink>();
         foreach (var providerId in sourceProviderIds)
         {
-            if (string.IsNullOrEmpty(providerId.Value))
+            if (string.IsNullOrWhiteSpace(providerId.Value))
             {
                 continue;
             }
@@ -66,7 +66,8 @@ internal static class CreatorLinks
                     links.Add(new ExternalLink(ServiceNames.MusicBrainz, string.Create(CultureInfo.InvariantCulture, $"https://musicbrainz.org/artist/{id}")));
                     break;
                 case "openlibrary":
-                    // Off a shelf, the source's OpenLibrary id is an author key (for example "OL79034A").
+                    // On a shelf the id is the configured user name; on any other source it is an author key
+                    // (for example "OL79034A").
                     var openLibraryUrl = string.Equals(sourceItemType, SourceItemTypes.OpenLibraryShelf, StringComparison.Ordinal)
                         ? ProviderUrls.OpenLibraryWantToRead(id)
                         : ProviderUrls.OpenLibrary(id)!;

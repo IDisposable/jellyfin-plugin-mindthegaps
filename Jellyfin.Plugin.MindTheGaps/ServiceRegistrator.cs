@@ -19,6 +19,7 @@ using Jellyfin.Plugin.MindTheGaps.Services.Http;
 using Jellyfin.Plugin.MindTheGaps.Services.Images;
 using Jellyfin.Plugin.MindTheGaps.Services.Imdb;
 using Jellyfin.Plugin.MindTheGaps.Services.JustWatch;
+using Jellyfin.Plugin.MindTheGaps.Services.ListenBrainz;
 using Jellyfin.Plugin.MindTheGaps.Services.MdbList;
 using Jellyfin.Plugin.MindTheGaps.Services.MusicBrainz;
 using Jellyfin.Plugin.MindTheGaps.Services.OpenLibrary;
@@ -72,6 +73,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<CachedApiClient>();
         serviceCollection.AddSingleton<TraktClient>();
         serviceCollection.AddSingleton<TvMazeClient>();
+        serviceCollection.AddSingleton<ListenBrainzClient>();
         serviceCollection.AddSingleton<TvdbClient>();
         serviceCollection.AddSingleton<MusicBrainzClient>();
         serviceCollection.AddSingleton<OpenLibraryClient>();
@@ -118,6 +120,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, CuratedSetGapSource>();
         serviceCollection.AddSingleton<IGapSource, MusicDiscographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, MusicArtistWorksGapSource>();
+        serviceCollection.AddSingleton<IGapSource, MusicRecommendationsGapSource>();
         serviceCollection.AddSingleton<IGapSource, BooksBibliographyGapSource>();
         serviceCollection.AddSingleton<IGapSource, BooksSubjectGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsLabelGapSource>();
@@ -125,6 +128,7 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<IGapSource, MdbListGapSource>();
         serviceCollection.AddSingleton<IGapSource, TraktListGapSource>();
         serviceCollection.AddSingleton<IGapSource, ImdbListGapSource>();
+        serviceCollection.AddSingleton<IGapSource, ImdbWatchlistGapSource>();
         serviceCollection.AddSingleton<IGapSource, ImdbPeopleListGapSource>();
         serviceCollection.AddSingleton<IGapSource, MdbListWatchlistGapSource>();
         serviceCollection.AddSingleton<IGapSource, DiscogsWantlistGapSource>();

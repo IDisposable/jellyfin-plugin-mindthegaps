@@ -92,6 +92,12 @@ public class ExternalProvidersTests
         Assert.True(openLibrary.Supports(new Book()));
         Assert.False(openLibrary.Supports(new Movie()));
 
+        var author = new OpenLibraryAuthorExternalId(_nobodyElse);
+        Assert.Equal("OpenLibrary", author.Key);
+        Assert.Equal(ExternalIdMediaType.Person, author.Type);
+        Assert.True(author.Supports(new Person()));
+        Assert.False(author.Supports(new Book()));
+
         Assert.Equal("Discogs", discogs.Key);
         Assert.True(discogs.Supports(new MusicAlbum()));
         Assert.True(discogs.Supports(new MusicArtist()));
@@ -130,6 +136,28 @@ public class ExternalProvidersTests
     }
 
     [Fact]
+    public void Claims_ABrokenProviderInOnePluginKeepsTheOthersClaims()
+    {
+        var claimed = ProviderPrecedence.Claims(
+            [("Broken Thing", [typeof(ThrowingStaticUrlProvider)]), ("Some Book Plugin", [typeof(OtherOpenLibraryId)])],
+            OwnProviders.Keys);
+
+        Assert.Contains("OpenLibrary", claimed);
+        Assert.DoesNotContain("Discogs", claimed);
+    }
+
+    [Theory]
+    [InlineData("Discogs")]
+    [InlineData("OpenLibrary")]
+    public void Links_SkipABlankId(string key)
+    {
+        var ids = new Dictionary<string, string>(StringComparer.Ordinal) { [key] = "  " };
+
+        Assert.Empty(ProviderLinks.Build(Jellyfin.Data.Enums.BaseItemKind.MusicAlbum, ids));
+        Assert.Empty(CreatorLinks.Build("MusicArtist", ids));
+    }
+
+    [Fact]
     public void Precedence_WithNoOtherPlugins_ClaimsNothing()
     {
         Assert.False(_nobodyElse.ClaimedElsewhere(ProviderIds.OpenLibrary));
@@ -164,6 +192,17 @@ public class ExternalProvidersTests
         public string Name => "Discogs";
 
         public IEnumerable<string> GetExternalUrls(BaseItem item) => [];
+    }
+
+    public sealed class ThrowingStaticUrlProvider : IExternalUrlProvider
+    {
+        private static readonly string _name = Fail();
+
+        public string Name => _name;
+
+        public IEnumerable<string> GetExternalUrls(BaseItem item) => [];
+
+        private static string Fail() => throw new InvalidOperationException("static constructor fails");
     }
 
     private class PluginManagerProxy : DispatchProxy

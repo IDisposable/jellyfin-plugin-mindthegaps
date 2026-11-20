@@ -22,6 +22,11 @@ internal sealed class ImdbList
     public ImdbListType? ListType { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the list is a list or a watchlist.
+    /// </summary>
+    public ImdbListClass? ListClass { get; set; }
+
+    /// <summary>
     /// Gets or sets the requested page of entries.
     /// </summary>
     public ImdbListItems? Items { get; set; }

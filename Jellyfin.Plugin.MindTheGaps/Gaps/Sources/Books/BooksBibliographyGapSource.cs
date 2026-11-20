@@ -20,8 +20,9 @@ namespace Jellyfin.Plugin.MindTheGaps.Gaps.Sources.Books;
 /// <summary>
 /// Spike: finds other works in an owned book's author bibliography (OpenLibrary) that are missing from
 /// the library. Jellyfin's Book metadata is thin (often no stable provider id, author carried only as a
-/// person/tag), so this is a deliberately modest slice: it resolves the author by name, lists that
-/// author's works, and diffs them against owned books by OpenLibrary work key.
+/// person/tag), so this is a deliberately modest slice: it resolves the author (by the OpenLibrary key on the
+/// author's own page, else the owned book's work, else the name), lists that author's works, and diffs them
+/// against owned books by OpenLibrary work key.
 /// </summary>
 internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
 {
@@ -98,15 +99,15 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
                 break;
             }
 
-            var authorName = ResolveAuthorName(book);
-            if (string.IsNullOrEmpty(authorName) || !seenAuthors.Add(authorName))
+            var author = BookAuthor.ResolvePerson(_libraryManager.GetPeople(book));
+            if (author is null || !seenAuthors.Add(author.Name))
             {
                 continue;
             }
 
             processed++;
 
-            var gaps = await CheckOneAsync(book, context, cancellationToken).ConfigureAwait(false);
+            var gaps = await CheckAuthorAsync(book, author, context, cancellationToken).ConfigureAwait(false);
             if (gaps is null)
             {
                 // Nothing determined for this author (unresolvable, or OpenLibrary failed). Skip to the
@@ -122,29 +123,33 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<GapItem>?> CheckOneAsync(BaseItem owner, GapScanContext context, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<GapItem>?> CheckOneAsync(BaseItem owner, GapScanContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(context);
 
-        var authorName = ResolveAuthorName(owner);
-        if (string.IsNullOrEmpty(authorName))
-        {
-            // Nothing to resolve by, so nothing was determined about this author's bibliography.
-            return null;
-        }
+        var author = BookAuthor.ResolvePerson(_libraryManager.GetPeople(owner));
+        return author is null
+            ? Task.FromResult<IReadOnlyList<GapItem>?>(null)
+            : CheckAuthorAsync(owner, author, context, cancellationToken);
+    }
 
+    private async Task<IReadOnlyList<GapItem>?> CheckAuthorAsync(BaseItem owner, PersonInfo author, GapScanContext context, CancellationToken cancellationToken)
+    {
+        var authorName = author.Name;
         string? authorKey;
         IReadOnlyList<OpenLibraryWork> works;
         try
         {
-            // Prefer resolving the author from the owned book's own OpenLibrary work id: that reads the
-            // work's author directly and skips the name search (where a common name resolves the wrong
-            // namesake). Fall back to the name search only when the book carries no work id.
+            // The most specific answer first: the key set on the author's own page, then the author of the
+            // owned book's work, and the name search (which can pick a namesake) last.
+            authorKey = BookAuthor.OpenLibraryKey(AuthorItem(author));
             var ownedWorkId = OwnedWorkId(owner);
-            authorKey = string.IsNullOrEmpty(ownedWorkId)
-                ? null
-                : await _openLibrary.GetWorkAuthorKeyAsync(ownedWorkId, cancellationToken).ConfigureAwait(false);
+            if (authorKey is null && !string.IsNullOrEmpty(ownedWorkId))
+            {
+                authorKey = await _openLibrary.GetWorkAuthorKeyAsync(ownedWorkId, cancellationToken).ConfigureAwait(false);
+            }
+
             authorKey ??= await _openLibrary.ResolveAuthorKeyAsync(authorName, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrEmpty(authorKey))
             {
@@ -181,5 +186,7 @@ internal sealed class BooksBibliographyGapSource : IGapSource, ISetContentSource
             ? id
             : null;
 
-    private string? ResolveAuthorName(BaseItem book) => BookAuthor.Resolve(_libraryManager.GetPeople(book));
+    private Person? AuthorItem(PersonInfo author)
+        => (author.Id != Guid.Empty ? _libraryManager.GetItemById(author.Id) as Person : null)
+            ?? _libraryManager.GetPerson(author.Name);
 }

@@ -24,6 +24,7 @@ public class PluginConfiguration : BasePluginConfiguration
         CuratedTmdbListIds = string.Empty;
         AutoSeedStudios = false;
         ScanMusic = true;
+        ScanMusicRecommendations = false;
         ScanBooks = true;
         ScanCuratedBooks = false;
         CuratedOpenLibrarySubjects = string.Empty;
@@ -33,6 +34,7 @@ public class PluginConfiguration : BasePluginConfiguration
         ScanMdbList = false;
         MdbListApiKey = string.Empty;
         MdbListListIds = string.Empty;
+        MdbListPublicListIds = string.Empty;
         ScanTraktLists = false;
         CuratedTraktListIds = string.Empty;
         ScanImdbLists = false;
@@ -184,6 +186,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ScanMusic { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether to surface the artists ListenBrainz finds similar to each owned
+    /// artist (with a MusicBrainz id) as discovery gaps. Keyless. Off by default.
+    /// </summary>
+    public bool ScanMusicRecommendations { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether to scan owned books for other entries in the author's
     /// bibliography or the book's series (OpenLibrary). On by default.
     /// </summary>
@@ -238,6 +246,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// page maintains this from its MDBList chip picker; the ids are never shown directly.
     /// </summary>
     public string MdbListListIds { get; set; }
+
+    /// <summary>
+    /// Gets or sets a comma-separated subset of <see cref="MdbListListIds"/> the administrator marked public.
+    /// Only titles from these lists may show on the home Discover row, since the API key also reads the
+    /// account's own private lists. The settings page keeps this from each MDBList chip's toggle.
+    /// </summary>
+    public string MdbListPublicListIds { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to surface unowned titles from the Trakt lists in

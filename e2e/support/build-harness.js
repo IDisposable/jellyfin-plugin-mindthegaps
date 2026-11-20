@@ -263,7 +263,10 @@ var __CONFIG__ = ${JSON.stringify(config || {})};
 window.ApiClient = {
     ajax: function (opts) {
         var url = opts.url || '';
-        if (url.indexOf('MindTheGaps/CuratedResolve') !== -1) { return Promise.resolve([]); }
+        if (url.indexOf('MindTheGaps/CuratedResolve') !== -1) {
+            var m = url.match(/kind=mdblist&ids=([^&]*)/);
+            return Promise.resolve(m ? decodeURIComponent(m[1]).split(',').map(function (id) { return { Id: id, Name: 'List ' + id }; }) : []);
+        }
         if (url.indexOf('MindTheGaps/Tmdb/AccountStatus') !== -1) { return Promise.resolve({ Connected: false, CanConnect: false }); }
         return Promise.resolve({});
     },
@@ -272,7 +275,7 @@ window.ApiClient = {
         return p + q;
     },
     getPluginConfiguration: function () { return Promise.resolve(JSON.parse(JSON.stringify(__CONFIG__))); },
-    updatePluginConfiguration: function () { return Promise.resolve({}); }
+    updatePluginConfiguration: function (id, config) { window.__savedConfig = config; return Promise.resolve({}); }
 };
 window.Dashboard = {
     alert: function (m) { console.log('Dashboard.alert: ' + m); },

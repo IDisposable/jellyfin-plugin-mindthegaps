@@ -24,15 +24,16 @@ it does not delete anything from your library. Leaving everything off produces a
 The plain toggles: no id, username, or key of their own. Every source with its own account, list, or
 credential is under [Sources](#sources) below.
 
-| Setting                                 | Default | Effect                                                                                                                                         |
-| --------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Collections / franchises**            | On      | Lists the other films in a TMDB collection (box set) you own part of.[^collections]                                                            |
-| **Series (missing seasons / episodes)** | On      | Lists the seasons and episodes a series should have that the library is missing, from the series' own metadata.[^series]                       |
-| **People (filmographies)**              | On      | Lists films and series from an owned actor, director or writer's TMDB filmography that you do not own.[^people]                                |
-| **Recommendations (similar titles)**    | Off     | Lists TMDB "similar" titles for what you own, on the Discover view.[^recommendations]                                                          |
-| **Music (artist discographies)**        | On      | Lists the studio albums an owned music artist has on MusicBrainz that you do not own.[^music]                                                  |
-| **Books (author bibliographies)**       | On      | Lists the other entries in an owned book's author's OpenLibrary bibliography.[^books]                                                          |
-| **Everyone's watchlist**                | Off     | Folds every user's TODO list into one row per title, shown first on the Discover view of every domain it has entries for.[^everyone-watchlist] |
+| Setting                                     | Default | Effect                                                                                                                                           |
+| ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Collections / franchises**                | On      | Lists the other films in a TMDB collection (box set) you own part of.[^collections]                                                              |
+| **Series (missing seasons / episodes)**     | On      | Lists the seasons and episodes a series should have that the library is missing, from the series' own metadata.[^series]                         |
+| **People (filmographies)**                  | On      | Lists films and series from an owned actor, director or writer's TMDB filmography that you do not own.[^people]                                  |
+| **Recommendations (similar titles)**        | Off     | Lists TMDB "similar" titles for what you own, on the Discover view.[^recommendations]                                                            |
+| **Music (artist discographies)**            | On      | Lists the studio albums an owned music artist has on MusicBrainz that you do not own.[^music]                                                    |
+| **Music recommendations (similar artists)** | Off     | Lists the artists ListenBrainz finds similar to the ones you own that you own nothing by, on the Discover view of Music.[^music-recommendations] |
+| **Books (author bibliographies)**           | On      | Lists the other entries in an owned book's author's OpenLibrary bibliography.[^books]                                                            |
+| **Everyone's watchlist**                    | Off     | Folds every user's TODO list into one row per title, shown first on the Discover view of every domain it has entries for.[^everyone-watchlist]   |
 
 Clearing a setting removes its gaps from the next report.
 
@@ -50,7 +51,11 @@ Clearing a setting removes its gaps from the next report.
     An artist you own an album by becomes a Set-completion "discography" (complete the collection); an artist you only own the odd track by becomes a Creator-works "artist works"
     (discover their wider catalog).
 
-[^books]: Known rough edges: author disambiguation, missing publish years, and duplicate titles (see the roadmap). A book is matched by its OpenLibrary work id ("OL45804W"), which you can enter or correct in the book's metadata editor: the plugin adds an OpenLibrary field there, and steps aside for another installed plugin that provides one.
+[^music-recommendations]:
+    Keyless. Only owned artists with a MusicBrainz id are used, up to 100 a scan, stalest first, so coverage accumulates over repeated runs. Each lists up to **Max related per item**
+    similar artists; an artist several of yours suggest is one row with every one of them as its source.
+
+[^books]: Known rough edges: missing publish years and duplicate titles. A book is matched by its OpenLibrary work id ("OL45804W"), which you can enter or correct in the book's metadata editor: the plugin adds an OpenLibrary field there, and steps aside for another installed plugin that provides one. An author's bibliography is read by the OpenLibrary author key ("OL23919A") on the author's own metadata editor when it is set, else by the author of the book's work, else by the author's name; set the key when the name finds the wrong namesake.
 
 [^everyone-watchlist]: Needs no id, username, or key of its own: it reads the same per-user lists the report's Fulfillment queue already shows. A title drops off once every user who wanted it marks it done or the library picks it up.
 
@@ -191,7 +196,7 @@ availability); everything below is opt-in.
 | **Scan MDBList watchlist**       | Off     | Surfaces the unowned movies and shows on the MDBList account's **own** watchlist, not a community list.[^mdbwatchlist]   |
 | **MDBList API key**              | Empty   | A free key from [mdblist.com](https://mdblist.com) (under Preferences).[^mdbkey]                                         |
 
-[^mdblists]: Only the chosen list id is stored. Only matters when **Scan MDBList community lists** is on.
+[^mdblists]: Only the chosen list id is stored. Each chip has a **Public** toggle, off when the list is added. Only a list marked Public can show on the home Discover row, since the API key also reads your own private lists. Only matters when **Scan MDBList community lists** is on.
 
 [^mdbwatchlist]: The **MDBList API key** identifies the account, so there is no username to enter.
 
@@ -263,6 +268,7 @@ Keyless: IMDb's own API serves any list its owner has published, no credential n
 [^imdbids]:
     The watchlist or list has to be public (IMDb, Your Account, Privacy), or IMDb answers "permission denied" and the scan logs and skips it. The newer profile addresses
     that read `imdb.com/user/p.<random>/` carry no usable id, because IMDb's API accepts only the `ur` form: open the watchlist from Your Lists and take the `ls` id out of its address.
+    IMDb says which ids are watchlists, so a watchlist entered by its `ls` id still files under **IMDb watchlists** and stays off the home Discover row, which shows the other lists.
     Only matters when **Scan IMDb lists** is on.
 
 [^imdbpeople]:
@@ -566,8 +572,8 @@ Jellyfin judges a title in the library, the user's choice to block unrated title
 certification cannot be looked up is left out for such a user. The lookups are cached, so a title costs one
 TMDB request however often it is shown. Albums and books carry no rating and are shown as they are. Beyond
 that a title is listed if the library does not hold it, whatever the caller's library access. The Discover row shows
-only recommendations made from titles you own and titles from public lists (TMDB lists, Trakt lists and
-TMDB's own feeds), never those from a watchlist, favorites, or an IMDb or MDBList list. See
+only recommendations made from titles you own and titles from public lists (TMDB, Trakt and IMDb lists,
+MDBList lists marked Public, and TMDB's own feeds), never those from a watchlist or favorites. See
 [ADR-0019](adr/0019-web-ui-surfaces-are-an-api.md).
 
 ## Virtual items
@@ -631,7 +637,9 @@ The key each setting has in the plugin's configuration file, sorted by setting n
 | Max related per item                                           | `MaxRelatedPerItem`           | [Limits](#limits)                                |
 | MDBList API key                                                | `MdbListApiKey`               | [MDBList](#mdblist)                              |
 | MDBList lists                                                  | `MdbListListIds`              | [MDBList](#mdblist)                              |
+| MDBList lists: Public toggle                                   | `MdbListPublicListIds`        | [MDBList](#mdblist)                              |
 | Music (artist discographies)                                   | `ScanMusic`                   | [What to scan](#what-to-scan)                    |
+| Music recommendations (similar artists)                        | `ScanMusicRecommendations`    | [What to scan](#what-to-scan)                    |
 | OpenLibrary subjects                                           | `CuratedOpenLibrarySubjects`  | [OpenLibrary](#openlibrary)                      |
 | OpenLibrary username                                           | `OpenLibraryUsername`         | [OpenLibrary](#openlibrary)                      |
 | People (filmographies)                                         | `ScanPeople`                  | [What to scan](#what-to-scan)                    |

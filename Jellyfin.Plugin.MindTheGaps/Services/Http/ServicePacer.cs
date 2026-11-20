@@ -19,12 +19,14 @@ internal static class ServicePacer
     // Minimum milliseconds between requests, per service. MusicBrainz asks for at most one request per
     // second, and Discogs allows 60 authenticated requests a minute (one a second); the small margin over
     // 1000 ms keeps a burst safely under both. MDBList's free key allows about 1000 requests a day, so a
-    // gentle pace (plus the read-through cache) keeps a scan well clear of it. Other services pass through.
+    // gentle pace (plus the read-through cache) keeps a scan well clear of it. ListenBrainz's labs endpoint
+    // states no limit, so it gets MusicBrainz's. Other services pass through.
     private static readonly ConcurrentDictionary<string, int> _minIntervalMs = new(StringComparer.Ordinal)
     {
         [ServiceNames.MusicBrainz] = 1100,
         [ServiceNames.Discogs] = 1100,
-        [ServiceNames.MdbList] = 500
+        [ServiceNames.MdbList] = 500,
+        [ServiceNames.ListenBrainz] = 1100
     };
 
     private static readonly ConcurrentDictionary<string, Gate> _gates = new(StringComparer.Ordinal);

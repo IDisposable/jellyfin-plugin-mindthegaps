@@ -112,7 +112,7 @@ public class VocabularyTests
             SourceItemTypes.TvdbFavorites,
             SourceItemTypes.DiscogsWantlist,
             SourceItemTypes.OpenLibraryShelf,
-            SourceItemTypes.ImdbList,
+            SourceItemTypes.ImdbWatchlist,
             SourceItemTypes.MdbList
         ];
 

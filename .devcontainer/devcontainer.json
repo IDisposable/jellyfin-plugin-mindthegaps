@@ -2,6 +2,7 @@
     "name": "jellyfin-plugin-mindthegaps",
     "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
     "features": {
+        "ghcr.io/idisposable/dotfiles/host-claude-config:1": {},
         "ghcr.io/devcontainers/features/dotnet:2": {
             "version": "none",
             "aspNetCoreRuntimeVersions": "9.0"
@@ -19,7 +20,7 @@
         // "devcontainer read-configuration --workspace-folder . --include-merged-configuration | jq -r '(.mergedConfiguration.customizations.sliekens // []) | .[] | .initializeCommand' | xargs -I{} bash -c {}"
     ],
     "postCreateCommand":[
-        "npm ci"
+        //"npm ci"
     ],
     "customizations": {
         "vscode": {

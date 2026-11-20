@@ -18,7 +18,6 @@ owner: "idisposable"
 artifacts:
 - "Jellyfin.Plugin.MindTheGaps.dll"
 - "TMDbLib.dll"
-- "Newtonsoft.Json.dll"
 changelog: >
   10.11.11.0 - Want to watch gains three options, all off by default and all requiring the arrived-titles
   playlist (contributed by David Rappo, @rappo, in PR 21): the home row can lead with the titles already on

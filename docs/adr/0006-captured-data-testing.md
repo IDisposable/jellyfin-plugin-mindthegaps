@@ -12,7 +12,7 @@ shapes, which a synthetic test would not catch.
 
 Extract each source's parsing and mapping into a pure, public mapper, then test those mappers against
 real responses captured from the live APIs and stored as fixtures under `TestData/`. TMDB fixtures are
-deserialized through TMDbLib (Newtonsoft) exactly as the runtime does. The Trakt API is gated behind a
+deserialized through TMDbLib exactly as the runtime does. The Trakt API is gated behind a
 per-user client id, so its captured-data test is skipped with the capture command in its header until
 a fixture is supplied.
 
