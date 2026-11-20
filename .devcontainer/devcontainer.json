@@ -15,13 +15,7 @@
         "ghcr.io/sliekens/devcontainer-features/claude:1": { },
         "ghcr.io/sliekens/devcontainer-features/grok-build:1": { "channel": "stable" }
     },
-    "initializeCommand": [
-        //"mkdir -p \"$HOME/.grok\""
-        // "devcontainer read-configuration --workspace-folder . --include-merged-configuration | jq -r '(.mergedConfiguration.customizations.sliekens // []) | .[] | .initializeCommand' | xargs -I{} bash -c {}"
-    ],
-    "postCreateCommand":[
-        //"npm ci"
-    ],
+    "postCreateCommand": "npm ci",
     "customizations": {
         "vscode": {
             "extensions": [
